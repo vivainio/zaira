@@ -7,13 +7,13 @@ Designed for AI-assisted development workflows. By exporting Jira tickets to pla
 ## Installation
 
 ```bash
-pip install zaira
+uv tool install zaira
 ```
 
-Or with uv:
+Or with pip:
 
 ```bash
-uv pip install zaira
+pip install zaira
 ```
 
 ## Setup
