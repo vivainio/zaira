@@ -38,13 +38,13 @@ Get your API token from: https://id.atlassian.com/manage-profile/security/api-to
 
 ### 2. Initialize project
 
-After configuring credentials, initialize with your Jira project key:
+After configuring credentials, initialize with your main Jira project key:
 
 ```bash
 zaira init --project FOO
 ```
 
-This discovers the project's components, labels, boards, and issue types, then generates `zproject.toml` with named queries and reports.
+This discovers the project's components, labels, boards, and issue types, then generates `zproject.toml` with named queries and reports. You can still target other project keys via JQL queries.
 
 ## Commands
 
