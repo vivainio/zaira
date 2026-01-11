@@ -140,12 +140,12 @@ def generate_front_matter(
     group_by: str | None = None,
     label: str | None = None,
 ) -> str:
-    """Generate YAML front matter with sync info."""
+    """Generate YAML front matter with refresh info."""
     lines = ["---"]
     lines.append(f"title: {title}")
     lines.append(f"generated: {datetime.now().isoformat(timespec='seconds')}")
 
-    # Sync command
+    # Refresh command
     cmd_parts = ["zaira report"]
     if query:
         lines.append(f"query: {query}")
@@ -167,7 +167,7 @@ def generate_front_matter(
         cmd_parts.append(f"--group-by {group_by}")
 
     cmd_parts.append(f'--title "{title}"')
-    lines.append(f"sync: {' '.join(cmd_parts)}")
+    lines.append(f"refresh: {' '.join(cmd_parts)}")
     lines.append("---")
     return "\n".join(lines) + "\n\n"
 
@@ -226,7 +226,7 @@ def generate_report(
 
         for group_name, group_tickets in sorted(groups.items()):
             md += f"## {group_name} ({len(group_tickets)})\n\n"
-            md += generate_table(group_tickets)
+            md += generate_table(group_tickets, group_by=group_by)
             md += "\n"
     else:
         md += generate_table(tickets)
@@ -234,20 +234,33 @@ def generate_report(
     return md
 
 
-def generate_table(tickets: list[dict]) -> str:
-    """Generate markdown table from tickets."""
+def generate_table(tickets: list[dict], group_by: str | None = None) -> str:
+    """Generate markdown table from tickets.
+
+    Args:
+        tickets: List of ticket dicts
+        group_by: Field used for grouping (will be excluded from table)
+    """
     if not tickets:
         return "_No tickets_\n"
 
     # Check if any tickets have parents
     has_parents = any(t.get("parent") for t in tickets)
 
-    if has_parents:
-        md = "| Key | Type | Status | Age | Parent | Summary |\n"
-        md += "|-----|------|--------|-----|--------|--------|\n"
-    else:
-        md = "| Key | Type | Status | Age | Summary |\n"
-        md += "|-----|------|--------|-----|--------|\n"
+    # Build columns, excluding the group_by field
+    columns = ["Key", "Type", "Status", "Age"]
+    if has_parents and group_by != "parent":
+        columns.append("Parent")
+    columns.append("Summary")
+
+    # Remove grouped column
+    if group_by == "status":
+        columns.remove("Status")
+    elif group_by == "issuetype":
+        columns.remove("Type")
+
+    md = "| " + " | ".join(columns) + " |\n"
+    md += "|" + "|".join(["-----"] * len(columns)) + "|\n"
 
     for t in tickets:
         key = t.get("key", "?")
@@ -264,11 +277,19 @@ def generate_table(tickets: list[dict]) -> str:
         # Escape pipes in summary
         summary = summary.replace("|", "\\|")
 
-        if has_parents:
-            parent_key = parent["key"] if parent else "-"
-            md += f"| {key} | {issue_type} | {status} | {age} | {parent_key} | {summary} |\n"
-        else:
-            md += f"| {key} | {issue_type} | {status} | {age} | {summary} |\n"
+        # Build row based on columns
+        row = [key, issue_type, status, age]
+        if has_parents and group_by != "parent":
+            row.append(parent["key"] if parent else "-")
+        row.append(summary)
+
+        # Remove grouped column value
+        if group_by == "status":
+            row.pop(2)  # status is at index 2
+        elif group_by == "issuetype":
+            row.pop(1)  # type is at index 1
+
+        md += "| " + " | ".join(row) + " |\n"
 
     return md
 
@@ -526,7 +547,7 @@ def report_command(args: argparse.Namespace) -> None:
     if getattr(args, "full", False):
         from zaira.export import export_ticket
         from zaira.config import TICKETS_DIR
-        from zaira.sync import find_ticket_file, ticket_needs_export
+        from zaira.refresh import find_ticket_file, ticket_needs_export
 
         print("\nExporting tickets...")
         exported = 0

@@ -7,10 +7,18 @@ from zaira import __version__
 from zaira.boards import boards_command
 from zaira.comment import comment_command
 from zaira.export import export_command
+from zaira.link import link_command
+from zaira.info import (
+    info_command,
+    link_types_command,
+    statuses_command,
+    priorities_command,
+    issue_types_command,
+)
 from zaira.init import init_command
 from zaira.my import my_command
 from zaira.report import report_command
-from zaira.sync import sync_command
+from zaira.refresh import refresh_command
 
 
 def main() -> None:
@@ -144,27 +152,27 @@ def main() -> None:
     )
     boards_parser.set_defaults(func=boards_command)
 
-    # Sync command
-    sync_parser = subparsers.add_parser(
-        "sync",
-        help="Re-sync a report from its front matter",
+    # Refresh command
+    refresh_parser = subparsers.add_parser(
+        "refresh",
+        help="Refresh a report from its front matter",
     )
-    sync_parser.add_argument(
+    refresh_parser.add_argument(
         "report",
         help="Report file path or name (e.g., documenthub-new.md)",
     )
-    sync_parser.add_argument(
+    refresh_parser.add_argument(
         "-f",
         "--full",
         action="store_true",
         help="Also export tickets from the report",
     )
-    sync_parser.add_argument(
+    refresh_parser.add_argument(
         "--force",
         action="store_true",
         help="Re-export tickets even if they already exist",
     )
-    sync_parser.set_defaults(func=sync_command)
+    refresh_parser.set_defaults(func=refresh_command)
 
     # Init command
     init_parser = subparsers.add_parser(
@@ -210,6 +218,47 @@ def main() -> None:
         help="Comment text (use '-' to read from stdin)",
     )
     comment_parser.set_defaults(func=comment_command)
+
+    # Link command
+    link_parser = subparsers.add_parser(
+        "link",
+        help="Create a link between two tickets",
+    )
+    link_parser.add_argument(
+        "from_key",
+        help="Source ticket key (e.g., AC-1409)",
+    )
+    link_parser.add_argument(
+        "to_key",
+        help="Target ticket key (e.g., AC-1410)",
+    )
+    link_parser.add_argument(
+        "-t",
+        "--type",
+        default="Relates",
+        help="Link type (default: Relates). Use 'zaira info link-types' to list",
+    )
+    link_parser.set_defaults(func=link_command)
+
+    # Info command with subcommands
+    info_parser = subparsers.add_parser(
+        "info",
+        help="Query Jira instance metadata",
+    )
+    info_parser.set_defaults(func=info_command)
+    info_subparsers = info_parser.add_subparsers(dest="info_command")
+
+    info_link_types = info_subparsers.add_parser("link-types", help="List link types")
+    info_link_types.set_defaults(info_func=link_types_command)
+
+    info_statuses = info_subparsers.add_parser("statuses", help="List statuses")
+    info_statuses.set_defaults(info_func=statuses_command)
+
+    info_priorities = info_subparsers.add_parser("priorities", help="List priorities")
+    info_priorities.set_defaults(info_func=priorities_command)
+
+    info_issue_types = info_subparsers.add_parser("issue-types", help="List issue types")
+    info_issue_types.set_defaults(info_func=issue_types_command)
 
     args = parser.parse_args()
 

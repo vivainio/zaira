@@ -110,23 +110,23 @@ zaira report my-tickets --format json
 zaira report my-tickets --format csv
 ```
 
-Reports are saved to `reports/` with YAML front matter containing the sync command (markdown only).
+Reports are saved to `reports/` with YAML front matter containing the refresh command (markdown only).
 
-### sync
+### refresh
 
-Re-sync a report using the command stored in its front matter:
+Refresh a report using the command stored in its front matter:
 
 ```bash
-zaira sync my-report.md
+zaira refresh my-report.md
 
 # Also export tickets referenced in the report
-zaira sync my-report --full
+zaira refresh my-report --full
 
 # Force re-export all tickets
-zaira sync my-report --full --force
+zaira refresh my-report --full --force
 ```
 
-When using `--full`, only tickets that have changed in Jira since the last sync are re-exported.
+When using `--full`, only tickets that have changed in Jira since the last refresh are re-exported.
 
 ### boards
 
@@ -152,6 +152,27 @@ EOF
 
 # Pipe from file or command
 cat notes.txt | zaira comment FOO-1234 -
+```
+
+### link
+
+Create a link between two tickets:
+
+```bash
+zaira link FOO-1234 FOO-5678              # Default: Relates
+zaira link FOO-1234 FOO-5678 --type Blocks
+zaira link FOO-1234 FOO-5678 -t Duplicates
+```
+
+### info
+
+Query Jira instance metadata:
+
+```bash
+zaira info link-types    # List available link types
+zaira info statuses      # List statuses and categories
+zaira info priorities    # List priorities
+zaira info issue-types   # List issue types
 ```
 
 ## Project Configuration

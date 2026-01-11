@@ -1,4 +1,4 @@
-"""Sync reports by re-running their generation command."""
+"""Refresh reports by re-running their generation command."""
 
 import argparse
 import re
@@ -85,8 +85,8 @@ def ticket_needs_export(ticket_file: Path, jira_updated: str) -> bool:
         return True  # Can't parse, assume needs export
 
 
-def sync_command(args: argparse.Namespace) -> None:
-    """Handle sync subcommand."""
+def refresh_command(args: argparse.Namespace) -> None:
+    """Handle refresh subcommand."""
     from zaira.export import export_ticket
 
     # Find report file
@@ -110,17 +110,17 @@ def sync_command(args: argparse.Namespace) -> None:
         print(f"Error: No front matter found in {report_path}")
         sys.exit(1)
 
-    sync_cmd = front_matter.get("sync")
-    if not sync_cmd:
-        print("Error: No sync command in front matter")
+    refresh_cmd = front_matter.get("refresh")
+    if not refresh_cmd:
+        print("Error: No refresh command in front matter")
         sys.exit(1)
 
-    print(f"Syncing: {report_path.name}")
+    print(f"Refreshing: {report_path.name}")
 
     try:
-        cmd_parts = shlex.split(sync_cmd)
+        cmd_parts = shlex.split(refresh_cmd)
     except ValueError:
-        print("Error: Could not parse sync command")
+        print("Error: Could not parse refresh command")
         sys.exit(1)
 
     # Add output path
@@ -132,13 +132,13 @@ def sync_command(args: argparse.Namespace) -> None:
     if result.returncode != 0:
         sys.exit(result.returncode)
 
-    # Full sync: also export tickets
+    # Full refresh: also export tickets
     if getattr(args, "full", False):
         from zaira.report import search_tickets
         from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
         from zaira.project import get_query, get_board
 
-        # Re-read front matter after sync
+        # Re-read front matter after refresh
         front_matter = parse_front_matter(report_path.read_text())
 
         # Build JQL from front matter
