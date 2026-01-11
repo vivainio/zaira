@@ -65,7 +65,9 @@ def get_credentials() -> tuple[str, str, str]:
     token = creds.get("api_token")
 
     if not server or not email or not token:
-        print(f"Error: Credentials not configured in {CREDENTIALS_FILE}", file=sys.stderr)
+        print(
+            f"Error: Credentials not configured in {CREDENTIALS_FILE}", file=sys.stderr
+        )
         print("\nRun 'zaira init' to set up credentials.", file=sys.stderr)
         sys.exit(1)
 

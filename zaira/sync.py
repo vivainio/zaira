@@ -1,5 +1,6 @@
 """Sync reports by re-running their generation command."""
 
+import argparse
 import re
 import shlex
 import subprocess
@@ -41,7 +42,7 @@ def parse_front_matter(content: str) -> dict:
 def extract_ticket_keys(report_content: str) -> list[str]:
     """Extract ticket keys from report markdown."""
     # Match ticket links like [AC-1234](https://...)
-    pattern = r'\[([A-Z]+-\d+)\]\(https://'
+    pattern = r"\[([A-Z]+-\d+)\]\(https://"
     return list(set(re.findall(pattern, report_content)))
 
 
@@ -54,7 +55,9 @@ def find_ticket_file(key: str) -> Path | None:
     return None
 
 
-def ticket_is_stale(ticket_file: Path, max_age_hours: int = DEFAULT_MAX_AGE_HOURS) -> bool:
+def ticket_is_stale(
+    ticket_file: Path, max_age_hours: int = DEFAULT_MAX_AGE_HOURS
+) -> bool:
     """Check if ticket file is older than max_age_hours based on synced timestamp."""
     content = ticket_file.read_text()
     meta = parse_front_matter(content)
@@ -71,9 +74,7 @@ def ticket_is_stale(ticket_file: Path, max_age_hours: int = DEFAULT_MAX_AGE_HOUR
         return True  # Can't parse, consider stale
 
 
-
-
-def sync_command(args):
+def sync_command(args: argparse.Namespace) -> None:
     """Handle sync subcommand."""
     from zaira.export import export_ticket
 
@@ -100,7 +101,7 @@ def sync_command(args):
 
     sync_cmd = front_matter.get("sync")
     if not sync_cmd:
-        print(f"Error: No sync command in front matter")
+        print("Error: No sync command in front matter")
         sys.exit(1)
 
     print(f"Syncing: {report_path.name}")
@@ -108,7 +109,7 @@ def sync_command(args):
     try:
         cmd_parts = shlex.split(sync_cmd)
     except ValueError:
-        print(f"Error: Could not parse sync command")
+        print("Error: Could not parse sync command")
         sys.exit(1)
 
     # Add output path

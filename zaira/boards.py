@@ -1,5 +1,6 @@
 """Board and sprint operations."""
 
+import argparse
 import sys
 
 from zaira.jira_client import get_jira, get_jira_site
@@ -19,7 +20,9 @@ def get_boards(project: str | None = None) -> list[dict]:
                 "id": b.id,
                 "name": b.name,
                 "type": b.type,
-                "location": getattr(b.location, "displayName", "") if hasattr(b, "location") else "",
+                "location": getattr(b.location, "displayName", "")
+                if hasattr(b, "location")
+                else "",
             }
             for b in boards
         ]
@@ -80,7 +83,7 @@ def get_sprint_issues_jql(sprint_id: int) -> str:
     return f"sprint = {sprint_id}"
 
 
-def boards_command(args):
+def boards_command(args: argparse.Namespace) -> None:
     """Handle boards subcommand."""
     boards = get_boards(args.project)
 
@@ -100,4 +103,6 @@ def boards_command(args):
         print(f"{board_id:<6} {board_type:<8} {name:<40} {location}")
 
     jira_site = get_jira_site()
-    print(f"\nView board: https://{jira_site}/jira/software/c/projects/PROJECT/boards/BOARD_ID")
+    print(
+        f"\nView board: https://{jira_site}/jira/software/c/projects/PROJECT/boards/BOARD_ID"
+    )

@@ -11,13 +11,14 @@ from zaira.report import report_command
 from zaira.sync import sync_command
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         prog="zaira",
         description="Jira CLI tool for offline ticket management",
     )
     parser.add_argument(
-        "-V", "--version",
+        "-V",
+        "--version",
         action="version",
         version=f"%(prog)s {__version__}",
     )
@@ -39,7 +40,8 @@ def main():
         help="JQL query to find tickets",
     )
     export_parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         help="Output directory (default: tickets/)",
     )
     export_parser.add_argument(
@@ -65,7 +67,8 @@ def main():
         help="Named report from project.toml",
     )
     report_parser.add_argument(
-        "-q", "--query",
+        "-q",
+        "--query",
         help="Named query from project.toml",
     )
     report_parser.add_argument(
@@ -82,20 +85,24 @@ def main():
         help="Generate report from sprint ID",
     )
     report_parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         help="Output file path (default: reports/{title}.md)",
     )
     report_parser.add_argument(
-        "-t", "--title",
+        "-t",
+        "--title",
         help="Report title (default: 'Jira Report')",
     )
     report_parser.add_argument(
-        "-g", "--group-by",
+        "-g",
+        "--group-by",
         choices=["status", "priority", "issuetype", "assignee", "labels"],
         help="Group tickets by field",
     )
     report_parser.add_argument(
-        "-l", "--label",
+        "-l",
+        "--label",
         help="Filter tickets by label",
     )
     report_parser.set_defaults(func=report_command)
@@ -106,7 +113,8 @@ def main():
         help="List Jira boards",
     )
     boards_parser.add_argument(
-        "-p", "--project",
+        "-p",
+        "--project",
         help="Filter boards by project key (e.g., AC)",
     )
     boards_parser.set_defaults(func=boards_command)
@@ -121,7 +129,8 @@ def main():
         help="Report file path or name (e.g., documenthub-new.md)",
     )
     sync_parser.add_argument(
-        "-f", "--full",
+        "-f",
+        "--full",
         action="store_true",
         help="Also export tickets from the report",
     )
@@ -138,15 +147,18 @@ def main():
         help="Initialize project configuration",
     )
     init_parser.add_argument(
-        "-p", "--project",
+        "-p",
+        "--project",
         help="Project key (e.g., AC)",
     )
     init_parser.add_argument(
-        "-s", "--site",
+        "-s",
+        "--site",
         help="Jira site (e.g., company.atlassian.net)",
     )
     init_parser.add_argument(
-        "-f", "--force",
+        "-f",
+        "--force",
         action="store_true",
         help="Overwrite existing project.toml",
     )

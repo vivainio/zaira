@@ -1,5 +1,6 @@
 """Generate markdown reports from Jira queries."""
 
+import argparse
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -71,7 +72,9 @@ def search_tickets(jql: str) -> list[dict]:
             if hasattr(fields, "parent") and fields.parent:
                 parent = {
                     "key": fields.parent.key,
-                    "summary": fields.parent.fields.summary if hasattr(fields.parent, "fields") else "",
+                    "summary": fields.parent.fields.summary
+                    if hasattr(fields.parent, "fields")
+                    else "",
                 }
 
             ticket = {
@@ -223,19 +226,13 @@ def generate_table(tickets: list[dict]) -> str:
     return md
 
 
-def report_command(args):
+def report_command(args: argparse.Namespace) -> None:
     """Handle report subcommand."""
     from zaira.project import get_query, get_board, get_report, list_reports
 
     # Check if no arguments provided - list available reports
     report_name = getattr(args, "name", None)
-    has_args = (
-        report_name
-        or args.query
-        or args.jql
-        or args.board
-        or args.sprint
-    )
+    has_args = report_name or args.query or args.jql or args.board or args.sprint
 
     if not has_args:
         reports = list_reports()
@@ -251,7 +248,7 @@ def report_command(args):
             if "query" in config:
                 desc_parts.append(f"query={config['query']}")
             if "jql" in config:
-                desc_parts.append(f"jql=\"{config['jql']}\"")
+                desc_parts.append(f'jql="{config["jql"]}"')
             if "board" in config:
                 desc_parts.append(f"board={config['board']}")
             if "sprint" in config:
@@ -264,7 +261,7 @@ def report_command(args):
             desc = ", ".join(desc_parts) if desc_parts else "(no config)"
             print(f"  {name}")
             print(f"    {desc}")
-        print(f"\nRun: zaira report <name>")
+        print("\nRun: zaira report <name>")
         sys.exit(0)
 
     # Handle named report from project.toml
@@ -376,6 +373,7 @@ def report_command(args):
     if getattr(args, "full", False):
         from zaira.export import export_ticket
         from zaira.config import TICKETS_DIR
+
         print("\nExporting tickets...")
         exported = 0
         for t in tickets:

@@ -1,9 +1,15 @@
 """Initialize project configuration."""
 
+import argparse
 import sys
 from pathlib import Path
 
-from zaira.jira_client import get_jira, get_jira_site, CREDENTIALS_FILE, load_credentials
+from zaira.jira_client import (
+    get_jira,
+    get_jira_site,
+    CREDENTIALS_FILE,
+    load_credentials,
+)
 
 
 def discover_components(project: str) -> list[str]:
@@ -27,7 +33,7 @@ def discover_labels(project: str) -> list[str]:
         )
         labels = set()
         for issue in issues:
-            for label in (issue.fields.labels or []):
+            for label in issue.fields.labels or []:
                 labels.add(label)
         return sorted(labels)
     except Exception:
@@ -77,68 +83,82 @@ def generate_config(
     issue_types: list[str],
 ) -> str:
     """Generate zproject.toml content."""
-    lines = ['[project]', f'key = "{project}"', f'site = "{site}"', '']
+    lines = ["[project]", f'key = "{project}"', f'site = "{site}"', ""]
 
     # Components
-    lines.append('[components]')
+    lines.append("[components]")
     if components:
         comp_list = ", ".join(f'"{c}"' for c in components)
-        lines.append(f'available = [{comp_list}]')
+        lines.append(f"available = [{comp_list}]")
     else:
-        lines.append('# available = []')
-    lines.append('')
+        lines.append("# available = []")
+    lines.append("")
 
     # Labels
-    lines.append('[labels]')
+    lines.append("[labels]")
     if labels:
-        label_list = ", ".join(f'"{l}"' for l in labels)
-        lines.append(f'available = [{label_list}]')
+        label_list = ", ".join(f'"{label}"' for label in labels)
+        lines.append(f"available = [{label_list}]")
     else:
-        lines.append('# available = []')
-    lines.append('')
+        lines.append("# available = []")
+    lines.append("")
 
     # Issue types
-    lines.append('[issue_types]')
+    lines.append("[issue_types]")
     if issue_types:
         types_list = ", ".join(f'"{t}"' for t in issue_types)
-        lines.append(f'available = [{types_list}]')
+        lines.append(f"available = [{types_list}]")
     else:
         lines.append('# available = ["Story", "Bug", "Task"]')
-    lines.append('')
+    lines.append("")
 
     # Boards
-    lines.append('[boards]')
+    lines.append("[boards]")
     if boards:
         for board in boards:
-            name_slug = board["name"].lower().replace(" ", "-").replace("(", "").replace(")", "")
-            lines.append(f'# {board["name"]} ({board["type"]})')
-            lines.append(f'{name_slug} = {board["id"]}')
+            name_slug = (
+                board["name"]
+                .lower()
+                .replace(" ", "-")
+                .replace("(", "")
+                .replace(")", "")
+            )
+            lines.append(f"# {board['name']} ({board['type']})")
+            lines.append(f"{name_slug} = {board['id']}")
     else:
-        lines.append('# No boards found')
-        lines.append('# kanban = 1789')
-    lines.append('')
+        lines.append("# No boards found")
+        lines.append("# kanban = 1789")
+    lines.append("")
 
     # Queries
-    lines.append('[queries]')
-    lines.append('# Named JQL queries for quick access')
-    lines.append(f'my-tickets = "assignee = currentUser() AND project = {project} AND status NOT IN (Done, Disposal)"')
+    lines.append("[queries]")
+    lines.append("# Named JQL queries for quick access")
+    lines.append(
+        f'my-tickets = "assignee = currentUser() AND project = {project} AND status NOT IN (Done, Disposal)"'
+    )
     lines.append(f'# bugs = "project = {project} AND type = Bug AND status != Done"')
-    lines.append('')
+    lines.append("")
 
     # Reports - named report definitions
-    lines.append('[reports]')
+    lines.append("[reports]")
     lines.append('my-tickets = { query = "my-tickets", group_by = "status" }')
     if boards:
         board = boards[0]
-        name_slug = board["name"].lower().replace(" ", "-").replace("(", "").replace(")", "")
+        name_slug = (
+            board["name"].lower().replace(" ", "-").replace("(", "").replace(")", "")
+        )
         lines.append(f'{name_slug} = {{ board = {board["id"]}, group_by = "status" }}')
     for comp in components:
         slug = comp.lower().replace(" ", "-")
-        lines.append(f'{slug} = {{ jql = "project = {project} AND component = {comp}", group_by = "status" }}')
-    lines.append(f'# bugs = {{ jql = "project = {project} AND type = Bug", group_by = "priority" }}')
-    lines.append('')
+        lines.append(
+            f'{slug} = {{ jql = "project = {project} AND component = {comp}", group_by = "status" }}'
+        )
+    lines.append(
+        f'# bugs = {{ jql = "project = {project} AND type = Bug", group_by = "priority" }}'
+    )
+    lines.append("")
 
-    return '\n'.join(lines)
+    return "\n".join(lines)
 
 
 def check_credentials() -> bool:
@@ -147,7 +167,7 @@ def check_credentials() -> bool:
     return bool(creds.get("site") and creds.get("email") and creds.get("api_token"))
 
 
-def setup_credentials():
+def setup_credentials() -> None:
     """Create or prompt to edit credentials file."""
     if CREDENTIALS_FILE.exists():
         # File exists but has invalid/placeholder values
@@ -155,18 +175,20 @@ def setup_credentials():
         print("Please edit this file with your Jira credentials:")
         print("  1. Set your Jira site (e.g., company.atlassian.net)")
         print("  2. Set your email address")
-        print("  3. Add your API token from https://id.atlassian.com/manage-profile/security/api-tokens")
+        print(
+            "  3. Add your API token from https://id.atlassian.com/manage-profile/security/api-tokens"
+        )
     else:
         # Create template
         CREDENTIALS_FILE.parent.mkdir(parents=True, exist_ok=True)
 
-        template = '''# Jira credentials
+        template = """# Jira credentials
 # Get your API token from: https://id.atlassian.com/manage-profile/security/api-tokens
 
 site = "your-company.atlassian.net"
 email = "your-email@example.com"
 api_token = "your-api-token"
-'''
+"""
         CREDENTIALS_FILE.write_text(template)
         CREDENTIALS_FILE.chmod(0o600)
 
@@ -174,12 +196,14 @@ api_token = "your-api-token"
         print("Please edit this file with your Jira credentials:")
         print("  1. Set your Jira site (e.g., company.atlassian.net)")
         print("  2. Set your email address")
-        print("  3. Add your API token from https://id.atlassian.com/manage-profile/security/api-tokens")
+        print(
+            "  3. Add your API token from https://id.atlassian.com/manage-profile/security/api-tokens"
+        )
 
-    print(f"\nThen run 'zaira init' again.")
+    print("\nThen run 'zaira init' again.")
 
 
-def init_command(args):
+def init_command(args: argparse.Namespace) -> None:
     """Handle init subcommand."""
     config_path = Path("zproject.toml")
 

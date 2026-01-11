@@ -1,8 +1,10 @@
 """Export Jira tickets to markdown."""
 
+import argparse
 import re
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from zaira.config import TICKETS_DIR
 from zaira.jira_client import get_jira, get_jira_site
@@ -20,7 +22,7 @@ def normalize_title(title: str) -> str:
     return slug
 
 
-def extract_description(desc) -> str:
+def extract_description(desc: dict | str | list | Any | None) -> str:
     """Extract plain text from Atlassian Document Format."""
     if not desc:
         return "No description"
@@ -65,7 +67,9 @@ def get_ticket(key: str) -> dict | None:
             "issuetype": fields.issuetype.name if fields.issuetype else "Unknown",
             "status": fields.status.name if fields.status else "Unknown",
             "priority": fields.priority.name if fields.priority else "None",
-            "assignee": fields.assignee.emailAddress if fields.assignee else "Unassigned",
+            "assignee": fields.assignee.emailAddress
+            if fields.assignee
+            else "Unassigned",
             "reporter": fields.reporter.emailAddress if fields.reporter else "Unknown",
             "created": fields.created or "Unknown",
             "updated": fields.updated or "Unknown",
@@ -75,7 +79,9 @@ def get_ticket(key: str) -> dict | None:
             "parent": {
                 "key": fields.parent.key,
                 "summary": fields.parent.fields.summary,
-            } if hasattr(fields, "parent") and fields.parent else None,
+            }
+            if hasattr(fields, "parent") and fields.parent
+            else None,
         }
     except Exception as e:
         print(f"  Error fetching {key}: {e}")
@@ -95,11 +101,13 @@ def get_comments(key: str) -> list:
                 body = extract_description(body.raw)
             elif hasattr(body, "__dict__"):
                 body = extract_description(body.__dict__)
-            result.append({
-                "author": c.author.displayName if c.author else "Unknown",
-                "created": c.created or "",
-                "body": body if isinstance(body, str) else str(body),
-            })
+            result.append(
+                {
+                    "author": c.author.displayName if c.author else "Unknown",
+                    "created": c.created or "",
+                    "body": body if isinstance(body, str) else str(body),
+                }
+            )
         return result
     except Exception:
         return []
@@ -134,8 +142,6 @@ def export_ticket(key: str, output_dir: Path) -> bool:
     priority = ticket.get("priority", "None")
     assignee = ticket.get("assignee", "Unassigned")
     reporter = ticket.get("reporter", "Unknown")
-    created = ticket.get("created", "Unknown")
-    updated = ticket.get("updated", "Unknown")
     description = ticket.get("description", "No description") or "No description"
     components = ", ".join(ticket.get("components", [])) or "None"
     labels = ", ".join(ticket.get("labels", [])) or "None"
@@ -146,12 +152,12 @@ def export_ticket(key: str, output_dir: Path) -> bool:
 
     # YAML quoting helper
     def yaml_quote(val: str) -> str:
-        if any(c in val for c in ':{}[]&*#?|-<>=!%@\\"\'\n'):
+        if any(c in val for c in ":{}[]&*#?|-<>=!%@\\\"'\n"):
             escaped = val.replace('"', '\\"')
             return f'"{escaped}"'
         return val
 
-    synced = datetime.now().isoformat(timespec='seconds')
+    synced = datetime.now().isoformat(timespec="seconds")
     jira_site = get_jira_site()
 
     # Build markdown
@@ -206,7 +212,9 @@ url: https://{jira_site}/browse/{key}
 
     # Create symlinks by parent
     if parent_data:
-        parent_dirname = f"{parent_data['key']}-{normalize_title(parent_data['summary'])}"
+        parent_dirname = (
+            f"{parent_data['key']}-{normalize_title(parent_data['summary'])}"
+        )
         parent_dir = output_dir / "by-parent" / parent_dirname
         parent_dir.mkdir(parents=True, exist_ok=True)
         link = parent_dir / filename
@@ -216,7 +224,7 @@ url: https://{jira_site}/browse/{key}
     return True
 
 
-def export_command(args):
+def export_command(args: argparse.Namespace) -> None:
     """Handle export subcommand."""
     output_dir = Path(args.output) if args.output else TICKETS_DIR
 
@@ -240,6 +248,7 @@ def export_command(args):
     if not tickets:
         print("No tickets specified. Use ticket keys, --jql, --board, or --sprint.")
         import sys
+
         sys.exit(1)
 
     success = 0
