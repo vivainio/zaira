@@ -7,6 +7,7 @@ from zaira import __version__
 from zaira.boards import boards_command
 from zaira.export import export_command
 from zaira.init import init_command
+from zaira.my import my_command
 from zaira.report import report_command
 from zaira.sync import sync_command
 
@@ -186,6 +187,13 @@ def main() -> None:
         help="Overwrite existing project.toml",
     )
     init_parser.set_defaults(func=init_command)
+
+    # My command
+    my_parser = subparsers.add_parser(
+        "my",
+        help="Show my open tickets",
+    )
+    my_parser.set_defaults(func=my_command)
 
     args = parser.parse_args()
 

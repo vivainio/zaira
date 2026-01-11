@@ -69,6 +69,16 @@ zaira export FOO-1234 -o -
 zaira export FOO-1234 --format json
 ```
 
+### my
+
+Show your open tickets grouped by status:
+
+```bash
+zaira my
+```
+
+Tickets are sorted by age (oldest first) within each group. Uses the `my-tickets` query from `zproject.toml` if configured, otherwise defaults to `assignee = currentUser() AND status NOT IN (Done, Closed, Resolved, Disposal, Rejected)`.
+
 ### report
 
 Generate markdown reports from JQL queries:
