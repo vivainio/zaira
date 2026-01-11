@@ -1,7 +1,9 @@
-"""Export Jira tickets to markdown."""
+"""Export Jira tickets to markdown or JSON."""
 
 import argparse
+import json
 import re
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -124,8 +126,8 @@ def search_tickets(jql: str) -> list[str]:
         return []
 
 
-def export_ticket(key: str, output_dir: Path) -> bool:
-    """Export a single ticket to markdown."""
+def export_ticket(key: str, output_dir: Path, fmt: str = "md") -> bool:
+    """Export a single ticket to markdown or JSON."""
     print(f"Exporting {key}...")
 
     ticket = get_ticket(key)
@@ -134,34 +136,48 @@ def export_ticket(key: str, output_dir: Path) -> bool:
         return False
 
     comments = get_comments(key)
-
-    # Extract fields
-    summary = ticket.get("summary", "No summary")
-    issue_type = ticket.get("issuetype", "Unknown")
-    status = ticket.get("status", "Unknown")
-    priority = ticket.get("priority", "None")
-    assignee = ticket.get("assignee", "Unassigned")
-    reporter = ticket.get("reporter", "Unknown")
-    description = ticket.get("description", "No description") or "No description"
-    components = ", ".join(ticket.get("components", [])) or "None"
-    labels = ", ".join(ticket.get("labels", [])) or "None"
-    parent_data = ticket.get("parent")
-    parent = parent_data["key"] if parent_data else "None"
-
-    filename = f"{key}-{normalize_title(summary)}.md"
-
-    # YAML quoting helper
-    def yaml_quote(val: str) -> str:
-        if any(c in val for c in ":{}[]&*#?|-<>=!%@\\\"'\n"):
-            escaped = val.replace('"', '\\"')
-            return f'"{escaped}"'
-        return val
-
     synced = datetime.now().isoformat(timespec="seconds")
     jira_site = get_jira_site()
 
-    # Build markdown
-    md = f"""---
+    # Extract fields
+    summary = ticket.get("summary", "No summary")
+    parent_data = ticket.get("parent")
+
+    ext = "json" if fmt == "json" else "md"
+    filename = f"{key}-{normalize_title(summary)}.{ext}"
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    outfile = output_dir / filename
+
+    if fmt == "json":
+        # JSON output
+        data = {
+            **ticket,
+            "comments": comments,
+            "synced": synced,
+            "url": f"https://{jira_site}/browse/{key}",
+        }
+        outfile.write_text(json.dumps(data, indent=2))
+    else:
+        # Markdown output
+        issue_type = ticket.get("issuetype", "Unknown")
+        status = ticket.get("status", "Unknown")
+        priority = ticket.get("priority", "None")
+        assignee = ticket.get("assignee", "Unassigned")
+        reporter = ticket.get("reporter", "Unknown")
+        description = ticket.get("description", "No description") or "No description"
+        components = ", ".join(ticket.get("components", [])) or "None"
+        labels = ", ".join(ticket.get("labels", [])) or "None"
+        parent = parent_data["key"] if parent_data else "None"
+
+        # YAML quoting helper
+        def yaml_quote(val: str) -> str:
+            if any(c in val for c in ":{}[]&*#?|-<>=!%@\\\"'\n"):
+                escaped = val.replace('"', '\\"')
+                return f'"{escaped}"'
+            return val
+
+        md = f"""---
 key: {key}
 summary: {yaml_quote(summary)}
 type: {yaml_quote(issue_type)}
@@ -185,48 +201,133 @@ url: https://{jira_site}/browse/{key}
 ## Comments
 
 """
+        if comments:
+            for c in comments:
+                author = c.get("author", "Unknown")
+                date = c.get("created", "")
+                body = c.get("body", "")
+                md += f"### {author} ({date})\n\n{body}\n\n"
+        else:
+            md += "_No comments_\n"
 
-    if comments:
-        for c in comments:
-            author = c.get("author", "Unknown")
-            date = c.get("created", "")
-            body = c.get("body", "")
-            md += f"### {author} ({date})\n\n{body}\n\n"
-    else:
-        md += "_No comments_\n"
+        outfile.write_text(md)
 
-    # Write file
-    output_dir.mkdir(parents=True, exist_ok=True)
-    outfile = output_dir / filename
-    outfile.write_text(md)
     print(f"  Saved to {outfile}")
 
-    # Create symlinks by component
-    for comp in ticket.get("components", []):
-        if comp:
-            comp_dir = output_dir / "by-component" / comp.lower().replace(" ", "-")
-            comp_dir.mkdir(parents=True, exist_ok=True)
-            link = comp_dir / filename
+    # Create symlinks (only for markdown)
+    if fmt == "md":
+        # Create symlinks by component
+        for comp in ticket.get("components", []):
+            if comp:
+                comp_dir = output_dir / "by-component" / comp.lower().replace(" ", "-")
+                comp_dir.mkdir(parents=True, exist_ok=True)
+                link = comp_dir / filename
+                link.unlink(missing_ok=True)
+                link.symlink_to(f"../../{filename}")
+
+        # Create symlinks by parent
+        if parent_data:
+            parent_dirname = (
+                f"{parent_data['key']}-{normalize_title(parent_data['summary'])}"
+            )
+            parent_dir = output_dir / "by-parent" / parent_dirname
+            parent_dir.mkdir(parents=True, exist_ok=True)
+            link = parent_dir / filename
             link.unlink(missing_ok=True)
             link.symlink_to(f"../../{filename}")
 
-    # Create symlinks by parent
-    if parent_data:
-        parent_dirname = (
-            f"{parent_data['key']}-{normalize_title(parent_data['summary'])}"
-        )
-        parent_dir = output_dir / "by-parent" / parent_dirname
-        parent_dir.mkdir(parents=True, exist_ok=True)
-        link = parent_dir / filename
-        link.unlink(missing_ok=True)
-        link.symlink_to(f"../../{filename}")
+    return True
+
+
+def export_to_stdout(key: str, fmt: str = "md") -> bool:
+    """Export a single ticket to stdout."""
+    ticket = get_ticket(key)
+    if not ticket:
+        print(f"Error: Could not fetch {key}", file=sys.stderr)
+        return False
+
+    comments = get_comments(key)
+    synced = datetime.now().isoformat(timespec="seconds")
+    jira_site = get_jira_site()
+
+    if fmt == "json":
+        data = {
+            **ticket,
+            "comments": comments,
+            "synced": synced,
+            "url": f"https://{jira_site}/browse/{key}",
+        }
+        print(json.dumps(data, indent=2))
+    else:
+        # Markdown output
+        summary = ticket.get("summary", "No summary")
+        issue_type = ticket.get("issuetype", "Unknown")
+        status = ticket.get("status", "Unknown")
+        priority = ticket.get("priority", "None")
+        assignee = ticket.get("assignee", "Unassigned")
+        reporter = ticket.get("reporter", "Unknown")
+        description = ticket.get("description", "No description") or "No description"
+        components = ", ".join(ticket.get("components", [])) or "None"
+        labels = ", ".join(ticket.get("labels", [])) or "None"
+        parent_data = ticket.get("parent")
+        parent = parent_data["key"] if parent_data else "None"
+
+        def yaml_quote(val: str) -> str:
+            if any(c in val for c in ":{}[]&*#?|-<>=!%@\\\"'\n"):
+                escaped = val.replace('"', '\\"')
+                return f'"{escaped}"'
+            return val
+
+        md = f"""---
+key: {key}
+summary: {yaml_quote(summary)}
+type: {yaml_quote(issue_type)}
+status: {yaml_quote(status)}
+priority: {yaml_quote(priority)}
+assignee: {yaml_quote(assignee)}
+reporter: {yaml_quote(reporter)}
+components: {yaml_quote(components)}
+labels: {yaml_quote(labels)}
+parent: {parent}
+synced: {synced}
+url: https://{jira_site}/browse/{key}
+---
+
+# {key}: {summary}
+
+## Description
+
+{description}
+
+## Comments
+
+"""
+        if comments:
+            for c in comments:
+                author = c.get("author", "Unknown")
+                date = c.get("created", "")
+                body = c.get("body", "")
+                md += f"### {author} ({date})\n\n{body}\n\n"
+        else:
+            md += "_No comments_\n"
+
+        print(md)
 
     return True
 
 
 def export_command(args: argparse.Namespace) -> None:
     """Handle export subcommand."""
-    output_dir = Path(args.output) if args.output else TICKETS_DIR
+    fmt = getattr(args, "format", "md")
+
+    # Default to stdout if no zproject.toml, otherwise files
+    has_project = Path("zproject.toml").exists()
+    if args.output == "-":
+        to_stdout = True
+    elif args.output:
+        to_stdout = False
+    else:
+        to_stdout = not has_project
 
     tickets = list(args.tickets)
 
@@ -234,26 +335,32 @@ def export_command(args: argparse.Namespace) -> None:
     jql = args.jql
     if args.board:
         jql = get_board_issues_jql(args.board)
-        print(f"Using board {args.board}")
+        if not to_stdout:
+            print(f"Using board {args.board}")
     elif args.sprint:
         jql = get_sprint_issues_jql(args.sprint)
-        print(f"Using sprint {args.sprint}")
+        if not to_stdout:
+            print(f"Using sprint {args.sprint}")
 
     if jql:
-        print(f"Searching: {jql}")
+        if not to_stdout:
+            print(f"Searching: {jql}")
         found = search_tickets(jql)
-        print(f"Found {len(found)} tickets")
+        if not to_stdout:
+            print(f"Found {len(found)} tickets")
         tickets.extend(found)
 
     if not tickets:
         print("No tickets specified. Use ticket keys, --jql, --board, or --sprint.")
-        import sys
-
         sys.exit(1)
 
-    success = 0
-    for key in tickets:
-        if export_ticket(key, output_dir):
-            success += 1
-
-    print(f"\nExported {success}/{len(tickets)} tickets to {output_dir}/")
+    if to_stdout:
+        for key in tickets:
+            export_to_stdout(key, fmt=fmt)
+    else:
+        output_dir = Path(args.output) if args.output else TICKETS_DIR
+        success = 0
+        for key in tickets:
+            if export_ticket(key, output_dir, fmt=fmt):
+                success += 1
+        print(f"\nExported {success}/{len(tickets)} tickets to {output_dir}/")

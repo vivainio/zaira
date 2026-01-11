@@ -54,6 +54,12 @@ def main() -> None:
         type=int,
         help="Export tickets from sprint ID",
     )
+    export_parser.add_argument(
+        "--format",
+        choices=["md", "json"],
+        default="md",
+        help="Output format (default: md)",
+    )
     export_parser.set_defaults(func=export_command)
 
     # Report command
@@ -104,6 +110,23 @@ def main() -> None:
         "-l",
         "--label",
         help="Filter tickets by label",
+    )
+    report_parser.add_argument(
+        "-f",
+        "--full",
+        action="store_true",
+        help="Also export tickets to tickets/",
+    )
+    report_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-export tickets even if unchanged (requires --full)",
+    )
+    report_parser.add_argument(
+        "--format",
+        choices=["md", "json", "csv"],
+        default="md",
+        help="Output format (default: md)",
     )
     report_parser.set_defaults(func=report_command)
 

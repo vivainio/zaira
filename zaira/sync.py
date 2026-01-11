@@ -5,13 +5,10 @@ import re
 import shlex
 import subprocess
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 from zaira.config import REPORTS_DIR, TICKETS_DIR
-
-# Default max age for tickets before refresh (in hours)
-DEFAULT_MAX_AGE_HOURS = 24
 
 
 def parse_front_matter(content: str) -> dict:
@@ -55,23 +52,37 @@ def find_ticket_file(key: str) -> Path | None:
     return None
 
 
-def ticket_is_stale(
-    ticket_file: Path, max_age_hours: int = DEFAULT_MAX_AGE_HOURS
-) -> bool:
-    """Check if ticket file is older than max_age_hours based on synced timestamp."""
+def get_local_synced_time(ticket_file: Path) -> datetime | None:
+    """Get the synced timestamp from a local ticket file."""
     content = ticket_file.read_text()
     meta = parse_front_matter(content)
     synced_str = meta.get("synced", "")
 
     if not synced_str:
-        return True  # No synced timestamp, consider stale
+        return None
 
     try:
-        synced = datetime.fromisoformat(synced_str)
-        age = datetime.now() - synced
-        return age > timedelta(hours=max_age_hours)
+        return datetime.fromisoformat(synced_str)
     except ValueError:
-        return True  # Can't parse, consider stale
+        return None
+
+
+def ticket_needs_export(ticket_file: Path, jira_updated: str) -> bool:
+    """Check if ticket needs export by comparing Jira updated vs local synced."""
+    local_synced = get_local_synced_time(ticket_file)
+    if not local_synced:
+        return True  # No synced timestamp, needs export
+
+    try:
+        # Parse Jira timestamp (format: 2026-01-11T14:30:00.000+0000)
+        updated_str = jira_updated.replace("+0000", "+00:00")
+        jira_time = datetime.fromisoformat(updated_str)
+        # Make local_synced offset-aware if jira_time is
+        if jira_time.tzinfo and not local_synced.tzinfo:
+            local_synced = local_synced.replace(tzinfo=jira_time.tzinfo)
+        return jira_time > local_synced
+    except ValueError:
+        return True  # Can't parse, assume needs export
 
 
 def sync_command(args: argparse.Namespace) -> None:
@@ -123,32 +134,63 @@ def sync_command(args: argparse.Namespace) -> None:
 
     # Full sync: also export tickets
     if getattr(args, "full", False):
-        print("\nExporting tickets...")
-        report_content = report_path.read_text()
-        keys = extract_ticket_keys(report_content)
-        print(f"Found {len(keys)} tickets in report")
+        from zaira.report import search_tickets
+        from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
+        from zaira.project import get_query, get_board
 
-        exported = 0
-        skipped = 0
-        force = getattr(args, "force", False)
+        # Re-read front matter after sync
+        front_matter = parse_front_matter(report_path.read_text())
 
-        for key in sorted(keys):
-            ticket_file = find_ticket_file(key)
-            if ticket_file:
-                if force:
-                    print(f"  {key}: forcing refresh...")
-                    if export_ticket(key, TICKETS_DIR):
-                        exported += 1
-                elif ticket_is_stale(ticket_file):
-                    print(f"  {key}: stale, refreshing...")
-                    if export_ticket(key, TICKETS_DIR):
-                        exported += 1
+        # Build JQL from front matter
+        jql = front_matter.get("jql")
+        if front_matter.get("query"):
+            jql = get_query(front_matter["query"])
+        elif front_matter.get("board"):
+            board_id = front_matter["board"]
+            try:
+                board_id = int(board_id)
+            except ValueError:
+                board_id = get_board(board_id)
+            if board_id:
+                jql = get_board_issues_jql(board_id)
+        elif front_matter.get("sprint"):
+            jql = get_sprint_issues_jql(int(front_matter["sprint"]))
+
+        if not jql:
+            print("Warning: Could not determine JQL for ticket export")
+        else:
+            # Add label filter if present
+            if front_matter.get("label"):
+                jql = f'{jql} AND labels = "{front_matter["label"]}"'
+
+            print("\nExporting tickets...")
+            tickets = search_tickets(jql)
+            print(f"Found {len(tickets)} tickets")
+
+            exported = 0
+            skipped = 0
+            force = getattr(args, "force", False)
+
+            for t in sorted(tickets, key=lambda x: x["key"]):
+                key = t["key"]
+                updated = t.get("updated", "")
+                ticket_file = find_ticket_file(key)
+
+                if ticket_file:
+                    if force:
+                        print(f"  {key}: forcing refresh...")
+                        if export_ticket(key, TICKETS_DIR):
+                            exported += 1
+                    elif ticket_needs_export(ticket_file, updated):
+                        print(f"  {key}: changed, refreshing...")
+                        if export_ticket(key, TICKETS_DIR):
+                            exported += 1
+                    else:
+                        print(f"  {key}: unchanged, skipping")
+                        skipped += 1
                 else:
-                    print(f"  {key}: fresh, skipping")
-                    skipped += 1
-            else:
-                print(f"  {key}: new, exporting...")
-                if export_ticket(key, TICKETS_DIR):
-                    exported += 1
+                    print(f"  {key}: new, exporting...")
+                    if export_ticket(key, TICKETS_DIR):
+                        exported += 1
 
-        print(f"\nExported {exported} tickets, {skipped} fresh")
+            print(f"\nExported {exported} tickets, {skipped} unchanged")

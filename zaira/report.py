@@ -1,6 +1,9 @@
-"""Generate markdown reports from Jira queries."""
+"""Generate reports from Jira queries in markdown, JSON, or CSV format."""
 
 import argparse
+import csv
+import io
+import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -226,6 +229,71 @@ def generate_table(tickets: list[dict]) -> str:
     return md
 
 
+def generate_json_report(
+    tickets: list[dict],
+    title: str,
+    jql: str | None = None,
+    query: str | None = None,
+    board: int | None = None,
+    sprint: int | None = None,
+    group_by: str | None = None,
+    label: str | None = None,
+) -> str:
+    """Generate JSON report from tickets."""
+    data = {
+        "title": title,
+        "generated": datetime.now().isoformat(timespec="seconds"),
+        "total": len(tickets),
+        "tickets": tickets,
+    }
+    if jql:
+        data["jql"] = jql
+    if query:
+        data["query"] = query
+    if board:
+        data["board"] = board
+    if sprint:
+        data["sprint"] = sprint
+    if group_by:
+        data["group_by"] = group_by
+    if label:
+        data["label"] = label
+    return json.dumps(data, indent=2)
+
+
+def generate_csv_report(tickets: list[dict]) -> str:
+    """Generate CSV report from tickets."""
+    if not tickets:
+        return ""
+
+    output = io.StringIO()
+    fieldnames = [
+        "key",
+        "summary",
+        "issuetype",
+        "status",
+        "priority",
+        "assignee",
+        "labels",
+        "parent",
+        "created",
+        "updated",
+    ]
+    writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
+    writer.writeheader()
+
+    for t in tickets:
+        row = {**t}
+        # Convert labels list to comma-separated string
+        row["labels"] = ",".join(t.get("labels", []))
+        # Convert parent dict to key
+        parent = t.get("parent")
+        row["parent"] = parent["key"] if parent else ""
+        writer.writerow(row)
+
+    return output.getvalue()
+
+
 def report_command(args: argparse.Namespace) -> None:
     """Handle report subcommand."""
     from zaira.project import get_query, get_board, get_report, list_reports
@@ -347,23 +415,43 @@ def report_command(args: argparse.Namespace) -> None:
             title = str(args.board).replace("-", " ").title()
         else:
             title = "Jira Report"
-    report = generate_report(
-        tickets,
-        title,
-        group_by=args.group_by,
-        jql=args.jql,
-        query=getattr(args, "query", None),
-        board=board_id,
-        sprint=args.sprint,
-        label=label,
-    )
+
+    # Generate report in requested format
+    fmt = getattr(args, "format", "md")
+    if fmt == "json":
+        report = generate_json_report(
+            tickets,
+            title,
+            jql=args.jql,
+            query=getattr(args, "query", None),
+            board=board_id,
+            sprint=args.sprint,
+            group_by=args.group_by,
+            label=label,
+        )
+        ext = "json"
+    elif fmt == "csv":
+        report = generate_csv_report(tickets)
+        ext = "csv"
+    else:
+        report = generate_report(
+            tickets,
+            title,
+            group_by=args.group_by,
+            jql=args.jql,
+            query=getattr(args, "query", None),
+            board=board_id,
+            sprint=args.sprint,
+            label=label,
+        )
+        ext = "md"
 
     if args.output:
         output_path = Path(args.output)
     else:
         # Generate filename from title
         slug = title.lower().replace(" ", "-")
-        output_path = REPORTS_DIR / f"{slug}.md"
+        output_path = REPORTS_DIR / f"{slug}.{ext}"
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(report)
@@ -373,11 +461,35 @@ def report_command(args: argparse.Namespace) -> None:
     if getattr(args, "full", False):
         from zaira.export import export_ticket
         from zaira.config import TICKETS_DIR
+        from zaira.sync import find_ticket_file, ticket_needs_export
 
         print("\nExporting tickets...")
         exported = 0
+        skipped = 0
+        force = getattr(args, "force", False)
+
         for t in tickets:
             key = t.get("key")
-            if key and export_ticket(key, TICKETS_DIR):
-                exported += 1
-        print(f"Exported {exported} tickets")
+            if not key:
+                continue
+            updated = t.get("updated", "")
+            ticket_file = find_ticket_file(key)
+
+            if ticket_file:
+                if force:
+                    print(f"  {key}: forcing refresh...")
+                    if export_ticket(key, TICKETS_DIR):
+                        exported += 1
+                elif ticket_needs_export(ticket_file, updated):
+                    print(f"  {key}: changed, refreshing...")
+                    if export_ticket(key, TICKETS_DIR):
+                        exported += 1
+                else:
+                    print(f"  {key}: unchanged, skipping")
+                    skipped += 1
+            else:
+                print(f"  {key}: new, exporting...")
+                if export_ticket(key, TICKETS_DIR):
+                    exported += 1
+
+        print(f"Exported {exported} tickets, {skipped} unchanged")
