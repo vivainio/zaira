@@ -95,6 +95,11 @@ def get_ticket(key: str, full: bool = False) -> dict | None:
                         if hasattr(link, "outwardIssue")
                         else link.inwardIssue.key
                     ),
+                    "summary": (
+                        link.outwardIssue.fields.summary
+                        if hasattr(link, "outwardIssue")
+                        else link.inwardIssue.fields.summary
+                    ),
                 }
                 for link in (fields.issuelinks or [])
             ],
@@ -258,10 +263,9 @@ url: https://{jira_site}/browse/{key}
                 link_type = link.get("type", "Related")
                 direction = link.get("direction", "outward")
                 link_key = link.get("key", "")
-                if direction == "outward":
-                    md += f"- {link_type}: {link_key}\n"
-                else:
-                    md += f"- {link_type} (inward): {link_key}\n"
+                link_summary = link.get("summary", "")
+                dir_label = "" if direction == "outward" else " (inward)"
+                md += f"- {link_type}{dir_label}: {link_key} - {link_summary}\n"
         else:
             md += "_No links_\n"
 
@@ -376,10 +380,9 @@ url: https://{jira_site}/browse/{key}
                 link_type = link.get("type", "Related")
                 direction = link.get("direction", "outward")
                 link_key = link.get("key", "")
-                if direction == "outward":
-                    md += f"- {link_type}: {link_key}\n"
-                else:
-                    md += f"- {link_type} (inward): {link_key}\n"
+                link_summary = link.get("summary", "")
+                dir_label = "" if direction == "outward" else " (inward)"
+                md += f"- {link_type}{dir_label}: {link_key} - {link_summary}\n"
         else:
             md += "_No links_\n"
 
