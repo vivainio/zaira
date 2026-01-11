@@ -13,6 +13,21 @@ from zaira.jira_client import get_jira
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
 
 
+def get_user_identifier(user) -> str:
+    """Safely extract user identifier, handling GDPR-restricted fields."""
+    if not user:
+        return None
+    # Try emailAddress first, then displayName, then name
+    for attr in ("emailAddress", "displayName", "name", "accountId"):
+        try:
+            val = getattr(user, attr, None)
+            if val:
+                return val
+        except Exception:
+            continue
+    return "Unknown"
+
+
 def humanize_age(iso_timestamp: str) -> str:
     """Convert ISO timestamp to human-readable age like '2d' or '3w'."""
     if not iso_timestamp:
@@ -89,11 +104,11 @@ def search_tickets(jql: str) -> list[dict]:
                 if fields.status and fields.status.statusCategory
                 else None,
                 "priority": fields.priority.name if fields.priority else "-",
-                "assignee": fields.assignee.emailAddress if fields.assignee else "-",
+                "assignee": get_user_identifier(fields.assignee) or "-",
                 "assigneeDisplayName": fields.assignee.displayName
                 if fields.assignee
                 else None,
-                "reporter": fields.reporter.emailAddress if fields.reporter else None,
+                "reporter": get_user_identifier(fields.reporter),
                 "reporterDisplayName": fields.reporter.displayName
                 if fields.reporter
                 else None,

@@ -13,6 +13,21 @@ from zaira.jira_client import get_jira, get_jira_site
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
 
 
+def get_user_identifier(user) -> str:
+    """Safely extract user identifier, handling GDPR-restricted fields."""
+    if not user:
+        return None
+    # Try emailAddress first, then displayName, then name
+    for attr in ("emailAddress", "displayName", "name", "accountId"):
+        try:
+            val = getattr(user, attr, None)
+            if val:
+                return val
+        except Exception:
+            continue
+    return "Unknown"
+
+
 def normalize_title(title: str) -> str:
     """Convert title to filename-safe slug."""
     slug = title.lower()
@@ -69,10 +84,8 @@ def get_ticket(key: str, full: bool = False) -> dict | None:
             "issuetype": fields.issuetype.name if fields.issuetype else "Unknown",
             "status": fields.status.name if fields.status else "Unknown",
             "priority": fields.priority.name if fields.priority else "None",
-            "assignee": fields.assignee.emailAddress
-            if fields.assignee
-            else "Unassigned",
-            "reporter": fields.reporter.emailAddress if fields.reporter else "Unknown",
+            "assignee": get_user_identifier(fields.assignee) or "Unassigned",
+            "reporter": get_user_identifier(fields.reporter) or "Unknown",
             "created": fields.created or "Unknown",
             "updated": fields.updated or "Unknown",
             "description": extract_description(desc),
@@ -135,7 +148,7 @@ def get_ticket(key: str, full: bool = False) -> dict | None:
             ticket["reporterDisplayName"] = (
                 fields.reporter.displayName if fields.reporter else None
             )
-            ticket["creator"] = fields.creator.emailAddress if fields.creator else None
+            ticket["creator"] = get_user_identifier(fields.creator)
             ticket["creatorDisplayName"] = (
                 fields.creator.displayName if fields.creator else None
             )
