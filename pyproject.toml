@@ -1,0 +1,14 @@
+[project]
+name = "zaira"
+version = "0.1.0"
+description = "Jira CLI tool for offline ticket management"
+requires-python = ">=3.11"
+dependencies = [
+    "jira>=3.5.0",
+]
+
+[project.scripts]
+zaira = "zaira.cli:main"
+
+[tool.uv]
+package = true

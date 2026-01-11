@@ -1,0 +1,385 @@
+"""Generate markdown reports from Jira queries."""
+
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+from zaira.config import REPORTS_DIR
+from zaira.jira_client import get_jira
+from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
+
+
+def humanize_age(iso_timestamp: str) -> str:
+    """Convert ISO timestamp to human-readable age like '2d' or '3w'."""
+    if not iso_timestamp:
+        return "-"
+    try:
+        # Parse ISO timestamp (Jira format: 2026-01-11T14:30:00.000+0000)
+        dt = datetime.fromisoformat(iso_timestamp.replace("+0000", "+00:00"))
+        now = datetime.now(timezone.utc)
+        delta = now - dt
+
+        seconds = delta.total_seconds()
+        if seconds < 60:
+            return "now"
+        minutes = seconds / 60
+        if minutes < 60:
+            return f"{int(minutes)}m"
+        hours = minutes / 60
+        if hours < 24:
+            return f"{int(hours)}h"
+        days = hours / 24
+        if days < 7:
+            return f"{int(days)}d"
+        weeks = days / 7
+        if weeks < 4:
+            return f"{int(weeks)}w"
+        months = days / 30
+        if months < 12:
+            return f"{int(months)}mo"
+        years = days / 365
+        return f"{int(years)}y"
+    except (ValueError, TypeError):
+        return "-"
+
+
+def get_ticket_dates(key: str) -> dict:
+    """Fetch created and updated timestamps for a ticket."""
+    jira = get_jira()
+    try:
+        issue = jira.issue(key, fields="created,updated")
+        return {
+            "created": issue.fields.created or "",
+            "updated": issue.fields.updated or "",
+        }
+    except Exception:
+        return {"created": "", "updated": ""}
+
+
+def search_tickets(jql: str) -> list[dict]:
+    """Search for tickets and return list of ticket data."""
+    jira = get_jira()
+    try:
+        issues = jira.search_issues(jql, maxResults=False)
+        tickets = []
+        for issue in issues:
+            fields = issue.fields
+            labels = fields.labels or []
+
+            # Get parent info if available
+            parent = None
+            if hasattr(fields, "parent") and fields.parent:
+                parent = {
+                    "key": fields.parent.key,
+                    "summary": fields.parent.fields.summary if hasattr(fields.parent, "fields") else "",
+                }
+
+            ticket = {
+                "key": issue.key,
+                "summary": fields.summary or "",
+                "issuetype": fields.issuetype.name if fields.issuetype else "?",
+                "status": fields.status.name if fields.status else "?",
+                "priority": fields.priority.name if fields.priority else "-",
+                "assignee": fields.assignee.emailAddress if fields.assignee else "-",
+                "labels": labels,
+                "created": fields.created or "",
+                "updated": fields.updated or "",
+                "parent": parent,
+            }
+            tickets.append(ticket)
+        return tickets
+    except Exception as e:
+        print(f"Error searching: {e}")
+        return []
+
+
+def generate_front_matter(
+    title: str,
+    jql: str | None = None,
+    query: str | None = None,
+    board: int | None = None,
+    sprint: int | None = None,
+    group_by: str | None = None,
+    label: str | None = None,
+) -> str:
+    """Generate YAML front matter with sync info."""
+    lines = ["---"]
+    lines.append(f"title: {title}")
+    lines.append(f"generated: {datetime.now().isoformat(timespec='seconds')}")
+
+    # Sync command
+    cmd_parts = ["python -m zaira report"]
+    if query:
+        lines.append(f"query: {query}")
+        cmd_parts.append(f"--query {query}")
+    elif jql and not board and not sprint:
+        lines.append(f'jql: "{jql}"')
+        cmd_parts.append(f'--jql "{jql}"')
+    if board:
+        lines.append(f"board: {board}")
+        cmd_parts.append(f"--board {board}")
+    if sprint:
+        lines.append(f"sprint: {sprint}")
+        cmd_parts.append(f"--sprint {sprint}")
+    if label:
+        lines.append(f"label: {label}")
+        cmd_parts.append(f'--label "{label}"')
+    if group_by:
+        lines.append(f"group_by: {group_by}")
+        cmd_parts.append(f"--group-by {group_by}")
+
+    cmd_parts.append(f'--title "{title}"')
+    lines.append(f"sync: {' '.join(cmd_parts)}")
+    lines.append("---")
+    return "\n".join(lines) + "\n\n"
+
+
+def generate_report(
+    tickets: list[dict],
+    title: str,
+    group_by: str | None = None,
+    jql: str | None = None,
+    query: str | None = None,
+    board: int | None = None,
+    sprint: int | None = None,
+    label: str | None = None,
+) -> str:
+    """Generate markdown report from tickets."""
+    md = generate_front_matter(title, jql, query, board, sprint, group_by, label)
+    md += f"# {title}\n\n"
+    md += f"**Total:** {len(tickets)} tickets\n\n"
+
+    if not tickets:
+        md += "_No tickets found._\n"
+        return md
+
+    if group_by:
+        if group_by == "labels":
+            # Special handling for labels - tickets can have multiple
+            groups = {}
+            for t in tickets:
+                ticket_labels = t.get("labels", [])
+                if not ticket_labels:
+                    ticket_labels = ["(no label)"]
+                for lbl in ticket_labels:
+                    if lbl not in groups:
+                        groups[lbl] = []
+                    groups[lbl].append(t)
+        else:
+            # Group tickets by field
+            groups = {}
+            for t in tickets:
+                key = t.get(group_by, "Unknown")
+                if key not in groups:
+                    groups[key] = []
+                groups[key].append(t)
+
+        for group_name, group_tickets in sorted(groups.items()):
+            md += f"## {group_name} ({len(group_tickets)})\n\n"
+            md += generate_table(group_tickets)
+            md += "\n"
+    else:
+        md += generate_table(tickets)
+
+    return md
+
+
+def generate_table(tickets: list[dict]) -> str:
+    """Generate markdown table from tickets."""
+    if not tickets:
+        return "_No tickets_\n"
+
+    # Check if any tickets have parents
+    has_parents = any(t.get("parent") for t in tickets)
+
+    if has_parents:
+        md = "| Key | Type | Status | Age | Parent | Summary |\n"
+        md += "|-----|------|--------|-----|--------|--------|\n"
+    else:
+        md = "| Key | Type | Status | Age | Summary |\n"
+        md += "|-----|------|--------|-----|--------|\n"
+
+    for t in tickets:
+        key = t.get("key", "?")
+        issue_type = t.get("issuetype", "?")
+        status = t.get("status", "?")
+        age = humanize_age(t.get("updated", ""))
+        summary = t.get("summary", "")
+        parent = t.get("parent")
+
+        # Truncate long summaries
+        if len(summary) > 50:
+            summary = summary[:47] + "..."
+
+        # Escape pipes in summary
+        summary = summary.replace("|", "\\|")
+
+        if has_parents:
+            parent_key = parent["key"] if parent else "-"
+            md += f"| {key} | {issue_type} | {status} | {age} | {parent_key} | {summary} |\n"
+        else:
+            md += f"| {key} | {issue_type} | {status} | {age} | {summary} |\n"
+
+    return md
+
+
+def report_command(args):
+    """Handle report subcommand."""
+    from zaira.project import get_query, get_board, get_report, list_reports
+
+    # Check if no arguments provided - list available reports
+    report_name = getattr(args, "name", None)
+    has_args = (
+        report_name
+        or args.query
+        or args.jql
+        or args.board
+        or args.sprint
+    )
+
+    if not has_args:
+        reports = list_reports()
+        if not reports:
+            print("No reports defined in zproject.toml")
+            print("\nUse --jql, --query, --board, or --sprint to generate a report")
+            sys.exit(0)
+
+        print("Available reports:\n")
+        for name, config in reports.items():
+            # Build description from config
+            desc_parts = []
+            if "query" in config:
+                desc_parts.append(f"query={config['query']}")
+            if "jql" in config:
+                desc_parts.append(f"jql=\"{config['jql']}\"")
+            if "board" in config:
+                desc_parts.append(f"board={config['board']}")
+            if "sprint" in config:
+                desc_parts.append(f"sprint={config['sprint']}")
+            if "group_by" in config:
+                desc_parts.append(f"group_by={config['group_by']}")
+            if "label" in config:
+                desc_parts.append(f"label={config['label']}")
+
+            desc = ", ".join(desc_parts) if desc_parts else "(no config)"
+            print(f"  {name}")
+            print(f"    {desc}")
+        print(f"\nRun: python -m zaira report <name>")
+        sys.exit(0)
+
+    # Handle named report from project.toml
+    if report_name:
+        report_def = get_report(report_name)
+        if not report_def:
+            print(f"Error: Report '{report_name}' not found in project.toml")
+            sys.exit(1)
+        print(f"Using report '{report_name}'")
+        # Apply report settings as defaults (CLI args override)
+        if not args.query and "query" in report_def:
+            args.query = report_def["query"]
+        if not args.jql and "jql" in report_def:
+            args.jql = report_def["jql"]
+        if not args.board and "board" in report_def:
+            args.board = str(report_def["board"])
+        if not args.sprint and "sprint" in report_def:
+            args.sprint = report_def["sprint"]
+        if not args.group_by and "group_by" in report_def:
+            args.group_by = report_def["group_by"]
+        if not getattr(args, "label", None) and "label" in report_def:
+            args.label = report_def["label"]
+        if not args.title and "title" in report_def:
+            args.title = report_def["title"]
+        if "full" in report_def:
+            args.full = report_def["full"]
+
+    # Build JQL from options
+    jql = args.jql
+    board_id = None
+
+    # Handle named query
+    if args.query:
+        jql = get_query(args.query)
+        if not jql:
+            print(f"Error: Query '{args.query}' not found in project.toml")
+            sys.exit(1)
+        print(f"Using query '{args.query}'")
+
+    # Handle board (ID or name)
+    if args.board:
+        # Try as integer first
+        try:
+            board_id = int(args.board)
+        except ValueError:
+            # Try as name from project.toml
+            board_id = get_board(args.board)
+            if not board_id:
+                print(f"Error: Board '{args.board}' not found in project.toml")
+                sys.exit(1)
+        jql = get_board_issues_jql(board_id)
+        print(f"Using board {board_id}")
+    elif args.sprint:
+        jql = get_sprint_issues_jql(args.sprint)
+        print(f"Using sprint {args.sprint}")
+
+    if not jql:
+        print("Error: --query, --jql, --board, or --sprint is required")
+        sys.exit(1)
+
+    # Add label filter if specified
+    label = getattr(args, "label", None)
+    if label:
+        jql = f'{jql} AND labels = "{label}"'
+        print(f"Filtering by label: {label}")
+
+    print(f"Searching: {jql}")
+    tickets = search_tickets(jql)
+    print(f"Found {len(tickets)} tickets")
+
+    if not tickets:
+        print("No tickets found.")
+        sys.exit(0)
+
+    # Default title from report name, query name, board name, or generic
+    title = args.title
+    if not title:
+        if report_name:
+            title = report_name.replace("-", " ").title()
+        elif args.query:
+            title = args.query.replace("-", " ").title()
+        elif args.board:
+            title = str(args.board).replace("-", " ").title()
+        else:
+            title = "Jira Report"
+    report = generate_report(
+        tickets,
+        title,
+        group_by=args.group_by,
+        jql=args.jql,
+        query=getattr(args, "query", None),
+        board=board_id,
+        sprint=args.sprint,
+        label=label,
+    )
+
+    if args.output:
+        output_path = Path(args.output)
+    else:
+        # Generate filename from title
+        slug = title.lower().replace(" ", "-")
+        output_path = REPORTS_DIR / f"{slug}.md"
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(report)
+    print(f"Saved to {output_path}")
+
+    # Full mode: also export tickets
+    if getattr(args, "full", False):
+        from zaira.export import export_ticket
+        from zaira.config import TICKETS_DIR
+        print("\nExporting tickets...")
+        exported = 0
+        for t in tickets:
+            key = t.get("key")
+            if key and export_ticket(key, TICKETS_DIR):
+                exported += 1
+        print(f"Exported {exported} tickets")
