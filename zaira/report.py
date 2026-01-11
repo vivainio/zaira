@@ -171,6 +171,18 @@ def generate_report(
                     if lbl not in groups:
                         groups[lbl] = []
                     groups[lbl].append(t)
+        elif group_by == "parent":
+            # Special handling for parent - it's a dict
+            groups = {}
+            for t in tickets:
+                parent = t.get("parent")
+                if parent:
+                    group_key = f"{parent['key']}: {parent['summary']}"
+                else:
+                    group_key = "(no parent)"
+                if group_key not in groups:
+                    groups[group_key] = []
+                groups[group_key].append(t)
         else:
             # Group tickets by field
             groups = {}

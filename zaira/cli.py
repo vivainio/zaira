@@ -103,7 +103,7 @@ def main() -> None:
     report_parser.add_argument(
         "-g",
         "--group-by",
-        choices=["status", "priority", "issuetype", "assignee", "labels"],
+        choices=["status", "priority", "issuetype", "assignee", "labels", "parent"],
         help="Group tickets by field",
     )
     report_parser.add_argument(
