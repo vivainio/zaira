@@ -83,7 +83,7 @@ def generate_config(
     issue_types: list[str],
 ) -> str:
     """Generate zproject.toml content."""
-    lines = ["[project]", f'key = "{project}"', f'site = "{site}"', ""]
+    lines = ["[project]", f'site = "{site}"', ""]
 
     # Components
     lines.append("[components]")

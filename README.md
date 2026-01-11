@@ -133,7 +133,6 @@ The `zproject.toml` file stores project-specific settings. After running `zaira 
 
 ```toml
 [project]
-key = "FOO"
 site = "company.atlassian.net"
 
 [boards]
