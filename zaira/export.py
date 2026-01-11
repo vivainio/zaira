@@ -84,34 +84,56 @@ def get_ticket(key: str, full: bool = False) -> dict | None:
             }
             if hasattr(fields, "parent") and fields.parent
             else None,
+            "issuelinks": [
+                {
+                    "type": link.type.name,
+                    "direction": "outward"
+                    if hasattr(link, "outwardIssue")
+                    else "inward",
+                    "key": (
+                        link.outwardIssue.key
+                        if hasattr(link, "outwardIssue")
+                        else link.inwardIssue.key
+                    ),
+                }
+                for link in (fields.issuelinks or [])
+            ],
         }
 
         # Add extra fields for JSON export
         if full:
             ticket["project"] = fields.project.key if fields.project else None
             ticket["resolution"] = fields.resolution.name if fields.resolution else None
-            ticket["resolutiondate"] = fields.resolutiondate if hasattr(fields, "resolutiondate") else None
-            ticket["statusCategory"] = fields.status.statusCategory.name if fields.status and fields.status.statusCategory else None
+            ticket["resolutiondate"] = (
+                fields.resolutiondate if hasattr(fields, "resolutiondate") else None
+            )
+            ticket["statusCategory"] = (
+                fields.status.statusCategory.name
+                if fields.status and fields.status.statusCategory
+                else None
+            )
             ticket["fixVersions"] = [v.name for v in (fields.fixVersions or [])]
             ticket["versions"] = [v.name for v in (fields.versions or [])]
             ticket["votes"] = fields.votes.votes if fields.votes else 0
             ticket["watches"] = fields.watches.watchCount if fields.watches else 0
-            ticket["issuelinks"] = [
-                {
-                    "type": link.type.name,
-                    "direction": "outward" if hasattr(link, "outwardIssue") else "inward",
-                    "key": (link.outwardIssue.key if hasattr(link, "outwardIssue") else link.inwardIssue.key),
-                }
-                for link in (fields.issuelinks or [])
-            ]
             ticket["subtasks"] = [
-                {"key": st.key, "summary": st.fields.summary, "status": st.fields.status.name}
+                {
+                    "key": st.key,
+                    "summary": st.fields.summary,
+                    "status": st.fields.status.name,
+                }
                 for st in (fields.subtasks or [])
             ]
-            ticket["assigneeDisplayName"] = fields.assignee.displayName if fields.assignee else None
-            ticket["reporterDisplayName"] = fields.reporter.displayName if fields.reporter else None
+            ticket["assigneeDisplayName"] = (
+                fields.assignee.displayName if fields.assignee else None
+            )
+            ticket["reporterDisplayName"] = (
+                fields.reporter.displayName if fields.reporter else None
+            )
             ticket["creator"] = fields.creator.emailAddress if fields.creator else None
-            ticket["creatorDisplayName"] = fields.creator.displayName if fields.creator else None
+            ticket["creatorDisplayName"] = (
+                fields.creator.displayName if fields.creator else None
+            )
 
         return ticket
     except Exception as e:
@@ -227,6 +249,23 @@ url: https://{jira_site}/browse/{key}
 
 {description}
 
+## Links
+
+"""
+        issuelinks = ticket.get("issuelinks", [])
+        if issuelinks:
+            for link in issuelinks:
+                link_type = link.get("type", "Related")
+                direction = link.get("direction", "outward")
+                link_key = link.get("key", "")
+                if direction == "outward":
+                    md += f"- {link_type}: {link_key}\n"
+                else:
+                    md += f"- {link_type} (inward): {link_key}\n"
+        else:
+            md += "_No links_\n"
+
+        md += """
 ## Comments
 
 """
@@ -328,6 +367,23 @@ url: https://{jira_site}/browse/{key}
 
 {description}
 
+## Links
+
+"""
+        issuelinks = ticket.get("issuelinks", [])
+        if issuelinks:
+            for link in issuelinks:
+                link_type = link.get("type", "Related")
+                direction = link.get("direction", "outward")
+                link_key = link.get("key", "")
+                if direction == "outward":
+                    md += f"- {link_type}: {link_key}\n"
+                else:
+                    md += f"- {link_type} (inward): {link_key}\n"
+        else:
+            md += "_No links_\n"
+
+        md += """
 ## Comments
 
 """
