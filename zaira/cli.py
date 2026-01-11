@@ -6,6 +6,7 @@ import sys
 from zaira import __version__
 from zaira.boards import boards_command
 from zaira.comment import comment_command
+from zaira.edit import edit_command
 from zaira.export import export_command
 from zaira.link import link_command
 from zaira.info import (
@@ -218,6 +219,27 @@ def main() -> None:
         help="Comment text (use '-' to read from stdin)",
     )
     comment_parser.set_defaults(func=comment_command)
+
+    # Edit command
+    edit_parser = subparsers.add_parser(
+        "edit",
+        help="Edit a ticket's title and/or description",
+    )
+    edit_parser.add_argument(
+        "key",
+        help="Ticket key (e.g., AC-1409)",
+    )
+    edit_parser.add_argument(
+        "-t",
+        "--title",
+        help="New title/summary",
+    )
+    edit_parser.add_argument(
+        "-d",
+        "--description",
+        help="New description (use '-' to read from stdin). Supports Jira wiki syntax.",
+    )
+    edit_parser.set_defaults(func=edit_command)
 
     # Link command
     link_parser = subparsers.add_parser(

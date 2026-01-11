@@ -137,6 +137,30 @@ zaira boards
 zaira boards --project FOO
 ```
 
+### edit
+
+Edit a ticket's title and/or description:
+
+```bash
+zaira edit FOO-1234 --title "New title"
+zaira edit FOO-1234 --description "New description"
+zaira edit FOO-1234 -t "Title" -d "Description"  # Both at once
+
+# Multiline description via stdin
+zaira edit FOO-1234 -d - <<EOF
+h2. Overview
+
+This is a *bold* statement with _italic_ text.
+
+{code:python}
+def hello():
+    print("Hello")
+{code}
+EOF
+```
+
+Descriptions support [Jira wiki syntax](https://jira.atlassian.com/secure/WikiRendererHelpAction.jspa?section=all) for formatting (headers, bold, code blocks, tables, etc.).
+
 ### comment
 
 Add a comment to a ticket:
