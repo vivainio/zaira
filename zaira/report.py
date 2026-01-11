@@ -108,7 +108,7 @@ def generate_front_matter(
     lines.append(f"generated: {datetime.now().isoformat(timespec='seconds')}")
 
     # Sync command
-    cmd_parts = ["python -m zaira report"]
+    cmd_parts = ["zaira report"]
     if query:
         lines.append(f"query: {query}")
         cmd_parts.append(f"--query {query}")
@@ -264,7 +264,7 @@ def report_command(args):
             desc = ", ".join(desc_parts) if desc_parts else "(no config)"
             print(f"  {name}")
             print(f"    {desc}")
-        print(f"\nRun: python -m zaira report <name>")
+        print(f"\nRun: zaira report <name>")
         sys.exit(0)
 
     # Handle named report from project.toml
