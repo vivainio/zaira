@@ -258,8 +258,8 @@ def generate_table(tickets: list[dict]) -> str:
         parent = t.get("parent")
 
         # Truncate long summaries
-        if len(summary) > 50:
-            summary = summary[:47] + "..."
+        if len(summary) > 200:
+            summary = summary[:197] + "..."
 
         # Escape pipes in summary
         summary = summary.replace("|", "\\|")
