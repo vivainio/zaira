@@ -4,9 +4,10 @@ import argparse
 import sys
 
 from zaira.jira_client import get_jira, get_jira_site
+from zaira.types import Board, Sprint
 
 
-def get_boards(project: str | None = None) -> list[dict]:
+def get_boards(project: str | None = None) -> list[Board]:
     """Get boards, optionally filtered by project."""
     jira = get_jira()
     try:
@@ -16,14 +17,14 @@ def get_boards(project: str | None = None) -> list[dict]:
             boards = jira.boards()
 
         return [
-            {
-                "id": b.id,
-                "name": b.name,
-                "type": b.type,
-                "location": getattr(b.location, "displayName", "")
+            Board(
+                id=b.id,
+                name=b.name,
+                type=b.type,
+                location=getattr(b.location, "displayName", "")
                 if hasattr(b, "location")
                 else "",
-            }
+            )
             for b in boards
         ]
     except Exception as e:
@@ -31,17 +32,17 @@ def get_boards(project: str | None = None) -> list[dict]:
         return []
 
 
-def get_sprints(board_id: int, state: str | None = None) -> list[dict]:
+def get_sprints(board_id: int, state: str | None = None) -> list[Sprint]:
     """Get sprints for a board."""
     jira = get_jira()
     try:
         sprints = jira.sprints(board_id, state=state)
         return [
-            {
-                "id": s.id,
-                "name": s.name,
-                "state": s.state,
-            }
+            Sprint(
+                id=s.id,
+                name=s.name,
+                state=s.state,
+            )
             for s in sprints
         ]
     except Exception as e:
@@ -96,11 +97,8 @@ def boards_command(args: argparse.Namespace) -> None:
     print("-" * 80)
 
     for b in boards:
-        board_id = b.get("id", "?")
-        board_type = b.get("type", "?")
-        name = str(b.get("name", "?"))[:40]
-        location = b.get("location", "")
-        print(f"{board_id:<6} {board_type:<8} {name:<40} {location}")
+        name = b.name[:40] if len(b.name) > 40 else b.name
+        print(f"{b.id:<6} {b.type:<8} {name:<40} {b.location}")
 
     jira_site = get_jira_site()
     print(

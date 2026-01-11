@@ -9,9 +9,10 @@ from datetime import datetime
 from pathlib import Path
 
 from zaira.config import REPORTS_DIR, TICKETS_DIR
+from zaira.types import FrontMatter
 
 
-def parse_front_matter(content: str) -> dict:
+def parse_front_matter(content: str) -> FrontMatter:
     """Parse YAML front matter from markdown content."""
     if not content.startswith("---"):
         return {}

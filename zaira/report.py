@@ -11,21 +11,7 @@ from pathlib import Path
 from zaira.config import REPORTS_DIR
 from zaira.jira_client import get_jira
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
-
-
-def get_user_identifier(user) -> str:
-    """Safely extract user identifier, handling GDPR-restricted fields."""
-    if not user:
-        return None
-    # Try emailAddress first, then displayName, then name
-    for attr in ("emailAddress", "displayName", "name", "accountId"):
-        try:
-            val = getattr(user, attr, None)
-            if val:
-                return val
-        except Exception:
-            continue
-    return "Unknown"
+from zaira.types import ReportTicket, get_user_identifier
 
 
 def humanize_age(iso_timestamp: str) -> str:
@@ -75,7 +61,7 @@ def get_ticket_dates(key: str) -> dict:
         return {"created": "", "updated": ""}
 
 
-def search_tickets(jql: str) -> list[dict]:
+def search_tickets(jql: str) -> list[ReportTicket]:
     """Search for tickets and return list of ticket data."""
     jira = get_jira()
     try:
@@ -173,7 +159,7 @@ def generate_front_matter(
 
 
 def generate_report(
-    tickets: list[dict],
+    tickets: list[ReportTicket],
     title: str,
     group_by: str | None = None,
     jql: str | None = None,
@@ -234,11 +220,11 @@ def generate_report(
     return md
 
 
-def generate_table(tickets: list[dict], group_by: str | None = None) -> str:
+def generate_table(tickets: list[ReportTicket], group_by: str | None = None) -> str:
     """Generate markdown table from tickets.
 
     Args:
-        tickets: List of ticket dicts
+        tickets: List of ticket data
         group_by: Field used for grouping (will be excluded from table)
     """
     if not tickets:
@@ -295,7 +281,7 @@ def generate_table(tickets: list[dict], group_by: str | None = None) -> str:
 
 
 def generate_json_report(
-    tickets: list[dict],
+    tickets: list[ReportTicket],
     title: str,
     jql: str | None = None,
     query: str | None = None,
@@ -326,7 +312,7 @@ def generate_json_report(
     return json.dumps(data, indent=2)
 
 
-def generate_csv_report(tickets: list[dict]) -> str:
+def generate_csv_report(tickets: list[ReportTicket]) -> str:
     """Generate CSV report from tickets."""
     if not tickets:
         return ""

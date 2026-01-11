@@ -4,6 +4,7 @@ import argparse
 import json
 import re
 import sys
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -11,21 +12,7 @@ from typing import Any
 from zaira.config import TICKETS_DIR, find_project_root
 from zaira.jira_client import get_jira, get_jira_site
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
-
-
-def get_user_identifier(user) -> str:
-    """Safely extract user identifier, handling GDPR-restricted fields."""
-    if not user:
-        return None
-    # Try emailAddress first, then displayName, then name
-    for attr in ("emailAddress", "displayName", "name", "accountId"):
-        try:
-            val = getattr(user, attr, None)
-            if val:
-                return val
-        except Exception:
-            continue
-    return "Unknown"
+from zaira.types import Comment, Ticket, get_user_identifier, yaml_quote
 
 
 def normalize_title(title: str) -> str:
@@ -65,7 +52,7 @@ def extract_description(desc: dict | str | list | Any | None) -> str:
     return extract_text(desc).strip()
 
 
-def get_ticket(key: str, full: bool = False) -> dict | None:
+def get_ticket(key: str, full: bool = False) -> Ticket | None:
     """Fetch ticket details. If full=True, include more fields for JSON export."""
     jira = get_jira()
     try:
@@ -159,13 +146,13 @@ def get_ticket(key: str, full: bool = False) -> dict | None:
         return None
 
 
-def get_comments(key: str) -> list:
+def get_comments(key: str) -> list[Comment]:
     """Fetch ticket comments."""
     jira = get_jira()
     try:
         issue = jira.issue(key, fields="comment")
         comments = issue.fields.comment.comments if issue.fields.comment else []
-        result = []
+        result: list[Comment] = []
         for c in comments:
             body = c.body
             if hasattr(body, "raw"):
@@ -173,11 +160,11 @@ def get_comments(key: str) -> list:
             elif hasattr(body, "__dict__"):
                 body = extract_description(body.__dict__)
             result.append(
-                {
-                    "author": c.author.displayName if c.author else "Unknown",
-                    "created": c.created or "",
-                    "body": body if isinstance(body, str) else str(body),
-                }
+                Comment(
+                    author=c.author.displayName if c.author else "Unknown",
+                    created=c.created or "",
+                    body=body if isinstance(body, str) else str(body),
+                )
             )
         return result
     except Exception:
@@ -222,7 +209,7 @@ def export_ticket(key: str, output_dir: Path, fmt: str = "md") -> bool:
         # JSON output
         data = {
             **ticket,
-            "comments": comments,
+            "comments": [asdict(c) for c in comments],
             "synced": synced,
             "url": f"https://{jira_site}/browse/{key}",
         }
@@ -238,13 +225,6 @@ def export_ticket(key: str, output_dir: Path, fmt: str = "md") -> bool:
         components = ", ".join(ticket.get("components", [])) or "None"
         labels = ", ".join(ticket.get("labels", [])) or "None"
         parent = parent_data["key"] if parent_data else "None"
-
-        # YAML quoting helper
-        def yaml_quote(val: str) -> str:
-            if any(c in val for c in ":{}[]&*#?|-<>=!%@\\\"'\n"):
-                escaped = val.replace('"', '\\"')
-                return f'"{escaped}"'
-            return val
 
         md = f"""---
 key: {key}
@@ -288,10 +268,7 @@ url: https://{jira_site}/browse/{key}
 """
         if comments:
             for c in comments:
-                author = c.get("author", "Unknown")
-                date = c.get("created", "")
-                body = c.get("body", "")
-                md += f"### {author} ({date})\n\n{body}\n\n"
+                md += f"### {c.author} ({c.created})\n\n{c.body}\n\n"
         else:
             md += "_No comments_\n"
 
@@ -338,7 +315,7 @@ def export_to_stdout(key: str, fmt: str = "md") -> bool:
     if fmt == "json":
         data = {
             **ticket,
-            "comments": comments,
+            "comments": [asdict(c) for c in comments],
             "synced": synced,
             "url": f"https://{jira_site}/browse/{key}",
         }
@@ -356,12 +333,6 @@ def export_to_stdout(key: str, fmt: str = "md") -> bool:
         labels = ", ".join(ticket.get("labels", [])) or "None"
         parent_data = ticket.get("parent")
         parent = parent_data["key"] if parent_data else "None"
-
-        def yaml_quote(val: str) -> str:
-            if any(c in val for c in ":{}[]&*#?|-<>=!%@\\\"'\n"):
-                escaped = val.replace('"', '\\"')
-                return f'"{escaped}"'
-            return val
 
         md = f"""---
 key: {key}
@@ -405,10 +376,7 @@ url: https://{jira_site}/browse/{key}
 """
         if comments:
             for c in comments:
-                author = c.get("author", "Unknown")
-                date = c.get("created", "")
-                body = c.get("body", "")
-                md += f"### {author} ({date})\n\n{body}\n\n"
+                md += f"### {c.author} ({c.created})\n\n{c.body}\n\n"
         else:
             md += "_No comments_\n"
 

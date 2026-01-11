@@ -4,6 +4,7 @@ import argparse
 
 from zaira.jira_client import get_jira
 from zaira.report import humanize_age
+from zaira.types import MyTicket
 
 
 DEFAULT_JQL = (
@@ -13,7 +14,7 @@ DEFAULT_JQL = (
 )
 
 
-def search_my_tickets(jql: str) -> list[dict]:
+def search_my_tickets(jql: str) -> list[MyTicket]:
     """Search for tickets and return minimal ticket data."""
     jira = get_jira()
     issues = jira.search_issues(jql, maxResults=False)
@@ -29,7 +30,7 @@ def search_my_tickets(jql: str) -> list[dict]:
     return tickets
 
 
-def print_table(tickets: list[dict]) -> None:
+def print_table(tickets: list[MyTicket]) -> None:
     """Print tickets grouped by status."""
     if not tickets:
         print("No open tickets.")
@@ -38,7 +39,7 @@ def print_table(tickets: list[dict]) -> None:
     key_width = max(len(t["key"]) for t in tickets)
 
     # Group tickets by status
-    groups: dict[str, list[dict]] = {}
+    groups: dict[str, list[MyTicket]] = {}
     for t in tickets:
         status = t["status"]
         if status not in groups:

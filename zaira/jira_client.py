@@ -8,6 +8,7 @@ from pathlib import Path
 from jira import JIRA
 
 from zaira.project import load_config
+from zaira.types import Credentials
 
 CONFIG_DIR = Path.home() / ".config" / "zaira"
 CREDENTIALS_FILE = CONFIG_DIR / "credentials.toml"
@@ -31,7 +32,7 @@ def get_server_from_config() -> str | None:
     return None
 
 
-def load_credentials() -> dict:
+def load_credentials() -> Credentials:
     """Load credentials from ~/.config/zaira/credentials.toml."""
     if not CREDENTIALS_FILE.exists():
         return {}

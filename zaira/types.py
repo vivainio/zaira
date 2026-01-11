@@ -1,0 +1,206 @@
+"""Type definitions for zaira."""
+
+from dataclasses import dataclass
+from typing import Any, TypedDict
+
+
+# === Dataclasses (internal structures) ===
+
+
+@dataclass
+class Board:
+    """Jira board information."""
+
+    id: int
+    name: str
+    type: str
+    location: str
+
+
+@dataclass
+class Sprint:
+    """Jira sprint information."""
+
+    id: int
+    name: str
+    state: str
+
+
+@dataclass
+class Comment:
+    """Jira comment."""
+
+    author: str
+    created: str
+    body: str
+
+
+# === TypedDicts (JSON/config structures) ===
+
+
+class ParentIssue(TypedDict):
+    """Parent issue reference."""
+
+    key: str
+    summary: str
+
+
+class IssueLink(TypedDict):
+    """Issue link information."""
+
+    type: str
+    direction: str  # "outward" | "inward"
+    key: str
+    summary: str
+
+
+class Subtask(TypedDict):
+    """Subtask information."""
+
+    key: str
+    summary: str
+    status: str
+
+
+class Ticket(TypedDict, total=False):
+    """Full ticket data from Jira export."""
+
+    # Core fields (always present in basic export)
+    key: str
+    summary: str
+    issuetype: str
+    status: str
+    priority: str
+    assignee: str
+    reporter: str
+    created: str
+    updated: str
+    description: str
+    components: list[str]
+    labels: list[str]
+    parent: ParentIssue | None
+    issuelinks: list[IssueLink]
+
+    # Extended fields (full export only)
+    project: str | None
+    resolution: str | None
+    resolutiondate: str | None
+    statusCategory: str | None
+    fixVersions: list[str]
+    versions: list[str]
+    votes: int
+    watches: int
+    subtasks: list[Subtask]
+    assigneeDisplayName: str | None
+    reporterDisplayName: str | None
+    creator: str
+    creatorDisplayName: str | None
+    duedate: str | None
+
+
+class ReportTicket(TypedDict, total=False):
+    """Ticket data for reports (lighter than full Ticket)."""
+
+    key: str
+    summary: str
+    issuetype: str
+    status: str
+    statusCategory: str | None
+    priority: str
+    assignee: str
+    assigneeDisplayName: str | None
+    reporter: str | None
+    reporterDisplayName: str | None
+    labels: list[str]
+    components: list[str]
+    project: str | None
+    resolution: str | None
+    fixVersions: list[str]
+    duedate: str | None
+    created: str
+    updated: str
+    parent: ParentIssue | None
+
+
+class MyTicket(TypedDict):
+    """Minimal ticket data for 'my' command."""
+
+    key: str
+    status: str
+    created: str
+    summary: str
+
+
+class FrontMatter(TypedDict, total=False):
+    """YAML front matter from reports."""
+
+    title: str
+    generated: str
+    query: str
+    jql: str
+    board: str
+    sprint: str
+    label: str
+    group_by: str
+    refresh: str
+
+
+class Credentials(TypedDict, total=False):
+    """User credentials from config file."""
+
+    email: str
+    api_token: str
+    site: str
+
+
+class ReportDef(TypedDict, total=False):
+    """Report definition from zproject.toml."""
+
+    query: str
+    jql: str
+    board: int
+    sprint: int
+    group_by: str
+    label: str
+    title: str
+    full: bool
+
+
+# === Utility functions ===
+
+
+def get_user_identifier(user: Any) -> str | None:
+    """Safely extract user identifier, handling GDPR-restricted fields.
+
+    Args:
+        user: Jira user object (from jira library)
+
+    Returns:
+        User identifier string or None if user is None/empty
+    """
+    if not user:
+        return None
+    # Try emailAddress first, then displayName, then name
+    for attr in ("emailAddress", "displayName", "name", "accountId"):
+        try:
+            val = getattr(user, attr, None)
+            if val:
+                return val
+        except Exception:
+            continue
+    return "Unknown"
+
+
+def yaml_quote(val: str) -> str:
+    """Quote a string for safe YAML output.
+
+    Args:
+        val: String value to quote
+
+    Returns:
+        Quoted string if special characters present, otherwise unchanged
+    """
+    if any(c in val for c in ":{}[]&*#?|-<>=!%@\\\"'\n"):
+        escaped = val.replace('"', '\\"')
+        return f'"{escaped}"'
+    return val
