@@ -50,8 +50,8 @@ def extract_description(desc: dict | str | list | Any | None) -> str:
     return extract_text(desc).strip()
 
 
-def get_ticket(key: str) -> dict | None:
-    """Fetch ticket details."""
+def get_ticket(key: str, full: bool = False) -> dict | None:
+    """Fetch ticket details. If full=True, include more fields for JSON export."""
     jira = get_jira()
     try:
         issue = jira.issue(key, expand="renderedFields")
@@ -63,7 +63,7 @@ def get_ticket(key: str) -> dict | None:
             # It's an ADF object, convert to dict
             desc = desc.raw if hasattr(desc, "raw") else None
 
-        return {
+        ticket = {
             "key": issue.key,
             "summary": fields.summary or "No summary",
             "issuetype": fields.issuetype.name if fields.issuetype else "Unknown",
@@ -85,6 +85,35 @@ def get_ticket(key: str) -> dict | None:
             if hasattr(fields, "parent") and fields.parent
             else None,
         }
+
+        # Add extra fields for JSON export
+        if full:
+            ticket["project"] = fields.project.key if fields.project else None
+            ticket["resolution"] = fields.resolution.name if fields.resolution else None
+            ticket["resolutiondate"] = fields.resolutiondate if hasattr(fields, "resolutiondate") else None
+            ticket["statusCategory"] = fields.status.statusCategory.name if fields.status and fields.status.statusCategory else None
+            ticket["fixVersions"] = [v.name for v in (fields.fixVersions or [])]
+            ticket["versions"] = [v.name for v in (fields.versions or [])]
+            ticket["votes"] = fields.votes.votes if fields.votes else 0
+            ticket["watches"] = fields.watches.watchCount if fields.watches else 0
+            ticket["issuelinks"] = [
+                {
+                    "type": link.type.name,
+                    "direction": "outward" if hasattr(link, "outwardIssue") else "inward",
+                    "key": (link.outwardIssue.key if hasattr(link, "outwardIssue") else link.inwardIssue.key),
+                }
+                for link in (fields.issuelinks or [])
+            ]
+            ticket["subtasks"] = [
+                {"key": st.key, "summary": st.fields.summary, "status": st.fields.status.name}
+                for st in (fields.subtasks or [])
+            ]
+            ticket["assigneeDisplayName"] = fields.assignee.displayName if fields.assignee else None
+            ticket["reporterDisplayName"] = fields.reporter.displayName if fields.reporter else None
+            ticket["creator"] = fields.creator.emailAddress if fields.creator else None
+            ticket["creatorDisplayName"] = fields.creator.displayName if fields.creator else None
+
+        return ticket
     except Exception as e:
         print(f"  Error fetching {key}: {e}")
         return None
@@ -130,7 +159,7 @@ def export_ticket(key: str, output_dir: Path, fmt: str = "md") -> bool:
     """Export a single ticket to markdown or JSON."""
     print(f"Exporting {key}...")
 
-    ticket = get_ticket(key)
+    ticket = get_ticket(key, full=(fmt == "json"))
     if not ticket:
         print(f"  Error: Could not fetch {key}")
         return False
@@ -241,7 +270,7 @@ url: https://{jira_site}/browse/{key}
 
 def export_to_stdout(key: str, fmt: str = "md") -> bool:
     """Export a single ticket to stdout."""
-    ticket = get_ticket(key)
+    ticket = get_ticket(key, full=(fmt == "json"))
     if not ticket:
         print(f"Error: Could not fetch {key}", file=sys.stderr)
         return False

@@ -332,13 +332,23 @@ def report_command(args: argparse.Namespace) -> None:
         print("\nRun: zaira report <name>")
         sys.exit(0)
 
+    # Default to stdout if no zproject.toml, otherwise files
+    has_project = Path("zproject.toml").exists()
+    if args.output == "-":
+        to_stdout = True
+    elif args.output:
+        to_stdout = False
+    else:
+        to_stdout = not has_project
+
     # Handle named report from project.toml
     if report_name:
         report_def = get_report(report_name)
         if not report_def:
             print(f"Error: Report '{report_name}' not found in project.toml")
             sys.exit(1)
-        print(f"Using report '{report_name}'")
+        if not to_stdout:
+            print(f"Using report '{report_name}'")
         # Apply report settings as defaults (CLI args override)
         if not args.query and "query" in report_def:
             args.query = report_def["query"]
@@ -367,7 +377,8 @@ def report_command(args: argparse.Namespace) -> None:
         if not jql:
             print(f"Error: Query '{args.query}' not found in project.toml")
             sys.exit(1)
-        print(f"Using query '{args.query}'")
+        if not to_stdout:
+            print(f"Using query '{args.query}'")
 
     # Handle board (ID or name)
     if args.board:
@@ -381,10 +392,12 @@ def report_command(args: argparse.Namespace) -> None:
                 print(f"Error: Board '{args.board}' not found in project.toml")
                 sys.exit(1)
         jql = get_board_issues_jql(board_id)
-        print(f"Using board {board_id}")
+        if not to_stdout:
+            print(f"Using board {board_id}")
     elif args.sprint:
         jql = get_sprint_issues_jql(args.sprint)
-        print(f"Using sprint {args.sprint}")
+        if not to_stdout:
+            print(f"Using sprint {args.sprint}")
 
     if not jql:
         print("Error: --query, --jql, --board, or --sprint is required")
@@ -392,13 +405,17 @@ def report_command(args: argparse.Namespace) -> None:
 
     # Add label filter if specified
     label = getattr(args, "label", None)
+
     if label:
         jql = f'{jql} AND labels = "{label}"'
-        print(f"Filtering by label: {label}")
+        if not to_stdout:
+            print(f"Filtering by label: {label}")
 
-    print(f"Searching: {jql}")
+    if not to_stdout:
+        print(f"Searching: {jql}")
     tickets = search_tickets(jql)
-    print(f"Found {len(tickets)} tickets")
+    if not to_stdout:
+        print(f"Found {len(tickets)} tickets")
 
     if not tickets:
         print("No tickets found.")
@@ -446,16 +463,20 @@ def report_command(args: argparse.Namespace) -> None:
         )
         ext = "md"
 
-    if args.output:
-        output_path = Path(args.output)
+    if to_stdout:
+        # Output to stdout
+        print(report)
     else:
-        # Generate filename from title
-        slug = title.lower().replace(" ", "-")
-        output_path = REPORTS_DIR / f"{slug}.{ext}"
+        if args.output:
+            output_path = Path(args.output)
+        else:
+            # Generate filename from title
+            slug = title.lower().replace(" ", "-")
+            output_path = REPORTS_DIR / f"{slug}.{ext}"
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(report)
-    print(f"Saved to {output_path}")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(report)
+        print(f"Saved to {output_path}")
 
     # Full mode: also export tickets
     if getattr(args, "full", False):
