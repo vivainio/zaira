@@ -137,6 +137,23 @@ zaira boards
 zaira boards --project FOO
 ```
 
+### comment
+
+Add a comment to a ticket:
+
+```bash
+zaira comment FOO-1234 "This is my comment"
+
+# Multiline via stdin
+zaira comment FOO-1234 - <<EOF
+Line 1
+Line 2
+EOF
+
+# Pipe from file or command
+cat notes.txt | zaira comment FOO-1234 -
+```
+
 ## Project Configuration
 
 The `zproject.toml` file stores project-specific settings. After running `zaira init`, you're encouraged to edit this file to rename reports, add custom queries, and organize boards to match your workflow:

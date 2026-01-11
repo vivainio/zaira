@@ -5,6 +5,7 @@ import sys
 
 from zaira import __version__
 from zaira.boards import boards_command
+from zaira.comment import comment_command
 from zaira.export import export_command
 from zaira.init import init_command
 from zaira.my import my_command
@@ -194,6 +195,21 @@ def main() -> None:
         help="Show my open tickets",
     )
     my_parser.set_defaults(func=my_command)
+
+    # Comment command
+    comment_parser = subparsers.add_parser(
+        "comment",
+        help="Add a comment to a ticket",
+    )
+    comment_parser.add_argument(
+        "key",
+        help="Ticket key (e.g., AC-1409)",
+    )
+    comment_parser.add_argument(
+        "body",
+        help="Comment text (use '-' to read from stdin)",
+    )
+    comment_parser.set_defaults(func=comment_command)
 
     args = parser.parse_args()
 
