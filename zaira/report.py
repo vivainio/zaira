@@ -85,9 +85,26 @@ def search_tickets(jql: str) -> list[dict]:
                 "summary": fields.summary or "",
                 "issuetype": fields.issuetype.name if fields.issuetype else "?",
                 "status": fields.status.name if fields.status else "?",
+                "statusCategory": fields.status.statusCategory.name
+                if fields.status and fields.status.statusCategory
+                else None,
                 "priority": fields.priority.name if fields.priority else "-",
                 "assignee": fields.assignee.emailAddress if fields.assignee else "-",
+                "assigneeDisplayName": fields.assignee.displayName
+                if fields.assignee
+                else None,
+                "reporter": fields.reporter.emailAddress if fields.reporter else None,
+                "reporterDisplayName": fields.reporter.displayName
+                if fields.reporter
+                else None,
                 "labels": labels,
+                "components": [c.name for c in (fields.components or [])],
+                "project": fields.project.key if fields.project else None,
+                "resolution": fields.resolution.name if fields.resolution else None,
+                "fixVersions": [
+                    v.name for v in (getattr(fields, "fixVersions", None) or [])
+                ],
+                "duedate": getattr(fields, "duedate", None),
                 "created": fields.created or "",
                 "updated": fields.updated or "",
                 "parent": parent,

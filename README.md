@@ -207,6 +207,27 @@ Feature description here...
 Comment text...
 ```
 
+## Python API
+
+For programmatic access (or AI agents needing advanced Jira operations), use `zaira.client()` to get an authenticated Jira client:
+
+```python
+import zaira
+
+jira = zaira.client()
+
+# Use the standard jira library API
+issue = jira.issue("FOO-1234")
+print(issue.fields.summary)
+
+# Search with JQL
+issues = jira.search_issues("project = FOO AND status = 'In Progress'")
+for issue in issues:
+    print(f"{issue.key}: {issue.fields.summary}")
+```
+
+This returns a `jira.JIRA` instance from the [jira](https://jira.readthedocs.io/) library, using credentials from `~/.config/zaira/credentials.toml`.
+
 ## License
 
 MIT
