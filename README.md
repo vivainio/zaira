@@ -23,7 +23,7 @@ pip install zaira
 Run `zaira init` to create the credentials file:
 
 ```bash
-zaira init --project FOO
+zaira init
 ```
 
 This creates `~/.config/zaira/credentials.toml`. Edit it with your Jira details:
@@ -38,7 +38,7 @@ Get your API token from: https://id.atlassian.com/manage-profile/security/api-to
 
 ### 2. Initialize project
 
-Run `zaira init` again after configuring credentials:
+After configuring credentials, initialize your project:
 
 ```bash
 zaira init --project FOO
