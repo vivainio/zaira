@@ -182,51 +182,24 @@ def search_tickets(jql: str) -> list[str]:
         return []
 
 
-def export_ticket(key: str, output_dir: Path, fmt: str = "md") -> bool:
-    """Export a single ticket to markdown or JSON."""
-    print(f"Exporting {key}...")
-
-    ticket = get_ticket(key, full=(fmt == "json"))
-    if not ticket:
-        print(f"  Error: Could not fetch {key}")
-        return False
-
-    comments = get_comments(key)
-    synced = datetime.now().isoformat(timespec="seconds")
-    jira_site = get_jira_site()
-
-    # Extract fields
+def format_ticket_markdown(
+    ticket: dict, comments: list[Comment], synced: str, jira_site: str
+) -> str:
+    """Format ticket data as markdown."""
+    key = ticket.get("key", "")
     summary = ticket.get("summary", "No summary")
+    issue_type = ticket.get("issuetype", "Unknown")
+    status = ticket.get("status", "Unknown")
+    priority = ticket.get("priority", "None")
+    assignee = ticket.get("assignee", "Unassigned")
+    reporter = ticket.get("reporter", "Unknown")
+    description = ticket.get("description", "No description") or "No description"
+    components = ", ".join(ticket.get("components", [])) or "None"
+    labels = ", ".join(ticket.get("labels", [])) or "None"
     parent_data = ticket.get("parent")
+    parent = parent_data["key"] if parent_data else "None"
 
-    ext = "json" if fmt == "json" else "md"
-    filename = f"{key}-{normalize_title(summary)}.{ext}"
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-    outfile = output_dir / filename
-
-    if fmt == "json":
-        # JSON output
-        data = {
-            **ticket,
-            "comments": [asdict(c) for c in comments],
-            "synced": synced,
-            "url": f"https://{jira_site}/browse/{key}",
-        }
-        outfile.write_text(json.dumps(data, indent=2))
-    else:
-        # Markdown output
-        issue_type = ticket.get("issuetype", "Unknown")
-        status = ticket.get("status", "Unknown")
-        priority = ticket.get("priority", "None")
-        assignee = ticket.get("assignee", "Unassigned")
-        reporter = ticket.get("reporter", "Unknown")
-        description = ticket.get("description", "No description") or "No description"
-        components = ", ".join(ticket.get("components", [])) or "None"
-        labels = ", ".join(ticket.get("labels", [])) or "None"
-        parent = parent_data["key"] if parent_data else "None"
-
-        md = f"""---
+    md = f"""---
 key: {key}
 summary: {yaml_quote(summary)}
 type: {yaml_quote(issue_type)}
@@ -250,29 +223,71 @@ url: https://{jira_site}/browse/{key}
 ## Links
 
 """
-        issuelinks = ticket.get("issuelinks", [])
-        if issuelinks:
-            for link in issuelinks:
-                link_type = link.get("type", "Related")
-                direction = link.get("direction", "outward")
-                link_key = link.get("key", "")
-                link_summary = link.get("summary", "")
-                dir_label = "" if direction == "outward" else " (inward)"
-                md += f"- {link_type}{dir_label}: {link_key} - {link_summary}\n"
-        else:
-            md += "_No links_\n"
+    issuelinks = ticket.get("issuelinks", [])
+    if issuelinks:
+        for link in issuelinks:
+            link_type = link.get("type", "Related")
+            direction = link.get("direction", "outward")
+            link_key = link.get("key", "")
+            link_summary = link.get("summary", "")
+            dir_label = "" if direction == "outward" else " (inward)"
+            md += f"- {link_type}{dir_label}: {link_key} - {link_summary}\n"
+    else:
+        md += "_No links_\n"
 
-        md += """
+    md += """
 ## Comments
 
 """
-        if comments:
-            for c in comments:
-                md += f"### {c.author} ({c.created})\n\n{c.body}\n\n"
-        else:
-            md += "_No comments_\n"
+    if comments:
+        for c in comments:
+            md += f"### {c.author} ({c.created})\n\n{c.body}\n\n"
+    else:
+        md += "_No comments_\n"
 
-        outfile.write_text(md)
+    return md
+
+
+def format_ticket_json(
+    ticket: dict, comments: list[Comment], synced: str, jira_site: str
+) -> str:
+    """Format ticket data as JSON."""
+    key = ticket.get("key", "")
+    data = {
+        **ticket,
+        "comments": [asdict(c) for c in comments],
+        "synced": synced,
+        "url": f"https://{jira_site}/browse/{key}",
+    }
+    return json.dumps(data, indent=2)
+
+
+def export_ticket(key: str, output_dir: Path, fmt: str = "md") -> bool:
+    """Export a single ticket to markdown or JSON."""
+    print(f"Exporting {key}...")
+
+    ticket = get_ticket(key, full=(fmt == "json"))
+    if not ticket:
+        print(f"  Error: Could not fetch {key}")
+        return False
+
+    comments = get_comments(key)
+    synced = datetime.now().isoformat(timespec="seconds")
+    jira_site = get_jira_site()
+
+    summary = ticket.get("summary", "No summary")
+    parent_data = ticket.get("parent")
+
+    ext = "json" if fmt == "json" else "md"
+    filename = f"{key}-{normalize_title(summary)}.{ext}"
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    outfile = output_dir / filename
+
+    if fmt == "json":
+        outfile.write_text(format_ticket_json(ticket, comments, synced, jira_site))
+    else:
+        outfile.write_text(format_ticket_markdown(ticket, comments, synced, jira_site))
 
     print(f"  Saved to {outfile}")
 
@@ -313,74 +328,9 @@ def export_to_stdout(key: str, fmt: str = "md") -> bool:
     jira_site = get_jira_site()
 
     if fmt == "json":
-        data = {
-            **ticket,
-            "comments": [asdict(c) for c in comments],
-            "synced": synced,
-            "url": f"https://{jira_site}/browse/{key}",
-        }
-        print(json.dumps(data, indent=2))
+        print(format_ticket_json(ticket, comments, synced, jira_site))
     else:
-        # Markdown output
-        summary = ticket.get("summary", "No summary")
-        issue_type = ticket.get("issuetype", "Unknown")
-        status = ticket.get("status", "Unknown")
-        priority = ticket.get("priority", "None")
-        assignee = ticket.get("assignee", "Unassigned")
-        reporter = ticket.get("reporter", "Unknown")
-        description = ticket.get("description", "No description") or "No description"
-        components = ", ".join(ticket.get("components", [])) or "None"
-        labels = ", ".join(ticket.get("labels", [])) or "None"
-        parent_data = ticket.get("parent")
-        parent = parent_data["key"] if parent_data else "None"
-
-        md = f"""---
-key: {key}
-summary: {yaml_quote(summary)}
-type: {yaml_quote(issue_type)}
-status: {yaml_quote(status)}
-priority: {yaml_quote(priority)}
-assignee: {yaml_quote(assignee)}
-reporter: {yaml_quote(reporter)}
-components: {yaml_quote(components)}
-labels: {yaml_quote(labels)}
-parent: {parent}
-synced: {synced}
-url: https://{jira_site}/browse/{key}
----
-
-# {key}: {summary}
-
-## Description
-
-{description}
-
-## Links
-
-"""
-        issuelinks = ticket.get("issuelinks", [])
-        if issuelinks:
-            for link in issuelinks:
-                link_type = link.get("type", "Related")
-                direction = link.get("direction", "outward")
-                link_key = link.get("key", "")
-                link_summary = link.get("summary", "")
-                dir_label = "" if direction == "outward" else " (inward)"
-                md += f"- {link_type}{dir_label}: {link_key} - {link_summary}\n"
-        else:
-            md += "_No links_\n"
-
-        md += """
-## Comments
-
-"""
-        if comments:
-            for c in comments:
-                md += f"### {c.author} ({c.created})\n\n{c.body}\n\n"
-        else:
-            md += "_No comments_\n"
-
-        print(md)
+        print(format_ticket_markdown(ticket, comments, synced, jira_site))
 
     return True
 
