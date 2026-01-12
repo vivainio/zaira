@@ -10,12 +10,15 @@ from zaira.dashboard import dashboard_command, dashboards_command
 from zaira.edit import edit_command
 from zaira.export import export_command
 from zaira.link import link_command
+from zaira.transition import transition_command
+from zaira.wiki import wiki_command, get_command as wiki_get_command
 from zaira.info import (
     info_command,
     link_types_command,
     statuses_command,
     priorities_command,
     issue_types_command,
+    fields_command,
 )
 from zaira.init import init_command
 from zaira.my import my_command
@@ -72,6 +75,11 @@ def main() -> None:
         default="md",
         help="Output format (default: md)",
     )
+    export_parser.add_argument(
+        "--with-prs",
+        action="store_true",
+        help="Include linked GitHub pull requests (extra API call per ticket)",
+    )
     export_parser.set_defaults(func=export_command)
 
     # Report command
@@ -101,6 +109,10 @@ def main() -> None:
         "--sprint",
         type=int,
         help="Generate report from sprint ID",
+    )
+    report_parser.add_argument(
+        "--dashboard",
+        help="Generate reports from dashboard ID (runs all JQL queries from gadgets)",
     )
     report_parser.add_argument(
         "-o",
@@ -310,10 +322,38 @@ def main() -> None:
     )
     link_parser.set_defaults(func=link_command)
 
+    # Transition command
+    transition_parser = subparsers.add_parser(
+        "transition",
+        help="Transition a ticket to a new status",
+    )
+    transition_parser.add_argument(
+        "key",
+        help="Ticket key (e.g., PROJ-123)",
+    )
+    transition_parser.add_argument(
+        "status",
+        nargs="?",
+        help="Target status (e.g., 'In Progress', 'Done')",
+    )
+    transition_parser.add_argument(
+        "-l",
+        "--list",
+        action="store_true",
+        help="List available transitions",
+    )
+    transition_parser.set_defaults(func=transition_command)
+
     # Info command with subcommands
     info_parser = subparsers.add_parser(
         "info",
         help="Query Jira instance metadata",
+    )
+    info_parser.add_argument(
+        "-s",
+        "--save",
+        action="store_true",
+        help="Save all metadata to zschema.json",
     )
     info_parser.set_defaults(func=info_command)
     info_subparsers = info_parser.add_subparsers(dest="info_command")
@@ -329,6 +369,44 @@ def main() -> None:
 
     info_issue_types = info_subparsers.add_parser("issue-types", help="List issue types")
     info_issue_types.set_defaults(info_func=issue_types_command)
+
+    info_fields = info_subparsers.add_parser("fields", help="List custom fields")
+    info_fields.add_argument(
+        "-f",
+        "--filter",
+        help="Filter fields by name or ID",
+    )
+    info_fields.add_argument(
+        "-a",
+        "--all",
+        action="store_true",
+        help="Show all fields, not just custom fields",
+    )
+    info_fields.set_defaults(info_func=fields_command)
+
+    # Wiki (Confluence) command with subcommands
+    wiki_parser = subparsers.add_parser(
+        "wiki",
+        help="Confluence wiki commands",
+    )
+    wiki_parser.set_defaults(func=wiki_command)
+    wiki_subparsers = wiki_parser.add_subparsers(dest="wiki_command")
+
+    wiki_get = wiki_subparsers.add_parser(
+        "get",
+        help="Get a Confluence page by ID or URL",
+    )
+    wiki_get.add_argument(
+        "page",
+        help="Page ID or Confluence URL",
+    )
+    wiki_get.add_argument(
+        "--format",
+        choices=["md", "html", "json"],
+        default="md",
+        help="Output format (default: md)",
+    )
+    wiki_get.set_defaults(wiki_func=wiki_get_command)
 
     args = parser.parse_args()
 
