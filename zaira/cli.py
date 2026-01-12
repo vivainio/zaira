@@ -44,7 +44,7 @@ def main() -> None:
     export_parser.add_argument(
         "tickets",
         nargs="*",
-        help="Ticket keys (e.g., AC-1409)",
+        help="Ticket keys (e.g., PROJ-123)",
     )
     export_parser.add_argument(
         "--jql",
@@ -149,7 +149,7 @@ def main() -> None:
     boards_parser.add_argument(
         "-p",
         "--project",
-        help="Filter boards by project key (e.g., AC)",
+        help="Filter boards by project key (e.g., PROJ)",
     )
     boards_parser.set_defaults(func=boards_command)
 
@@ -160,7 +160,7 @@ def main() -> None:
     )
     refresh_parser.add_argument(
         "report",
-        help="Report file path or name (e.g., documenthub-new.md)",
+        help="Report file path or name (e.g., my-report.md)",
     )
     refresh_parser.add_argument(
         "-f",
@@ -183,7 +183,7 @@ def main() -> None:
     init_parser.add_argument(
         "-p",
         "--project",
-        help="Project key (e.g., AC)",
+        help="Project key (e.g., PROJ)",
     )
     init_parser.add_argument(
         "-s",
@@ -212,7 +212,7 @@ def main() -> None:
     )
     comment_parser.add_argument(
         "key",
-        help="Ticket key (e.g., AC-1409)",
+        help="Ticket key (e.g., PROJ-123)",
     )
     comment_parser.add_argument(
         "body",
@@ -227,7 +227,7 @@ def main() -> None:
     )
     edit_parser.add_argument(
         "key",
-        help="Ticket key (e.g., AC-1409)",
+        help="Ticket key (e.g., PROJ-123)",
     )
     edit_parser.add_argument(
         "-t",
@@ -248,11 +248,11 @@ def main() -> None:
     )
     link_parser.add_argument(
         "from_key",
-        help="Source ticket key (e.g., AC-1409)",
+        help="Source ticket key (e.g., PROJ-123)",
     )
     link_parser.add_argument(
         "to_key",
-        help="Target ticket key (e.g., AC-1410)",
+        help="Target ticket key (e.g., PROJ-456)",
     )
     link_parser.add_argument(
         "-t",

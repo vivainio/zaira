@@ -17,7 +17,7 @@ def edit_ticket(key: str, title: str | None = None, description: str | None = No
     """Edit a Jira ticket's title and/or description.
 
     Args:
-        key: Ticket key (e.g., AC-1409)
+        key: Ticket key (e.g., PROJ-123)
         title: New title/summary (optional)
         description: New description text (optional)
 

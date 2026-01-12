@@ -10,8 +10,8 @@ def create_link(from_key: str, to_key: str, link_type: str) -> bool:
     """Create a link between two Jira tickets.
 
     Args:
-        from_key: Source ticket key (e.g., AC-1409)
-        to_key: Target ticket key (e.g., AC-1410)
+        from_key: Source ticket key (e.g., PROJ-123)
+        to_key: Target ticket key (e.g., PROJ-456)
         link_type: Link type name (e.g., "Blocks", "Relates")
 
     Returns:

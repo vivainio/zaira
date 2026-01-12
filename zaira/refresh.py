@@ -39,7 +39,7 @@ def parse_front_matter(content: str) -> FrontMatter:
 
 def extract_ticket_keys(report_content: str) -> list[str]:
     """Extract ticket keys from report markdown."""
-    # Match ticket links like [AC-1234](https://...)
+    # Match ticket links like [PROJ-123](https://...)
     pattern = r"\[([A-Z]+-\d+)\]\(https://"
     return list(set(re.findall(pattern, report_content)))
 

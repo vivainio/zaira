@@ -17,7 +17,7 @@ def add_comment(key: str, body: str) -> bool:
     """Add a comment to a Jira ticket.
 
     Args:
-        key: Ticket key (e.g., AC-1409)
+        key: Ticket key (e.g., PROJ-123)
         body: Comment text
 
     Returns:
