@@ -25,9 +25,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/vduseern/zaira"
-Repository = "https://github.com/vduseern/zaira"
-Issues = "https://github.com/vduseern/zaira/issues"
+Homepage = "https://github.com/vivainio/zaira"
+Repository = "https://github.com/vivainio/zaira"
+Issues = "https://github.com/vivainio/zaira/issues"
 
 [project.scripts]
 zaira = "zaira.cli:main"
