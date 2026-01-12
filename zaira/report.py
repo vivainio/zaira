@@ -11,6 +11,7 @@ from pathlib import Path
 from zaira.config import REPORTS_DIR
 from zaira.jira_client import get_jira
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
+from zaira.dashboard import get_dashboard, get_dashboard_gadgets
 from zaira.types import ReportTicket, get_user_identifier
 
 
@@ -345,13 +346,136 @@ def generate_csv_report(tickets: list[ReportTicket]) -> str:
     return output.getvalue()
 
 
+def generate_dashboard_report(
+    dashboard_id: int,
+    group_by: str | None = None,
+    to_stdout: bool = False,
+) -> tuple[str, int]:
+    """Generate a combined report from all JQL queries in a dashboard.
+
+    Args:
+        dashboard_id: The dashboard ID
+        group_by: Optional field to group tickets by within each section
+        to_stdout: Whether output is going to stdout (suppresses progress)
+
+    Returns:
+        Tuple of (markdown report, total ticket count)
+    """
+    dashboard = get_dashboard(dashboard_id)
+    if not dashboard:
+        return "", 0
+
+    if not to_stdout:
+        print(f"Fetching gadgets from dashboard: {dashboard.name}")
+
+    gadgets = get_dashboard_gadgets(dashboard_id, resolve_jql=True)
+    jql_gadgets = [g for g in gadgets if g.jql]
+
+    if not jql_gadgets:
+        return f"# {dashboard.name}\n\n_No gadgets with JQL queries found._\n", 0
+
+    if not to_stdout:
+        print(f"Found {len(jql_gadgets)} gadgets with JQL queries")
+
+    # Build front matter
+    lines = ["---"]
+    lines.append(f"title: {dashboard.name}")
+    lines.append(f"dashboard_id: {dashboard_id}")
+    lines.append(f"generated: {datetime.now().isoformat(timespec='seconds')}")
+    lines.append(f"refresh: zaira report --dashboard {dashboard_id}")
+    lines.append("---")
+    lines.append("")
+
+    # Header
+    lines.append(f"# {dashboard.name}")
+    lines.append("")
+    if dashboard.description:
+        lines.append(f"_{dashboard.description}_")
+        lines.append("")
+    lines.append(f"**Dashboard URL:** {dashboard.view_url}")
+    lines.append("")
+
+    total_tickets = 0
+
+    # Run each gadget's JQL and generate a section
+    for gadget in sorted(jql_gadgets, key=lambda x: x.position):
+        title = gadget.filter_name or gadget.title or f"Query {gadget.id}"
+        if not to_stdout:
+            print(f"  Running: {title}")
+
+        tickets = search_tickets(gadget.jql)
+        total_tickets += len(tickets)
+
+        if not to_stdout:
+            print(f"    Found {len(tickets)} tickets")
+
+        lines.append(f"## {title}")
+        lines.append("")
+        lines.append(f"**JQL:** `{gadget.jql}`")
+        lines.append("")
+        lines.append(f"**Results:** {len(tickets)} tickets")
+        lines.append("")
+
+        if tickets:
+            if group_by:
+                # Group tickets
+                if group_by == "labels":
+                    groups = {}
+                    for t in tickets:
+                        ticket_labels = t.get("labels", [])
+                        if not ticket_labels:
+                            ticket_labels = ["(no label)"]
+                        for lbl in ticket_labels:
+                            if lbl not in groups:
+                                groups[lbl] = []
+                            groups[lbl].append(t)
+                elif group_by == "parent":
+                    groups = {}
+                    for t in tickets:
+                        parent = t.get("parent")
+                        if parent:
+                            group_key = f"{parent['key']}: {parent['summary']}"
+                        else:
+                            group_key = "(no parent)"
+                        if group_key not in groups:
+                            groups[group_key] = []
+                        groups[group_key].append(t)
+                else:
+                    groups = {}
+                    for t in tickets:
+                        key = t.get(group_by, "Unknown")
+                        if key not in groups:
+                            groups[key] = []
+                        groups[key].append(t)
+
+                for group_name, group_tickets in sorted(groups.items()):
+                    lines.append(f"### {group_name} ({len(group_tickets)})")
+                    lines.append("")
+                    lines.append(generate_table(group_tickets, group_by=group_by))
+            else:
+                lines.append(generate_table(tickets))
+        else:
+            lines.append("_No tickets found._")
+
+        lines.append("")
+
+    # Summary
+    lines.append("---")
+    lines.append("")
+    lines.append(f"**Total across all queries:** {total_tickets} tickets")
+    lines.append("")
+
+    return "\n".join(lines), total_tickets
+
+
 def report_command(args: argparse.Namespace) -> None:
     """Handle report subcommand."""
     from zaira.project import get_query, get_board, get_report, list_reports
 
     # Check if no arguments provided - list available reports
     report_name = getattr(args, "name", None)
-    has_args = report_name or args.query or args.jql or args.board or args.sprint
+    dashboard_arg = getattr(args, "dashboard", None)
+    has_args = report_name or args.query or args.jql or args.board or args.sprint or dashboard_arg
 
     if not has_args:
         reports = list_reports()
@@ -364,6 +488,8 @@ def report_command(args: argparse.Namespace) -> None:
         for name, config in reports.items():
             # Build description from config
             desc_parts = []
+            if "dashboard" in config:
+                desc_parts.append(f"dashboard={config['dashboard']}")
             if "query" in config:
                 desc_parts.append(f"query={config['query']}")
             if "jql" in config:
@@ -401,6 +527,8 @@ def report_command(args: argparse.Namespace) -> None:
         if not to_stdout:
             print(f"Using report '{report_name}'")
         # Apply report settings as defaults (CLI args override)
+        if not dashboard_arg and "dashboard" in report_def:
+            dashboard_arg = report_def["dashboard"]
         if not args.query and "query" in report_def:
             args.query = report_def["query"]
         if not args.jql and "jql" in report_def:
@@ -417,6 +545,41 @@ def report_command(args: argparse.Namespace) -> None:
             args.title = report_def["title"]
         if "full" in report_def:
             args.full = report_def["full"]
+
+    # Handle dashboard report (special case - runs multiple queries)
+    if dashboard_arg:
+        # Extract ID from URL if needed
+        if "/" in str(dashboard_arg):
+            parts = str(dashboard_arg).rstrip("/").split("/")
+            dashboard_id = int(parts[-1])
+        else:
+            dashboard_id = int(dashboard_arg)
+
+        report, total = generate_dashboard_report(
+            dashboard_id,
+            group_by=args.group_by,
+            to_stdout=to_stdout,
+        )
+
+        if not report:
+            print(f"Dashboard {dashboard_id} not found.")
+            sys.exit(1)
+
+        if to_stdout:
+            print(report)
+        else:
+            if args.output:
+                output_path = Path(args.output)
+            else:
+                # Use report name for filename if available
+                filename = f"{report_name}.md" if report_name else f"dashboard-{dashboard_id}.md"
+                output_path = REPORTS_DIR / filename
+
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(report)
+            print(f"Saved to {output_path}")
+
+        sys.exit(0)
 
     # Build JQL from options
     jql = args.jql
