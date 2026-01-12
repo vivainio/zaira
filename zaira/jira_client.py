@@ -1,18 +1,17 @@
 """Jira client wrapper using the jira library."""
 
-import os
 import sys
 import tomllib
 from functools import lru_cache
 from pathlib import Path
 
 from jira import JIRA
+from platformdirs import user_config_dir
 
 from zaira.project import load_config
 from zaira.types import Credentials
 
-_xdg_config = os.environ.get("XDG_CONFIG_HOME")
-CONFIG_DIR = Path(_xdg_config) / "zaira" if _xdg_config else Path.home() / ".config" / "zaira"
+CONFIG_DIR = Path(user_config_dir("zaira"))
 CREDENTIALS_FILE = CONFIG_DIR / "credentials.toml"
 
 
