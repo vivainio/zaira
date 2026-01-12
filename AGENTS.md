@@ -90,3 +90,16 @@ gh release create v0.3.0 --generate-notes
 - `zaira/jira_client.py` - Jira API client
 - `zaira/export.py` - Ticket export functionality
 - `zaira/config.py` - Configuration handling
+- `zaira/dashboard.py` - Dashboard operations
+
+## Dependencies
+
+### Regenerating uv.lock for Public Distribution
+
+The development environment may have a private PyPI index configured in `~/.config/uv/uv.toml` or `~/.config/pip/pip.conf`. To regenerate `uv.lock` using public PyPI:
+
+```bash
+UV_DEFAULT_INDEX=https://pypi.org/simple uv lock
+```
+
+This ensures the lock file references `pypi.org` instead of any private registries.

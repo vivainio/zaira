@@ -6,6 +6,7 @@ import sys
 from zaira import __version__
 from zaira.boards import boards_command
 from zaira.comment import comment_command
+from zaira.dashboard import dashboard_command, dashboards_command
 from zaira.edit import edit_command
 from zaira.export import export_command
 from zaira.link import link_command
@@ -152,6 +153,53 @@ def main() -> None:
         help="Filter boards by project key (e.g., PROJ)",
     )
     boards_parser.set_defaults(func=boards_command)
+
+    # Dashboards command
+    dashboards_parser = subparsers.add_parser(
+        "dashboards",
+        help="List Jira dashboards",
+    )
+    dashboards_parser.add_argument(
+        "-f",
+        "--filter",
+        help="Filter dashboards by name",
+    )
+    dashboards_parser.add_argument(
+        "-m",
+        "--mine",
+        action="store_true",
+        help="Show only my dashboards",
+    )
+    dashboards_parser.add_argument(
+        "-l",
+        "--limit",
+        type=int,
+        default=50,
+        help="Maximum number of dashboards to return (default: 50)",
+    )
+    dashboards_parser.set_defaults(func=dashboards_command)
+
+    # Dashboard command (single dashboard)
+    dashboard_parser = subparsers.add_parser(
+        "dashboard",
+        help="Show or export a specific dashboard",
+    )
+    dashboard_parser.add_argument(
+        "id",
+        help="Dashboard ID or URL (e.g., 16148 or https://company.atlassian.net/jira/dashboards/16148)",
+    )
+    dashboard_parser.add_argument(
+        "-o",
+        "--output",
+        help="Output file path (default: stdout)",
+    )
+    dashboard_parser.add_argument(
+        "--format",
+        choices=["md", "json"],
+        default="md",
+        help="Output format (default: md)",
+    )
+    dashboard_parser.set_defaults(func=dashboard_command)
 
     # Refresh command
     refresh_parser = subparsers.add_parser(

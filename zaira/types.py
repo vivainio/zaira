@@ -35,6 +35,31 @@ class Comment:
     body: str
 
 
+@dataclass
+class Dashboard:
+    """Jira dashboard information."""
+
+    id: int
+    name: str
+    description: str
+    owner: str
+    view_url: str
+    is_favourite: bool
+
+
+@dataclass
+class DashboardGadget:
+    """Jira dashboard gadget/item."""
+
+    id: str
+    title: str
+    gadget_type: str
+    position: tuple[int, int]  # (row, column)
+    filter_id: str | None = None
+    filter_name: str | None = None
+    jql: str | None = None
+
+
 # === TypedDicts (JSON/config structures) ===
 
 
