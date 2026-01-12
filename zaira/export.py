@@ -66,6 +66,7 @@ def get_ticket(key: str, full: bool = False) -> Ticket | None:
             desc = desc.raw if hasattr(desc, "raw") else None
 
         ticket = {
+            "id": issue.id,
             "key": issue.key,
             "summary": fields.summary or "No summary",
             "issuetype": fields.issuetype.name if fields.issuetype else "Unknown",
@@ -171,6 +172,32 @@ def get_comments(key: str) -> list[Comment]:
         return []
 
 
+def get_pull_requests(issue_id: str) -> list[dict]:
+    """Fetch GitHub PRs linked to a Jira issue via dev-status API."""
+    jira = get_jira()
+    try:
+        resp = jira._session.get(
+            f'{jira._options["server"]}/rest/dev-status/1.0/issue/detail',
+            params={
+                "issueId": issue_id,
+                "applicationType": "GitHub",
+                "dataType": "pullrequest",
+            },
+        )
+        data = resp.json()
+        prs = []
+        for detail in data.get("detail", []):
+            for pr in detail.get("pullRequests", []):
+                prs.append({
+                    "name": pr.get("name"),
+                    "url": pr.get("url"),
+                    "status": pr.get("status"),
+                })
+        return prs
+    except Exception:
+        return []
+
+
 def search_tickets(jql: str) -> list[str]:
     """Search for tickets and return list of keys."""
     jira = get_jira()
@@ -235,6 +262,18 @@ url: https://{jira_site}/browse/{key}
     else:
         md += "_No links_\n"
 
+    pull_requests = ticket.get("pullRequests", [])
+    if pull_requests:
+        md += """
+## Pull Requests
+
+"""
+        for pr in pull_requests:
+            name = pr.get("name", "")
+            url = pr.get("url", "")
+            status = pr.get("status", "")
+            md += f"- [{name}]({url}) ({status})\n"
+
     md += """
 ## Comments
 
@@ -262,7 +301,9 @@ def format_ticket_json(
     return json.dumps(data, indent=2)
 
 
-def export_ticket(key: str, output_dir: Path, fmt: str = "md") -> bool:
+def export_ticket(
+    key: str, output_dir: Path, fmt: str = "md", with_prs: bool = False
+) -> bool:
     """Export a single ticket to markdown or JSON."""
     print(f"Exporting {key}...")
 
@@ -270,6 +311,9 @@ def export_ticket(key: str, output_dir: Path, fmt: str = "md") -> bool:
     if not ticket:
         print(f"  Error: Could not fetch {key}")
         return False
+
+    if with_prs:
+        ticket["pullRequests"] = get_pull_requests(ticket["id"])
 
     comments = get_comments(key)
     synced = datetime.now().isoformat(timespec="seconds")
@@ -316,12 +360,15 @@ def export_ticket(key: str, output_dir: Path, fmt: str = "md") -> bool:
     return True
 
 
-def export_to_stdout(key: str, fmt: str = "md") -> bool:
+def export_to_stdout(key: str, fmt: str = "md", with_prs: bool = False) -> bool:
     """Export a single ticket to stdout."""
     ticket = get_ticket(key, full=(fmt == "json"))
     if not ticket:
         print(f"Error: Could not fetch {key}", file=sys.stderr)
         return False
+
+    if with_prs:
+        ticket["pullRequests"] = get_pull_requests(ticket["id"])
 
     comments = get_comments(key)
     synced = datetime.now().isoformat(timespec="seconds")
@@ -373,13 +420,15 @@ def export_command(args: argparse.Namespace) -> None:
         print("No tickets specified. Use ticket keys, --jql, --board, or --sprint.")
         sys.exit(1)
 
+    with_prs = getattr(args, "with_prs", False)
+
     if to_stdout:
         for key in tickets:
-            export_to_stdout(key, fmt=fmt)
+            export_to_stdout(key, fmt=fmt, with_prs=with_prs)
     else:
         output_dir = Path(args.output) if args.output else TICKETS_DIR
         success = 0
         for key in tickets:
-            if export_ticket(key, output_dir, fmt=fmt):
+            if export_ticket(key, output_dir, fmt=fmt, with_prs=with_prs):
                 success += 1
         print(f"\nExported {success}/{len(tickets)} tickets to {output_dir}/")

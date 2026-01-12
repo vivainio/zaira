@@ -67,6 +67,9 @@ zaira export FOO-1234 -o -
 
 # Export as JSON
 zaira export FOO-1234 --format json
+
+# Include linked pull requests (GitHub only)
+zaira export FOO-1234 --with-prs
 ```
 
 ### my

@@ -10,6 +10,7 @@ from zaira.jira_client import (
     CREDENTIALS_FILE,
     load_credentials,
 )
+from zaira.info import fetch_and_save_schema
 
 
 def discover_components(project: str) -> list[str]:
@@ -57,60 +58,14 @@ def discover_boards(project: str) -> list[dict]:
         return []
 
 
-def discover_issue_types(project: str) -> list[str]:
-    """Discover issue types used in a project."""
-    jira = get_jira()
-    try:
-        issues = jira.search_issues(
-            f"project = {project}",
-            maxResults=100,
-        )
-        types = set()
-        for issue in issues:
-            if issue.fields.issuetype and issue.fields.issuetype.name:
-                types.add(issue.fields.issuetype.name)
-        return sorted(types)
-    except Exception:
-        return []
-
-
 def generate_config(
     project: str,
     site: str,
-    components: list[str],
-    labels: list[str],
     boards: list[dict],
-    issue_types: list[str],
+    components: list[str],
 ) -> str:
     """Generate zproject.toml content."""
     lines = ["[project]", f'site = "{site}"', ""]
-
-    # Components
-    lines.append("[components]")
-    if components:
-        comp_list = ", ".join(f'"{c}"' for c in components)
-        lines.append(f"available = [{comp_list}]")
-    else:
-        lines.append("# available = []")
-    lines.append("")
-
-    # Labels
-    lines.append("[labels]")
-    if labels:
-        label_list = ", ".join(f'"{label}"' for label in labels)
-        lines.append(f"available = [{label_list}]")
-    else:
-        lines.append("# available = []")
-    lines.append("")
-
-    # Issue types
-    lines.append("[issue_types]")
-    if issue_types:
-        types_list = ", ".join(f'"{t}"' for t in issue_types)
-        lines.append(f"available = [{types_list}]")
-    else:
-        lines.append('# available = ["Story", "Bug", "Task"]')
-    lines.append("")
 
     # Boards
     lines.append("[boards]")
@@ -238,10 +193,14 @@ def init_command(args: argparse.Namespace) -> None:
     boards = discover_boards(project)
     print(f"    Found {len(boards)} boards")
 
-    print("  Finding issue types...")
-    issue_types = discover_issue_types(project)
-    print(f"    Found {len(issue_types)} issue types")
-
-    content = generate_config(project, site, components, labels, boards, issue_types)
+    content = generate_config(project, site, boards, components)
     config_path.write_text(content)
-    print(f"\nCreated {config_path}")
+    print(f"\nCreated {config_path}\n")
+
+    # Save schema metadata (includes components and labels)
+    fetch_and_save_schema(
+        project_root=Path.cwd(),
+        project=project,
+        components=components,
+        labels=labels,
+    )
