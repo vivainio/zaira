@@ -64,6 +64,25 @@ ruff format .
 ruff check .
 ```
 
+## Releases
+
+To publish a new release:
+
+1. Create a GitHub release using `gh release create`
+2. GitHub Actions will automatically update the version in `pyproject.toml` and publish to PyPI
+
+Do NOT manually edit the version in `pyproject.toml` - it is managed by GitHub Actions.
+
+```bash
+gh release create v0.3.0 --title "v0.3.0" --notes "Release notes here"
+```
+
+Or use `--generate-notes` to auto-generate from commits:
+
+```bash
+gh release create v0.3.0 --generate-notes
+```
+
 ## Project Structure
 
 - `zaira/` - Main package
