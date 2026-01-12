@@ -1,12 +1,33 @@
 [project]
 name = "zaira"
 version = "0.1.0"
-description = "Jira CLI tool for offline ticket management"
+description = "CLI tool for offline Jira ticket management. Export tickets to markdown, generate reports, and keep everything in sync."
+readme = "README.md"
+license = "MIT"
 requires-python = ">=3.11"
+keywords = ["jira", "cli", "tickets", "export", "markdown", "reports", "atlassian"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development",
+    "Topic :: Utilities",
+]
 dependencies = [
     "jira>=3.5.0",
     "platformdirs>=4.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/vduseern/zaira"
+Repository = "https://github.com/vduseern/zaira"
+Issues = "https://github.com/vduseern/zaira/issues"
 
 [project.scripts]
 zaira = "zaira.cli:main"
