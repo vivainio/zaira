@@ -1,5 +1,6 @@
 """Jira client wrapper using the jira library."""
 
+import os
 import sys
 import tomllib
 from functools import lru_cache
@@ -10,7 +11,8 @@ from jira import JIRA
 from zaira.project import load_config
 from zaira.types import Credentials
 
-CONFIG_DIR = Path.home() / ".config" / "zaira"
+_xdg_config = os.environ.get("XDG_CONFIG_HOME")
+CONFIG_DIR = Path(_xdg_config) / "zaira" if _xdg_config else Path.home() / ".config" / "zaira"
 CREDENTIALS_FILE = CONFIG_DIR / "credentials.toml"
 
 
@@ -33,7 +35,7 @@ def get_server_from_config() -> str | None:
 
 
 def load_credentials() -> Credentials:
-    """Load credentials from ~/.config/zaira/credentials.toml."""
+    """Load credentials from $XDG_CONFIG_HOME/zaira/credentials.toml."""
     if not CREDENTIALS_FILE.exists():
         return {}
 
@@ -42,7 +44,7 @@ def load_credentials() -> Credentials:
 
 
 def save_credentials(email: str, api_token: str) -> None:
-    """Save credentials to ~/.config/zaira/credentials.toml."""
+    """Save credentials to $XDG_CONFIG_HOME/zaira/credentials.toml."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
     content = f'email = "{email}"\napi_token = "{api_token}"\n'
@@ -55,7 +57,7 @@ def save_credentials(email: str, api_token: str) -> None:
 def get_credentials() -> tuple[str, str, str]:
     """Get Jira credentials from config files.
 
-    Server comes from zproject.toml, credentials from ~/.config/zaira/credentials.toml.
+    Server comes from zproject.toml, credentials from $XDG_CONFIG_HOME/zaira/credentials.toml.
 
     Returns:
         Tuple of (server_url, email, api_token)
