@@ -11,7 +11,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set version from release tag
         run: |
@@ -21,7 +21,7 @@ jobs:
           echo "Set version to $VERSION"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
 
       - name: Build package
         run: uv build
