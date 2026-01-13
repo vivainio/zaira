@@ -70,7 +70,45 @@ zaira export FOO-1234 --format json
 
 # Include linked pull requests (GitHub only)
 zaira export FOO-1234 --with-prs
+
+# Include custom fields (uses cached schema for name lookup)
+zaira export FOO-1234 --all-fields
+
+# Force file output without zproject.toml
+zaira export FOO-1234 --files
 ```
+
+### create
+
+Create a ticket from a YAML front matter file:
+
+```bash
+# Create ticket from file
+zaira create ticket.md
+
+# Preview without creating
+zaira create ticket.md --dry-run
+```
+
+The file format matches exported tickets:
+
+```markdown
+---
+project: FOO
+summary: "Implement feature X"
+type: Story
+priority: High
+components: [backend, api]
+labels: [v2]
+Epic Link: FOO-100        # Custom field (looked up via schema)
+---
+
+## Description
+
+Feature description here...
+```
+
+Custom field names are mapped to IDs using the cached schema. Run `zaira info fields --refresh` to cache field mappings.
 
 ### my
 
@@ -111,6 +149,9 @@ zaira report my-tickets --full --force
 # Output as JSON or CSV
 zaira report my-tickets --format json
 zaira report my-tickets --format csv
+
+# Force file output without zproject.toml
+zaira report --jql "project = FOO" --files
 ```
 
 Reports are saved to `reports/` with YAML front matter containing the refresh command (markdown only).
@@ -181,6 +222,15 @@ EOF
 cat notes.txt | zaira comment FOO-1234 -
 ```
 
+### transition
+
+Transition a ticket to a new status:
+
+```bash
+zaira transition FOO-1234 "In Progress"
+zaira transition FOO-1234 Done
+```
+
 ### link
 
 Create a link between two tickets:
@@ -193,14 +243,26 @@ zaira link FOO-1234 FOO-5678 -t Duplicates
 
 ### info
 
-Query Jira instance metadata:
+Query Jira instance metadata. Results are cached locally and served from cache by default:
 
 ```bash
-zaira info link-types    # List available link types
 zaira info statuses      # List statuses and categories
 zaira info priorities    # List priorities
 zaira info issue-types   # List issue types
+zaira info link-types    # List available link types
+zaira info fields        # List custom fields
+zaira info fields --all  # Include standard fields
+zaira info fields --filter epic  # Search by name or ID
+
+# Refresh from Jira API (also updates cache)
+zaira info statuses --refresh
+zaira info fields -r
+
+# Refresh all metadata at once
+zaira info --save
 ```
+
+Schema is cached at `~/.cache/zaira/zschema_PROFILE.json` where PROFILE comes from `zproject.toml` or defaults to "default".
 
 ## Project Configuration
 
@@ -209,6 +271,7 @@ The `zproject.toml` file stores project-specific settings. After running `zaira 
 ```toml
 [project]
 site = "company.atlassian.net"
+profile = "work"  # Optional: name for schema cache (default: "default")
 
 [boards]
 main = 123
@@ -264,6 +327,8 @@ reporter: pm@example.com
 components: Backend
 labels: api, v2
 parent: FOO-1000
+Epic Link: FOO-1000       # Custom fields (with --all-fields)
+Story Points: 5
 synced: 2024-01-15T10:30:00
 url: https://company.atlassian.net/browse/FOO-1234
 ---
