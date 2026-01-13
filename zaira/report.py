@@ -511,9 +511,10 @@ def report_command(args: argparse.Namespace) -> None:
 
     # Default to stdout if no zproject.toml, otherwise files
     has_project = Path("zproject.toml").exists()
+    force_files = getattr(args, "files", False)
     if args.output == "-":
         to_stdout = True
-    elif args.output:
+    elif args.output or force_files:
         to_stdout = False
     else:
         to_stdout = not has_project

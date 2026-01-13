@@ -6,6 +6,7 @@ import sys
 from zaira import __version__
 from zaira.boards import boards_command
 from zaira.comment import comment_command
+from zaira.create import create_command
 from zaira.dashboard import dashboard_command, dashboards_command
 from zaira.edit import edit_command
 from zaira.export import export_command
@@ -80,6 +81,18 @@ def main() -> None:
         action="store_true",
         help="Include linked GitHub pull requests (extra API call per ticket)",
     )
+    export_parser.add_argument(
+        "-a",
+        "--all-fields",
+        action="store_true",
+        help="Include custom fields (uses cached schema for name lookup)",
+    )
+    export_parser.add_argument(
+        "-f",
+        "--files",
+        action="store_true",
+        help="Force file output to tickets/ (even without zproject.toml)",
+    )
     export_parser.set_defaults(func=export_command)
 
     # Report command
@@ -151,6 +164,11 @@ def main() -> None:
         choices=["md", "json", "csv"],
         default="md",
         help="Output format (default: md)",
+    )
+    report_parser.add_argument(
+        "--files",
+        action="store_true",
+        help="Force file output to reports/ (even without zproject.toml)",
     )
     report_parser.set_defaults(func=report_command)
 
@@ -301,6 +319,23 @@ def main() -> None:
     )
     edit_parser.set_defaults(func=edit_command)
 
+    # Create command
+    create_parser = subparsers.add_parser(
+        "create",
+        help="Create a ticket from a YAML front matter file",
+    )
+    create_parser.add_argument(
+        "file",
+        help="Path to ticket file with YAML front matter",
+    )
+    create_parser.add_argument(
+        "-n",
+        "--dry-run",
+        action="store_true",
+        help="Show what would be created without actually creating",
+    )
+    create_parser.set_defaults(func=create_command)
+
     # Link command
     link_parser = subparsers.add_parser(
         "link",
@@ -353,24 +388,32 @@ def main() -> None:
         "-s",
         "--save",
         action="store_true",
-        help="Save all metadata to zschema.json",
+        help="Refresh cached instance schema",
     )
     info_parser.set_defaults(func=info_command)
     info_subparsers = info_parser.add_subparsers(dest="info_command")
 
+    # Common --refresh argument for all info subcommands
+    refresh_args = {"action": "store_true", "help": "Fetch live from Jira API"}
+
     info_link_types = info_subparsers.add_parser("link-types", help="List link types")
+    info_link_types.add_argument("-r", "--refresh", **refresh_args)
     info_link_types.set_defaults(info_func=link_types_command)
 
     info_statuses = info_subparsers.add_parser("statuses", help="List statuses")
+    info_statuses.add_argument("-r", "--refresh", **refresh_args)
     info_statuses.set_defaults(info_func=statuses_command)
 
     info_priorities = info_subparsers.add_parser("priorities", help="List priorities")
+    info_priorities.add_argument("-r", "--refresh", **refresh_args)
     info_priorities.set_defaults(info_func=priorities_command)
 
     info_issue_types = info_subparsers.add_parser("issue-types", help="List issue types")
+    info_issue_types.add_argument("-r", "--refresh", **refresh_args)
     info_issue_types.set_defaults(info_func=issue_types_command)
 
     info_fields = info_subparsers.add_parser("fields", help="List custom fields")
+    info_fields.add_argument("-r", "--refresh", **refresh_args)
     info_fields.add_argument(
         "-f",
         "--filter",

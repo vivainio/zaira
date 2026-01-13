@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from zaira.config import TICKETS_DIR, find_project_root
+from zaira.info import get_field_name
 from zaira.jira_client import get_jira, get_jira_site
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
 from zaira.types import Comment, Ticket, get_user_identifier, yaml_quote
@@ -52,8 +53,103 @@ def extract_description(desc: dict | str | list | Any | None) -> str:
     return extract_text(desc).strip()
 
 
-def get_ticket(key: str, full: bool = False) -> Ticket | None:
-    """Fetch ticket details. If full=True, include more fields for JSON export."""
+def extract_custom_field_value(value: Any) -> Any:
+    """Extract a serializable value from a custom field.
+
+    Handles various Jira field types like objects with 'value' or 'name' attrs.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, list):
+        return [extract_custom_field_value(v) for v in value]
+    if hasattr(value, "value"):
+        return value.value
+    if hasattr(value, "name"):
+        return value.name
+    if hasattr(value, "key"):
+        return value.key
+    if isinstance(value, dict):
+        if "value" in value:
+            return value["value"]
+        if "name" in value:
+            return value["name"]
+    return str(value)
+
+
+# Patterns that indicate placeholder/unassigned values
+PLACEHOLDER_PATTERNS = [
+    "?",
+    "{}",
+    "[]",
+    "pending",
+    "n/a",
+    "none",
+    "unknown",
+    "unassigned",
+    "no analysis",
+    "not needed",
+    "not applicable",
+    "* list",
+    "please remember",
+    "<img src=",
+    "warning:",
+    "||",  # table markup templates
+    "*user story",
+    "*saas approval",
+    "*post upgrade",
+    "some risk",
+]
+
+
+def is_placeholder_value(value: Any) -> bool:
+    """Check if a value is a placeholder/unassigned value that should be skipped."""
+    if value is None:
+        return True
+    if isinstance(value, list):
+        # Filter out lists with only N/A type values
+        filtered = [v for v in value if not _is_na_value(v)]
+        return len(filtered) == 0
+    if isinstance(value, (int, float)):
+        return value == 0
+    if isinstance(value, str):
+        v = value.strip().lower()
+        if not v:
+            return True
+        for pattern in PLACEHOLDER_PATTERNS:
+            if v == pattern or v.startswith(pattern):
+                return True
+    return False
+
+
+def _is_na_value(value: Any) -> bool:
+    """Check if a single value is N/A or similar."""
+    if not isinstance(value, str):
+        return False
+    v = value.strip().lower()
+    return v in ("n/a", "n/a - not applicable", "none", "unknown", "")
+
+
+def _is_bogus_field_name(name: str) -> bool:
+    """Check if a field name is bogus/administrative and should be skipped."""
+    n = name.lower()
+    return (
+        n.startswith("warning")
+        or n.startswith("rank")
+        or "comment" in n
+        or n.startswith("checklist")
+    )
+
+
+def get_ticket(key: str, full: bool = False, include_custom: bool = False) -> Ticket | None:
+    """Fetch ticket details.
+
+    Args:
+        key: Ticket key (e.g., "FOO-123")
+        full: Include extra fields for JSON export
+        include_custom: Include custom fields with schema name lookup
+    """
     jira = get_jira()
     try:
         issue = jira.issue(key, expand="renderedFields")
@@ -105,6 +201,22 @@ def get_ticket(key: str, full: bool = False) -> Ticket | None:
                 for link in (fields.issuelinks or [])
             ],
         }
+
+        # Add custom fields with human-readable names
+        if include_custom:
+            raw_fields = issue.raw.get("fields", {})
+            custom_fields = {}
+            for field_id, value in raw_fields.items():
+                if field_id.startswith("customfield_") and value is not None:
+                    extracted = extract_custom_field_value(value)
+                    if not is_placeholder_value(extracted):
+                        field_name = get_field_name(field_id)
+                        if field_name and not _is_bogus_field_name(field_name):
+                            custom_fields[field_name] = extracted
+                        elif not field_name:
+                            # Keep ID if name not in schema
+                            custom_fields[field_id] = extracted
+            ticket["custom_fields"] = custom_fields
 
         # Add extra fields for JSON export
         if full:
@@ -209,6 +321,21 @@ def search_tickets(jql: str) -> list[str]:
         return []
 
 
+def format_custom_field_value(value: Any) -> str:
+    """Format a custom field value for YAML output."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, list):
+        if not value:
+            return "[]"
+        return "[" + ", ".join(yaml_quote(str(v)) for v in value) + "]"
+    return yaml_quote(str(value))
+
+
 def format_ticket_markdown(
     ticket: dict, comments: list[Comment], synced: str, jira_site: str
 ) -> str:
@@ -226,6 +353,12 @@ def format_ticket_markdown(
     parent_data = ticket.get("parent")
     parent = parent_data["key"] if parent_data else "None"
 
+    # Build custom fields YAML lines
+    custom_fields_yaml = ""
+    custom_fields = ticket.get("custom_fields", {})
+    for name, value in sorted(custom_fields.items()):
+        custom_fields_yaml += f"{name}: {format_custom_field_value(value)}\n"
+
     md = f"""---
 key: {key}
 summary: {yaml_quote(summary)}
@@ -237,7 +370,7 @@ reporter: {yaml_quote(reporter)}
 components: {yaml_quote(components)}
 labels: {yaml_quote(labels)}
 parent: {parent}
-synced: {synced}
+{custom_fields_yaml}synced: {synced}
 url: https://{jira_site}/browse/{key}
 ---
 
@@ -302,12 +435,16 @@ def format_ticket_json(
 
 
 def export_ticket(
-    key: str, output_dir: Path, fmt: str = "md", with_prs: bool = False
+    key: str,
+    output_dir: Path,
+    fmt: str = "md",
+    with_prs: bool = False,
+    include_custom: bool = False,
 ) -> bool:
     """Export a single ticket to markdown or JSON."""
     print(f"Exporting {key}...")
 
-    ticket = get_ticket(key, full=(fmt == "json"))
+    ticket = get_ticket(key, full=(fmt == "json"), include_custom=include_custom)
     if not ticket:
         print(f"  Error: Could not fetch {key}")
         return False
@@ -360,9 +497,11 @@ def export_ticket(
     return True
 
 
-def export_to_stdout(key: str, fmt: str = "md", with_prs: bool = False) -> bool:
+def export_to_stdout(
+    key: str, fmt: str = "md", with_prs: bool = False, include_custom: bool = False
+) -> bool:
     """Export a single ticket to stdout."""
-    ticket = get_ticket(key, full=(fmt == "json"))
+    ticket = get_ticket(key, full=(fmt == "json"), include_custom=include_custom)
     if not ticket:
         print(f"Error: Could not fetch {key}", file=sys.stderr)
         return False
@@ -388,9 +527,10 @@ def export_command(args: argparse.Namespace) -> None:
 
     # Default to stdout if no zproject.toml found, otherwise files
     has_project = find_project_root() is not None
+    force_files = getattr(args, "files", False)
     if args.output == "-":
         to_stdout = True
-    elif args.output:
+    elif args.output or force_files:
         to_stdout = False
     else:
         to_stdout = not has_project
@@ -421,14 +561,15 @@ def export_command(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     with_prs = getattr(args, "with_prs", False)
+    include_custom = getattr(args, "all_fields", False)
 
     if to_stdout:
         for key in tickets:
-            export_to_stdout(key, fmt=fmt, with_prs=with_prs)
+            export_to_stdout(key, fmt=fmt, with_prs=with_prs, include_custom=include_custom)
     else:
         output_dir = Path(args.output) if args.output else TICKETS_DIR
         success = 0
         for key in tickets:
-            if export_ticket(key, output_dir, fmt=fmt, with_prs=with_prs):
+            if export_ticket(key, output_dir, fmt=fmt, with_prs=with_prs, include_custom=include_custom):
                 success += 1
         print(f"\nExported {success}/{len(tickets)} tickets to {output_dir}/")

@@ -6,13 +6,40 @@ from functools import lru_cache
 from pathlib import Path
 
 from jira import JIRA
-from platformdirs import user_config_dir
+from platformdirs import user_cache_dir, user_config_dir
 
 from zaira.project import load_config
 from zaira.types import Credentials
 
 CONFIG_DIR = Path(user_config_dir("zaira"))
+CACHE_DIR = Path(user_cache_dir("zaira"))
 CREDENTIALS_FILE = CONFIG_DIR / "credentials.toml"
+
+
+def get_profile() -> str:
+    """Get current profile name from zproject.toml."""
+    config = load_config()
+    return config.get("project", {}).get("profile", "default")
+
+
+def get_schema_path(profile: str | None = None) -> Path:
+    """Get path to instance schema file for a profile.
+
+    Schema is cached globally at ~/.cache/zaira/zschema_PROFILE.json.
+    """
+    if profile is None:
+        profile = get_profile()
+    return CACHE_DIR / f"zschema_{profile}.json"
+
+
+def get_project_schema_path(project: str, profile: str | None = None) -> Path:
+    """Get path to project schema file.
+
+    Project schema is cached at ~/.cache/zaira/zproject_PROFILE_PROJECT.json.
+    """
+    if profile is None:
+        profile = get_profile()
+    return CACHE_DIR / f"zproject_{profile}_{project}.json"
 
 
 def get_server_from_config() -> str | None:

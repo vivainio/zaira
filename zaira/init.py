@@ -197,10 +197,5 @@ def init_command(args: argparse.Namespace) -> None:
     config_path.write_text(content)
     print(f"\nCreated {config_path}\n")
 
-    # Save schema metadata (includes components and labels)
-    fetch_and_save_schema(
-        project_root=Path.cwd(),
-        project=project,
-        components=components,
-        labels=labels,
-    )
+    # Cache instance schema and project metadata
+    fetch_and_save_schema(project=project, components=components, labels=labels)
