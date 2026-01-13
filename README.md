@@ -38,13 +38,14 @@ Get your API token from: https://id.atlassian.com/manage-profile/security/api-to
 
 ### 2. Initialize project
 
-After configuring credentials, initialize with your main Jira project key:
+After configuring credentials, initialize with your Jira project key(s):
 
 ```bash
-zaira init --project FOO
+zaira init FOO              # Single project
+zaira init FOO BAR          # Multiple projects
 ```
 
-This discovers the project's components, labels, boards, and issue types, then generates `zproject.toml` with named queries and reports. You can still target other project keys via JQL queries.
+This discovers each project's components, labels, and boards, then generates `zproject.toml` with named queries and reports.
 
 ## Commands
 
@@ -276,6 +277,10 @@ zaira info fields        # List custom fields
 zaira info fields --all  # Include standard fields
 zaira info fields --filter epic  # Search by name or ID
 
+# Project-specific metadata
+zaira info components FOO  # List components for project
+zaira info labels FOO      # List labels for project
+
 # Refresh from Jira API (also updates cache)
 zaira info statuses --refresh
 zaira info fields -r
@@ -284,7 +289,7 @@ zaira info fields -r
 zaira info --save
 ```
 
-Schema is cached at `~/.cache/zaira/zschema_PROFILE.json` where PROFILE comes from `zproject.toml` or defaults to "default".
+Instance schema is cached at `~/.cache/zaira/zschema_PROFILE.json` and project schemas at `~/.cache/zaira/zproject_PROFILE_PROJECT.json`.
 
 ## Project Configuration
 
@@ -370,24 +375,29 @@ Comment text...
 
 ## Python API
 
-For programmatic access (or AI agents needing advanced Jira operations), use `zaira.client()` to get an authenticated Jira client:
+For programmatic access (or AI agents needing advanced Jira operations):
 
 ```python
 import zaira
 
+# Authenticated Jira client (jira.JIRA instance)
 jira = zaira.client()
-
-# Use the standard jira library API
 issue = jira.issue("FOO-1234")
-print(issue.fields.summary)
-
-# Search with JQL
 issues = jira.search_issues("project = FOO AND status = 'In Progress'")
-for issue in issues:
-    print(f"{issue.key}: {issue.fields.summary}")
+
+# Instance schema (fields, statuses, priorities, issue types, link types)
+s = zaira.schema()
+s["statuses"]    # {'Open': 'To Do', 'In Progress': 'In Progress', ...}
+s["fields"]      # {'customfield_10001': 'Epic Link', ...}
+s["priorities"]  # ['Blocker', 'Critical', 'Major', ...]
+
+# Project schema (components, labels)
+ps = zaira.project_schema("FOO")
+ps["components"]  # ['Backend', 'Frontend', ...]
+ps["labels"]      # ['bug', 'feature', ...]
 ```
 
-This returns a `jira.JIRA` instance from the [jira](https://jira.readthedocs.io/) library, using credentials from `~/.config/zaira/credentials.toml`.
+The client uses credentials from `~/.config/zaira/credentials.toml`. Schema functions return cached data populated by `zaira init`.
 
 ## License
 
