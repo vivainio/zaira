@@ -15,6 +15,43 @@ from zaira.dashboard import get_dashboard, get_dashboard_gadgets
 from zaira.types import ReportTicket, get_user_identifier
 
 
+def _group_tickets_by(tickets: list[ReportTicket], group_by: str) -> dict[str, list[ReportTicket]]:
+    """Group tickets by a field.
+
+    Handles special cases for multi-value fields (labels, components) and parent.
+
+    Args:
+        tickets: List of ticket data
+        group_by: Field name to group by
+
+    Returns:
+        Dict mapping group names to lists of tickets
+    """
+    groups: dict[str, list[ReportTicket]] = {}
+
+    if group_by == "labels":
+        for t in tickets:
+            ticket_labels = t.get("labels", []) or ["(no label)"]
+            for lbl in ticket_labels:
+                groups.setdefault(lbl, []).append(t)
+    elif group_by == "components":
+        for t in tickets:
+            ticket_components = t.get("components", []) or ["(no component)"]
+            for comp in ticket_components:
+                groups.setdefault(comp, []).append(t)
+    elif group_by == "parent":
+        for t in tickets:
+            parent = t.get("parent")
+            group_key = f"{parent['key']}: {parent['summary']}" if parent else "(no parent)"
+            groups.setdefault(group_key, []).append(t)
+    else:
+        for t in tickets:
+            key = t.get(group_by, "Unknown")
+            groups.setdefault(key, []).append(t)
+
+    return groups
+
+
 def humanize_age(iso_timestamp: str) -> str:
     """Convert ISO timestamp to human-readable age like '2d' or '3w'."""
     if not iso_timestamp:
@@ -179,49 +216,7 @@ def generate_report(
         return md
 
     if group_by:
-        if group_by == "labels":
-            # Special handling for labels - tickets can have multiple
-            groups = {}
-            for t in tickets:
-                ticket_labels = t.get("labels", [])
-                if not ticket_labels:
-                    ticket_labels = ["(no label)"]
-                for lbl in ticket_labels:
-                    if lbl not in groups:
-                        groups[lbl] = []
-                    groups[lbl].append(t)
-        elif group_by == "components":
-            # Special handling for components - tickets can have multiple
-            groups = {}
-            for t in tickets:
-                ticket_components = t.get("components", [])
-                if not ticket_components:
-                    ticket_components = ["(no component)"]
-                for comp in ticket_components:
-                    if comp not in groups:
-                        groups[comp] = []
-                    groups[comp].append(t)
-        elif group_by == "parent":
-            # Special handling for parent - it's a dict
-            groups = {}
-            for t in tickets:
-                parent = t.get("parent")
-                if parent:
-                    group_key = f"{parent['key']}: {parent['summary']}"
-                else:
-                    group_key = "(no parent)"
-                if group_key not in groups:
-                    groups[group_key] = []
-                groups[group_key].append(t)
-        else:
-            # Group tickets by field
-            groups = {}
-            for t in tickets:
-                key = t.get(group_by, "Unknown")
-                if key not in groups:
-                    groups[key] = []
-                groups[key].append(t)
-
+        groups = _group_tickets_by(tickets, group_by)
         for group_name, group_tickets in sorted(groups.items()):
             md += f"## {group_name} ({len(group_tickets)})\n\n"
             md += generate_table(group_tickets, group_by=group_by)
@@ -429,46 +424,7 @@ def generate_dashboard_report(
 
         if tickets:
             if group_by:
-                # Group tickets
-                if group_by == "labels":
-                    groups = {}
-                    for t in tickets:
-                        ticket_labels = t.get("labels", [])
-                        if not ticket_labels:
-                            ticket_labels = ["(no label)"]
-                        for lbl in ticket_labels:
-                            if lbl not in groups:
-                                groups[lbl] = []
-                            groups[lbl].append(t)
-                elif group_by == "components":
-                    groups = {}
-                    for t in tickets:
-                        ticket_components = t.get("components", [])
-                        if not ticket_components:
-                            ticket_components = ["(no component)"]
-                        for comp in ticket_components:
-                            if comp not in groups:
-                                groups[comp] = []
-                            groups[comp].append(t)
-                elif group_by == "parent":
-                    groups = {}
-                    for t in tickets:
-                        parent = t.get("parent")
-                        if parent:
-                            group_key = f"{parent['key']}: {parent['summary']}"
-                        else:
-                            group_key = "(no parent)"
-                        if group_key not in groups:
-                            groups[group_key] = []
-                        groups[group_key].append(t)
-                else:
-                    groups = {}
-                    for t in tickets:
-                        key = t.get(group_by, "Unknown")
-                        if key not in groups:
-                            groups[key] = []
-                        groups[key].append(t)
-
+                groups = _group_tickets_by(tickets, group_by)
                 for group_name, group_tickets in sorted(groups.items()):
                     lines.append(f"### {group_name} ({len(group_tickets)})")
                     lines.append("")

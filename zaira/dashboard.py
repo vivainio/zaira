@@ -11,6 +11,25 @@ from zaira.jira_client import get_jira, get_jira_site
 from zaira.types import Dashboard, DashboardGadget
 
 
+def _get_owner_name(owner: dict | None) -> str:
+    """Extract owner display name from owner dict."""
+    if not owner:
+        return ""
+    return owner.get("displayName", owner.get("name", owner.get("accountId", "")))
+
+
+def _dict_to_dashboard(d: dict) -> Dashboard:
+    """Convert API response dict to Dashboard object."""
+    return Dashboard(
+        id=int(d["id"]),
+        name=d.get("name", ""),
+        description=d.get("description", ""),
+        owner=_get_owner_name(d.get("owner")),
+        view_url=d.get("view", ""),
+        is_favourite=d.get("isFavourite", False),
+    )
+
+
 def get_dashboards(
     filter_text: str | None = None,
     owner: str | None = None,
@@ -37,18 +56,7 @@ def get_dashboards(
         # Use search endpoint for filtering
         result = jira._get_json("dashboard/search", params=params)
         dashboards = result.get("values", [])
-
-        return [
-            Dashboard(
-                id=int(d["id"]),
-                name=d.get("name", ""),
-                description=d.get("description", ""),
-                owner=_get_owner_name(d.get("owner")),
-                view_url=d.get("view", ""),
-                is_favourite=d.get("isFavourite", False),
-            )
-            for d in dashboards
-        ]
+        return [_dict_to_dashboard(d) for d in dashboards]
     except Exception as e:
         print(f"Error fetching dashboards: {e}", file=sys.stderr)
         return []
@@ -60,18 +68,7 @@ def get_my_dashboards() -> list[Dashboard]:
     try:
         result = jira._get_json("dashboard/search", params={"owner": "me"})
         dashboards = result.get("values", [])
-
-        return [
-            Dashboard(
-                id=int(d["id"]),
-                name=d.get("name", ""),
-                description=d.get("description", ""),
-                owner=_get_owner_name(d.get("owner")),
-                view_url=d.get("view", ""),
-                is_favourite=d.get("isFavourite", False),
-            )
-            for d in dashboards
-        ]
+        return [_dict_to_dashboard(d) for d in dashboards]
     except Exception as e:
         print(f"Error fetching dashboards: {e}", file=sys.stderr)
         return []
@@ -89,14 +86,7 @@ def get_dashboard(dashboard_id: int) -> Dashboard | None:
     jira = get_jira()
     try:
         d = jira._get_json(f"dashboard/{dashboard_id}")
-        return Dashboard(
-            id=int(d["id"]),
-            name=d.get("name", ""),
-            description=d.get("description", ""),
-            owner=_get_owner_name(d.get("owner")),
-            view_url=d.get("view", ""),
-            is_favourite=d.get("isFavourite", False),
-        )
+        return _dict_to_dashboard(d)
     except Exception as e:
         print(f"Error fetching dashboard {dashboard_id}: {e}", file=sys.stderr)
         return None
@@ -191,13 +181,6 @@ def get_dashboard_raw(dashboard_id: int) -> dict | None:
         return jira._get_json(f"dashboard/{dashboard_id}")
     except Exception:
         return None
-
-
-def _get_owner_name(owner: dict | None) -> str:
-    """Extract owner display name from owner dict."""
-    if not owner:
-        return ""
-    return owner.get("displayName", owner.get("name", owner.get("accountId", "")))
 
 
 def _extract_gadget_type(uri_or_key: str) -> str:

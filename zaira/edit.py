@@ -169,6 +169,54 @@ def get_allowed_values(jira, key: str, field_ids: list[str]) -> dict[str, list[s
     return result
 
 
+def _extract_field_name(error_msg: str, fallback: str) -> str:
+    """Extract field name from error message like 'Specify a valid value for X'."""
+    if "valid" in error_msg.lower():
+        parts = error_msg.split(" for ")
+        if len(parts) > 1:
+            return parts[-1]
+    return fallback
+
+
+def _print_allowed_values(allowed: dict[str, list[str]], errors: dict[str, str]) -> None:
+    """Print allowed values for failed fields."""
+    for fid, values in allowed.items():
+        field_name = _extract_field_name(errors.get(fid, fid), fid)
+        print(f"\nAllowed values for {field_name}:", file=sys.stderr)
+        for v in values[:20]:
+            print(f"  - {v}", file=sys.stderr)
+        if len(values) > 20:
+            print(f"  ... and {len(values) - 20} more", file=sys.stderr)
+
+
+def _handle_update_error(e: Exception, jira, key: str) -> None:
+    """Handle and display Jira update errors with allowed values."""
+    import json
+
+    if not (hasattr(e, "response") and hasattr(e.response, "text")):
+        print(f"Error updating {key}: {e}", file=sys.stderr)
+        return
+
+    try:
+        error_data = json.loads(e.response.text)
+    except (json.JSONDecodeError, ValueError):
+        print(f"Error updating {key}: {e}", file=sys.stderr)
+        return
+
+    errors = error_data.get("errors", {})
+    error_messages = error_data.get("errorMessages", [])
+
+    for msg in error_messages:
+        print(f"Error: {msg}", file=sys.stderr)
+    for msg in errors.values():
+        print(f"Error: {msg}", file=sys.stderr)
+
+    failed_fields = list(errors.keys())
+    if failed_fields:
+        allowed = get_allowed_values(jira, key, failed_fields)
+        _print_allowed_values(allowed, errors)
+
+
 def edit_ticket(key: str, fields: dict) -> bool:
     """Edit a Jira ticket's fields.
 
@@ -188,42 +236,7 @@ def edit_ticket(key: str, fields: dict) -> bool:
         issue.update(fields=fields)
         return True
     except Exception as e:
-        # Try to extract clean error message and show allowed values
-        try:
-            import json
-            if hasattr(e, "response") and hasattr(e.response, "text"):
-                error_data = json.loads(e.response.text)
-                errors = error_data.get("errors", {})
-                error_messages = error_data.get("errorMessages", [])
-
-                # Print clean error messages
-                for msg in error_messages:
-                    print(f"Error: {msg}", file=sys.stderr)
-                for fid, msg in errors.items():
-                    print(f"Error: {msg}", file=sys.stderr)
-
-                # Show allowed values for failed fields
-                failed_fields = list(errors.keys())
-                if failed_fields:
-                    allowed = get_allowed_values(jira, key, failed_fields)
-                    for fid, values in allowed.items():
-                        field_name = errors.get(fid, fid)
-                        # Extract field name from error message if possible
-                        if "valid" in field_name.lower():
-                            # "Specify a valid value for X" -> extract X
-                            parts = field_name.split(" for ")
-                            if len(parts) > 1:
-                                field_name = parts[-1]
-                        print(f"\nAllowed values for {field_name}:", file=sys.stderr)
-                        for v in values[:20]:  # Limit to 20 values
-                            print(f"  - {v}", file=sys.stderr)
-                        if len(values) > 20:
-                            print(f"  ... and {len(values) - 20} more", file=sys.stderr)
-            else:
-                print(f"Error updating {key}: {e}", file=sys.stderr)
-        except Exception:
-            print(f"Error updating {key}: {e}", file=sys.stderr)
-
+        _handle_update_error(e, jira, key)
         return False
 
 

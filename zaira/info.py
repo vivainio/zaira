@@ -3,9 +3,12 @@
 import argparse
 import json
 import sys
+from typing import Callable, TypeVar
 
 from zaira.jira_client import get_jira, get_schema_path, get_project_schema_path, CACHE_DIR
 from zaira.types import ProjectSchema, ZSchema
+
+T = TypeVar("T")
 
 
 def load_schema() -> ZSchema | None:
@@ -107,22 +110,44 @@ def load_project_schema(project: str) -> ProjectSchema | None:
     return json.load(schema_file.open())
 
 
+def _fetch_cached_data(
+    schema_key: str,
+    fetch_fn: Callable[[], T],
+    refresh: bool = False,
+) -> T:
+    """Fetch data from cache or Jira API.
+
+    Args:
+        schema_key: Key in the schema cache
+        fetch_fn: Function to fetch fresh data from Jira (should also call update_schema)
+        refresh: Force refresh from API
+
+    Returns:
+        Cached or freshly fetched data
+    """
+    schema = load_schema()
+    if not refresh and schema and schema_key in schema:
+        return schema[schema_key]
+    return fetch_fn()
+
+
 def link_types_command(args: argparse.Namespace) -> None:
     """List available link types."""
-    refresh = getattr(args, "refresh", False)
-    schema = load_schema()
 
-    if not refresh and schema and "linkTypes" in schema:
-        link_types = schema["linkTypes"]
-    else:
+    def fetch_link_types():
         jira = get_jira()
-        try:
-            types = jira.issue_link_types()
-            link_types = {t.name: {"outward": t.outward, "inward": t.inward} for t in types}
-            update_schema("linkTypes", link_types)
-        except Exception as e:
-            print(f"Error fetching link types: {e}", file=sys.stderr)
-            sys.exit(1)
+        types = jira.issue_link_types()
+        data = {t.name: {"outward": t.outward, "inward": t.inward} for t in types}
+        update_schema("linkTypes", data)
+        return data
+
+    try:
+        link_types = _fetch_cached_data(
+            "linkTypes", fetch_link_types, getattr(args, "refresh", False)
+        )
+    except Exception as e:
+        print(f"Error fetching link types: {e}", file=sys.stderr)
+        sys.exit(1)
 
     print(f"{'Type':<20} {'Outward':<25} {'Inward':<25}")
     print("-" * 70)
@@ -133,23 +158,24 @@ def link_types_command(args: argparse.Namespace) -> None:
 
 def statuses_command(args: argparse.Namespace) -> None:
     """List available statuses."""
-    refresh = getattr(args, "refresh", False)
-    schema = load_schema()
 
-    if not refresh and schema and "statuses" in schema:
-        statuses = schema["statuses"]
-    else:
+    def fetch_statuses():
         jira = get_jira()
-        try:
-            raw = jira.statuses()
-            statuses = {
-                s.name: s.statusCategory.name if hasattr(s, "statusCategory") else None
-                for s in raw
-            }
-            update_schema("statuses", statuses)
-        except Exception as e:
-            print(f"Error fetching statuses: {e}", file=sys.stderr)
-            sys.exit(1)
+        raw = jira.statuses()
+        data = {
+            s.name: s.statusCategory.name if hasattr(s, "statusCategory") else None
+            for s in raw
+        }
+        update_schema("statuses", data)
+        return data
+
+    try:
+        statuses = _fetch_cached_data(
+            "statuses", fetch_statuses, getattr(args, "refresh", False)
+        )
+    except Exception as e:
+        print(f"Error fetching statuses: {e}", file=sys.stderr)
+        sys.exit(1)
 
     print(f"{'Status':<30} {'Category':<20}")
     print("-" * 50)
@@ -160,20 +186,21 @@ def statuses_command(args: argparse.Namespace) -> None:
 
 def priorities_command(args: argparse.Namespace) -> None:
     """List available priorities."""
-    refresh = getattr(args, "refresh", False)
-    schema = load_schema()
 
-    if not refresh and schema and "priorities" in schema:
-        priorities = schema["priorities"]
-    else:
+    def fetch_priorities():
         jira = get_jira()
-        try:
-            raw = jira.priorities()
-            priorities = [p.name for p in raw]
-            update_schema("priorities", priorities)
-        except Exception as e:
-            print(f"Error fetching priorities: {e}", file=sys.stderr)
-            sys.exit(1)
+        raw = jira.priorities()
+        data = [p.name for p in raw]
+        update_schema("priorities", data)
+        return data
+
+    try:
+        priorities = _fetch_cached_data(
+            "priorities", fetch_priorities, getattr(args, "refresh", False)
+        )
+    except Exception as e:
+        print(f"Error fetching priorities: {e}", file=sys.stderr)
+        sys.exit(1)
 
     print("Priorities:")
     for name in priorities:
@@ -182,20 +209,21 @@ def priorities_command(args: argparse.Namespace) -> None:
 
 def issue_types_command(args: argparse.Namespace) -> None:
     """List available issue types."""
-    refresh = getattr(args, "refresh", False)
-    schema = load_schema()
 
-    if not refresh and schema and "issueTypes" in schema:
-        issue_types = schema["issueTypes"]
-    else:
+    def fetch_issue_types():
         jira = get_jira()
-        try:
-            raw = jira.issue_types()
-            issue_types = {t.name: {"subtask": t.subtask} for t in raw}
-            update_schema("issueTypes", issue_types)
-        except Exception as e:
-            print(f"Error fetching issue types: {e}", file=sys.stderr)
-            sys.exit(1)
+        raw = jira.issue_types()
+        data = {t.name: {"subtask": t.subtask} for t in raw}
+        update_schema("issueTypes", data)
+        return data
+
+    try:
+        issue_types = _fetch_cached_data(
+            "issueTypes", fetch_issue_types, getattr(args, "refresh", False)
+        )
+    except Exception as e:
+        print(f"Error fetching issue types: {e}", file=sys.stderr)
+        sys.exit(1)
 
     print(f"{'Type':<25} {'Subtask':<10}")
     print("-" * 35)
@@ -206,23 +234,27 @@ def issue_types_command(args: argparse.Namespace) -> None:
 
 def fields_command(args: argparse.Namespace) -> None:
     """List custom fields."""
+
+    def fetch_fields():
+        jira = get_jira()
+        raw_fields = jira.fields()
+        update_schema("fields", {f["id"]: f["name"] for f in raw_fields})
+        update_schema("fieldTypes", {
+            f["id"]: f.get("schema", {}).get("type")
+            for f in raw_fields
+            if f.get("schema", {}).get("type")
+        })
+        return raw_fields
+
     refresh = getattr(args, "refresh", False)
     schema = load_schema()
 
+    # fields_command needs special handling: cache stores {id: name} but we need list
     if not refresh and schema and "fields" in schema:
-        # Cache stores {id: name}, convert to list of dicts
         fields = [{"id": k, "name": v} for k, v in schema["fields"].items()]
     else:
-        jira = get_jira()
         try:
-            fields = jira.fields()
-            update_schema("fields", {f["id"]: f["name"] for f in fields})
-            # Also cache field types
-            update_schema("fieldTypes", {
-                f["id"]: f.get("schema", {}).get("type")
-                for f in fields
-                if f.get("schema", {}).get("type")
-            })
+            fields = fetch_fields()
         except Exception as e:
             print(f"Error fetching fields: {e}", file=sys.stderr)
             sys.exit(1)
@@ -234,7 +266,6 @@ def fields_command(args: argparse.Namespace) -> None:
     if show_all:
         result = fields
     else:
-        # Custom fields have id starting with "customfield_"
         result = [f for f in fields if f.get("custom") or f["id"].startswith("customfield_")]
 
     if filter_text:
