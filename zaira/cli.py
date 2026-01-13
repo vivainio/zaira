@@ -281,6 +281,12 @@ def main() -> None:
         "my",
         help="Show my open tickets",
     )
+    my_parser.add_argument(
+        "-r",
+        "--reported",
+        action="store_true",
+        help="Show tickets I reported (created) instead of assigned to me",
+    )
     my_parser.set_defaults(func=my_command)
 
     # Comment command

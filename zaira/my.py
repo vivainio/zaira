@@ -7,8 +7,14 @@ from zaira.report import humanize_age
 from zaira.types import MyTicket
 
 
-DEFAULT_JQL = (
+DEFAULT_ASSIGNED_JQL = (
     "assignee = currentUser() "
+    "AND status NOT IN (Done, Closed, Resolved, Disposal, Rejected) "
+    "ORDER BY updated DESC"
+)
+
+DEFAULT_REPORTED_JQL = (
+    "reporter = currentUser() "
     "AND status NOT IN (Done, Closed, Resolved, Disposal, Rejected) "
     "ORDER BY updated DESC"
 )
@@ -64,10 +70,16 @@ def my_command(args: argparse.Namespace) -> None:
     """Handle my subcommand."""
     from zaira.project import get_query
 
-    # Try to use configured query, fall back to default
-    jql = get_query("my-tickets")
-    if not jql:
-        jql = DEFAULT_JQL
+    if args.reported:
+        # Show tickets reported (created) by me
+        jql = get_query("my-reported")
+        if not jql:
+            jql = DEFAULT_REPORTED_JQL
+    else:
+        # Show tickets assigned to me
+        jql = get_query("my-tickets")
+        if not jql:
+            jql = DEFAULT_ASSIGNED_JQL
 
     tickets = search_my_tickets(jql)
     print_table(tickets)
