@@ -86,6 +86,16 @@ Create a ticket from a YAML front matter file:
 # Create ticket from file
 zaira create ticket.md
 
+# Create from stdin
+zaira create - <<EOF
+---
+project: FOO
+summary: Quick ticket
+type: Task
+---
+Description here
+EOF
+
 # Preview without creating
 zaira create ticket.md --dry-run
 ```

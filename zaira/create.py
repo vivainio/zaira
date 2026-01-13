@@ -32,14 +32,12 @@ STANDARD_FIELDS = {
 SKIP_FIELDS = {"key", "url", "synced", "status", "created", "updated"}
 
 
-def parse_ticket_file(path: Path) -> tuple[dict, str]:
-    """Parse a ticket file with YAML front matter.
+def parse_content(content: str) -> tuple[dict, str]:
+    """Parse content with YAML front matter.
 
     Returns:
         Tuple of (front_matter_dict, description_body)
     """
-    content = path.read_text()
-
     # Match YAML front matter between --- markers
     match = re.match(r"^---\n(.+?)\n---\n?(.*)", content, re.DOTALL)
     if not match:
@@ -49,6 +47,11 @@ def parse_ticket_file(path: Path) -> tuple[dict, str]:
     body = match.group(2).strip()
 
     return front_matter, body
+
+
+def parse_ticket_file(path: Path) -> tuple[dict, str]:
+    """Parse a ticket file with YAML front matter."""
+    return parse_content(path.read_text())
 
 
 def map_fields(front_matter: dict, description: str) -> dict:
@@ -146,16 +149,23 @@ def create_ticket(fields: dict, dry_run: bool = False) -> str | None:
 
 def create_command(args: argparse.Namespace) -> None:
     """Handle create subcommand."""
-    path = Path(args.file)
-    if not path.exists():
-        print(f"Error: File not found: {path}", file=sys.stderr)
-        sys.exit(1)
-
-    try:
-        front_matter, description = parse_ticket_file(path)
-    except ValueError as e:
-        print(f"Error parsing file: {e}", file=sys.stderr)
-        sys.exit(1)
+    if args.file == "-":
+        content = sys.stdin.read()
+        try:
+            front_matter, description = parse_content(content)
+        except ValueError as e:
+            print(f"Error parsing stdin: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        path = Path(args.file)
+        if not path.exists():
+            print(f"Error: File not found: {path}", file=sys.stderr)
+            sys.exit(1)
+        try:
+            front_matter, description = parse_ticket_file(path)
+        except ValueError as e:
+            print(f"Error parsing file: {e}", file=sys.stderr)
+            sys.exit(1)
 
     # Check required fields
     if "project" not in front_matter:

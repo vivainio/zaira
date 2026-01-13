@@ -326,7 +326,7 @@ def main() -> None:
     )
     create_parser.add_argument(
         "file",
-        help="Path to ticket file with YAML front matter",
+        help="Path to ticket file with YAML front matter (use '-' for stdin)",
     )
     create_parser.add_argument(
         "-n",
