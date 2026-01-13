@@ -20,6 +20,8 @@ from zaira.info import (
     priorities_command,
     issue_types_command,
     fields_command,
+    components_command,
+    labels_command,
 )
 from zaira.init import init_command
 from zaira.my import my_command
@@ -445,6 +447,18 @@ def main() -> None:
         help="Show all fields, not just custom fields",
     )
     info_fields.set_defaults(info_func=fields_command)
+
+    info_components = info_subparsers.add_parser(
+        "components", help="List components for a project"
+    )
+    info_components.add_argument("project", help="Project key (e.g., PROJ)")
+    info_components.set_defaults(info_func=components_command)
+
+    info_labels = info_subparsers.add_parser(
+        "labels", help="List labels for a project"
+    )
+    info_labels.add_argument("project", help="Project key (e.g., PROJ)")
+    info_labels.set_defaults(info_func=labels_command)
 
     # Wiki (Confluence) command with subcommands
     wiki_parser = subparsers.add_parser(

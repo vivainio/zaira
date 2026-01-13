@@ -283,6 +283,46 @@ def fields_command(args: argparse.Namespace) -> None:
         print(f"{f['id']:<25} {f['name']:<40}")
 
 
+def components_command(args: argparse.Namespace) -> None:
+    """List components for a project."""
+    project = args.project
+    schema = load_project_schema(project)
+
+    if not schema or "components" not in schema:
+        print(f"No cached components for project {project}.", file=sys.stderr)
+        print("Run 'zaira init' to discover project metadata.", file=sys.stderr)
+        sys.exit(1)
+
+    components = schema["components"]
+    if not components:
+        print(f"No components found for {project}")
+        return
+
+    print(f"Components for {project}:")
+    for comp in sorted(components):
+        print(f"  {comp}")
+
+
+def labels_command(args: argparse.Namespace) -> None:
+    """List labels for a project."""
+    project = args.project
+    schema = load_project_schema(project)
+
+    if not schema or "labels" not in schema:
+        print(f"No cached labels for project {project}.", file=sys.stderr)
+        print("Run 'zaira init' to discover project metadata.", file=sys.stderr)
+        sys.exit(1)
+
+    labels = schema["labels"]
+    if not labels:
+        print(f"No labels found for {project}")
+        return
+
+    print(f"Labels for {project}:")
+    for label in sorted(labels):
+        print(f"  {label}")
+
+
 def fetch_and_save_schema(
     project: str | None = None,
     components: list[str] | None = None,
