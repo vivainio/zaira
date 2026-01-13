@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from jira import JIRA
+    from zaira.types import ZSchema, ProjectSchema
 
 __version__ = version("zaira")
 
@@ -28,7 +29,7 @@ def client() -> "JIRA":
     return get_jira()
 
 
-def schema() -> dict | None:
+def schema() -> "ZSchema | None":
     """Get cached instance schema.
 
     Returns Jira instance metadata including fields, statuses,
@@ -48,7 +49,7 @@ def schema() -> dict | None:
     return load_schema()
 
 
-def project_schema(project: str) -> dict | None:
+def project_schema(project: str) -> "ProjectSchema | None":
     """Get cached project schema.
 
     Returns project-specific metadata including components and labels.
