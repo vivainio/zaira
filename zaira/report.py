@@ -190,6 +190,17 @@ def generate_report(
                     if lbl not in groups:
                         groups[lbl] = []
                     groups[lbl].append(t)
+        elif group_by == "components":
+            # Special handling for components - tickets can have multiple
+            groups = {}
+            for t in tickets:
+                ticket_components = t.get("components", [])
+                if not ticket_components:
+                    ticket_components = ["(no component)"]
+                for comp in ticket_components:
+                    if comp not in groups:
+                        groups[comp] = []
+                    groups[comp].append(t)
         elif group_by == "parent":
             # Special handling for parent - it's a dict
             groups = {}
@@ -429,6 +440,16 @@ def generate_dashboard_report(
                             if lbl not in groups:
                                 groups[lbl] = []
                             groups[lbl].append(t)
+                elif group_by == "components":
+                    groups = {}
+                    for t in tickets:
+                        ticket_components = t.get("components", [])
+                        if not ticket_components:
+                            ticket_components = ["(no component)"]
+                        for comp in ticket_components:
+                            if comp not in groups:
+                                groups[comp] = []
+                            groups[comp].append(t)
                 elif group_by == "parent":
                     groups = {}
                     for t in tickets:
