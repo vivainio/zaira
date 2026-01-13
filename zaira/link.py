@@ -6,6 +6,12 @@ import sys
 from zaira.jira_client import get_jira, get_jira_site
 
 
+def get_link_types() -> list[str]:
+    """Get available link type names."""
+    jira = get_jira()
+    return [lt.name for lt in jira.issue_link_types()]
+
+
 def create_link(from_key: str, to_key: str, link_type: str) -> bool:
     """Create a link between two Jira tickets.
 
@@ -22,7 +28,14 @@ def create_link(from_key: str, to_key: str, link_type: str) -> bool:
         jira.create_issue_link(link_type, from_key, to_key)
         return True
     except Exception as e:
-        print(f"Error creating link: {e}", file=sys.stderr)
+        err = str(e)
+        if "No issue link type with name" in err:
+            print(f"Error: Unknown link type '{link_type}'", file=sys.stderr)
+            print(f"\nValid link types:", file=sys.stderr)
+            for name in sorted(get_link_types()):
+                print(f"  {name}", file=sys.stderr)
+        else:
+            print(f"Error creating link: {e}", file=sys.stderr)
         return False
 
 
