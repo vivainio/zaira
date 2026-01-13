@@ -80,6 +80,21 @@ def get_field_map() -> dict[str, str]:
     return {name: field_id for field_id, name in schema["fields"].items()}
 
 
+def get_field_type(field_id: str) -> str | None:
+    """Get field type by ID.
+
+    Args:
+        field_id: Jira field ID (e.g., "customfield_10001")
+
+    Returns:
+        Field type (e.g., "option", "array", "string") or None if not found.
+    """
+    schema = load_schema()
+    if not schema or "fieldTypes" not in schema:
+        return None
+    return schema["fieldTypes"].get(field_id)
+
+
 def load_project_schema(project: str) -> ProjectSchema | None:
     """Load cached project schema from global cache directory.
 
@@ -202,6 +217,12 @@ def fields_command(args: argparse.Namespace) -> None:
         try:
             fields = jira.fields()
             update_schema("fields", {f["id"]: f["name"] for f in fields})
+            # Also cache field types
+            update_schema("fieldTypes", {
+                f["id"]: f.get("schema", {}).get("type")
+                for f in fields
+                if f.get("schema", {}).get("type")
+            })
         except Exception as e:
             print(f"Error fetching fields: {e}", file=sys.stderr)
             sys.exit(1)
@@ -248,6 +269,12 @@ def fetch_and_save_schema(
     try:
         fields = jira.fields()
         schema["fields"] = {f["id"]: f["name"] for f in fields}
+        # Store field types for select/option fields
+        schema["fieldTypes"] = {
+            f["id"]: f.get("schema", {}).get("type")
+            for f in fields
+            if f.get("schema", {}).get("type")
+        }
     except Exception as e:
         print(f"  Warning: Could not fetch fields: {e}", file=sys.stderr)
 

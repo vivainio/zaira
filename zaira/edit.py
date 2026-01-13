@@ -5,7 +5,7 @@ import sys
 
 import yaml
 
-from zaira.info import get_field_id
+from zaira.info import get_field_id, get_field_type
 from zaira.jira_client import get_jira, get_jira_site
 
 
@@ -56,10 +56,34 @@ def map_field(name: str, value: str) -> tuple[str, any]:
     # Try custom field lookup
     field_id = get_field_id(name)
     if field_id:
-        return field_id, value
+        return field_id, format_field_value(field_id, value)
 
     # Fall back to using name as-is (might be a field ID)
-    return name, value
+    return name, format_field_value(name, value)
+
+
+def format_field_value(field_id: str, value: any) -> any:
+    """Format value based on field type.
+
+    Wraps option/select field values in {"value": ...} format.
+    """
+    # Already formatted as dict/list - leave as is
+    if isinstance(value, (dict, list)):
+        return value
+
+    field_type = get_field_type(field_id)
+    if field_type == "option":
+        # Single select field
+        return {"value": value}
+    elif field_type == "array":
+        # Could be multi-select - check if string needs splitting
+        if isinstance(value, str):
+            values = [v.strip() for v in value.split(",")]
+            # Try as option array (multi-select)
+            return [{"value": v} for v in values]
+        return value
+
+    return value
 
 
 def parse_field_args(field_args: list[str]) -> dict:
@@ -102,6 +126,49 @@ def parse_yaml_fields(content: str) -> dict:
     return fields
 
 
+def get_allowed_values(jira, key: str, field_ids: list[str]) -> dict[str, list[str]]:
+    """Get allowed values for fields.
+
+    Tries editmeta first, then falls back to autocomplete API.
+
+    Returns:
+        Dict of field_id -> list of allowed value strings
+    """
+    from zaira.info import get_field_name
+
+    result = {}
+
+    # Try editmeta first
+    try:
+        meta = jira._get_json(f"issue/{key}/editmeta")
+        for fid in field_ids:
+            if fid in meta.get("fields", {}):
+                allowed = meta["fields"][fid].get("allowedValues", [])
+                if allowed:
+                    result[fid] = [v.get("value", v.get("name", "?")) for v in allowed]
+    except Exception:
+        pass
+
+    # For fields not found in editmeta, try autocomplete API
+    for fid in field_ids:
+        if fid in result:
+            continue
+        field_name = get_field_name(fid)
+        if not field_name:
+            continue
+        try:
+            data = jira._get_json("jql/autocompletedata/suggestions", params={
+                "fieldName": field_name
+            })
+            values = [r.get("value", r.get("displayName", "?")) for r in data.get("results", [])]
+            if values:
+                result[fid] = values
+        except Exception:
+            pass
+
+    return result
+
+
 def edit_ticket(key: str, fields: dict) -> bool:
     """Edit a Jira ticket's fields.
 
@@ -121,7 +188,33 @@ def edit_ticket(key: str, fields: dict) -> bool:
         issue.update(fields=fields)
         return True
     except Exception as e:
+        error_str = str(e)
         print(f"Error updating {key}: {e}", file=sys.stderr)
+
+        # Try to extract failed field IDs and show allowed values
+        try:
+            import json
+            if hasattr(e, "response") and hasattr(e.response, "text"):
+                error_data = json.loads(e.response.text)
+                failed_fields = list(error_data.get("errors", {}).keys())
+                if failed_fields:
+                    allowed = get_allowed_values(jira, key, failed_fields)
+                    for fid, values in allowed.items():
+                        field_name = error_data["errors"].get(fid, fid)
+                        # Extract field name from error message if possible
+                        if "valid" in field_name.lower():
+                            # "Specify a valid value for X" -> extract X
+                            parts = field_name.split(" for ")
+                            if len(parts) > 1:
+                                field_name = parts[-1]
+                        print(f"\nAllowed values for {field_name}:", file=sys.stderr)
+                        for v in values[:20]:  # Limit to 20 values
+                            print(f"  - {v}", file=sys.stderr)
+                        if len(values) > 20:
+                            print(f"  ... and {len(values) - 20} more", file=sys.stderr)
+        except Exception:
+            pass  # Best effort - don't fail on error handling
+
         return False
 
 
