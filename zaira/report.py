@@ -252,9 +252,8 @@ def generate_table(tickets: list[ReportTicket], group_by: str | None = None) -> 
     elif group_by == "issuetype":
         columns.remove("Type")
 
-    md = "| " + " | ".join(columns) + " |\n"
-    md += "|" + "|".join(["-----"] * len(columns)) + "|\n"
-
+    # Build all rows first to calculate column widths
+    rows: list[list[str]] = []
     for t in tickets:
         key = t.get("key", "?")
         issue_type = t.get("issuetype", "?")
@@ -282,7 +281,29 @@ def generate_table(tickets: list[ReportTicket], group_by: str | None = None) -> 
         elif group_by == "issuetype":
             row.pop(1)  # type is at index 1
 
-        md += "| " + " | ".join(row) + " |\n"
+        rows.append(row)
+
+    # Calculate column widths (min 3 for separator)
+    # Cap Status column at 12 chars - longer values will overflow
+    max_widths = {"Status": 12}
+    col_widths = [max(3, len(h)) for h in columns]
+    for row in rows:
+        for i, cell in enumerate(row):
+            cap = max_widths.get(columns[i], 999)
+            col_widths[i] = min(cap, max(col_widths[i], len(cell)))
+
+    # Generate header
+    header_cells = [h.ljust(col_widths[i]) for i, h in enumerate(columns)]
+    md = "| " + " | ".join(header_cells) + " |\n"
+
+    # Generate separator
+    sep_cells = ["-" * col_widths[i] for i in range(len(columns))]
+    md += "| " + " | ".join(sep_cells) + " |\n"
+
+    # Generate rows
+    for row in rows:
+        padded = [cell.ljust(col_widths[i]) for i, cell in enumerate(row)]
+        md += "| " + " | ".join(padded) + " |\n"
 
     return md
 
