@@ -1,13 +1,16 @@
 """Initialize project configuration."""
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
 from zaira.jira_client import (
+    CACHE_DIR,
+    CREDENTIALS_FILE,
     get_jira,
     get_jira_site,
-    CREDENTIALS_FILE,
+    get_project_schema_path,
     load_credentials,
 )
 from zaira.info import fetch_and_save_schema
@@ -222,9 +225,14 @@ def init_command(args: argparse.Namespace) -> None:
     config_path.write_text(content)
     print(f"\nCreated {config_path}\n")
 
-    # Cache instance schema and project metadata (use first project for schema)
-    combined_components = [c for comps in all_components.values() for c in comps]
-    combined_labels = [l for labels in all_labels.values() for l in labels]
-    fetch_and_save_schema(
-        project=projects[0], components=combined_components, labels=combined_labels
-    )
+    # Cache instance schema (once) and project metadata (per project)
+    fetch_and_save_schema()
+    for project in projects:
+        project_schema = {
+            "components": all_components.get(project, []),
+            "labels": all_labels.get(project, []),
+        }
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        project_file = get_project_schema_path(project)
+        project_file.write_text(json.dumps(project_schema, indent=2))
+        print(f"Saved project schema to {project_file}")
