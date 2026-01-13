@@ -188,19 +188,26 @@ def edit_ticket(key: str, fields: dict) -> bool:
         issue.update(fields=fields)
         return True
     except Exception as e:
-        error_str = str(e)
-        print(f"Error updating {key}: {e}", file=sys.stderr)
-
-        # Try to extract failed field IDs and show allowed values
+        # Try to extract clean error message and show allowed values
         try:
             import json
             if hasattr(e, "response") and hasattr(e.response, "text"):
                 error_data = json.loads(e.response.text)
-                failed_fields = list(error_data.get("errors", {}).keys())
+                errors = error_data.get("errors", {})
+                error_messages = error_data.get("errorMessages", [])
+
+                # Print clean error messages
+                for msg in error_messages:
+                    print(f"Error: {msg}", file=sys.stderr)
+                for fid, msg in errors.items():
+                    print(f"Error: {msg}", file=sys.stderr)
+
+                # Show allowed values for failed fields
+                failed_fields = list(errors.keys())
                 if failed_fields:
                     allowed = get_allowed_values(jira, key, failed_fields)
                     for fid, values in allowed.items():
-                        field_name = error_data["errors"].get(fid, fid)
+                        field_name = errors.get(fid, fid)
                         # Extract field name from error message if possible
                         if "valid" in field_name.lower():
                             # "Specify a valid value for X" -> extract X
@@ -212,8 +219,10 @@ def edit_ticket(key: str, fields: dict) -> bool:
                             print(f"  - {v}", file=sys.stderr)
                         if len(values) > 20:
                             print(f"  ... and {len(values) - 20} more", file=sys.stderr)
+            else:
+                print(f"Error updating {key}: {e}", file=sys.stderr)
         except Exception:
-            pass  # Best effort - don't fail on error handling
+            print(f"Error updating {key}: {e}", file=sys.stderr)
 
         return False
 
@@ -245,9 +254,6 @@ def edit_command(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     jira_site = get_jira_site()
-    field_names = list(fields.keys())
-
-    print(f"Updating {len(field_names)} field(s) for {key}...")
 
     if edit_ticket(key, fields):
         print(f"Updated {key}")
