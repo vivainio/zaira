@@ -58,59 +58,75 @@ def discover_boards(project: str) -> list[dict]:
         return []
 
 
+def slugify(name: str) -> str:
+    """Convert name to slug for config keys."""
+    return name.lower().replace(" ", "-").replace("(", "").replace(")", "")
+
+
 def generate_config(
-    project: str,
+    projects: list[str],
     site: str,
-    boards: list[dict],
-    components: list[str],
+    all_boards: dict[str, list[dict]],
+    all_components: dict[str, list[str]],
 ) -> str:
-    """Generate zproject.toml content."""
+    """Generate zproject.toml content.
+
+    Args:
+        projects: List of project keys
+        site: Jira site URL
+        all_boards: Dict mapping project key to list of boards
+        all_components: Dict mapping project key to list of components
+    """
     lines = ["[project]", f'site = "{site}"', ""]
 
-    # Boards
+    # Boards - collect from all projects
     lines.append("[boards]")
-    if boards:
+    has_boards = False
+    for project in projects:
+        boards = all_boards.get(project, [])
         for board in boards:
-            name_slug = (
-                board["name"]
-                .lower()
-                .replace(" ", "-")
-                .replace("(", "")
-                .replace(")", "")
-            )
+            has_boards = True
             lines.append(f"# {board['name']} ({board['type']})")
-            lines.append(f"{name_slug} = {board['id']}")
-    else:
+            lines.append(f"{slugify(board['name'])} = {board['id']}")
+    if not has_boards:
         lines.append("# No boards found")
         lines.append("# kanban = 1789")
     lines.append("")
 
-    # Queries
+    # Queries - per project
     lines.append("[queries]")
     lines.append("# Named JQL queries for quick access")
+    project_list = ", ".join(projects)
     lines.append(
-        f'my-tickets = "assignee = currentUser() AND project = {project} AND status NOT IN (Done, Disposal)"'
+        f'my-tickets = "assignee = currentUser() AND project IN ({project_list}) AND status NOT IN (Done, Disposal)"'
     )
-    lines.append(f'# bugs = "project = {project} AND type = Bug AND status != Done"')
+    for project in projects:
+        prefix = f"{project.lower()}-" if len(projects) > 1 else ""
+        lines.append(
+            f'# {prefix}bugs = "project = {project} AND type = Bug AND status != Done"'
+        )
     lines.append("")
 
     # Reports - named report definitions
     lines.append("[reports]")
     lines.append('my-tickets = { query = "my-tickets", group_by = "status" }')
-    if boards:
-        board = boards[0]
-        name_slug = (
-            board["name"].lower().replace(" ", "-").replace("(", "").replace(")", "")
-        )
-        lines.append(f'{name_slug} = {{ board = {board["id"]}, group_by = "status" }}')
-    for comp in components:
-        slug = comp.lower().replace(" ", "-")
+
+    for project in projects:
+        prefix = f"{project.lower()}-" if len(projects) > 1 else ""
+        boards = all_boards.get(project, [])
+        if boards:
+            board = boards[0]
+            lines.append(
+                f'{slugify(board["name"])} = {{ board = {board["id"]}, group_by = "status" }}'
+            )
+        components = all_components.get(project, [])
+        for comp in components:
+            lines.append(
+                f'{prefix}{slugify(comp)} = {{ jql = "project = {project} AND component = \\"{comp}\\"", group_by = "status" }}'
+            )
         lines.append(
-            f'{slug} = {{ jql = "project = {project} AND component = {comp}", group_by = "status" }}'
+            f'# {prefix}bugs = {{ jql = "project = {project} AND type = Bug", group_by = "priority" }}'
         )
-    lines.append(
-        f'# bugs = {{ jql = "project = {project} AND type = Bug", group_by = "priority" }}'
-    )
     lines.append("")
 
     return "\n".join(lines)
@@ -171,31 +187,44 @@ def init_command(args: argparse.Namespace) -> None:
         print(f"Error: {config_path} already exists. Use --force to overwrite.")
         sys.exit(1)
 
-    project = args.project
+    projects = args.projects
     site = args.site or get_jira_site()
 
-    if not project:
-        print("Error: --project is required")
+    if not projects:
+        print("Error: at least one project is required")
+        print("Usage: zaira init PROJECT [PROJECT ...]")
         sys.exit(1)
 
-    print(f"Discovering project {project} on {site}...")
+    # Discover metadata for all projects
+    all_boards: dict[str, list[dict]] = {}
+    all_components: dict[str, list[str]] = {}
+    all_labels: dict[str, list[str]] = {}
 
-    # Discover project metadata
-    print("  Finding components...")
-    components = discover_components(project)
-    print(f"    Found {len(components)} components")
+    for project in projects:
+        print(f"Discovering {project}...")
 
-    print("  Finding labels...")
-    labels = discover_labels(project)
-    print(f"    Found {len(labels)} labels")
+        print("  Finding components...")
+        components = discover_components(project)
+        all_components[project] = components
+        print(f"    Found {len(components)} components")
 
-    print("  Finding boards...")
-    boards = discover_boards(project)
-    print(f"    Found {len(boards)} boards")
+        print("  Finding labels...")
+        labels = discover_labels(project)
+        all_labels[project] = labels
+        print(f"    Found {len(labels)} labels")
 
-    content = generate_config(project, site, boards, components)
+        print("  Finding boards...")
+        boards = discover_boards(project)
+        all_boards[project] = boards
+        print(f"    Found {len(boards)} boards")
+
+    content = generate_config(projects, site, all_boards, all_components)
     config_path.write_text(content)
     print(f"\nCreated {config_path}\n")
 
-    # Cache instance schema and project metadata
-    fetch_and_save_schema(project=project, components=components, labels=labels)
+    # Cache instance schema and project metadata (use first project for schema)
+    combined_components = [c for comps in all_components.values() for c in comps]
+    combined_labels = [l for labels in all_labels.values() for l in labels]
+    fetch_and_save_schema(
+        project=projects[0], components=combined_components, labels=combined_labels
+    )

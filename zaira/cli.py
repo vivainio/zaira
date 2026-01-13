@@ -259,9 +259,9 @@ def main() -> None:
         help="Initialize project configuration",
     )
     init_parser.add_argument(
-        "-p",
-        "--project",
-        help="Project key (e.g., PROJ)",
+        "projects",
+        nargs="*",
+        help="Project keys (e.g., FOO BAR)",
     )
     init_parser.add_argument(
         "-s",
