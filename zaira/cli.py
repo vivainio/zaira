@@ -317,6 +317,19 @@ def main() -> None:
         "--description",
         help="New description (use '-' to read from stdin). Supports Jira wiki syntax.",
     )
+    edit_parser.add_argument(
+        "-F",
+        "--field",
+        action="append",
+        metavar="NAME=VALUE",
+        help="Set field value (repeatable). Custom fields looked up via schema.",
+    )
+    edit_parser.add_argument(
+        "--from",
+        dest="from_file",
+        metavar="FILE",
+        help="Read fields from YAML file (use '-' for stdin)",
+    )
     edit_parser.set_defaults(func=edit_command)
 
     # Create command

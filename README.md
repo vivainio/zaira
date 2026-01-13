@@ -193,27 +193,39 @@ zaira boards --project FOO
 
 ### edit
 
-Edit a ticket's title and/or description:
+Edit a ticket's fields:
 
 ```bash
+# Title and description
 zaira edit FOO-1234 --title "New title"
 zaira edit FOO-1234 --description "New description"
-zaira edit FOO-1234 -t "Title" -d "Description"  # Both at once
+zaira edit FOO-1234 -t "Title" -d "Description"
+
+# Arbitrary fields with -F (repeatable)
+zaira edit FOO-1234 -F "Priority=High"
+zaira edit FOO-1234 -F "Priority=High" -F "Epic Link=FOO-100"
+zaira edit FOO-1234 -F "labels=bug,urgent" -F "Story Points=5"
+
+# From YAML file
+zaira edit FOO-1234 --from fields.yaml
+
+# From stdin
+zaira edit FOO-1234 --from - <<EOF
+Priority: High
+Epic Link: FOO-100
+Story Points: 5
+labels: [bug, urgent]
+EOF
 
 # Multiline description via stdin
 zaira edit FOO-1234 -d - <<EOF
 h2. Overview
 
 This is a *bold* statement with _italic_ text.
-
-{code:python}
-def hello():
-    print("Hello")
-{code}
 EOF
 ```
 
-Descriptions support [Jira wiki syntax](https://jira.atlassian.com/secure/WikiRendererHelpAction.jspa?section=all) for formatting (headers, bold, code blocks, tables, etc.).
+Custom field names are mapped to IDs using the cached schema. Descriptions support [Jira wiki syntax](https://jira.atlassian.com/secure/WikiRendererHelpAction.jspa?section=all).
 
 ### comment
 
