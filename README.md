@@ -51,7 +51,7 @@ This discovers each project's components, labels, and boards, then generates `zp
 
 ### export
 
-Export individual tickets. Without a `zproject.toml`, outputs to stdout. In a project directory, saves to `tickets/`:
+Export individual tickets. Without a `zproject.toml`, outputs to stdout. In a project directory, saves to `tickets/` with attachments:
 
 ```bash
 # Outside project → stdout
@@ -324,14 +324,17 @@ cross-team = { jql = "project IN (FOO, BAR) AND type = Bug", group_by = "project
 project/
   zproject.toml          # Project configuration
   tickets/               # Exported tickets
-    FOO-1234-ticket-title.md
-    FOO-1234-ticket-title.json  # with --format json
+    FOO-1234/
+      FOO-1234-ticket-title.md
+      attachments/       # Downloaded attachments (up to 10 MB each)
+        screenshot.png
+        design.pdf
     by-component/        # Symlinks grouped by component (markdown only)
       backend/
-        FOO-1234-ticket-title.md -> ../../FOO-1234-ticket-title.md
+        FOO-1234-ticket-title.md -> ../FOO-1234/FOO-1234-ticket-title.md
     by-parent/           # Symlinks grouped by parent ticket
       FOO-1000-epic-name/
-        FOO-1234-ticket-title.md -> ../../FOO-1234-ticket-title.md
+        FOO-1234-ticket-title.md -> ../FOO-1234/FOO-1234-ticket-title.md
   reports/               # Generated reports
     my-tickets.md
     my-tickets.json      # with --format json
@@ -365,6 +368,10 @@ url: https://company.atlassian.net/browse/FOO-1234
 ## Description
 
 Feature description here...
+
+## Attachments
+
+- [screenshot.png](attachments/screenshot.png) (145 KB, Jane Doe, 2024-01-14)
 
 ## Comments
 
