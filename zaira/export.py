@@ -517,7 +517,7 @@ def export_ticket(
         key,
         full=(fmt == "json"),
         include_custom=include_custom,
-        include_attachments=with_attachments,
+        include_attachments=True,  # Always include metadata for markdown section
     )
     if not ticket:
         print(f"  Error: Could not fetch {key}")
