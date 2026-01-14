@@ -469,11 +469,11 @@ url: https://{jira_site}/browse/{key}
 
 """
         for att in attachments:
-            filename = att.get("filename", "")
+            att_filename = att.get("filename", "")
             size_kb = att.get("size", 0) // 1024
             author = att.get("author", "Unknown")
             created = att.get("created", "")[:10]  # Just the date part
-            md += f"- [{filename}](attachments/{filename}) ({size_kb} KB, {author}, {created})\n"
+            md += f"- [{att_filename}](attachments/{key}/{att_filename}) ({size_kb} KB, {author}, {created})\n"
 
     md += """
 ## Comments
@@ -536,24 +536,29 @@ def export_ticket(
     ext = "json" if fmt == "json" else "md"
     filename = f"{key}-{normalize_title(summary)}.{ext}"
 
-    # When exporting attachments, put files in a subdirectory
-    if with_attachments:
-        ticket_dir = output_dir / key
-        ticket_dir.mkdir(parents=True, exist_ok=True)
-        outfile = ticket_dir / filename
-        symlink_prefix = f"../{key}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    outfile = output_dir / filename
 
-        # Download attachments
+    # Download attachments to attachments/{key}/
+    if with_attachments:
         attachments = ticket.get("attachments", [])
         if attachments:
-            attach_dir = ticket_dir / "attachments"
+            attach_dir = output_dir / "attachments" / key
             print(f"  Downloading {len(attachments)} attachment(s)...")
+            seen: dict[str, int] = {}
             for att in attachments:
+                orig_name = att["filename"]
+                if orig_name in seen:
+                    seen[orig_name] += 1
+                    # Insert counter before extension: foo.png -> foo_2.png
+                    base, dot, ext = orig_name.rpartition(".")
+                    if dot:
+                        att["filename"] = f"{base}_{seen[orig_name]}.{ext}"
+                    else:
+                        att["filename"] = f"{orig_name}_{seen[orig_name]}"
+                else:
+                    seen[orig_name] = 1
                 download_attachment(att, attach_dir)
-    else:
-        output_dir.mkdir(parents=True, exist_ok=True)
-        outfile = output_dir / filename
-        symlink_prefix = ".."
 
     if fmt == "json":
         outfile.write_text(format_ticket_json(ticket, comments, synced, jira_site))
@@ -571,7 +576,7 @@ def export_ticket(
                 comp_dir.mkdir(parents=True, exist_ok=True)
                 link = comp_dir / filename
                 link.unlink(missing_ok=True)
-                link.symlink_to(f"{symlink_prefix}/{filename}")
+                link.symlink_to(f"../../{filename}")
 
         # Create symlinks by parent
         if parent_data:
@@ -582,7 +587,7 @@ def export_ticket(
             parent_dir.mkdir(parents=True, exist_ok=True)
             link = parent_dir / filename
             link.unlink(missing_ok=True)
-            link.symlink_to(f"{symlink_prefix}/{filename}")
+            link.symlink_to(f"../../{filename}")
 
     return True
 

@@ -324,17 +324,17 @@ cross-team = { jql = "project IN (FOO, BAR) AND type = Bug", group_by = "project
 project/
   zproject.toml          # Project configuration
   tickets/               # Exported tickets
-    FOO-1234/
-      FOO-1234-ticket-title.md
-      attachments/       # Downloaded attachments (up to 10 MB each)
+    FOO-1234-ticket-title.md
+    attachments/         # Downloaded attachments (up to 10 MB each)
+      FOO-1234/
         screenshot.png
         design.pdf
     by-component/        # Symlinks grouped by component (markdown only)
       backend/
-        FOO-1234-ticket-title.md -> ../FOO-1234/FOO-1234-ticket-title.md
+        FOO-1234-ticket-title.md -> ../../FOO-1234-ticket-title.md
     by-parent/           # Symlinks grouped by parent ticket
       FOO-1000-epic-name/
-        FOO-1234-ticket-title.md -> ../FOO-1234/FOO-1234-ticket-title.md
+        FOO-1234-ticket-title.md -> ../../FOO-1234-ticket-title.md
   reports/               # Generated reports
     my-tickets.md
     my-tickets.json      # with --format json
@@ -371,7 +371,7 @@ Feature description here...
 
 ## Attachments
 
-- [screenshot.png](attachments/screenshot.png) (145 KB, Jane Doe, 2024-01-14)
+- [screenshot.png](attachments/FOO-1234/screenshot.png) (145 KB, Jane Doe, 2024-01-14)
 
 ## Comments
 
