@@ -87,6 +87,17 @@ class Subtask(TypedDict):
     status: str
 
 
+class Attachment(TypedDict):
+    """Jira attachment metadata."""
+
+    id: str
+    filename: str
+    size: int
+    mimeType: str
+    author: str
+    created: str
+
+
 class Ticket(TypedDict, total=False):
     """Full ticket data from Jira export."""
 
@@ -121,6 +132,9 @@ class Ticket(TypedDict, total=False):
     creator: str
     creatorDisplayName: str | None
     duedate: str | None
+
+    # Attachments (if --with-attachments)
+    attachments: list[Attachment]
 
 
 class ReportTicket(TypedDict, total=False):

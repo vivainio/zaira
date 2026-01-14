@@ -13,7 +13,7 @@ from zaira.config import TICKETS_DIR, find_project_root
 from zaira.info import get_field_name
 from zaira.jira_client import get_jira, get_jira_site
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
-from zaira.types import Comment, Ticket, get_user_identifier, yaml_quote
+from zaira.types import Attachment, Comment, Ticket, get_user_identifier, yaml_quote
 
 
 def normalize_title(title: str) -> str:
@@ -142,13 +142,19 @@ def _is_bogus_field_name(name: str) -> bool:
     )
 
 
-def get_ticket(key: str, full: bool = False, include_custom: bool = False) -> Ticket | None:
+def get_ticket(
+    key: str,
+    full: bool = False,
+    include_custom: bool = False,
+    include_attachments: bool = False,
+) -> Ticket | None:
     """Fetch ticket details.
 
     Args:
         key: Ticket key (e.g., "FOO-123")
         full: Include extra fields for JSON export
         include_custom: Include custom fields with schema name lookup
+        include_attachments: Include attachment metadata
     """
     jira = get_jira()
     try:
@@ -253,6 +259,20 @@ def get_ticket(key: str, full: bool = False, include_custom: bool = False) -> Ti
                 fields.creator.displayName if fields.creator else None
             )
 
+        # Add attachment metadata
+        if include_attachments:
+            attachments = []
+            for att in getattr(fields, "attachment", None) or []:
+                attachments.append({
+                    "id": att.id,
+                    "filename": att.filename,
+                    "size": att.size,
+                    "mimeType": getattr(att, "mimeType", "application/octet-stream"),
+                    "author": att.author.displayName if att.author else "Unknown",
+                    "created": att.created or "",
+                })
+            ticket["attachments"] = attachments
+
         return ticket
     except Exception as e:
         print(f"  Error fetching {key}: {e}")
@@ -308,6 +328,32 @@ def get_pull_requests(issue_id: str) -> list[dict]:
         return prs
     except Exception:
         return []
+
+
+def download_attachment(attachment: Attachment, output_dir: Path) -> bool:
+    """Download a single attachment to the output directory.
+
+    Args:
+        attachment: Attachment metadata dict
+        output_dir: Directory to save the file
+
+    Returns:
+        True if successful, False otherwise
+    """
+    jira = get_jira()
+    try:
+        # Construct the attachment URL
+        url = f'{jira._options["server"]}/secure/attachment/{attachment["id"]}/{attachment["filename"]}'
+        resp = jira._session.get(url)
+        resp.raise_for_status()
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+        outfile = output_dir / attachment["filename"]
+        outfile.write_bytes(resp.content)
+        return True
+    except Exception as e:
+        print(f"    Error downloading {attachment['filename']}: {e}")
+        return False
 
 
 def search_tickets(jql: str) -> list[str]:
@@ -407,6 +453,19 @@ url: https://{jira_site}/browse/{key}
             status = pr.get("status", "")
             md += f"- [{name}]({url}) ({status})\n"
 
+    attachments = ticket.get("attachments", [])
+    if attachments:
+        md += """
+## Attachments
+
+"""
+        for att in attachments:
+            filename = att.get("filename", "")
+            size_kb = att.get("size", 0) // 1024
+            author = att.get("author", "Unknown")
+            created = att.get("created", "")[:10]  # Just the date part
+            md += f"- [{filename}](attachments/{filename}) ({size_kb} KB, {author}, {created})\n"
+
     md += """
 ## Comments
 
@@ -440,11 +499,17 @@ def export_ticket(
     fmt: str = "md",
     with_prs: bool = False,
     include_custom: bool = False,
+    with_attachments: bool = False,
 ) -> bool:
     """Export a single ticket to markdown or JSON."""
     print(f"Exporting {key}...")
 
-    ticket = get_ticket(key, full=(fmt == "json"), include_custom=include_custom)
+    ticket = get_ticket(
+        key,
+        full=(fmt == "json"),
+        include_custom=include_custom,
+        include_attachments=with_attachments,
+    )
     if not ticket:
         print(f"  Error: Could not fetch {key}")
         return False
@@ -462,8 +527,24 @@ def export_ticket(
     ext = "json" if fmt == "json" else "md"
     filename = f"{key}-{normalize_title(summary)}.{ext}"
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    outfile = output_dir / filename
+    # When exporting attachments, put files in a subdirectory
+    if with_attachments:
+        ticket_dir = output_dir / key
+        ticket_dir.mkdir(parents=True, exist_ok=True)
+        outfile = ticket_dir / filename
+        symlink_prefix = f"../{key}"
+
+        # Download attachments
+        attachments = ticket.get("attachments", [])
+        if attachments:
+            attach_dir = ticket_dir / "attachments"
+            print(f"  Downloading {len(attachments)} attachment(s)...")
+            for att in attachments:
+                download_attachment(att, attach_dir)
+    else:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        outfile = output_dir / filename
+        symlink_prefix = ".."
 
     if fmt == "json":
         outfile.write_text(format_ticket_json(ticket, comments, synced, jira_site))
@@ -481,7 +562,7 @@ def export_ticket(
                 comp_dir.mkdir(parents=True, exist_ok=True)
                 link = comp_dir / filename
                 link.unlink(missing_ok=True)
-                link.symlink_to(f"../../{filename}")
+                link.symlink_to(f"{symlink_prefix}/{filename}")
 
         # Create symlinks by parent
         if parent_data:
@@ -492,7 +573,7 @@ def export_ticket(
             parent_dir.mkdir(parents=True, exist_ok=True)
             link = parent_dir / filename
             link.unlink(missing_ok=True)
-            link.symlink_to(f"../../{filename}")
+            link.symlink_to(f"{symlink_prefix}/{filename}")
 
     return True
 
@@ -570,6 +651,13 @@ def export_command(args: argparse.Namespace) -> None:
         output_dir = Path(args.output) if args.output else TICKETS_DIR
         success = 0
         for key in tickets:
-            if export_ticket(key, output_dir, fmt=fmt, with_prs=with_prs, include_custom=include_custom):
+            if export_ticket(
+                key,
+                output_dir,
+                fmt=fmt,
+                with_prs=with_prs,
+                include_custom=include_custom,
+                with_attachments=True,  # Always download attachments for file exports
+            ):
                 success += 1
         print(f"\nExported {success}/{len(tickets)} tickets to {output_dir}/")
