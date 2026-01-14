@@ -4,6 +4,7 @@ import argparse
 import sys
 
 from zaira import __version__
+from zaira.attach import attach_command
 from zaira.boards import boards_command
 from zaira.comment import comment_command
 from zaira.create import create_command
@@ -305,6 +306,22 @@ def main() -> None:
         help="Comment text (use '-' to read from stdin)",
     )
     comment_parser.set_defaults(func=comment_command)
+
+    # Attach command
+    attach_parser = subparsers.add_parser(
+        "attach",
+        help="Upload attachments to a ticket",
+    )
+    attach_parser.add_argument(
+        "key",
+        help="Ticket key (e.g., PROJ-123)",
+    )
+    attach_parser.add_argument(
+        "files",
+        nargs="+",
+        help="Files to upload",
+    )
+    attach_parser.set_defaults(func=attach_command)
 
     # Edit command
     edit_parser = subparsers.add_parser(
