@@ -330,6 +330,9 @@ def get_pull_requests(issue_id: str) -> list[dict]:
         return []
 
 
+MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
 def download_attachment(attachment: Attachment, output_dir: Path) -> bool:
     """Download a single attachment to the output directory.
 
@@ -340,6 +343,12 @@ def download_attachment(attachment: Attachment, output_dir: Path) -> bool:
     Returns:
         True if successful, False otherwise
     """
+    size = attachment.get("size", 0)
+    if size > MAX_ATTACHMENT_SIZE:
+        size_mb = size / (1024 * 1024)
+        print(f"    Skipping {attachment['filename']} ({size_mb:.1f} MB > 10 MB limit)")
+        return False
+
     jira = get_jira()
     try:
         # Construct the attachment URL
