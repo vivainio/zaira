@@ -51,20 +51,20 @@ This discovers each project's components, labels, and boards, then generates `zp
 
 ### export
 
-Export individual tickets. Without a `zproject.toml`, outputs to stdout. In a project directory, saves to `tickets/` with attachments:
+Export individual tickets to stdout (default) or files:
 
 ```bash
-# Outside project → stdout
+# Output to stdout (default)
 zaira export FOO-1234
 
-# Inside project → saves to tickets/
-zaira export FOO-1234 FOO-1235
-zaira export --jql "project = FOO AND status = 'In Progress'"
-zaira export --board 123
-zaira export --sprint 456
+# Save to tickets/ directory
+zaira export FOO-1234 --files
+zaira export FOO-1234 -o tickets/
 
-# Force stdout with -o -
-zaira export FOO-1234 -o -
+# Bulk export with JQL, board, or sprint
+zaira export --jql "project = FOO AND status = 'In Progress'" --files
+zaira export --board 123 --files
+zaira export --sprint 456 --files
 
 # Export as JSON
 zaira export FOO-1234 --format json
@@ -74,9 +74,6 @@ zaira export FOO-1234 --with-prs
 
 # Include custom fields (uses cached schema for name lookup)
 zaira export FOO-1234 --all-fields
-
-# Force file output without zproject.toml
-zaira export FOO-1234 --files
 ```
 
 ### create

@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from zaira.config import TICKETS_DIR, find_project_root
+from zaira.config import TICKETS_DIR
 from zaira.info import get_field_name
 from zaira.jira_client import get_jira, get_jira_site
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
@@ -620,15 +620,14 @@ def export_command(args: argparse.Namespace) -> None:
     """Handle export subcommand."""
     fmt = getattr(args, "format", "md")
 
-    # Default to stdout if no zproject.toml found, otherwise files
-    has_project = find_project_root() is not None
+    # Default to stdout, use --files or -o to save to files
     force_files = getattr(args, "files", False)
-    if args.output == "-":
-        to_stdout = True
-    elif args.output or force_files:
+    if args.output and args.output != "-":
+        to_stdout = False
+    elif force_files:
         to_stdout = False
     else:
-        to_stdout = not has_project
+        to_stdout = True
 
     tickets = list(args.tickets)
 
