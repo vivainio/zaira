@@ -21,6 +21,7 @@ classifiers = [
 dependencies = [
     "jira>=3.5.0",
     "platformdirs>=4.0.0",
+    "pyyaml>=6.0",
 ]
 
 [project.urls]
@@ -33,3 +34,6 @@ zaira = "zaira.cli:main"
 
 [tool.uv]
 package = true
+
+[tool.setuptools]
+packages = ["zaira"]
