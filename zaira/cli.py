@@ -13,7 +13,7 @@ from zaira.edit import edit_command
 from zaira.export import export_command
 from zaira.link import link_command
 from zaira.transition import transition_command
-from zaira.wiki import wiki_command, get_command as wiki_get_command
+from zaira.wiki import wiki_command, get_command as wiki_get_command, search_command as wiki_search_command
 from zaira.info import (
     info_command,
     link_types_command,
@@ -500,6 +500,38 @@ def main() -> None:
         help="Output format (default: md)",
     )
     wiki_get.set_defaults(wiki_func=wiki_get_command)
+
+    wiki_search = wiki_subparsers.add_parser(
+        "search",
+        help="Search Confluence pages",
+    )
+    wiki_search.add_argument(
+        "query",
+        nargs="?",
+        default="",
+        help="Search query text (optional if --creator specified)",
+    )
+    wiki_search.add_argument(
+        "--space",
+        help="Limit search to a specific space key",
+    )
+    wiki_search.add_argument(
+        "--creator",
+        help="Filter by page creator name",
+    )
+    wiki_search.add_argument(
+        "--limit",
+        type=int,
+        default=25,
+        help="Maximum results to return (default: 25)",
+    )
+    wiki_search.add_argument(
+        "--format",
+        choices=["default", "url", "id", "json"],
+        default="default",
+        help="Output format (default: title/space/url)",
+    )
+    wiki_search.set_defaults(wiki_func=wiki_search_command)
 
     args = parser.parse_args()
 

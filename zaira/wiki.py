@@ -162,11 +162,90 @@ def get_command(args: argparse.Namespace) -> None:
         print(text.strip())
 
 
+def search_command(args: argparse.Namespace) -> None:
+    """Search Confluence pages using CQL."""
+    base_url, auth = get_confluence_auth()
+
+    # Build CQL query
+    cql_parts = []
+
+    # Text search - search in title and body (optional if creator specified)
+    query = args.query
+    if query:
+        cql_parts.append(f'text ~ "{query}"')
+
+    # Optional space filter
+    if args.space:
+        cql_parts.append(f'space = "{args.space}"')
+
+    # Optional creator filter
+    if args.creator:
+        cql_parts.append(f'creator.fullname ~ "{args.creator}"')
+
+    # Only search pages (not attachments, comments, etc.)
+    cql_parts.append("type = page")
+
+    cql = " AND ".join(cql_parts)
+
+    r = requests.get(
+        f"{base_url}/content/search",
+        params={
+            "cql": cql,
+            "limit": args.limit,
+            "expand": "space,version",
+        },
+        auth=auth,
+    )
+
+    if not r.ok:
+        print(f"Error: {r.status_code} - {r.reason}", file=sys.stderr)
+        print(r.text, file=sys.stderr)
+        sys.exit(1)
+
+    data = r.json()
+    results = data.get("results", [])
+
+    if args.format == "json":
+        import json
+        print(json.dumps(data, indent=2))
+        return
+
+    if not results:
+        print("No results found.", file=sys.stderr)
+        sys.exit(0)
+
+    # Get base wiki URL for building links
+    server = get_server_from_config()
+    wiki_base = server + "/wiki"
+
+    for page in results:
+        page_id = page["id"]
+        title = page["title"]
+        space_key = page["space"]["key"]
+
+        # Build URL from _links if available, otherwise construct it
+        if "_links" in page and "webui" in page["_links"]:
+            url = wiki_base + page["_links"]["webui"]
+        else:
+            url = f"{wiki_base}/spaces/{space_key}/pages/{page_id}"
+
+        if args.format == "url":
+            print(url)
+        elif args.format == "id":
+            print(page_id)
+        else:
+            # Default: show title, space, and URL
+            print(f"{title}")
+            print(f"  Space: {space_key} | ID: {page_id}")
+            print(f"  {url}")
+            print()
+
+
 def wiki_command(args: argparse.Namespace) -> None:
     """Handle wiki subcommand."""
     if hasattr(args, "wiki_func"):
         args.wiki_func(args)
     else:
         print("Usage: zaira wiki <subcommand>")
-        print("Subcommands: get")
+        print("Subcommands: get, search")
         sys.exit(1)
