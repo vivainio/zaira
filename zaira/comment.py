@@ -3,6 +3,7 @@
 import argparse
 import sys
 
+from zaira.create import detect_markdown
 from zaira.jira_client import get_jira, get_jira_site
 
 
@@ -39,6 +40,13 @@ def comment_command(args: argparse.Namespace) -> None:
 
     if not body.strip():
         print("Error: Comment body cannot be empty", file=sys.stderr)
+        sys.exit(1)
+
+    md_errors = detect_markdown(body)
+    if md_errors:
+        print("Error: Comment contains markdown syntax. Use Jira wiki markup instead:", file=sys.stderr)
+        for err in md_errors:
+            print(f"  - {err}", file=sys.stderr)
         sys.exit(1)
 
     jira_site = get_jira_site()
