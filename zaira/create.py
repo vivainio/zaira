@@ -11,6 +11,33 @@ from zaira.info import get_field_id, load_schema
 from zaira.jira_client import get_jira
 
 
+def detect_markdown(text: str) -> list[str]:
+    """Detect markdown syntax that should be Jira wiki markup.
+
+    Returns list of error messages for each detected issue.
+    """
+    errors = []
+    lines = text.split("\n")
+
+    for i, line in enumerate(lines, 1):
+        # Detect markdown headings: ## Heading
+        if re.match(r"^#{1,6}\s+\S", line):
+            level = len(re.match(r"^(#+)", line).group(1))
+            errors.append(f"Line {i}: Use 'h{level}. ' instead of '{'#' * level} ' for headings")
+
+    # Detect markdown links: [text](url)
+    md_links = re.findall(r"\[([^\]]+)\]\(([^)]+)\)", text)
+    if md_links:
+        for link_text, url in md_links[:3]:  # Show first 3
+            errors.append(f"Use '[{link_text}|{url}]' instead of '[{link_text}]({url})' for links")
+
+    # Detect markdown bold: **text**
+    if re.search(r"\*\*[^*]+\*\*", text):
+        errors.append("Use '*text*' instead of '**text**' for bold")
+
+    return errors
+
+
 # Standard Jira fields that don't need schema lookup
 STANDARD_FIELDS = {
     "project": "project",
@@ -180,6 +207,15 @@ def create_command(args: argparse.Namespace) -> None:
     if not schema or "fields" not in schema:
         print("Warning: No cached schema. Custom fields won't be mapped.", file=sys.stderr)
         print("Run 'zaira info fields --refresh' to cache field mappings.", file=sys.stderr)
+
+    # Check for markdown syntax in description
+    if description:
+        md_errors = detect_markdown(description)
+        if md_errors:
+            print("Error: Description contains markdown syntax. Use Jira wiki markup instead:", file=sys.stderr)
+            for err in md_errors:
+                print(f"  - {err}", file=sys.stderr)
+            sys.exit(1)
 
     fields = map_fields(front_matter, description)
     dry_run = getattr(args, "dry_run", False)

@@ -5,6 +5,7 @@ import sys
 
 import yaml
 
+from zaira.create import detect_markdown
 from zaira.info import get_field_id, get_field_type
 from zaira.jira_client import get_jira, get_jira_site
 
@@ -249,7 +250,14 @@ def edit_command(args: argparse.Namespace) -> None:
     if args.title:
         fields["summary"] = args.title
     if args.description:
-        fields["description"] = read_input(args.description)
+        desc = read_input(args.description)
+        md_errors = detect_markdown(desc)
+        if md_errors:
+            print("Error: Description contains markdown syntax. Use Jira wiki markup instead:", file=sys.stderr)
+            for err in md_errors:
+                print(f"  - {err}", file=sys.stderr)
+            sys.exit(1)
+        fields["description"] = desc
 
     # Handle --field arguments
     field_args = getattr(args, "field", None) or []
