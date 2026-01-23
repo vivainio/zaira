@@ -29,6 +29,25 @@ def read_input(value: str) -> str:
     return value
 
 
+def _format_assignee(value: str | None) -> dict | None:
+    """Format assignee value for Jira API.
+
+    Supports "me" as a special value to assign to the current user.
+    Uses accountId for Jira Cloud compatibility.
+    """
+    if not value:
+        return None
+    if value.lower() == "me":
+        jira = get_jira()
+        me = jira.myself()
+        return {"accountId": me["accountId"]}
+    # Try accountId format first (Jira Cloud), fall back to name (Server)
+    if value.startswith("7") and ":" in value:
+        # Looks like an accountId
+        return {"accountId": value}
+    return {"accountId": value}
+
+
 def map_field(name: str, value: str) -> tuple[str, any]:
     """Map a field name to Jira field ID and format value.
 
@@ -43,7 +62,7 @@ def map_field(name: str, value: str) -> tuple[str, any]:
         if field_id == "priority":
             return field_id, {"name": value}
         if field_id == "assignee":
-            return field_id, {"name": value} if value else None
+            return field_id, _format_assignee(value)
         if field_id == "labels":
             if isinstance(value, list):
                 return field_id, value
