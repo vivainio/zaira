@@ -67,13 +67,23 @@ def format_field_value(field_id: str, value: any) -> any:
     """Format value based on field type.
 
     Wraps option/select field values in {"value": ...} format.
+    Converts string values to numbers for numeric fields.
     """
     # Already formatted as dict/list - leave as is
     if isinstance(value, (dict, list)):
         return value
 
+    # Already a number - leave as is
+    if isinstance(value, (int, float)):
+        return value
+
     field_type = get_field_type(field_id)
-    if field_type == "option":
+    if field_type == "number":
+        # Numeric field - convert string to number
+        if isinstance(value, str):
+            return _parse_number(value)
+        return value
+    elif field_type == "option":
         # Single select field
         return {"value": value}
     elif field_type == "array":
@@ -85,6 +95,20 @@ def format_field_value(field_id: str, value: any) -> any:
         return value
 
     return value
+
+
+def _parse_number(value: str) -> int | float | str:
+    """Parse string to number if possible.
+
+    Returns:
+        int if value is an integer, float if decimal, original string otherwise.
+    """
+    try:
+        if "." in value:
+            return float(value)
+        return int(value)
+    except ValueError:
+        return value
 
 
 def parse_field_args(field_args: list[str]) -> dict:
