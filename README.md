@@ -204,6 +204,10 @@ zaira edit FOO-1234 -F "Priority=High"
 zaira edit FOO-1234 -F "Priority=High" -F "Epic Link=FOO-100"
 zaira edit FOO-1234 -F "labels=bug,urgent" -F "Story Points=5"
 
+# Assign ticket
+zaira edit FOO-1234 -F "assignee=me"                  # Assign to yourself
+zaira edit FOO-1234 -F "assignee=user@example.com"   # Assign by email
+
 # From YAML file
 zaira edit FOO-1234 --from fields.yaml
 
