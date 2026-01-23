@@ -41,10 +41,6 @@ def _format_assignee(value: str | None) -> dict | None:
         jira = get_jira()
         me = jira.myself()
         return {"accountId": me["accountId"]}
-    # Try accountId format first (Jira Cloud), fall back to name (Server)
-    if value.startswith("7") and ":" in value:
-        # Looks like an accountId
-        return {"accountId": value}
     return {"accountId": value}
 
 
