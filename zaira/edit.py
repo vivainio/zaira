@@ -33,14 +33,19 @@ def _format_assignee(value: str | None) -> dict | None:
     """Format assignee value for Jira API.
 
     Supports "me" as a special value to assign to the current user.
-    Uses accountId for Jira Cloud compatibility.
+    Also looks up accountId by email/name for Jira Cloud compatibility.
     """
     if not value:
         return None
+    jira = get_jira()
     if value.lower() == "me":
-        jira = get_jira()
         me = jira.myself()
         return {"accountId": me["accountId"]}
+    # Look up user by email/name to get accountId (required for Jira Cloud)
+    users = jira.search_users(query=value)
+    if users:
+        return {"accountId": users[0].accountId}
+    # Fall back to using value directly as accountId
     return {"accountId": value}
 
 
