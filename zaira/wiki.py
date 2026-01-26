@@ -308,8 +308,12 @@ def attach_command(args: argparse.Namespace) -> None:
             action = "Uploaded"
 
         if not r.ok:
-            print(f"Error uploading {path.name}: {r.status_code} - {r.reason}", file=sys.stderr)
-            print(r.text, file=sys.stderr)
+            # Check for duplicate attachment error
+            if r.status_code == 400 and "same file name" in r.text:
+                print(f"Error: {path.name} already exists. Use --replace to update.", file=sys.stderr)
+            else:
+                print(f"Error uploading {path.name}: {r.status_code} - {r.reason}", file=sys.stderr)
+                print(r.text, file=sys.stderr)
             continue
 
         uploaded.append((path.name, action))
