@@ -9,10 +9,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-import requests
-from requests.auth import HTTPBasicAuth
-
-from zaira.jira_client import load_credentials, get_server_from_config
+from zaira import confluence_api
+from zaira.jira_client import get_server_from_config
 from zaira.mdconv import (
     markdown_to_storage,
     storage_to_markdown,
@@ -39,12 +37,12 @@ def parse_front_matter(content: str) -> tuple[dict, str]:
         return {}, content
 
     # Find the closing ---
-    end_match = re.search(r'\n---\s*\n', content[3:])
+    end_match = re.search(r"\n---\s*\n", content[3:])
     if not end_match:
         return {}, content
 
     end_pos = end_match.end() + 3
-    front_matter_str = content[4:end_match.start() + 3]
+    front_matter_str = content[4 : end_match.start() + 3]
     body = content[end_pos:]
 
     try:
@@ -75,31 +73,14 @@ def write_front_matter(front_matter: dict, body: str) -> str:
         pass
 
     def represent_list(dumper, data):
-        return dumper.represent_sequence('tag:yaml.org,2002:seq', data, flow_style=True)
+        return dumper.represent_sequence("tag:yaml.org,2002:seq", data, flow_style=True)
 
     InlineListDumper.add_representer(list, represent_list)
 
-    fm_str = yaml.dump(front_matter, Dumper=InlineListDumper, default_flow_style=False, sort_keys=False)
+    fm_str = yaml.dump(
+        front_matter, Dumper=InlineListDumper, default_flow_style=False, sort_keys=False
+    )
     return f"---\n{fm_str}---\n\n{body.lstrip()}"
-
-
-def get_confluence_auth() -> tuple[str, HTTPBasicAuth]:
-    """Get Confluence base URL and auth.
-
-    Returns:
-        Tuple of (base_url, auth)
-    """
-    creds = load_credentials()
-    server = get_server_from_config()
-
-    if not server or not creds.get("email") or not creds.get("api_token"):
-        print("Error: Credentials not configured", file=sys.stderr)
-        print("Run 'zaira init' to set up credentials.", file=sys.stderr)
-        sys.exit(1)
-
-    base_url = server + "/wiki/rest/api"
-    auth = HTTPBasicAuth(creds["email"], creds["api_token"])
-    return base_url, auth
 
 
 def parse_page_id(page_ref: str) -> str:
@@ -133,38 +114,30 @@ def parse_page_id(page_ref: str) -> str:
 def slugify(title: str) -> str:
     """Convert title to filename-safe slug."""
     # Lowercase and replace spaces/special chars with hyphens
-    slug = re.sub(r'[^\w\s-]', '', title.lower())
-    slug = re.sub(r'[-\s]+', '-', slug).strip('-')
+    slug = re.sub(r"[^\w\s-]", "", title.lower())
+    slug = re.sub(r"[-\s]+", "-", slug).strip("-")
     return slug[:80]  # Limit length
 
 
-def _get_children(base_url: str, auth: HTTPBasicAuth, page_id: str) -> list[str]:
+def _get_children(page_id: str) -> list[str]:
     """Get all descendant page IDs recursively.
 
     Returns:
         List of page IDs (children, grandchildren, etc.)
     """
     children = []
-    r = requests.get(
-        f"{base_url}/content/{page_id}/child/page",
-        params={"limit": 100},
-        auth=auth,
-    )
-    if not r.ok:
-        return children
+    child_pages = confluence_api.get_child_pages(page_id)
 
-    for child in r.json().get("results", []):
+    for child in child_pages:
         child_id = child["id"]
         children.append(child_id)
         # Recurse
-        children.extend(_get_children(base_url, auth, child_id))
+        children.extend(_get_children(child_id))
 
     return children
 
 
 def _print_page_tree(
-    base_url: str,
-    auth: HTTPBasicAuth,
     page_id: str,
     indent: int = 0,
 ) -> int:
@@ -174,16 +147,11 @@ def _print_page_tree(
         Count of pages printed (including children)
     """
     # Get page info
-    r = requests.get(
-        f"{base_url}/content/{page_id}",
-        params={"expand": "space"},
-        auth=auth,
-    )
-    if not r.ok:
+    page = confluence_api.fetch_page(page_id, expand="space")
+    if not page:
         print(f"{'  ' * indent}Error: Could not fetch {page_id}", file=sys.stderr)
         return 0
 
-    page = r.json()
     title = page["title"]
     space_key = page["space"]["key"]
 
@@ -197,52 +165,40 @@ def _print_page_tree(
     count = 1
 
     # Get and print children
-    r = requests.get(
-        f"{base_url}/content/{page_id}/child/page",
-        params={"limit": 100},
-        auth=auth,
-    )
-    if r.ok:
-        for child in r.json().get("results", []):
-            count += _print_page_tree(base_url, auth, child["id"], indent + 1)
+    child_pages = confluence_api.get_child_pages(page_id)
+    for child in child_pages:
+        count += _print_page_tree(child["id"], indent + 1)
 
     return count
 
 
-def _fetch_page(base_url: str, auth: HTTPBasicAuth, page_id: str) -> dict | None:
+def _fetch_page(page_id: str) -> dict | None:
     """Fetch a single page with body and metadata.
 
     Returns:
         Page dict or None on error
     """
-    r = requests.get(
-        f"{base_url}/content/{page_id}",
-        params={"expand": "body.storage,version,space,ancestors"},
-        auth=auth,
+    page = confluence_api.fetch_page(
+        page_id, expand="body.storage,version,space,ancestors"
     )
-    if not r.ok:
-        print(f"Error fetching {page_id}: {r.status_code} - {r.reason}", file=sys.stderr)
+    if not page:
+        print(f"Error fetching {page_id}", file=sys.stderr)
         return None
-    return r.json()
+    return page
 
 
-def _fetch_labels(base_url: str, auth: HTTPBasicAuth, page_id: str) -> list[str]:
+def _fetch_labels(page_id: str) -> list[str]:
     """Fetch labels for a page.
 
     Returns:
         List of label names
     """
-    r = requests.get(f"{base_url}/content/{page_id}/label", auth=auth)
-    if r.ok:
-        return [lbl["name"] for lbl in r.json().get("results", [])]
-    return []
+    return confluence_api.get_page_labels(page_id)
 
 
 def _export_page_to_file(
     page: dict,
     output_dir: Path,
-    base_url: str,
-    auth: HTTPBasicAuth,
 ) -> Path | None:
     """Export a page to a markdown file with images.
 
@@ -251,7 +207,6 @@ def _export_page_to_file(
     """
     page_id = page["id"]
     title = page["title"]
-    space_key = page["space"]["key"]
     version = page["version"]["number"]
     body_html = page["body"]["storage"]["value"]
 
@@ -263,7 +218,7 @@ def _export_page_to_file(
     }
 
     # Add labels if any
-    labels = _fetch_labels(base_url, auth, page_id)
+    labels = _fetch_labels(page_id)
     if labels:
         front_matter["labels"] = labels
 
@@ -275,25 +230,26 @@ def _export_page_to_file(
     filepath.write_text(content)
 
     # Download images
-    download_images(base_url, auth, page_id, filepath)
+    download_images(page_id, filepath)
 
     # Set sync metadata so future puts track properly
     local_hash = hashlib.sha256(md_body.encode()).hexdigest()
-    set_sync_property(base_url, auth, page_id, {
-        "source_hash": local_hash,
-        "uploaded_at": datetime.now(timezone.utc).isoformat(),
-        "uploaded_version": version,
-        "source_file": str(filepath),
-        "images": {},
-    })
+    set_sync_property(
+        page_id,
+        {
+            "source_hash": local_hash,
+            "uploaded_at": datetime.now(timezone.utc).isoformat(),
+            "uploaded_version": version,
+            "source_file": str(filepath),
+            "images": {},
+        },
+    )
 
     return filepath
 
 
 def get_command(args: argparse.Namespace) -> None:
     """Get Confluence page(s) by ID or URL."""
-    base_url, auth = get_confluence_auth()
-
     # Collect all page IDs to fetch
     page_ids = [parse_page_id(p) for p in args.pages] if args.pages else []
 
@@ -302,30 +258,32 @@ def get_command(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     # Handle --list: just print page tree and exit
-    if getattr(args, 'list', False):
+    if getattr(args, "list", False):
         total = 0
         for pid in page_ids:
-            total += _print_page_tree(base_url, auth, pid)
+            total += _print_page_tree(pid)
         print(f"\n{total} page(s)")
         return
 
     # Expand children if requested
-    if getattr(args, 'children', False):
+    if getattr(args, "children", False):
         expanded = []
         for pid in page_ids:
             expanded.append(pid)
-            children = _get_children(base_url, auth, pid)
+            children = _get_children(pid)
             expanded.extend(children)
             if children:
-                print(f"Found {len(children)} child page(s) under {pid}", file=sys.stderr)
+                print(
+                    f"Found {len(children)} child page(s) under {pid}", file=sys.stderr
+                )
         page_ids = expanded
 
-    output_dir = Path(args.output) if getattr(args, 'output', None) else None
+    output_dir = Path(args.output) if getattr(args, "output", None) else None
 
     # Single page to stdout (original behavior)
     if len(page_ids) == 1 and not output_dir:
         page_id = page_ids[0]
-        page = _fetch_page(base_url, auth, page_id)
+        page = _fetch_page(page_id)
         if not page:
             sys.exit(1)
 
@@ -351,7 +309,7 @@ def get_command(args: argparse.Namespace) -> None:
                 "title": title,
             }
             # Add labels if any
-            labels = _fetch_labels(base_url, auth, page_id)
+            labels = _fetch_labels(page_id)
             if labels:
                 front_matter["labels"] = labels
             print(write_front_matter(front_matter, md_body))
@@ -366,11 +324,11 @@ def get_command(args: argparse.Namespace) -> None:
 
     success_count = 0
     for page_id in page_ids:
-        page = _fetch_page(base_url, auth, page_id)
+        page = _fetch_page(page_id)
         if not page:
             continue
 
-        filepath = _export_page_to_file(page, output_dir, base_url, auth)
+        filepath = _export_page_to_file(page, output_dir)
         if filepath:
             print(f"Exported: {filepath}")
             success_count += 1
@@ -380,8 +338,6 @@ def get_command(args: argparse.Namespace) -> None:
 
 def search_command(args: argparse.Namespace) -> None:
     """Search Confluence pages using CQL."""
-    base_url, auth = get_confluence_auth()
-
     # Build CQL query
     cql_parts = []
 
@@ -403,26 +359,16 @@ def search_command(args: argparse.Namespace) -> None:
 
     cql = " AND ".join(cql_parts)
 
-    r = requests.get(
-        f"{base_url}/content/search",
-        params={
-            "cql": cql,
-            "limit": args.limit,
-            "expand": "space,version",
-        },
-        auth=auth,
-    )
+    data = confluence_api.search_pages(cql, limit=args.limit, expand="space,version")
 
-    if not r.ok:
-        print(f"Error: {r.status_code} - {r.reason}", file=sys.stderr)
-        print(r.text, file=sys.stderr)
+    if "error" in data:
+        print(f"Error: {data['error']}", file=sys.stderr)
+        print(data.get("text", ""), file=sys.stderr)
         sys.exit(1)
 
-    data = r.json()
     results = data.get("results", [])
 
     if args.format == "json":
-        import json
         print(json.dumps(data, indent=2))
         return
 
@@ -459,16 +405,14 @@ def search_command(args: argparse.Namespace) -> None:
 
 def attach_command(args: argparse.Namespace) -> None:
     """Upload attachments to a Confluence page."""
-    base_url, auth = get_confluence_auth()
     page_id = parse_page_id(args.page)
 
     # Expand glob patterns and collect files
-    import glob
-    from pathlib import Path
+    import glob as glob_module
 
     files_to_upload = []
     for pattern in args.files:
-        matches = glob.glob(pattern)
+        matches = glob_module.glob(pattern)
         if matches:
             files_to_upload.extend(matches)
         else:
@@ -480,15 +424,11 @@ def attach_command(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     # Get existing attachments to check for duplicates
-    existing = {}
+    existing: dict[str, str] = {}
     if args.replace:
-        r = requests.get(
-            f"{base_url}/content/{page_id}/child/attachment",
-            auth=auth,
-        )
-        if r.ok:
-            for att in r.json().get("results", []):
-                existing[att["title"]] = att["id"]
+        att_data = confluence_api.get_attachments(page_id)
+        for att in att_data.get("results", []):
+            existing[att["title"]] = att["id"]
 
     # Upload each file
     uploaded = []
@@ -498,45 +438,27 @@ def attach_command(args: argparse.Namespace) -> None:
             print(f"Error: File not found: {filepath}", file=sys.stderr)
             continue
 
-        # Confluence attachment API requires multipart form data
-        # The header X-Atlassian-Token: nocheck is required to bypass XSRF protection
-        headers = {"X-Atlassian-Token": "nocheck"}
-
-        # Check if attachment already exists - use POST to data endpoint to update
+        # Check if attachment already exists - update or upload
         if path.name in existing:
             att_id = existing[path.name]
-            with open(path, "rb") as f:
-                r = requests.post(
-                    f"{base_url}/content/{page_id}/child/attachment/{att_id}/data",
-                    files={"file": (path.name, f)},
-                    headers=headers,
-                    auth=auth,
-                )
+            result = confluence_api.update_attachment(page_id, att_id, path)
             action = "Updated"
         else:
-            with open(path, "rb") as f:
-                r = requests.post(
-                    f"{base_url}/content/{page_id}/child/attachment",
-                    files={"file": (path.name, f)},
-                    headers=headers,
-                    auth=auth,
-                )
+            result = confluence_api.upload_attachment(page_id, path)
             action = "Uploaded"
 
-        if not r.ok:
-            # Check for duplicate attachment error
-            if r.status_code == 400 and "same file name" in r.text:
-                print(f"Error: {path.name} already exists. Use --replace to update.", file=sys.stderr)
-            else:
-                print(f"Error uploading {path.name}: {r.status_code} - {r.reason}", file=sys.stderr)
-                print(r.text, file=sys.stderr)
+        if not result:
+            print(
+                f"Error uploading {path.name}. Use --replace to update if it exists.",
+                file=sys.stderr,
+            )
             continue
 
         uploaded.append((path.name, action))
         print(f"{action}: {path.name}")
 
     if uploaded:
-        print(f"\nTo reference in page body:")
+        print("\nTo reference in page body:")
         for name, _ in uploaded:
             print(f'  <ac:image><ri:attachment ri:filename="{name}"/></ac:image>')
     else:
@@ -545,8 +467,6 @@ def attach_command(args: argparse.Namespace) -> None:
 
 def create_command(args: argparse.Namespace) -> None:
     """Create a new Confluence page."""
-    base_url, auth = get_confluence_auth()
-
     # Read body from stdin, file, or use as literal
     if args.body == "-":
         body_content = sys.stdin.read()
@@ -563,57 +483,31 @@ def create_command(args: argparse.Namespace) -> None:
     if args.markdown:
         body_content = markdown_to_storage(body_content)
 
-    # Build create payload
-    create_payload = {
-        "type": "page",
-        "title": args.title,
-        "space": {"key": args.space},
-        "body": {
-            "storage": {
-                "value": body_content,
-                "representation": "storage",
-            }
-        },
-    }
-
     # Optional parent page
-    if args.parent:
-        parent_id = parse_page_id(args.parent)
-        create_payload["ancestors"] = [{"id": parent_id}]
+    parent_id = parse_page_id(args.parent) if args.parent else None
 
-    r = requests.post(
-        f"{base_url}/content",
-        json=create_payload,
-        auth=auth,
-    )
+    result = confluence_api.create_page(args.space, args.title, body_content, parent_id)
 
-    if not r.ok:
-        print(f"Error: {r.status_code} - {r.reason}", file=sys.stderr)
-        print(r.text, file=sys.stderr)
+    if not result:
+        print("Error creating page", file=sys.stderr)
         sys.exit(1)
 
-    result = r.json()
     page_id = result["id"]
     server = get_server_from_config()
     url = f"{server}/wiki/spaces/{args.space}/pages/{page_id}"
     print(f"Created page {page_id}: {url}")
 
 
-def _get_page_info(base_url: str, auth: HTTPBasicAuth, page_id: str) -> dict | None:
+def _get_page_info(page_id: str) -> dict | None:
     """Get page info including parent and space.
 
     Returns:
         Dict with 'parent_id' and 'space_key', or None on error
     """
-    r = requests.get(
-        f"{base_url}/content/{page_id}",
-        params={"expand": "ancestors,space"},
-        auth=auth,
-    )
-    if not r.ok:
+    page = confluence_api.fetch_page(page_id, expand="ancestors,space")
+    if not page:
         return None
 
-    page = r.json()
     ancestors = page.get("ancestors", [])
     parent_id = ancestors[-1]["id"] if ancestors else None
     space_key = page.get("space", {}).get("key")
@@ -623,8 +517,6 @@ def _get_page_info(base_url: str, auth: HTTPBasicAuth, page_id: str) -> dict | N
 
 def _create_page_for_file(
     filepath: Path,
-    base_url: str,
-    auth: HTTPBasicAuth,
     parent_id: str,
     space_key: str,
 ) -> bool:
@@ -650,27 +542,12 @@ def _create_page_for_file(
     storage_content = markdown_to_storage(body_only)
 
     # Create page
-    create_payload = {
-        "type": "page",
-        "title": title,
-        "space": {"key": space_key},
-        "ancestors": [{"id": parent_id}],
-        "body": {
-            "storage": {
-                "value": storage_content,
-                "representation": "storage",
-            }
-        },
-    }
+    result = confluence_api.create_page(space_key, title, storage_content, parent_id)
 
-    r = requests.post(f"{base_url}/content", json=create_payload, auth=auth)
-
-    if not r.ok:
-        print(f"Error creating page for {filepath}: {r.status_code}", file=sys.stderr)
-        print(r.text, file=sys.stderr)
+    if not result:
+        print(f"Error creating page for {filepath}", file=sys.stderr)
         return False
 
-    result = r.json()
     new_page_id = result["id"]
     new_version = result["version"]["number"]
 
@@ -681,17 +558,20 @@ def _create_page_for_file(
 
     # Set sync metadata
     local_hash = hashlib.sha256(body_only.encode()).hexdigest()
-    set_sync_property(base_url, auth, new_page_id, {
-        "source_hash": local_hash,
-        "uploaded_at": datetime.now(timezone.utc).isoformat(),
-        "uploaded_version": new_version,
-        "source_file": str(filepath),
-        "images": {},
-    })
+    set_sync_property(
+        new_page_id,
+        {
+            "source_hash": local_hash,
+            "uploaded_at": datetime.now(timezone.utc).isoformat(),
+            "uploaded_version": new_version,
+            "source_file": str(filepath),
+            "images": {},
+        },
+    )
 
     # Upload images if any
     stored_image_hashes: dict[str, str] = {}
-    sync_images(base_url, auth, new_page_id, filepath, body_only, stored_image_hashes)
+    sync_images(new_page_id, filepath, body_only, stored_image_hashes)
 
     print(f"Created page {new_page_id} for {filepath}")
     return True
@@ -699,8 +579,6 @@ def _create_page_for_file(
 
 def _put_one_file(
     filepath: Path,
-    base_url: str,
-    auth: HTTPBasicAuth,
     page_id_override: str | None,
     title_override: str | None,
     pull: bool,
@@ -724,33 +602,29 @@ def _put_one_file(
 
     # Parse front matter
     front_matter, body_only = parse_front_matter(body_content)
-    page_id = page_id_override or (str(front_matter["confluence"]) if front_matter.get("confluence") else None)
+    page_id = page_id_override or (
+        str(front_matter["confluence"]) if front_matter.get("confluence") else None
+    )
 
     if not page_id:
         print(f"Skipping {filepath}: no 'confluence:' in front matter", file=sys.stderr)
         return False
 
     # Get current page
-    r = requests.get(
-        f"{base_url}/content/{page_id}",
-        params={"expand": "version,body.storage,space,ancestors"},
-        auth=auth,
+    page = confluence_api.fetch_page(
+        page_id, expand="version,body.storage,space,ancestors"
     )
 
-    if not r.ok:
-        print(f"Error fetching page {page_id}: {r.status_code}", file=sys.stderr)
+    if not page:
+        print(f"Error fetching page {page_id}", file=sys.stderr)
         return False
 
-    page = r.json()
     remote_version = page["version"]["number"]
     remote_body = page["body"]["storage"]["value"]
     current_title = page["title"]
-    current_space = page["space"]["key"]
-    current_ancestors = page.get("ancestors", [])
-    current_parent = current_ancestors[-1]["id"] if current_ancestors else None
 
     # Get sync metadata
-    sync_meta = get_sync_property(base_url, auth, page_id)
+    sync_meta = get_sync_property(page_id)
 
     # Compute local content hash
     local_hash = hashlib.sha256(body_only.encode()).hexdigest()
@@ -799,12 +673,14 @@ def _put_one_file(
         local_lines = body_only.splitlines(keepends=True)
         remote_lines = remote_md.splitlines(keepends=True)
 
-        diff_lines = list(difflib.unified_diff(
-            remote_lines,
-            local_lines,
-            fromfile=f"remote (v{remote_version})",
-            tofile=f"local ({filepath})",
-        ))
+        diff_lines = list(
+            difflib.unified_diff(
+                remote_lines,
+                local_lines,
+                fromfile=f"remote (v{remote_version})",
+                tofile=f"local ({filepath})",
+            )
+        )
 
         if diff_lines:
             print(f"Diff for {filepath}:")
@@ -815,7 +691,7 @@ def _put_one_file(
 
     # Handle --pull
     if pull:
-        download_images(base_url, auth, page_id, filepath)
+        download_images(page_id, filepath)
         md_content = storage_to_markdown(remote_body)
 
         # Sync properties from remote
@@ -823,32 +699,38 @@ def _put_one_file(
         front_matter["title"] = current_title
 
         # Get labels from remote
-        r = requests.get(f"{base_url}/content/{page_id}/label", auth=auth)
-        if r.ok:
-            labels = [lbl["name"] for lbl in r.json().get("results", [])]
-            if labels:
-                front_matter["labels"] = labels
-            elif "labels" in front_matter:
-                del front_matter["labels"]
+        labels = confluence_api.get_page_labels(page_id)
+        if labels:
+            front_matter["labels"] = labels
+        elif "labels" in front_matter:
+            del front_matter["labels"]
 
         new_content = write_front_matter(front_matter, md_content)
         filepath.write_text(new_content)
 
         new_hash = hashlib.sha256(md_content.encode()).hexdigest()
-        set_sync_property(base_url, auth, page_id, {
-            "source_hash": new_hash,
-            "uploaded_at": datetime.now(timezone.utc).isoformat(),
-            "uploaded_version": remote_version,
-            "source_file": str(filepath),
-        })
+        set_sync_property(
+            page_id,
+            {
+                "source_hash": new_hash,
+                "uploaded_at": datetime.now(timezone.utc).isoformat(),
+                "uploaded_version": remote_version,
+                "source_file": str(filepath),
+            },
+        )
         print(f"Pulled version {remote_version} to {filepath}")
         return True
 
     # Handle push (default)
     if not force and sync_meta and local_changed and remote_changed:
         print(f"Conflict in {filepath}: local and remote both changed", file=sys.stderr)
-        print(f"  Remote: version {stored_version} -> {remote_version}", file=sys.stderr)
-        print("  Use --diff to see changes, --force to overwrite, or --pull to discard local", file=sys.stderr)
+        print(
+            f"  Remote: version {stored_version} -> {remote_version}", file=sys.stderr
+        )
+        print(
+            "  Use --diff to see changes, --force to overwrite, or --pull to discard local",
+            file=sys.stderr,
+        )
         return False
 
     if sync_meta and not local_changed and not force:
@@ -856,7 +738,7 @@ def _put_one_file(
         return True
 
     # Upload images
-    image_hashes = sync_images(base_url, auth, page_id, filepath, body_only, stored_image_hashes)
+    image_hashes = sync_images(page_id, filepath, body_only, stored_image_hashes)
 
     # Convert and push
     storage_content = markdown_to_storage(body_only)
@@ -873,21 +755,15 @@ def _put_one_file(
     if new_title != current_title:
         property_changes.append(f"title: '{new_title}'")
 
-    update_payload = {
-        "version": {"number": remote_version + 1},
-        "title": new_title,
-        "type": page["type"],
-        "body": {"storage": {"value": storage_content, "representation": "storage"}},
-    }
-
     # Note: parent and space are editable via wiki edit only, not synced from front matter
-
-    r = requests.put(f"{base_url}/content/{page_id}", json=update_payload, auth=auth)
-    if not r.ok:
-        print(f"Error updating {filepath}: {r.status_code}", file=sys.stderr)
+    result = confluence_api.update_page(
+        page_id, new_title, storage_content, remote_version, page["type"]
+    )
+    if not result:
+        print(f"Error updating {filepath}", file=sys.stderr)
         return False
 
-    new_version = r.json()["version"]["number"]
+    new_version = result["version"]["number"]
 
     # Sync labels from front matter (separate API)
     if "labels" in front_matter:
@@ -900,34 +776,30 @@ def _put_one_file(
             new_labels = set()
 
         # Get current labels
-        r = requests.get(f"{base_url}/content/{page_id}/label", auth=auth)
-        current_labels = set()
-        if r.ok:
-            current_labels = {lbl["name"] for lbl in r.json().get("results", [])}
+        current_labels = set(confluence_api.get_page_labels(page_id))
 
         # Remove labels not in front matter
         for label in current_labels - new_labels:
-            requests.delete(f"{base_url}/content/{page_id}/label/{label}", auth=auth)
+            confluence_api.remove_page_label(page_id, label)
 
         # Add new labels
-        to_add = new_labels - current_labels
+        to_add = list(new_labels - current_labels)
         if to_add:
-            requests.post(
-                f"{base_url}/content/{page_id}/label",
-                json=[{"name": lbl} for lbl in to_add],
-                auth=auth,
-            )
+            confluence_api.add_page_labels(page_id, to_add)
 
         if new_labels != current_labels:
             property_changes.append(f"labels: {sorted(new_labels)}")
 
-    set_sync_property(base_url, auth, page_id, {
-        "source_hash": local_hash,
-        "uploaded_at": datetime.now(timezone.utc).isoformat(),
-        "uploaded_version": new_version,
-        "source_file": str(filepath),
-        "images": image_hashes,
-    })
+    set_sync_property(
+        page_id,
+        {
+            "source_hash": local_hash,
+            "uploaded_at": datetime.now(timezone.utc).isoformat(),
+            "uploaded_version": new_version,
+            "source_file": str(filepath),
+            "images": image_hashes,
+        },
+    )
 
     msg = f"Pushed {filepath} (version {remote_version} -> {new_version})"
     if property_changes:
@@ -939,8 +811,6 @@ def _put_one_file(
 def put_command(args: argparse.Namespace) -> None:
     """Update Confluence page(s) from markdown files."""
     import glob as glob_module
-
-    base_url, auth = get_confluence_auth()
 
     # Collect files to process
     files_to_process: list[Path] = []
@@ -966,25 +836,35 @@ def put_command(args: argparse.Namespace) -> None:
                 sys.exit(1)
 
             front_matter, body_only = parse_front_matter(body_content)
-            page_id = args.page or (str(front_matter["confluence"]) if front_matter.get("confluence") else None)
+            page_id = args.page or (
+                str(front_matter["confluence"])
+                if front_matter.get("confluence")
+                else None
+            )
 
             if not page_id:
-                print("Error: No page ID. Use -p PAGE or include 'confluence:' in front matter", file=sys.stderr)
+                print(
+                    "Error: No page ID. Use -p PAGE or include 'confluence:' in front matter",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
 
             # For stdin, write to temp file and process
             import tempfile
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
                 f.write(body_content)
                 temp_path = Path(f.name)
 
             try:
                 success = _put_one_file(
-                    temp_path, base_url, auth, page_id, args.title,
-                    getattr(args, 'pull', False),
-                    getattr(args, 'force', False),
-                    getattr(args, 'status', False),
-                    getattr(args, 'diff', False),
+                    temp_path,
+                    page_id,
+                    args.title,
+                    getattr(args, "pull", False),
+                    getattr(args, "force", False),
+                    getattr(args, "status", False),
+                    getattr(args, "diff", False),
                 )
                 sys.exit(0 if success else 1)
             finally:
@@ -1020,7 +900,7 @@ def put_command(args: argparse.Namespace) -> None:
             unlinked_files.append(filepath)
 
     # Handle --create for unlinked files
-    create_mode = getattr(args, 'create', False)
+    create_mode = getattr(args, "create", False)
     parent_id = None
     space_key = None
 
@@ -1032,30 +912,42 @@ def put_command(args: argparse.Namespace) -> None:
                 skipped_count += 1
             unlinked_files = []
             if skipped_count > 0:
-                print(f"\nSkipped {skipped_count} file(s) without front matter. Use --create to create new pages.", file=sys.stderr)
+                print(
+                    f"\nSkipped {skipped_count} file(s) without front matter. Use --create to create new pages.",
+                    file=sys.stderr,
+                )
         else:
             # Determine parent: from --parent flag or from siblings
             if args.parent:
                 parent_id = parse_page_id(args.parent)
-                info = _get_page_info(base_url, auth, parent_id)
+                info = _get_page_info(parent_id)
                 if info:
                     space_key = info["space_key"]
                 else:
-                    print(f"Error: Could not get info for parent page {parent_id}", file=sys.stderr)
+                    print(
+                        f"Error: Could not get info for parent page {parent_id}",
+                        file=sys.stderr,
+                    )
                     sys.exit(1)
             elif linked_files:
                 # Get parent from linked files - verify they all have same parent
                 parents_seen: dict[str | None, str] = {}  # parent_id -> space_key
                 for _, page_id in linked_files:
-                    info = _get_page_info(base_url, auth, page_id)
+                    info = _get_page_info(page_id)
                     if info:
                         parents_seen[info["parent_id"]] = info["space_key"]
 
                 if len(parents_seen) == 0:
-                    print("Error: Could not determine parent from existing pages", file=sys.stderr)
+                    print(
+                        "Error: Could not determine parent from existing pages",
+                        file=sys.stderr,
+                    )
                     sys.exit(1)
                 elif len(parents_seen) > 1:
-                    print("Error: Linked files have different parents. Use --parent to specify.", file=sys.stderr)
+                    print(
+                        "Error: Linked files have different parents. Use --parent to specify.",
+                        file=sys.stderr,
+                    )
                     for pid in parents_seen:
                         print(f"  Parent: {pid}", file=sys.stderr)
                     sys.exit(1)
@@ -1063,10 +955,16 @@ def put_command(args: argparse.Namespace) -> None:
                     parent_id = list(parents_seen.keys())[0]
                     space_key = list(parents_seen.values())[0]
                     if parent_id is None:
-                        print("Error: Linked pages have no parent (are at space root). Use --parent to specify.", file=sys.stderr)
+                        print(
+                            "Error: Linked pages have no parent (are at space root). Use --parent to specify.",
+                            file=sys.stderr,
+                        )
                         sys.exit(1)
             else:
-                print("Error: No linked files to determine parent from. Use --parent to specify.", file=sys.stderr)
+                print(
+                    "Error: No linked files to determine parent from. Use --parent to specify.",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
 
     # Process files
@@ -1076,13 +974,13 @@ def put_command(args: argparse.Namespace) -> None:
     # Process linked files
     for filepath, page_id in linked_files:
         success = _put_one_file(
-            filepath, base_url, auth,
+            filepath,
             args.page if len(files_to_process) == 1 else None,
             args.title if len(files_to_process) == 1 else None,
-            getattr(args, 'pull', False),
-            getattr(args, 'force', False),
-            getattr(args, 'status', False),
-            getattr(args, 'diff', False),
+            getattr(args, "pull", False),
+            getattr(args, "force", False),
+            getattr(args, "status", False),
+            getattr(args, "diff", False),
         )
         if success:
             success_count += 1
@@ -1091,7 +989,7 @@ def put_command(args: argparse.Namespace) -> None:
 
     # Create pages for unlinked files
     for filepath in unlinked_files:
-        success = _create_page_for_file(filepath, base_url, auth, parent_id, space_key)
+        success = _create_page_for_file(filepath, parent_id, space_key)
         if success:
             success_count += 1
         else:
@@ -1102,60 +1000,25 @@ def put_command(args: argparse.Namespace) -> None:
         print(f"\nProcessed {success_count} file(s), {fail_count} failed")
 
 
-def get_sync_property(base_url: str, auth: HTTPBasicAuth, page_id: str) -> dict | None:
+def get_sync_property(page_id: str) -> dict | None:
     """Get sync metadata from page properties.
 
     Returns:
         Sync metadata dict or None if not found
     """
-    r = requests.get(
-        f"{base_url}/content/{page_id}/property/{SYNC_PROPERTY_KEY}",
-        auth=auth,
-    )
-    if r.ok:
-        return r.json().get("value", {})
+    prop = confluence_api.get_page_property(page_id, SYNC_PROPERTY_KEY)
+    if prop:
+        return prop.get("value", {})
     return None
 
 
-def set_sync_property(
-    base_url: str, auth: HTTPBasicAuth, page_id: str, metadata: dict
-) -> bool:
+def set_sync_property(page_id: str, metadata: dict) -> bool:
     """Set sync metadata in page properties.
 
     Returns:
         True if successful
     """
-    # Check if property exists
-    r = requests.get(
-        f"{base_url}/content/{page_id}/property/{SYNC_PROPERTY_KEY}",
-        auth=auth,
-    )
-
-    if r.ok:
-        # Update existing property
-        prop = r.json()
-        prop_version = prop["version"]["number"]
-        r = requests.put(
-            f"{base_url}/content/{page_id}/property/{SYNC_PROPERTY_KEY}",
-            json={
-                "key": SYNC_PROPERTY_KEY,
-                "value": metadata,
-                "version": {"number": prop_version + 1},
-            },
-            auth=auth,
-        )
-    else:
-        # Create new property
-        r = requests.post(
-            f"{base_url}/content/{page_id}/property",
-            json={
-                "key": SYNC_PROPERTY_KEY,
-                "value": metadata,
-            },
-            auth=auth,
-        )
-
-    return r.ok
+    return confluence_api.set_page_property(page_id, SYNC_PROPERTY_KEY, metadata)
 
 
 def compute_file_hash(filepath: Path) -> str:
@@ -1199,8 +1062,6 @@ def check_images_changed(
 
 
 def sync_images(
-    base_url: str,
-    auth: HTTPBasicAuth,
     page_id: str,
     md_file: Path,
     body_content: str,
@@ -1209,8 +1070,6 @@ def sync_images(
     """Upload local images as Confluence attachments.
 
     Args:
-        base_url: Confluence API base URL
-        auth: Authentication
         page_id: Page ID
         md_file: Path to markdown file (for resolving relative paths)
         body_content: Markdown body content
@@ -1224,14 +1083,10 @@ def sync_images(
         return {}
 
     # Get existing attachments
-    r = requests.get(
-        f"{base_url}/content/{page_id}/child/attachment",
-        auth=auth,
-    )
-    existing = {}
-    if r.ok:
-        for att in r.json().get("results", []):
-            existing[att["title"]] = att["id"]
+    att_data = confluence_api.get_attachments(page_id)
+    existing: dict[str, str] = {}
+    for att in att_data.get("results", []):
+        existing[att["title"]] = att["id"]
 
     image_hashes = {}
     md_dir = md_file.parent
@@ -1250,41 +1105,25 @@ def sync_images(
         if stored_image_hashes.get(filename) == current_hash:
             continue  # Image unchanged
 
-        headers = {"X-Atlassian-Token": "nocheck"}
-
         if filename in existing:
             # Update existing attachment
             att_id = existing[filename]
-            with open(img_path, "rb") as f:
-                r = requests.post(
-                    f"{base_url}/content/{page_id}/child/attachment/{att_id}/data",
-                    files={"file": (filename, f)},
-                    headers=headers,
-                    auth=auth,
-                )
+            result = confluence_api.update_attachment(page_id, att_id, img_path)
             action = "Updated"
         else:
             # Upload new attachment
-            with open(img_path, "rb") as f:
-                r = requests.post(
-                    f"{base_url}/content/{page_id}/child/attachment",
-                    files={"file": (filename, f)},
-                    headers=headers,
-                    auth=auth,
-                )
+            result = confluence_api.upload_attachment(page_id, img_path)
             action = "Uploaded"
 
-        if r.ok:
+        if result:
             print(f"  {action} image: {filename}")
         else:
-            print(f"  Error uploading {filename}: {r.status_code}", file=sys.stderr)
+            print(f"  Error uploading {filename}", file=sys.stderr)
 
     return image_hashes
 
 
 def download_images(
-    base_url: str,
-    auth: HTTPBasicAuth,
     page_id: str,
     md_file: Path,
     image_dir: str = "images",
@@ -1292,22 +1131,12 @@ def download_images(
     """Download Confluence attachments to local directory.
 
     Args:
-        base_url: Confluence API base URL
-        auth: Authentication
         page_id: Page ID
         md_file: Path to markdown file
         image_dir: Subdirectory for images relative to md file
     """
     # Get attachments
-    r = requests.get(
-        f"{base_url}/content/{page_id}/child/attachment",
-        params={"expand": "version"},
-        auth=auth,
-    )
-    if not r.ok:
-        return
-
-    data = r.json()
+    data = confluence_api.get_attachments(page_id, expand="version")
     attachments = data.get("results", [])
     if not attachments:
         return
@@ -1322,37 +1151,28 @@ def download_images(
     for att in attachments:
         filename = att["title"]
         # Only download image files
-        if not filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp')):
+        if not filename.lower().endswith(
+            (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp")
+        ):
             continue
 
         download_url = download_base + att["_links"]["download"]
-        r = requests.get(download_url, auth=auth)
-        if r.ok:
-            (img_path / filename).write_bytes(r.content)
+        dest_path = img_path / filename
+        if confluence_api.download_attachment(download_url, dest_path):
             print(f"  Downloaded image: {filename}")
 
 
 def edit_command(args: argparse.Namespace) -> None:
     """Edit Confluence page properties."""
-    base_url, auth = get_confluence_auth()
     page_id = parse_page_id(args.page)
 
     # Get current page info
-    r = requests.get(
-        f"{base_url}/content/{page_id}",
-        params={"expand": "version,space,ancestors"},
-        auth=auth,
-    )
+    page = confluence_api.fetch_page(page_id, expand="version,space,ancestors")
 
-    if not r.ok:
-        print(f"Error: {r.status_code} - {r.reason}", file=sys.stderr)
-        if r.status_code == 404:
-            print(f"Page not found: {page_id}", file=sys.stderr)
-        else:
-            print(r.text, file=sys.stderr)
+    if not page:
+        print(f"Error: Page not found: {page_id}", file=sys.stderr)
         sys.exit(1)
 
-    page = r.json()
     current_title = page["title"]
     current_version = page["version"]["number"]
     current_space = page["space"]["key"]
@@ -1361,61 +1181,43 @@ def edit_command(args: argparse.Namespace) -> None:
 
     changes = []
 
-    # Build update payload
-    update_payload: dict = {
-        "version": {"number": current_version + 1},
-        "type": "page",
-        "title": current_title,
-    }
+    # Determine what needs to change
+    new_title = (
+        args.title if args.title and args.title != current_title else current_title
+    )
+    new_parent = None
+    new_space = None
 
-    # Handle --title
     if args.title and args.title != current_title:
-        update_payload["title"] = args.title
         changes.append(f"title: '{current_title}' -> '{args.title}'")
 
-    # Handle --parent
-    new_parent = None
     if args.parent:
         new_parent = parse_page_id(args.parent)
         if new_parent != current_parent:
-            update_payload["ancestors"] = [{"id": new_parent}]
             changes.append(f"parent: {current_parent} -> {new_parent}")
 
-    # Handle --space
     if args.space and args.space != current_space:
-        update_payload["space"] = {"key": args.space}
+        new_space = args.space
         changes.append(f"space: {current_space} -> {args.space}")
 
-    # Apply page updates if any
-    if len(update_payload) > 3:  # More than just version, type, title
-        r = requests.put(
-            f"{base_url}/content/{page_id}",
-            json=update_payload,
-            auth=auth,
+    # Apply page property updates if any
+    if new_title != current_title or new_parent or new_space:
+        result = confluence_api.update_page_properties(
+            page_id,
+            current_version,
+            "page",
+            title=new_title,
+            space_key=new_space,
+            parent_id=new_parent,
         )
-        if not r.ok:
-            print(f"Error updating page: {r.status_code} - {r.reason}", file=sys.stderr)
-            print(r.text, file=sys.stderr)
-            sys.exit(1)
-    elif args.title and args.title != current_title:
-        # Title-only update
-        r = requests.put(
-            f"{base_url}/content/{page_id}",
-            json=update_payload,
-            auth=auth,
-        )
-        if not r.ok:
-            print(f"Error updating page: {r.status_code} - {r.reason}", file=sys.stderr)
-            print(r.text, file=sys.stderr)
+        if not result:
+            print("Error updating page properties", file=sys.stderr)
             sys.exit(1)
 
     # Handle --labels (separate API)
     if args.labels is not None:
         # Get current labels
-        r = requests.get(f"{base_url}/content/{page_id}/label", auth=auth)
-        current_labels = set()
-        if r.ok:
-            current_labels = {lbl["name"] for lbl in r.json().get("results", [])}
+        current_labels = set(confluence_api.get_page_labels(page_id))
 
         # Parse new labels
         new_labels = set()
@@ -1425,19 +1227,13 @@ def edit_command(args: argparse.Namespace) -> None:
         # Remove labels not in new set
         to_remove = current_labels - new_labels
         for label in to_remove:
-            r = requests.delete(f"{base_url}/content/{page_id}/label/{label}", auth=auth)
-            if r.ok:
+            if confluence_api.remove_page_label(page_id, label):
                 changes.append(f"label removed: {label}")
 
         # Add new labels
-        to_add = new_labels - current_labels
+        to_add = list(new_labels - current_labels)
         if to_add:
-            r = requests.post(
-                f"{base_url}/content/{page_id}/label",
-                json=[{"name": lbl} for lbl in to_add],
-                auth=auth,
-            )
-            if r.ok:
+            if confluence_api.add_page_labels(page_id, to_add):
                 for lbl in to_add:
                     changes.append(f"label added: {lbl}")
 
@@ -1451,25 +1247,15 @@ def edit_command(args: argparse.Namespace) -> None:
 
 def delete_command(args: argparse.Namespace) -> None:
     """Delete a Confluence page."""
-    base_url, auth = get_confluence_auth()
     page_id = parse_page_id(args.page)
 
     # Get page info first to confirm it exists and show title
-    r = requests.get(
-        f"{base_url}/content/{page_id}",
-        params={"expand": "space"},
-        auth=auth,
-    )
+    page = confluence_api.fetch_page(page_id, expand="space")
 
-    if not r.ok:
-        print(f"Error: {r.status_code} - {r.reason}", file=sys.stderr)
-        if r.status_code == 404:
-            print(f"Page not found: {page_id}", file=sys.stderr)
-        else:
-            print(r.text, file=sys.stderr)
+    if not page:
+        print(f"Error: Page not found: {page_id}", file=sys.stderr)
         sys.exit(1)
 
-    page = r.json()
     title = page["title"]
     space_key = page["space"]["key"]
 
@@ -1484,14 +1270,8 @@ def delete_command(args: argparse.Namespace) -> None:
             sys.exit(0)
 
     # Delete the page
-    r = requests.delete(
-        f"{base_url}/content/{page_id}",
-        auth=auth,
-    )
-
-    if not r.ok:
-        print(f"Error deleting page: {r.status_code} - {r.reason}", file=sys.stderr)
-        print(r.text, file=sys.stderr)
+    if not confluence_api.delete_page(page_id):
+        print("Error deleting page", file=sys.stderr)
         sys.exit(1)
 
     print(f"Deleted page {page_id}: {title}")

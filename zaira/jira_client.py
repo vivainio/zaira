@@ -103,15 +103,44 @@ def get_credentials() -> tuple[str, str, str]:
     return server, email, token
 
 
-@lru_cache(maxsize=1)
+# Injected client for testing
+_jira_client: JIRA | None = None
+
+
 def get_jira() -> JIRA:
-    """Get a cached JIRA client instance.
+    """Get the JIRA client instance (cached or injected).
+
+    Returns:
+        Authenticated JIRA client
+    """
+    global _jira_client
+    if _jira_client is not None:
+        return _jira_client
+    return _get_default_jira()
+
+
+@lru_cache(maxsize=1)
+def _get_default_jira() -> JIRA:
+    """Create the default JIRA client from credentials.
 
     Returns:
         Authenticated JIRA client
     """
     server, email, token = get_credentials()
     return JIRA(server=server, basic_auth=(email, token))
+
+
+def set_jira(client: JIRA | None) -> None:
+    """Inject a JIRA client for testing. Pass None to reset."""
+    global _jira_client
+    _jira_client = client
+
+
+def reset_jira() -> None:
+    """Reset to default client and clear cache."""
+    global _jira_client
+    _jira_client = None
+    _get_default_jira.cache_clear()
 
 
 def get_server_url() -> str:
