@@ -509,30 +509,36 @@ def compute_file_hash(filepath: Path) -> str:
     return hashlib.sha256(filepath.read_bytes()).hexdigest()
 
 
-def sync_command(args: argparse.Namespace) -> None:
-    """Sync a markdown file with a Confluence page."""
-    base_url, auth = get_confluence_auth()
-    filepath = Path(args.file)
+def sync_one_file(
+    filepath: Path,
+    base_url: str,
+    auth: HTTPBasicAuth,
+    push: bool,
+    pull: bool,
+    status: bool,
+    force: bool,
+) -> bool:
+    """Sync a single markdown file with its Confluence page.
 
+    Returns:
+        True if successful, False otherwise
+    """
     if not filepath.exists():
         print(f"Error: File not found: {filepath}", file=sys.stderr)
-        sys.exit(1)
+        return False
 
     # Read file and parse front matter
     file_content = filepath.read_text()
     front_matter, body_content = parse_front_matter(file_content)
 
-    # Get page ID from args or front matter
+    # Get page ID from front matter
     page_id = None
-    if args.page:
-        page_id = parse_page_id(args.page)
-    elif front_matter.get("confluence"):
+    if front_matter.get("confluence"):
         page_id = str(front_matter["confluence"])
 
     if not page_id:
-        print("Error: No page ID specified", file=sys.stderr)
-        print("Provide page ID as argument or add 'confluence: <id>' to front matter", file=sys.stderr)
-        sys.exit(1)
+        print(f"Skipping {filepath}: no 'confluence:' in front matter", file=sys.stderr)
+        return False
 
     # Get current page info
     r = requests.get(
@@ -542,12 +548,12 @@ def sync_command(args: argparse.Namespace) -> None:
     )
 
     if not r.ok:
-        print(f"Error: {r.status_code} - {r.reason}", file=sys.stderr)
+        print(f"Error syncing {filepath}: {r.status_code} - {r.reason}", file=sys.stderr)
         if r.status_code == 404:
             print(f"Page not found: {page_id}", file=sys.stderr)
         else:
             print(r.text, file=sys.stderr)
-        sys.exit(1)
+        return False
 
     page = r.json()
     remote_version = page["version"]["number"]
@@ -573,7 +579,7 @@ def sync_command(args: argparse.Namespace) -> None:
         stored_version = 0
 
     # Handle --status flag
-    if args.status:
+    if status:
         print(f"Page ID: {page_id}")
         print(f"File: {filepath}")
         print(f"Remote version: {remote_version}")
@@ -592,10 +598,10 @@ def sync_command(args: argparse.Namespace) -> None:
                 print("Status: In sync")
         else:
             print("Status: Not synced (no metadata)")
-        return
+        return True
 
     # Handle --pull flag
-    if args.pull:
+    if pull:
         md_content = storage_to_markdown(remote_body)
 
         # Preserve/update front matter with confluence page ID
@@ -614,22 +620,22 @@ def sync_command(args: argparse.Namespace) -> None:
         })
 
         print(f"Pulled version {remote_version} to {filepath}")
-        return
+        return True
 
     # Handle --push flag or default sync
-    if args.push or (not args.pull and not args.status):
+    if push or (not pull and not status):
         # Check for conflicts unless --force
-        if not args.force and local_changed and remote_changed and sync_meta:
-            print("Error: Conflict detected!", file=sys.stderr)
+        if not force and local_changed and remote_changed and sync_meta:
+            print(f"Error: Conflict in {filepath}!", file=sys.stderr)
             print(f"  Local file changed since last sync", file=sys.stderr)
             print(f"  Remote changed: version {stored_version} -> {remote_version}", file=sys.stderr)
             print("Use --force to overwrite, or --pull to get remote changes", file=sys.stderr)
-            sys.exit(1)
+            return False
 
         # Check if there's anything to push
-        if not local_changed and not args.force:
-            print("Already in sync, nothing to push")
-            return
+        if not local_changed and not force:
+            print(f"{filepath}: already in sync")
+            return True
 
         # Convert and push (body only, without front matter)
         storage_content = markdown_to_storage(body_content)
@@ -653,9 +659,9 @@ def sync_command(args: argparse.Namespace) -> None:
         )
 
         if not r.ok:
-            print(f"Error: {r.status_code} - {r.reason}", file=sys.stderr)
+            print(f"Error syncing {filepath}: {r.status_code} - {r.reason}", file=sys.stderr)
             print(r.text, file=sys.stderr)
-            sys.exit(1)
+            return False
 
         result = r.json()
         new_version = result["version"]["number"]
@@ -669,6 +675,59 @@ def sync_command(args: argparse.Namespace) -> None:
         })
 
         print(f"Pushed {filepath} to page {page_id} (version {remote_version} -> {new_version})")
+        return True
+
+    return True
+
+
+def sync_command(args: argparse.Namespace) -> None:
+    """Sync markdown files with Confluence pages."""
+    import glob as glob_module
+
+    base_url, auth = get_confluence_auth()
+
+    # Expand file arguments (globs, directories)
+    files_to_sync = []
+    for pattern in args.files:
+        path = Path(pattern)
+        if path.is_dir():
+            # Sync all .md files in directory
+            files_to_sync.extend(path.glob("*.md"))
+        elif "*" in pattern or "?" in pattern:
+            # Glob pattern
+            files_to_sync.extend(Path(p) for p in glob_module.glob(pattern))
+        else:
+            files_to_sync.append(path)
+
+    if not files_to_sync:
+        print("No markdown files found", file=sys.stderr)
+        sys.exit(1)
+
+    # Sync each file
+    success_count = 0
+    fail_count = 0
+
+    for filepath in files_to_sync:
+        success = sync_one_file(
+            filepath=filepath,
+            base_url=base_url,
+            auth=auth,
+            push=args.push,
+            pull=args.pull,
+            status=args.status,
+            force=args.force,
+        )
+        if success:
+            success_count += 1
+        else:
+            fail_count += 1
+
+    # Summary for multiple files
+    if len(files_to_sync) > 1:
+        print(f"\nSynced {success_count} file(s), {fail_count} failed")
+
+    if fail_count > 0:
+        sys.exit(1)
 
 
 def wiki_command(args: argparse.Namespace) -> None:

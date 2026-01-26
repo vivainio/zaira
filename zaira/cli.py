@@ -609,16 +609,12 @@ def main() -> None:
 
     wiki_sync = wiki_subparsers.add_parser(
         "sync",
-        help="Sync a markdown file with a Confluence page",
+        help="Sync markdown files with Confluence pages",
     )
     wiki_sync.add_argument(
-        "file",
-        help="Local markdown file to sync",
-    )
-    wiki_sync.add_argument(
-        "page",
-        nargs="?",
-        help="Page ID or URL (optional if 'confluence:' in front matter)",
+        "files",
+        nargs="+",
+        help="Markdown files to sync (glob patterns supported, or directory)",
     )
     wiki_sync.add_argument(
         "--push",
