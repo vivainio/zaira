@@ -1249,6 +1249,123 @@ def download_images(
             print(f"  Downloaded image: {filename}")
 
 
+def edit_command(args: argparse.Namespace) -> None:
+    """Edit Confluence page properties."""
+    base_url, auth = get_confluence_auth()
+    page_id = parse_page_id(args.page)
+
+    # Get current page info
+    r = requests.get(
+        f"{base_url}/content/{page_id}",
+        params={"expand": "version,space,ancestors"},
+        auth=auth,
+    )
+
+    if not r.ok:
+        print(f"Error: {r.status_code} - {r.reason}", file=sys.stderr)
+        if r.status_code == 404:
+            print(f"Page not found: {page_id}", file=sys.stderr)
+        else:
+            print(r.text, file=sys.stderr)
+        sys.exit(1)
+
+    page = r.json()
+    current_title = page["title"]
+    current_version = page["version"]["number"]
+    current_space = page["space"]["key"]
+    current_ancestors = page.get("ancestors", [])
+    current_parent = current_ancestors[-1]["id"] if current_ancestors else None
+
+    changes = []
+
+    # Build update payload
+    update_payload: dict = {
+        "version": {"number": current_version + 1},
+        "type": "page",
+        "title": current_title,
+    }
+
+    # Handle --title
+    if args.title and args.title != current_title:
+        update_payload["title"] = args.title
+        changes.append(f"title: '{current_title}' -> '{args.title}'")
+
+    # Handle --parent
+    new_parent = None
+    if args.parent:
+        new_parent = parse_page_id(args.parent)
+        if new_parent != current_parent:
+            update_payload["ancestors"] = [{"id": new_parent}]
+            changes.append(f"parent: {current_parent} -> {new_parent}")
+
+    # Handle --space
+    if args.space and args.space != current_space:
+        update_payload["space"] = {"key": args.space}
+        changes.append(f"space: {current_space} -> {args.space}")
+
+    # Apply page updates if any
+    if len(update_payload) > 3:  # More than just version, type, title
+        r = requests.put(
+            f"{base_url}/content/{page_id}",
+            json=update_payload,
+            auth=auth,
+        )
+        if not r.ok:
+            print(f"Error updating page: {r.status_code} - {r.reason}", file=sys.stderr)
+            print(r.text, file=sys.stderr)
+            sys.exit(1)
+    elif args.title and args.title != current_title:
+        # Title-only update
+        r = requests.put(
+            f"{base_url}/content/{page_id}",
+            json=update_payload,
+            auth=auth,
+        )
+        if not r.ok:
+            print(f"Error updating page: {r.status_code} - {r.reason}", file=sys.stderr)
+            print(r.text, file=sys.stderr)
+            sys.exit(1)
+
+    # Handle --labels (separate API)
+    if args.labels is not None:
+        # Get current labels
+        r = requests.get(f"{base_url}/content/{page_id}/label", auth=auth)
+        current_labels = set()
+        if r.ok:
+            current_labels = {lbl["name"] for lbl in r.json().get("results", [])}
+
+        # Parse new labels
+        new_labels = set()
+        if args.labels.strip():
+            new_labels = {lbl.strip() for lbl in args.labels.split(",") if lbl.strip()}
+
+        # Remove labels not in new set
+        to_remove = current_labels - new_labels
+        for label in to_remove:
+            r = requests.delete(f"{base_url}/content/{page_id}/label/{label}", auth=auth)
+            if r.ok:
+                changes.append(f"label removed: {label}")
+
+        # Add new labels
+        to_add = new_labels - current_labels
+        if to_add:
+            r = requests.post(
+                f"{base_url}/content/{page_id}/label",
+                json=[{"name": lbl} for lbl in to_add],
+                auth=auth,
+            )
+            if r.ok:
+                for lbl in to_add:
+                    changes.append(f"label added: {lbl}")
+
+    if changes:
+        print(f"Updated page {page_id}:")
+        for change in changes:
+            print(f"  {change}")
+    else:
+        print(f"No changes made to page {page_id}")
+
+
 def delete_command(args: argparse.Namespace) -> None:
     """Delete a Confluence page."""
     base_url, auth = get_confluence_auth()
@@ -1303,5 +1420,5 @@ def wiki_command(args: argparse.Namespace) -> None:
         args.wiki_func(args)
     else:
         print("Usage: zaira wiki <subcommand>")
-        print("Subcommands: get, search, create, put, attach, delete")
+        print("Subcommands: get, search, create, put, attach, edit, delete")
         sys.exit(1)

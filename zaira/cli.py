@@ -13,7 +13,7 @@ from zaira.edit import edit_command
 from zaira.export import export_command
 from zaira.link import link_command
 from zaira.transition import transition_command
-from zaira.wiki import wiki_command, get_command as wiki_get_command, search_command as wiki_search_command, create_command as wiki_create_command, put_command as wiki_put_command, attach_command as wiki_attach_command, delete_command as wiki_delete_command
+from zaira.wiki import wiki_command, get_command as wiki_get_command, search_command as wiki_search_command, create_command as wiki_create_command, put_command as wiki_put_command, attach_command as wiki_attach_command, edit_command as wiki_edit_command, delete_command as wiki_delete_command
 from zaira.info import (
     info_command,
     link_types_command,
@@ -654,6 +654,32 @@ def main() -> None:
         help="Replace existing attachments with same filename",
     )
     wiki_attach.set_defaults(wiki_func=wiki_attach_command)
+
+    wiki_edit = wiki_subparsers.add_parser(
+        "edit",
+        help="Edit Confluence page properties",
+    )
+    wiki_edit.add_argument(
+        "page",
+        help="Page ID or Confluence URL",
+    )
+    wiki_edit.add_argument(
+        "-t", "--title",
+        help="New page title",
+    )
+    wiki_edit.add_argument(
+        "-p", "--parent",
+        help="New parent page ID or URL (moves the page)",
+    )
+    wiki_edit.add_argument(
+        "-l", "--labels",
+        help="Labels (comma-separated, replaces existing)",
+    )
+    wiki_edit.add_argument(
+        "-s", "--space",
+        help="Move to different space",
+    )
+    wiki_edit.set_defaults(wiki_func=wiki_edit_command)
 
     wiki_delete = wiki_subparsers.add_parser(
         "delete",

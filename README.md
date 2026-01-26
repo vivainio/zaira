@@ -302,6 +302,12 @@ zaira wiki attach 123456 *.png                            # Glob pattern
 # Delete page
 zaira wiki delete 123456              # Prompts for confirmation
 zaira wiki delete 123456 --yes        # Skip confirmation
+
+# Edit page properties
+zaira wiki edit 123456 --title "New Title"
+zaira wiki edit 123456 --parent 789            # Move under different parent
+zaira wiki edit 123456 --labels "docs,api,v2"  # Set labels (replaces existing)
+zaira wiki edit 123456 --space NEWSPACE        # Move to different space
 ```
 
 #### wiki put (with sync)
