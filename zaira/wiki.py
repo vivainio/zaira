@@ -12,7 +12,11 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 from zaira.jira_client import load_credentials, get_server_from_config
-from zaira.mdconv import markdown_to_storage, storage_to_markdown
+from zaira.mdconv import (
+    markdown_to_storage,
+    storage_to_markdown,
+    extract_local_images,
+)
 
 
 # Property key for sync metadata
@@ -509,6 +513,138 @@ def compute_file_hash(filepath: Path) -> str:
     return hashlib.sha256(filepath.read_bytes()).hexdigest()
 
 
+def sync_images(
+    base_url: str,
+    auth: HTTPBasicAuth,
+    page_id: str,
+    md_file: Path,
+    body_content: str,
+    stored_image_hashes: dict[str, str],
+) -> dict[str, str]:
+    """Upload local images as Confluence attachments.
+
+    Args:
+        base_url: Confluence API base URL
+        auth: Authentication
+        page_id: Page ID
+        md_file: Path to markdown file (for resolving relative paths)
+        body_content: Markdown body content
+        stored_image_hashes: Previously stored image hashes
+
+    Returns:
+        Dict of {filename: hash} for all synced images
+    """
+    images = extract_local_images(body_content)
+    if not images:
+        return {}
+
+    # Get existing attachments
+    r = requests.get(
+        f"{base_url}/content/{page_id}/child/attachment",
+        auth=auth,
+    )
+    existing = {}
+    if r.ok:
+        for att in r.json().get("results", []):
+            existing[att["title"]] = att["id"]
+
+    image_hashes = {}
+    md_dir = md_file.parent
+
+    for alt, rel_path in images:
+        img_path = md_dir / rel_path
+        if not img_path.exists():
+            print(f"  Warning: Image not found: {img_path}", file=sys.stderr)
+            continue
+
+        filename = img_path.name
+        current_hash = compute_file_hash(img_path)
+        image_hashes[filename] = current_hash
+
+        # Check if upload needed
+        if stored_image_hashes.get(filename) == current_hash:
+            continue  # Image unchanged
+
+        headers = {"X-Atlassian-Token": "nocheck"}
+
+        if filename in existing:
+            # Update existing attachment
+            att_id = existing[filename]
+            with open(img_path, "rb") as f:
+                r = requests.post(
+                    f"{base_url}/content/{page_id}/child/attachment/{att_id}/data",
+                    files={"file": (filename, f)},
+                    headers=headers,
+                    auth=auth,
+                )
+            action = "Updated"
+        else:
+            # Upload new attachment
+            with open(img_path, "rb") as f:
+                r = requests.post(
+                    f"{base_url}/content/{page_id}/child/attachment",
+                    files={"file": (filename, f)},
+                    headers=headers,
+                    auth=auth,
+                )
+            action = "Uploaded"
+
+        if r.ok:
+            print(f"  {action} image: {filename}")
+        else:
+            print(f"  Error uploading {filename}: {r.status_code}", file=sys.stderr)
+
+    return image_hashes
+
+
+def download_images(
+    base_url: str,
+    auth: HTTPBasicAuth,
+    page_id: str,
+    md_file: Path,
+    image_dir: str = "images",
+) -> None:
+    """Download Confluence attachments to local directory.
+
+    Args:
+        base_url: Confluence API base URL
+        auth: Authentication
+        page_id: Page ID
+        md_file: Path to markdown file
+        image_dir: Subdirectory for images relative to md file
+    """
+    # Get attachments
+    r = requests.get(
+        f"{base_url}/content/{page_id}/child/attachment",
+        params={"expand": "version"},
+        auth=auth,
+    )
+    if not r.ok:
+        return
+
+    attachments = r.json().get("results", [])
+    if not attachments:
+        return
+
+    # Create images directory
+    img_path = md_file.parent / image_dir
+    img_path.mkdir(exist_ok=True)
+
+    server = get_server_from_config()
+
+    for att in attachments:
+        filename = att["title"]
+        # Only download image files
+        if not filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp')):
+            continue
+
+        download_url = server + att["_links"]["download"]
+        r = requests.get(download_url, auth=auth)
+        if r.ok:
+            (img_path / filename).write_bytes(r.content)
+            print(f"  Downloaded image: {filename}")
+
+
 def sync_one_file(
     filepath: Path,
     base_url: str,
@@ -602,6 +738,9 @@ def sync_one_file(
 
     # Handle --pull flag
     if pull:
+        # Download images first
+        download_images(base_url, auth, page_id, filepath)
+
         md_content = storage_to_markdown(remote_body)
 
         # Preserve/update front matter with confluence page ID
@@ -637,6 +776,12 @@ def sync_one_file(
             print(f"{filepath}: already in sync")
             return True
 
+        # Upload images first (before content references them)
+        stored_image_hashes = sync_meta.get("images", {}) if sync_meta else {}
+        image_hashes = sync_images(
+            base_url, auth, page_id, filepath, body_content, stored_image_hashes
+        )
+
         # Convert and push (body only, without front matter)
         storage_content = markdown_to_storage(body_content)
 
@@ -666,12 +811,13 @@ def sync_one_file(
         result = r.json()
         new_version = result["version"]["number"]
 
-        # Update sync metadata
+        # Update sync metadata including image hashes
         set_sync_property(base_url, auth, page_id, {
             "source_hash": local_hash,
             "uploaded_at": datetime.now(timezone.utc).isoformat(),
             "uploaded_version": new_version,
             "source_file": str(filepath),
+            "images": image_hashes,
         })
 
         print(f"Pushed {filepath} to page {page_id} (version {remote_version} -> {new_version})")

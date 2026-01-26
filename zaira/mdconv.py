@@ -2,8 +2,67 @@
 
 import re
 from html.parser import HTMLParser
+from pathlib import Path
 
 import markdown
+
+
+def extract_local_images(md_content: str) -> list[tuple[str, str]]:
+    """Extract local image references from markdown.
+
+    Args:
+        md_content: Markdown content
+
+    Returns:
+        List of (alt_text, image_path) tuples for local images only
+    """
+    # Pattern: ![alt](path) - but not URLs
+    pattern = r'!\[([^\]]*)\]\(([^)]+)\)'
+    images = []
+    for match in re.finditer(pattern, md_content):
+        alt, path = match.group(1), match.group(2)
+        # Skip URLs (http://, https://, //)
+        if not path.startswith(('http://', 'https://', '//')):
+            images.append((alt, path))
+    return images
+
+
+def convert_images_to_attachments(md_content: str) -> str:
+    """Convert markdown image syntax to Confluence attachment references.
+
+    Converts: ![alt](./images/foo.png)
+    To: ![alt](attachment:foo.png)
+
+    The actual file upload happens separately.
+    """
+    def replace_image(match: re.Match) -> str:
+        alt = match.group(1)
+        path = match.group(2)
+        # Skip URLs
+        if path.startswith(('http://', 'https://', '//')):
+            return match.group(0)
+        # Use just the filename for attachment reference
+        filename = Path(path).name
+        return f'![{alt}](attachment:{filename})'
+
+    return re.sub(r'!\[([^\]]*)\]\(([^)]+)\)', replace_image, md_content)
+
+
+def convert_attachments_to_images(md_content: str, image_dir: str = "./images") -> str:
+    """Convert Confluence attachment references back to local paths.
+
+    Converts: ![alt](attachment:foo.png)
+    To: ![alt](./images/foo.png)
+    """
+    def replace_attachment(match: re.Match) -> str:
+        alt = match.group(1)
+        path = match.group(2)
+        if path.startswith('attachment:'):
+            filename = path[len('attachment:'):]
+            return f'![{alt}]({image_dir}/{filename})'
+        return match.group(0)
+
+    return re.sub(r'!\[([^\]]*)\]\(([^)]+)\)', replace_attachment, md_content)
 
 
 # Map markdown language names to Confluence code macro languages
@@ -107,15 +166,20 @@ def _normalize_list_indent(md_content: str) -> str:
     return '\n'.join(result)
 
 
-def markdown_to_storage(md_content: str) -> str:
+def markdown_to_storage(md_content: str, convert_local_images: bool = True) -> str:
     """Convert Markdown to Confluence storage format.
 
     Args:
         md_content: Markdown text
+        convert_local_images: If True, convert local image paths to attachment refs
 
     Returns:
         HTML suitable for Confluence storage format
     """
+    # Convert local images to attachment references before processing
+    if convert_local_images:
+        md_content = convert_images_to_attachments(md_content)
+
     # Normalize 2-space list indents to 4-space
     md_content = _normalize_list_indent(md_content)
 
@@ -149,18 +213,47 @@ def markdown_to_storage(md_content: str) -> str:
         html,
     )
 
+    # Convert attachment images to Confluence attachment macro
+    # <img alt="..." src="attachment:filename.png" /> -> <ac:image><ri:attachment ri:filename="..."/></ac:image>
+    def img_to_attachment(match: re.Match) -> str:
+        attrs = match.group(1)
+        alt_match = re.search(r'alt="([^"]*)"', attrs)
+        src_match = re.search(r'src="attachment:([^"]*)"', attrs)
+        if src_match:
+            filename = src_match.group(1)
+            alt = alt_match.group(1) if alt_match else ""
+            alt_attr = f' ac:alt="{alt}"' if alt else ""
+            return f'<ac:image{alt_attr}><ri:attachment ri:filename="{filename}"/></ac:image>'
+        return match.group(0)
+
+    html = re.sub(r'<img\s+([^>]*)/>', img_to_attachment, html)
+
     return html
 
 
-def storage_to_markdown(html_content: str) -> str:
+def storage_to_markdown(html_content: str, image_dir: str = "./images") -> str:
     """Convert Confluence storage format to Markdown.
 
     Args:
         html_content: Confluence storage format HTML
+        image_dir: Directory for local image paths
 
     Returns:
         Markdown text
     """
+    # Convert Confluence attachment images to markdown
+    # <ac:image ac:alt="..."><ri:attachment ri:filename="..."/></ac:image>
+    def attachment_to_img(match: re.Match) -> str:
+        alt = match.group(1) or ""
+        filename = match.group(2)
+        return f'![{alt}]({image_dir}/{filename})'
+
+    html_content = re.sub(
+        r'<ac:image(?:\s+ac:alt="([^"]*)")?[^>]*>\s*<ri:attachment\s+ri:filename="([^"]+)"[^/]*/>\s*</ac:image>',
+        attachment_to_img,
+        html_content,
+    )
+
     # Convert Confluence TOC macro to [TOC]
     html_content = re.sub(
         r'<ac:structured-macro[^>]*ac:name="toc"[^>]*/?>(?:</ac:structured-macro>)?',
