@@ -13,7 +13,7 @@ from zaira.edit import edit_command
 from zaira.export import export_command
 from zaira.link import link_command
 from zaira.transition import transition_command
-from zaira.wiki import wiki_command, get_command as wiki_get_command, search_command as wiki_search_command, create_command as wiki_create_command, put_command as wiki_put_command
+from zaira.wiki import wiki_command, get_command as wiki_get_command, search_command as wiki_search_command, create_command as wiki_create_command, put_command as wiki_put_command, attach_command as wiki_attach_command
 from zaira.info import (
     info_command,
     link_types_command,
@@ -576,6 +576,21 @@ def main() -> None:
         help="New page title (optional, keeps existing if not specified)",
     )
     wiki_put.set_defaults(wiki_func=wiki_put_command)
+
+    wiki_attach = wiki_subparsers.add_parser(
+        "attach",
+        help="Upload attachments to a Confluence page",
+    )
+    wiki_attach.add_argument(
+        "page",
+        help="Page ID or Confluence URL",
+    )
+    wiki_attach.add_argument(
+        "files",
+        nargs="+",
+        help="Files to upload (supports glob patterns)",
+    )
+    wiki_attach.set_defaults(wiki_func=wiki_attach_command)
 
     args = parser.parse_args()
 

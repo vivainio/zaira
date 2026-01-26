@@ -241,6 +241,65 @@ def search_command(args: argparse.Namespace) -> None:
             print()
 
 
+def attach_command(args: argparse.Namespace) -> None:
+    """Upload attachments to a Confluence page."""
+    base_url, auth = get_confluence_auth()
+    page_id = parse_page_id(args.page)
+
+    # Expand glob patterns and collect files
+    import glob
+    from pathlib import Path
+
+    files_to_upload = []
+    for pattern in args.files:
+        matches = glob.glob(pattern)
+        if matches:
+            files_to_upload.extend(matches)
+        else:
+            # Treat as literal filename if no glob match
+            files_to_upload.append(pattern)
+
+    if not files_to_upload:
+        print("Error: No files to upload", file=sys.stderr)
+        sys.exit(1)
+
+    # Upload each file
+    uploaded = []
+    for filepath in files_to_upload:
+        path = Path(filepath)
+        if not path.exists():
+            print(f"Error: File not found: {filepath}", file=sys.stderr)
+            continue
+
+        # Confluence attachment API requires multipart form data
+        # The header X-Atlassian-Token: nocheck is required to bypass XSRF protection
+        with open(path, "rb") as f:
+            r = requests.post(
+                f"{base_url}/content/{page_id}/child/attachment",
+                files={"file": (path.name, f)},
+                headers={"X-Atlassian-Token": "nocheck"},
+                auth=auth,
+            )
+
+        if not r.ok:
+            print(f"Error uploading {path.name}: {r.status_code} - {r.reason}", file=sys.stderr)
+            print(r.text, file=sys.stderr)
+            continue
+
+        result = r.json()
+        if result.get("results"):
+            att = result["results"][0]
+            uploaded.append(path.name)
+            print(f"Uploaded: {path.name}")
+
+    if uploaded:
+        print(f"\nTo reference in page body:")
+        for name in uploaded:
+            print(f'  <ac:image><ri:attachment ri:filename="{name}"/></ac:image>')
+    else:
+        sys.exit(1)
+
+
 def create_command(args: argparse.Namespace) -> None:
     """Create a new Confluence page."""
     base_url, auth = get_confluence_auth()
@@ -360,5 +419,5 @@ def wiki_command(args: argparse.Namespace) -> None:
         args.wiki_func(args)
     else:
         print("Usage: zaira wiki <subcommand>")
-        print("Subcommands: get, search, create, put")
+        print("Subcommands: get, search, create, put, attach")
         sys.exit(1)
