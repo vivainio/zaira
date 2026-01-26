@@ -486,7 +486,22 @@ def create_command(args: argparse.Namespace) -> None:
     # Optional parent page
     parent_id = parse_page_id(args.parent) if args.parent else None
 
-    result = confluence_api.create_page(args.space, args.title, body_content, parent_id)
+    # Determine space: from --space flag, or infer from parent
+    space_key = args.space
+    if not space_key:
+        if not parent_id:
+            print("Error: Either --space or --parent is required", file=sys.stderr)
+            sys.exit(1)
+        info = _get_page_info(parent_id)
+        if not info or not info.get("space_key"):
+            print(
+                f"Error: Could not get space from parent page {parent_id}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        space_key = info["space_key"]
+
+    result = confluence_api.create_page(space_key, args.title, body_content, parent_id)
 
     if not result:
         print("Error creating page", file=sys.stderr)
@@ -494,7 +509,7 @@ def create_command(args: argparse.Namespace) -> None:
 
     page_id = result["id"]
     server = get_server_from_config()
-    url = f"{server}/wiki/spaces/{args.space}/pages/{page_id}"
+    url = f"{server}/wiki/spaces/{space_key}/pages/{page_id}"
     print(f"Created page {page_id}: {url}")
 
 

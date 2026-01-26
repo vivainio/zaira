@@ -13,7 +13,16 @@ from zaira.edit import edit_command
 from zaira.export import export_command
 from zaira.link import link_command
 from zaira.transition import transition_command
-from zaira.wiki import wiki_command, get_command as wiki_get_command, search_command as wiki_search_command, create_command as wiki_create_command, put_command as wiki_put_command, attach_command as wiki_attach_command, edit_command as wiki_edit_command, delete_command as wiki_delete_command
+from zaira.wiki import (
+    wiki_command,
+    get_command as wiki_get_command,
+    search_command as wiki_search_command,
+    create_command as wiki_create_command,
+    put_command as wiki_put_command,
+    attach_command as wiki_attach_command,
+    edit_command as wiki_edit_command,
+    delete_command as wiki_delete_command,
+)
 from zaira.info import (
     info_command,
     link_types_command,
@@ -143,7 +152,15 @@ def main() -> None:
     report_parser.add_argument(
         "-g",
         "--group-by",
-        choices=["status", "priority", "issuetype", "assignee", "labels", "components", "parent"],
+        choices=[
+            "status",
+            "priority",
+            "issuetype",
+            "assignee",
+            "labels",
+            "components",
+            "parent",
+        ],
         help="Group tickets by field",
     )
     report_parser.add_argument(
@@ -446,7 +463,9 @@ def main() -> None:
     info_priorities.add_argument("-r", "--refresh", **refresh_args)
     info_priorities.set_defaults(info_func=priorities_command)
 
-    info_issue_types = info_subparsers.add_parser("issue-types", help="List issue types")
+    info_issue_types = info_subparsers.add_parser(
+        "issue-types", help="List issue types"
+    )
     info_issue_types.add_argument("-r", "--refresh", **refresh_args)
     info_issue_types.set_defaults(info_func=issue_types_command)
 
@@ -471,9 +490,7 @@ def main() -> None:
     info_components.add_argument("project", help="Project key (e.g., PROJ)")
     info_components.set_defaults(info_func=components_command)
 
-    info_labels = info_subparsers.add_parser(
-        "labels", help="List labels for a project"
-    )
+    info_labels = info_subparsers.add_parser("labels", help="List labels for a project")
     info_labels.add_argument("project", help="Project key (e.g., PROJ)")
     info_labels.set_defaults(info_func=labels_command)
 
@@ -495,7 +512,8 @@ def main() -> None:
         help="Page ID(s) or Confluence URL(s)",
     )
     wiki_get.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         help="Output directory (writes files instead of stdout)",
     )
     wiki_get.add_argument(
@@ -504,7 +522,8 @@ def main() -> None:
         help="Also export all child pages recursively",
     )
     wiki_get.add_argument(
-        "-l", "--list",
+        "-l",
+        "--list",
         action="store_true",
         help="List page(s) and children without exporting",
     )
@@ -553,26 +572,30 @@ def main() -> None:
         help="Create a new Confluence page",
     )
     wiki_create.add_argument(
-        "-s", "--space",
-        required=True,
-        help="Space key (e.g., PROJ, ~username)",
+        "-s",
+        "--space",
+        help="Space key (e.g., PROJ, ~username). Inferred from --parent if not specified.",
     )
     wiki_create.add_argument(
-        "-t", "--title",
+        "-t",
+        "--title",
         required=True,
         help="Page title",
     )
     wiki_create.add_argument(
-        "-b", "--body",
+        "-b",
+        "--body",
         required=True,
         help="Page body: file path, '-' for stdin, or literal content",
     )
     wiki_create.add_argument(
-        "-p", "--parent",
+        "-p",
+        "--parent",
         help="Parent page ID or URL (optional)",
     )
     wiki_create.add_argument(
-        "-m", "--markdown",
+        "-m",
+        "--markdown",
         action="store_true",
         help="Convert body from Markdown to Confluence storage format",
     )
@@ -588,19 +611,23 @@ def main() -> None:
         help="Markdown files, glob patterns, or directories (page ID from front matter)",
     )
     wiki_put.add_argument(
-        "-p", "--page",
+        "-p",
+        "--page",
         help="Page ID or URL (for single file without front matter)",
     )
     wiki_put.add_argument(
-        "-b", "--body",
+        "-b",
+        "--body",
         help="Body content: '-' for stdin, or literal (legacy, prefer positional files)",
     )
     wiki_put.add_argument(
-        "-t", "--title",
+        "-t",
+        "--title",
         help="New page title (single file only)",
     )
     wiki_put.add_argument(
-        "-m", "--markdown",
+        "-m",
+        "--markdown",
         action="store_true",
         help="Treat input as Markdown (auto-enabled for .md files)",
     )
@@ -649,7 +676,8 @@ def main() -> None:
         help="Files to upload (supports glob patterns)",
     )
     wiki_attach.add_argument(
-        "-r", "--replace",
+        "-r",
+        "--replace",
         action="store_true",
         help="Replace existing attachments with same filename",
     )
@@ -664,19 +692,23 @@ def main() -> None:
         help="Page ID or Confluence URL",
     )
     wiki_edit.add_argument(
-        "-t", "--title",
+        "-t",
+        "--title",
         help="New page title",
     )
     wiki_edit.add_argument(
-        "-p", "--parent",
+        "-p",
+        "--parent",
         help="New parent page ID or URL (moves the page)",
     )
     wiki_edit.add_argument(
-        "-l", "--labels",
+        "-l",
+        "--labels",
         help="Labels (comma-separated, replaces existing)",
     )
     wiki_edit.add_argument(
-        "-s", "--space",
+        "-s",
+        "--space",
         help="Move to different space",
     )
     wiki_edit.set_defaults(wiki_func=wiki_edit_command)
@@ -690,7 +722,8 @@ def main() -> None:
         help="Page ID or Confluence URL",
     )
     wiki_delete.add_argument(
-        "-y", "--yes",
+        "-y",
+        "--yes",
         action="store_true",
         help="Skip confirmation prompt",
     )
