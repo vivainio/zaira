@@ -86,11 +86,29 @@ gh release create v0.3.0 --generate-notes
 ## Project Structure
 
 - `zaira/` - Main package
-- `zaira/cli.py` - CLI entry point
-- `zaira/jira_client.py` - Jira API client
-- `zaira/export.py` - Ticket export functionality
-- `zaira/config.py` - Configuration handling
-- `zaira/dashboard.py` - Dashboard operations
+  - `__init__.py` - Package exports (`client()`, `schema()`, `project_schema()`)
+  - `__main__.py` - Entry point for `python -m zaira`
+  - `attach.py` - Attachment handling
+  - `boards.py` - Board operations
+  - `cli.py` - CLI entry point
+  - `comment.py` - Comment operations
+  - `config.py` - Configuration handling
+  - `create.py` - Ticket creation
+  - `dashboard.py` - Dashboard operations
+  - `edit.py` - Ticket editing
+  - `export.py` - Ticket export functionality
+  - `info.py` - Schema and metadata queries
+  - `init.py` - Initialization commands
+  - `jira_client.py` - Jira API client
+  - `link.py` - Issue linking
+  - `mdconv.py` - Markdown conversion utilities
+  - `my.py` - User's open tickets
+  - `project.py` - Project operations
+  - `refresh.py` - Refresh/sync functionality
+  - `report.py` - Report generation
+  - `transition.py` - Ticket status transitions
+  - `types.py` - Type definitions (dataclasses, TypedDicts)
+  - `wiki.py` - Wiki/Confluence operations
 
 ## Dependencies
 
