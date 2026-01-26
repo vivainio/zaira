@@ -260,7 +260,6 @@ def _export_page_to_file(
     front_matter = {
         "confluence": int(page_id),
         "title": title,
-        "space": space_key,
     }
 
     # Add labels if any
@@ -350,7 +349,6 @@ def get_command(args: argparse.Namespace) -> None:
             front_matter = {
                 "confluence": int(page_id),
                 "title": title,
-                "space": space_key,
             }
             # Add labels if any
             labels = _fetch_labels(base_url, auth, page_id)
@@ -823,7 +821,6 @@ def _put_one_file(
         # Sync properties from remote
         front_matter["confluence"] = int(page_id)
         front_matter["title"] = current_title
-        front_matter["space"] = current_space
 
         # Get labels from remote
         r = requests.get(f"{base_url}/content/{page_id}/label", auth=auth)
