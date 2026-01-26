@@ -58,6 +58,7 @@ summary: "Integration test {int(time.time())}"
 type: Task
 priority: Medium
 labels: [integration-test, automated]
+Story Points: 5
 ---
 
 Automated integration test ticket created by zaira.
