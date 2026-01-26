@@ -276,6 +276,12 @@ zaira wiki get "https://site.atlassian.net/wiki/spaces/SPACE/pages/123456/Title"
 zaira wiki get 123456 --format html       # Raw storage format
 zaira wiki get 123456 --format json       # Full API response
 
+# Export multiple pages to directory
+zaira wiki get 123 456 789 -o docs/
+
+# Export page and all children recursively
+zaira wiki get 123 --children -o docs/
+
 # Search pages
 zaira wiki search "search terms"
 zaira wiki search "docs" --space TEAM     # Filter by space

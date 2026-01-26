@@ -487,11 +487,21 @@ def main() -> None:
 
     wiki_get = wiki_subparsers.add_parser(
         "get",
-        help="Get a Confluence page by ID or URL",
+        help="Get Confluence page(s) by ID or URL",
     )
     wiki_get.add_argument(
-        "page",
-        help="Page ID or Confluence URL",
+        "pages",
+        nargs="*",
+        help="Page ID(s) or Confluence URL(s)",
+    )
+    wiki_get.add_argument(
+        "-o", "--output",
+        help="Output directory (writes files instead of stdout)",
+    )
+    wiki_get.add_argument(
+        "--children",
+        action="store_true",
+        help="Also export all child pages recursively",
     )
     wiki_get.add_argument(
         "--format",

@@ -121,51 +121,177 @@ def parse_page_id(page_ref: str) -> str:
     return page_ref
 
 
-def get_command(args: argparse.Namespace) -> None:
-    """Get a Confluence page by ID or URL."""
-    base_url, auth = get_confluence_auth()
-    page_id = parse_page_id(args.page)
+def slugify(title: str) -> str:
+    """Convert title to filename-safe slug."""
+    # Lowercase and replace spaces/special chars with hyphens
+    slug = re.sub(r'[^\w\s-]', '', title.lower())
+    slug = re.sub(r'[-\s]+', '-', slug).strip('-')
+    return slug[:80]  # Limit length
 
+
+def _get_children(base_url: str, auth: HTTPBasicAuth, page_id: str) -> list[str]:
+    """Get all descendant page IDs recursively.
+
+    Returns:
+        List of page IDs (children, grandchildren, etc.)
+    """
+    children = []
+    r = requests.get(
+        f"{base_url}/content/{page_id}/child/page",
+        params={"limit": 100},
+        auth=auth,
+    )
+    if not r.ok:
+        return children
+
+    for child in r.json().get("results", []):
+        child_id = child["id"]
+        children.append(child_id)
+        # Recurse
+        children.extend(_get_children(base_url, auth, child_id))
+
+    return children
+
+
+def _fetch_page(base_url: str, auth: HTTPBasicAuth, page_id: str) -> dict | None:
+    """Fetch a single page with body and metadata.
+
+    Returns:
+        Page dict or None on error
+    """
     r = requests.get(
         f"{base_url}/content/{page_id}",
         params={"expand": "body.storage,version,space"},
         auth=auth,
     )
-
     if not r.ok:
-        print(f"Error: {r.status_code} - {r.reason}", file=sys.stderr)
-        if r.status_code == 404:
-            print(f"Page not found: {page_id}", file=sys.stderr)
-        else:
-            print(r.text, file=sys.stderr)
-        sys.exit(1)
+        print(f"Error fetching {page_id}: {r.status_code} - {r.reason}", file=sys.stderr)
+        return None
+    return r.json()
 
-    page = r.json()
+
+def _export_page_to_file(
+    page: dict,
+    output_dir: Path,
+    base_url: str,
+    auth: HTTPBasicAuth,
+) -> Path | None:
+    """Export a page to a markdown file with images.
+
+    Returns:
+        Path to created file, or None on error
+    """
+    page_id = page["id"]
     title = page["title"]
     space_key = page["space"]["key"]
-    space_name = page["space"]["name"]
     version = page["version"]["number"]
     body_html = page["body"]["storage"]["value"]
 
-    if args.format == "json":
-        import json
-        print(json.dumps(page, indent=2))
-    elif args.format == "html":
-        print(f"Title: {title}")
-        print(f"Space: {space_name} ({space_key})")
-        print(f"Version: {version}")
-        print(f"Page ID: {page_id}")
-        print()
-        print(body_html)
-    else:
-        # Default: md - convert storage format to markdown with front matter
-        md_body = storage_to_markdown(body_html)
-        front_matter = {
-            "confluence": int(page_id),
-            "title": title,
-            "space": space_key,
-        }
-        print(write_front_matter(front_matter, md_body))
+    # Convert to markdown
+    md_body = storage_to_markdown(body_html)
+    front_matter = {
+        "confluence": int(page_id),
+        "title": title,
+        "space": space_key,
+    }
+    content = write_front_matter(front_matter, md_body)
+
+    # Write file
+    filename = f"{slugify(title)}.md"
+    filepath = output_dir / filename
+    filepath.write_text(content)
+
+    # Download images
+    download_images(base_url, auth, page_id, filepath)
+
+    # Set sync metadata so future puts track properly
+    local_hash = hashlib.sha256(md_body.encode()).hexdigest()
+    set_sync_property(base_url, auth, page_id, {
+        "source_hash": local_hash,
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+        "uploaded_version": version,
+        "source_file": str(filepath),
+        "images": {},
+    })
+
+    return filepath
+
+
+def get_command(args: argparse.Namespace) -> None:
+    """Get Confluence page(s) by ID or URL."""
+    base_url, auth = get_confluence_auth()
+
+    # Collect all page IDs to fetch
+    page_ids = [parse_page_id(p) for p in args.pages] if args.pages else []
+
+    if not page_ids:
+        print("Error: No pages specified", file=sys.stderr)
+        sys.exit(1)
+
+    # Expand children if requested
+    if getattr(args, 'children', False):
+        expanded = []
+        for pid in page_ids:
+            expanded.append(pid)
+            children = _get_children(base_url, auth, pid)
+            expanded.extend(children)
+            if children:
+                print(f"Found {len(children)} child page(s) under {pid}", file=sys.stderr)
+        page_ids = expanded
+
+    output_dir = Path(args.output) if getattr(args, 'output', None) else None
+
+    # Single page to stdout (original behavior)
+    if len(page_ids) == 1 and not output_dir:
+        page_id = page_ids[0]
+        page = _fetch_page(base_url, auth, page_id)
+        if not page:
+            sys.exit(1)
+
+        title = page["title"]
+        space_key = page["space"]["key"]
+        space_name = page["space"]["name"]
+        version = page["version"]["number"]
+        body_html = page["body"]["storage"]["value"]
+
+        if args.format == "json":
+            print(json.dumps(page, indent=2))
+        elif args.format == "html":
+            print(f"Title: {title}")
+            print(f"Space: {space_name} ({space_key})")
+            print(f"Version: {version}")
+            print(f"Page ID: {page_id}")
+            print()
+            print(body_html)
+        else:
+            md_body = storage_to_markdown(body_html)
+            front_matter = {
+                "confluence": int(page_id),
+                "title": title,
+                "space": space_key,
+            }
+            print(write_front_matter(front_matter, md_body))
+        return
+
+    # Multiple pages or output dir specified - write to files
+    if not output_dir:
+        print("Error: Multiple pages require -o/--output directory", file=sys.stderr)
+        sys.exit(1)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    success_count = 0
+    for page_id in page_ids:
+        page = _fetch_page(base_url, auth, page_id)
+        if not page:
+            continue
+
+        filepath = _export_page_to_file(page, output_dir, base_url, auth)
+        if filepath:
+            print(f"Exported: {filepath}")
+            success_count += 1
+
+    print(f"\nExported {success_count} page(s) to {output_dir}")
 
 
 def search_command(args: argparse.Namespace) -> None:
