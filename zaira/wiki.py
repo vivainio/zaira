@@ -208,13 +208,25 @@ def _fetch_page(base_url: str, auth: HTTPBasicAuth, page_id: str) -> dict | None
     """
     r = requests.get(
         f"{base_url}/content/{page_id}",
-        params={"expand": "body.storage,version,space"},
+        params={"expand": "body.storage,version,space,ancestors"},
         auth=auth,
     )
     if not r.ok:
         print(f"Error fetching {page_id}: {r.status_code} - {r.reason}", file=sys.stderr)
         return None
     return r.json()
+
+
+def _fetch_labels(base_url: str, auth: HTTPBasicAuth, page_id: str) -> list[str]:
+    """Fetch labels for a page.
+
+    Returns:
+        List of label names
+    """
+    r = requests.get(f"{base_url}/content/{page_id}/label", auth=auth)
+    if r.ok:
+        return [lbl["name"] for lbl in r.json().get("results", [])]
+    return []
 
 
 def _export_page_to_file(
@@ -241,6 +253,12 @@ def _export_page_to_file(
         "title": title,
         "space": space_key,
     }
+
+    # Add labels if any
+    labels = _fetch_labels(base_url, auth, page_id)
+    if labels:
+        front_matter["labels"] = labels
+
     content = write_front_matter(front_matter, md_body)
 
     # Write file
@@ -325,6 +343,10 @@ def get_command(args: argparse.Namespace) -> None:
                 "title": title,
                 "space": space_key,
             }
+            # Add labels if any
+            labels = _fetch_labels(base_url, auth, page_id)
+            if labels:
+                front_matter["labels"] = labels
             print(write_front_matter(front_matter, md_body))
         return
 
@@ -704,7 +726,7 @@ def _put_one_file(
     # Get current page
     r = requests.get(
         f"{base_url}/content/{page_id}",
-        params={"expand": "version,body.storage"},
+        params={"expand": "version,body.storage,space,ancestors"},
         auth=auth,
     )
 
@@ -716,6 +738,9 @@ def _put_one_file(
     remote_version = page["version"]["number"]
     remote_body = page["body"]["storage"]["value"]
     current_title = page["title"]
+    current_space = page["space"]["key"]
+    current_ancestors = page.get("ancestors", [])
+    current_parent = current_ancestors[-1]["id"] if current_ancestors else None
 
     # Get sync metadata
     sync_meta = get_sync_property(base_url, auth, page_id)
@@ -785,8 +810,21 @@ def _put_one_file(
     if pull:
         download_images(base_url, auth, page_id, filepath)
         md_content = storage_to_markdown(remote_body)
+
+        # Sync properties from remote
         front_matter["confluence"] = int(page_id)
-        front_matter["title"] = current_title  # Sync title from remote
+        front_matter["title"] = current_title
+        front_matter["space"] = current_space
+
+        # Get labels from remote
+        r = requests.get(f"{base_url}/content/{page_id}/label", auth=auth)
+        if r.ok:
+            labels = [lbl["name"] for lbl in r.json().get("results", [])]
+            if labels:
+                front_matter["labels"] = labels
+            elif "labels" in front_matter:
+                del front_matter["labels"]
+
         new_content = write_front_matter(front_matter, md_content)
         filepath.write_text(new_content)
 
@@ -816,6 +854,7 @@ def _put_one_file(
 
     # Convert and push
     storage_content = markdown_to_storage(body_only)
+    property_changes = []
 
     # Determine title: -t flag > front matter > current remote title
     if title_override:
@@ -825,6 +864,9 @@ def _put_one_file(
     else:
         new_title = current_title
 
+    if new_title != current_title:
+        property_changes.append(f"title: '{new_title}'")
+
     update_payload = {
         "version": {"number": remote_version + 1},
         "title": new_title,
@@ -832,12 +874,47 @@ def _put_one_file(
         "body": {"storage": {"value": storage_content, "representation": "storage"}},
     }
 
+    # Note: parent and space are editable via wiki edit only, not synced from front matter
+
     r = requests.put(f"{base_url}/content/{page_id}", json=update_payload, auth=auth)
     if not r.ok:
         print(f"Error updating {filepath}: {r.status_code}", file=sys.stderr)
         return False
 
     new_version = r.json()["version"]["number"]
+
+    # Sync labels from front matter (separate API)
+    if "labels" in front_matter:
+        fm_labels = front_matter["labels"]
+        if isinstance(fm_labels, str):
+            new_labels = {lbl.strip() for lbl in fm_labels.split(",") if lbl.strip()}
+        elif isinstance(fm_labels, list):
+            new_labels = {str(lbl).strip() for lbl in fm_labels if str(lbl).strip()}
+        else:
+            new_labels = set()
+
+        # Get current labels
+        r = requests.get(f"{base_url}/content/{page_id}/label", auth=auth)
+        current_labels = set()
+        if r.ok:
+            current_labels = {lbl["name"] for lbl in r.json().get("results", [])}
+
+        # Remove labels not in front matter
+        for label in current_labels - new_labels:
+            requests.delete(f"{base_url}/content/{page_id}/label/{label}", auth=auth)
+
+        # Add new labels
+        to_add = new_labels - current_labels
+        if to_add:
+            requests.post(
+                f"{base_url}/content/{page_id}/label",
+                json=[{"name": lbl} for lbl in to_add],
+                auth=auth,
+            )
+
+        if new_labels != current_labels:
+            property_changes.append(f"labels: {sorted(new_labels)}")
+
     set_sync_property(base_url, auth, page_id, {
         "source_hash": local_hash,
         "uploaded_at": datetime.now(timezone.utc).isoformat(),
@@ -847,8 +924,8 @@ def _put_one_file(
     })
 
     msg = f"Pushed {filepath} (version {remote_version} -> {new_version})"
-    if new_title != current_title:
-        msg += f", renamed to '{new_title}'"
+    if property_changes:
+        msg += " [" + ", ".join(property_changes) + "]"
     print(msg)
     return True
 
