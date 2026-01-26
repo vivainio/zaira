@@ -44,7 +44,10 @@ def comment_command(args: argparse.Namespace) -> None:
 
     md_errors = detect_markdown(body)
     if md_errors:
-        print("Error: Comment contains markdown syntax. Use Jira wiki markup instead:", file=sys.stderr)
+        print(
+            "Error: Comment contains markdown syntax. Use Jira wiki markup instead:",
+            file=sys.stderr,
+        )
         for err in md_errors:
             print(f"  - {err}", file=sys.stderr)
         sys.exit(1)

@@ -15,7 +15,9 @@ from zaira.dashboard import get_dashboard, get_dashboard_gadgets
 from zaira.types import ReportTicket, get_user_identifier
 
 
-def _group_tickets_by(tickets: list[ReportTicket], group_by: str) -> dict[str, list[ReportTicket]]:
+def _group_tickets_by(
+    tickets: list[ReportTicket], group_by: str
+) -> dict[str, list[ReportTicket]]:
     """Group tickets by a field.
 
     Handles special cases for multi-value fields (labels, components) and parent.
@@ -42,7 +44,9 @@ def _group_tickets_by(tickets: list[ReportTicket], group_by: str) -> dict[str, l
     elif group_by == "parent":
         for t in tickets:
             parent = t.get("parent")
-            group_key = f"{parent['key']}: {parent['summary']}" if parent else "(no parent)"
+            group_key = (
+                f"{parent['key']}: {parent['summary']}" if parent else "(no parent)"
+            )
             groups.setdefault(group_key, []).append(t)
     else:
         for t in tickets:
@@ -473,7 +477,14 @@ def report_command(args: argparse.Namespace) -> None:
     # Check if no arguments provided - list available reports
     report_name = getattr(args, "name", None)
     dashboard_arg = getattr(args, "dashboard", None)
-    has_args = report_name or args.query or args.jql or args.board or args.sprint or dashboard_arg
+    has_args = (
+        report_name
+        or args.query
+        or args.jql
+        or args.board
+        or args.sprint
+        or dashboard_arg
+    )
 
     if not has_args:
         reports = list_reports()
@@ -571,7 +582,11 @@ def report_command(args: argparse.Namespace) -> None:
                 output_path = Path(args.output)
             else:
                 # Use report name for filename if available
-                filename = f"{report_name}.md" if report_name else f"dashboard-{dashboard_id}.md"
+                filename = (
+                    f"{report_name}.md"
+                    if report_name
+                    else f"dashboard-{dashboard_id}.md"
+                )
                 output_path = REPORTS_DIR / filename
 
             output_path.parent.mkdir(parents=True, exist_ok=True)

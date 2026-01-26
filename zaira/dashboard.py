@@ -92,7 +92,9 @@ def get_dashboard(dashboard_id: int) -> Dashboard | None:
         return None
 
 
-def get_dashboard_gadgets(dashboard_id: int, resolve_jql: bool = True) -> list[DashboardGadget]:
+def get_dashboard_gadgets(
+    dashboard_id: int, resolve_jql: bool = True
+) -> list[DashboardGadget]:
     """Get gadgets/items on a dashboard.
 
     Args:
@@ -132,7 +134,9 @@ def get_dashboard_gadgets(dashboard_id: int, resolve_jql: bool = True) -> list[D
                 DashboardGadget(
                     id=gadget_id,
                     title=g.get("title", ""),
-                    gadget_type=_extract_gadget_type(g.get("uri", "") or g.get("moduleKey", "")),
+                    gadget_type=_extract_gadget_type(
+                        g.get("uri", "") or g.get("moduleKey", "")
+                    ),
                     position=(
                         g.get("position", {}).get("row", 0),
                         g.get("position", {}).get("column", 0),
@@ -144,7 +148,9 @@ def get_dashboard_gadgets(dashboard_id: int, resolve_jql: bool = True) -> list[D
             )
         return gadgets
     except Exception as e:
-        print(f"Error fetching gadgets for dashboard {dashboard_id}: {e}", file=sys.stderr)
+        print(
+            f"Error fetching gadgets for dashboard {dashboard_id}: {e}", file=sys.stderr
+        )
         return []
 
 
@@ -152,7 +158,9 @@ def _get_gadget_config(dashboard_id: int, gadget_id: str) -> dict | None:
     """Get gadget configuration containing filter/JQL info."""
     jira = get_jira()
     try:
-        result = jira._get_json(f"dashboard/{dashboard_id}/items/{gadget_id}/properties/config")
+        result = jira._get_json(
+            f"dashboard/{dashboard_id}/items/{gadget_id}/properties/config"
+        )
         return result.get("value", {})
     except Exception:
         return None
@@ -363,7 +371,9 @@ def dashboard_command(args: argparse.Namespace) -> None:
     gadgets = get_dashboard_gadgets(dashboard_id)
 
     fmt = getattr(args, "format", "md")
-    to_stdout = getattr(args, "output", None) == "-" or not getattr(args, "output", None)
+    to_stdout = getattr(args, "output", None) == "-" or not getattr(
+        args, "output", None
+    )
 
     if fmt == "json":
         output = generate_dashboard_json(dashboard, gadgets)
@@ -375,7 +385,11 @@ def dashboard_command(args: argparse.Namespace) -> None:
     if to_stdout:
         print(output)
     else:
-        output_path = Path(args.output) if args.output else REPORTS_DIR / f"dashboard-{dashboard_id}.{ext}"
+        output_path = (
+            Path(args.output)
+            if args.output
+            else REPORTS_DIR / f"dashboard-{dashboard_id}.{ext}"
+        )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(output)
         print(f"Saved to {output_path}")

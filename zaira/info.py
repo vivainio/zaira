@@ -5,7 +5,12 @@ import json
 import sys
 from typing import Callable, TypeVar
 
-from zaira.jira_client import get_jira, get_schema_path, get_project_schema_path, CACHE_DIR
+from zaira.jira_client import (
+    get_jira,
+    get_schema_path,
+    get_project_schema_path,
+    CACHE_DIR,
+)
 from zaira.types import ProjectSchema, ZSchema
 
 T = TypeVar("T")
@@ -239,11 +244,14 @@ def fields_command(args: argparse.Namespace) -> None:
         jira = get_jira()
         raw_fields = jira.fields()
         update_schema("fields", {f["id"]: f["name"] for f in raw_fields})
-        update_schema("fieldTypes", {
-            f["id"]: f.get("schema", {}).get("type")
-            for f in raw_fields
-            if f.get("schema", {}).get("type")
-        })
+        update_schema(
+            "fieldTypes",
+            {
+                f["id"]: f.get("schema", {}).get("type")
+                for f in raw_fields
+                if f.get("schema", {}).get("type")
+            },
+        )
         return raw_fields
 
     refresh = getattr(args, "refresh", False)
@@ -266,12 +274,15 @@ def fields_command(args: argparse.Namespace) -> None:
     if show_all:
         result = fields
     else:
-        result = [f for f in fields if f.get("custom") or f["id"].startswith("customfield_")]
+        result = [
+            f for f in fields if f.get("custom") or f["id"].startswith("customfield_")
+        ]
 
     if filter_text:
         filter_lower = filter_text.lower()
         result = [
-            f for f in result
+            f
+            for f in result
             if filter_lower in f["name"].lower() or filter_lower in f["id"].lower()
         ]
 
@@ -406,7 +417,7 @@ def info_command(args: argparse.Namespace) -> None:
     if getattr(args, "save", False):
         fetch_and_save_schema()
         return
-    if hasattr(args, 'info_func'):
+    if hasattr(args, "info_func"):
         args.info_func(args)
     else:
         print("Usage: zaira info <subcommand>")

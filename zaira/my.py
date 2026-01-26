@@ -27,12 +27,14 @@ def search_my_tickets(jql: str) -> list[MyTicket]:
     tickets = []
     for issue in issues:
         fields = issue.fields
-        tickets.append({
-            "key": issue.key,
-            "status": fields.status.name if fields.status else "?",
-            "created": fields.created or "",
-            "summary": fields.summary or "",
-        })
+        tickets.append(
+            {
+                "key": issue.key,
+                "status": fields.status.name if fields.status else "?",
+                "created": fields.created or "",
+                "summary": fields.summary or "",
+            }
+        )
     return tickets
 
 

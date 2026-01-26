@@ -263,14 +263,18 @@ def get_ticket(
         if include_attachments:
             attachments = []
             for att in getattr(fields, "attachment", None) or []:
-                attachments.append({
-                    "id": att.id,
-                    "filename": att.filename,
-                    "size": att.size,
-                    "mimeType": getattr(att, "mimeType", "application/octet-stream"),
-                    "author": att.author.displayName if att.author else "Unknown",
-                    "created": att.created or "",
-                })
+                attachments.append(
+                    {
+                        "id": att.id,
+                        "filename": att.filename,
+                        "size": att.size,
+                        "mimeType": getattr(
+                            att, "mimeType", "application/octet-stream"
+                        ),
+                        "author": att.author.displayName if att.author else "Unknown",
+                        "created": att.created or "",
+                    }
+                )
             ticket["attachments"] = attachments
 
         return ticket
@@ -309,7 +313,7 @@ def get_pull_requests(issue_id: str) -> list[dict]:
     jira = get_jira()
     try:
         resp = jira._session.get(
-            f'{jira._options["server"]}/rest/dev-status/1.0/issue/detail',
+            f"{jira._options['server']}/rest/dev-status/1.0/issue/detail",
             params={
                 "issueId": issue_id,
                 "applicationType": "GitHub",
@@ -320,11 +324,13 @@ def get_pull_requests(issue_id: str) -> list[dict]:
         prs = []
         for detail in data.get("detail", []):
             for pr in detail.get("pullRequests", []):
-                prs.append({
-                    "name": pr.get("name"),
-                    "url": pr.get("url"),
-                    "status": pr.get("status"),
-                })
+                prs.append(
+                    {
+                        "name": pr.get("name"),
+                        "url": pr.get("url"),
+                        "status": pr.get("status"),
+                    }
+                )
         return prs
     except Exception:
         return []
@@ -352,7 +358,7 @@ def download_attachment(attachment: Attachment, output_dir: Path) -> bool:
     jira = get_jira()
     try:
         # Construct the attachment URL
-        url = f'{jira._options["server"]}/secure/attachment/{attachment["id"]}/{attachment["filename"]}'
+        url = f"{jira._options['server']}/secure/attachment/{attachment['id']}/{attachment['filename']}"
         resp = jira._session.get(url)
         resp.raise_for_status()
 
@@ -659,7 +665,9 @@ def export_command(args: argparse.Namespace) -> None:
 
     if to_stdout:
         for key in tickets:
-            export_to_stdout(key, fmt=fmt, with_prs=with_prs, include_custom=include_custom)
+            export_to_stdout(
+                key, fmt=fmt, with_prs=with_prs, include_custom=include_custom
+            )
     else:
         output_dir = Path(args.output) if args.output else TICKETS_DIR
         success = 0
