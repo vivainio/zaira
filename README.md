@@ -289,6 +289,10 @@ zaira wiki create -s SPACE -t "Title" -m -b -   # From stdin
 # Upload attachments
 zaira wiki attach 123456 image.png                        # Single file
 zaira wiki attach 123456 *.png                            # Glob pattern
+
+# Delete page
+zaira wiki delete 123456              # Prompts for confirmation
+zaira wiki delete 123456 --yes        # Skip confirmation
 ```
 
 #### wiki put (with sync)
