@@ -1,14 +1,22 @@
 """Confluence API commands."""
 
 import argparse
+import hashlib
+import json
 import re
 import sys
+from datetime import datetime, timezone
+from pathlib import Path
 
 import requests
 from requests.auth import HTTPBasicAuth
 
 from zaira.jira_client import load_credentials, get_server_from_config
 from zaira.mdconv import markdown_to_storage, storage_to_markdown
+
+
+# Property key for sync metadata
+SYNC_PROPERTY_KEY = "zaira-sync"
 
 
 def get_confluence_auth() -> tuple[str, HTTPBasicAuth]:
@@ -390,11 +398,215 @@ def put_command(args: argparse.Namespace) -> None:
     print(f"Updated page {page_id} (version {current_version} -> {new_version})")
 
 
+def get_sync_property(base_url: str, auth: HTTPBasicAuth, page_id: str) -> dict | None:
+    """Get sync metadata from page properties.
+
+    Returns:
+        Sync metadata dict or None if not found
+    """
+    r = requests.get(
+        f"{base_url}/content/{page_id}/property/{SYNC_PROPERTY_KEY}",
+        auth=auth,
+    )
+    if r.ok:
+        return r.json().get("value", {})
+    return None
+
+
+def set_sync_property(
+    base_url: str, auth: HTTPBasicAuth, page_id: str, metadata: dict
+) -> bool:
+    """Set sync metadata in page properties.
+
+    Returns:
+        True if successful
+    """
+    # Check if property exists
+    r = requests.get(
+        f"{base_url}/content/{page_id}/property/{SYNC_PROPERTY_KEY}",
+        auth=auth,
+    )
+
+    if r.ok:
+        # Update existing property
+        prop = r.json()
+        prop_version = prop["version"]["number"]
+        r = requests.put(
+            f"{base_url}/content/{page_id}/property/{SYNC_PROPERTY_KEY}",
+            json={
+                "key": SYNC_PROPERTY_KEY,
+                "value": metadata,
+                "version": {"number": prop_version + 1},
+            },
+            auth=auth,
+        )
+    else:
+        # Create new property
+        r = requests.post(
+            f"{base_url}/content/{page_id}/property",
+            json={
+                "key": SYNC_PROPERTY_KEY,
+                "value": metadata,
+            },
+            auth=auth,
+        )
+
+    return r.ok
+
+
+def compute_file_hash(filepath: Path) -> str:
+    """Compute SHA256 hash of file contents."""
+    return hashlib.sha256(filepath.read_bytes()).hexdigest()
+
+
+def sync_command(args: argparse.Namespace) -> None:
+    """Sync a markdown file with a Confluence page."""
+    base_url, auth = get_confluence_auth()
+    page_id = parse_page_id(args.page)
+    filepath = Path(args.file)
+
+    if not filepath.exists():
+        print(f"Error: File not found: {filepath}", file=sys.stderr)
+        sys.exit(1)
+
+    # Get current page info
+    r = requests.get(
+        f"{base_url}/content/{page_id}",
+        params={"expand": "body.storage,version"},
+        auth=auth,
+    )
+
+    if not r.ok:
+        print(f"Error: {r.status_code} - {r.reason}", file=sys.stderr)
+        if r.status_code == 404:
+            print(f"Page not found: {page_id}", file=sys.stderr)
+        else:
+            print(r.text, file=sys.stderr)
+        sys.exit(1)
+
+    page = r.json()
+    remote_version = page["version"]["number"]
+    remote_body = page["body"]["storage"]["value"]
+
+    # Get sync metadata
+    sync_meta = get_sync_property(base_url, auth, page_id)
+
+    # Compute local file hash
+    local_hash = compute_file_hash(filepath)
+    local_content = filepath.read_text()
+
+    # Determine sync status
+    if sync_meta:
+        stored_hash = sync_meta.get("source_hash", "")
+        stored_version = sync_meta.get("uploaded_version", 0)
+
+        local_changed = local_hash != stored_hash
+        remote_changed = remote_version != stored_version
+    else:
+        # No sync metadata - first sync
+        local_changed = True
+        remote_changed = True
+        stored_version = 0
+
+    # Handle --status flag
+    if args.status:
+        print(f"Page ID: {page_id}")
+        print(f"File: {filepath}")
+        print(f"Remote version: {remote_version}")
+        if sync_meta:
+            print(f"Last synced version: {sync_meta.get('uploaded_version', 'N/A')}")
+            print(f"Last synced: {sync_meta.get('uploaded_at', 'N/A')}")
+            print(f"Local changed: {'Yes' if local_changed else 'No'}")
+            print(f"Remote changed: {'Yes' if remote_changed else 'No'}")
+            if local_changed and remote_changed:
+                print("Status: CONFLICT (both changed)")
+            elif local_changed:
+                print("Status: Local ahead (safe to push)")
+            elif remote_changed:
+                print("Status: Remote ahead (safe to pull)")
+            else:
+                print("Status: In sync")
+        else:
+            print("Status: Not synced (no metadata)")
+        return
+
+    # Handle --pull flag
+    if args.pull:
+        md_content = storage_to_markdown(remote_body)
+        filepath.write_text(md_content)
+        new_hash = compute_file_hash(filepath)
+
+        # Update sync metadata
+        set_sync_property(base_url, auth, page_id, {
+            "source_hash": new_hash,
+            "uploaded_at": datetime.now(timezone.utc).isoformat(),
+            "uploaded_version": remote_version,
+            "source_file": str(filepath),
+        })
+
+        print(f"Pulled version {remote_version} to {filepath}")
+        return
+
+    # Handle --push flag or default sync
+    if args.push or (not args.pull and not args.status):
+        # Check for conflicts unless --force
+        if not args.force and local_changed and remote_changed and sync_meta:
+            print("Error: Conflict detected!", file=sys.stderr)
+            print(f"  Local file changed since last sync", file=sys.stderr)
+            print(f"  Remote changed: version {stored_version} -> {remote_version}", file=sys.stderr)
+            print("Use --force to overwrite, or --pull to get remote changes", file=sys.stderr)
+            sys.exit(1)
+
+        # Check if there's anything to push
+        if not local_changed and not args.force:
+            print("Already in sync, nothing to push")
+            return
+
+        # Convert and push
+        storage_content = markdown_to_storage(local_content)
+
+        update_payload = {
+            "version": {"number": remote_version + 1},
+            "title": page["title"],
+            "type": page["type"],
+            "body": {
+                "storage": {
+                    "value": storage_content,
+                    "representation": "storage",
+                }
+            },
+        }
+
+        r = requests.put(
+            f"{base_url}/content/{page_id}",
+            json=update_payload,
+            auth=auth,
+        )
+
+        if not r.ok:
+            print(f"Error: {r.status_code} - {r.reason}", file=sys.stderr)
+            print(r.text, file=sys.stderr)
+            sys.exit(1)
+
+        result = r.json()
+        new_version = result["version"]["number"]
+
+        # Update sync metadata
+        set_sync_property(base_url, auth, page_id, {
+            "source_hash": local_hash,
+            "uploaded_at": datetime.now(timezone.utc).isoformat(),
+            "uploaded_version": new_version,
+            "source_file": str(filepath),
+        })
+
+        print(f"Pushed {filepath} to page {page_id} (version {remote_version} -> {new_version})")
+
+
 def wiki_command(args: argparse.Namespace) -> None:
     """Handle wiki subcommand."""
     if hasattr(args, "wiki_func"):
         args.wiki_func(args)
     else:
         print("Usage: zaira wiki <subcommand>")
-        print("Subcommands: get, search, create, put, attach")
+        print("Subcommands: get, search, create, put, attach, sync")
         sys.exit(1)

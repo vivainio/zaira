@@ -13,7 +13,7 @@ from zaira.edit import edit_command
 from zaira.export import export_command
 from zaira.link import link_command
 from zaira.transition import transition_command
-from zaira.wiki import wiki_command, get_command as wiki_get_command, search_command as wiki_search_command, create_command as wiki_create_command, put_command as wiki_put_command, attach_command as wiki_attach_command
+from zaira.wiki import wiki_command, get_command as wiki_get_command, search_command as wiki_search_command, create_command as wiki_create_command, put_command as wiki_put_command, attach_command as wiki_attach_command, sync_command as wiki_sync_command
 from zaira.info import (
     info_command,
     link_types_command,
@@ -606,6 +606,40 @@ def main() -> None:
         help="Replace existing attachments with same filename",
     )
     wiki_attach.set_defaults(wiki_func=wiki_attach_command)
+
+    wiki_sync = wiki_subparsers.add_parser(
+        "sync",
+        help="Sync a markdown file with a Confluence page",
+    )
+    wiki_sync.add_argument(
+        "page",
+        help="Page ID or Confluence URL",
+    )
+    wiki_sync.add_argument(
+        "file",
+        help="Local markdown file to sync",
+    )
+    wiki_sync.add_argument(
+        "--push",
+        action="store_true",
+        help="Push local changes to Confluence",
+    )
+    wiki_sync.add_argument(
+        "--pull",
+        action="store_true",
+        help="Pull remote changes to local file",
+    )
+    wiki_sync.add_argument(
+        "--status",
+        action="store_true",
+        help="Show sync status without making changes",
+    )
+    wiki_sync.add_argument(
+        "--force",
+        action="store_true",
+        help="Force push even if remote has changed (overwrite conflicts)",
+    )
+    wiki_sync.set_defaults(wiki_func=wiki_sync_command)
 
     args = parser.parse_args()
 
