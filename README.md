@@ -265,6 +265,33 @@ zaira link FOO-1234 FOO-5678 --type Blocks
 zaira link FOO-1234 FOO-5678 -t Duplicates
 ```
 
+### wiki
+
+Access Confluence pages using the same credentials:
+
+```bash
+# Get page by ID or URL
+zaira wiki get 123456
+zaira wiki get "https://site.atlassian.net/wiki/spaces/SPACE/pages/123456/Title"
+zaira wiki get 123456 --format html       # Raw storage format
+zaira wiki get 123456 --format json       # Full API response
+
+# Search pages
+zaira wiki search "search terms"
+zaira wiki search "docs" --space TEAM     # Filter by space
+zaira wiki search --creator "John Doe"    # Filter by creator
+zaira wiki search "api" --format url      # Output just URLs
+
+# Create page (body in Confluence storage format)
+zaira wiki create -s SPACE -t "Page Title" -b "<p>Content here</p>"
+zaira wiki create -s SPACE -t "Child Page" -b "<p>Content</p>" -p 123456  # Under parent
+
+# Update page
+zaira wiki put 123456 -b "<p>New content</p>"
+zaira wiki put 123456 -b "<p>Content</p>" -t "New Title"  # Also change title
+cat content.html | zaira wiki put 123456 -b -             # From stdin
+```
+
 ### info
 
 Query Jira instance metadata. Results are cached locally and served from cache by default:
