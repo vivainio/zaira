@@ -388,6 +388,104 @@ def create_command(args: argparse.Namespace) -> None:
     print(f"Created page {page_id}: {url}")
 
 
+def _get_page_info(base_url: str, auth: HTTPBasicAuth, page_id: str) -> dict | None:
+    """Get page info including parent and space.
+
+    Returns:
+        Dict with 'parent_id' and 'space_key', or None on error
+    """
+    r = requests.get(
+        f"{base_url}/content/{page_id}",
+        params={"expand": "ancestors,space"},
+        auth=auth,
+    )
+    if not r.ok:
+        return None
+
+    page = r.json()
+    ancestors = page.get("ancestors", [])
+    parent_id = ancestors[-1]["id"] if ancestors else None
+    space_key = page.get("space", {}).get("key")
+
+    return {"parent_id": parent_id, "space_key": space_key}
+
+
+def _create_page_for_file(
+    filepath: Path,
+    base_url: str,
+    auth: HTTPBasicAuth,
+    parent_id: str,
+    space_key: str,
+) -> bool:
+    """Create a new Confluence page for a markdown file.
+
+    Returns:
+        True if successful, False otherwise
+    """
+    body_content = filepath.read_text()
+    front_matter, body_only = parse_front_matter(body_content)
+
+    # Use first heading as title, or filename
+    title = None
+    for line in body_only.split("\n"):
+        line = line.strip()
+        if line.startswith("# "):
+            title = line[2:].strip()
+            break
+    if not title:
+        title = filepath.stem.replace("-", " ").replace("_", " ").title()
+
+    # Convert to storage format
+    storage_content = markdown_to_storage(body_only)
+
+    # Create page
+    create_payload = {
+        "type": "page",
+        "title": title,
+        "space": {"key": space_key},
+        "ancestors": [{"id": parent_id}],
+        "body": {
+            "storage": {
+                "value": storage_content,
+                "representation": "storage",
+            }
+        },
+    }
+
+    r = requests.post(f"{base_url}/content", json=create_payload, auth=auth)
+
+    if not r.ok:
+        print(f"Error creating page for {filepath}: {r.status_code}", file=sys.stderr)
+        print(r.text, file=sys.stderr)
+        return False
+
+    result = r.json()
+    new_page_id = result["id"]
+    new_version = result["version"]["number"]
+
+    # Update file with front matter
+    front_matter["confluence"] = int(new_page_id)
+    new_content = write_front_matter(front_matter, body_only)
+    filepath.write_text(new_content)
+
+    # Set sync metadata
+    local_hash = hashlib.sha256(body_only.encode()).hexdigest()
+    set_sync_property(base_url, auth, new_page_id, {
+        "source_hash": local_hash,
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+        "uploaded_version": new_version,
+        "source_file": str(filepath),
+        "images": {},
+    })
+
+    # Upload images if any
+    stored_image_hashes: dict[str, str] = {}
+    sync_images(base_url, auth, new_page_id, filepath, body_only, stored_image_hashes)
+
+    print(f"Created page {new_page_id} for {filepath}")
+    return True
+
+
 def _put_one_file(
     filepath: Path,
     base_url: str,
@@ -605,19 +703,93 @@ def put_command(args: argparse.Namespace) -> None:
         print("No markdown files found", file=sys.stderr)
         sys.exit(1)
 
+    # Separate files into linked (have confluence: front matter) and unlinked
+    linked_files: list[tuple[Path, str]] = []  # (filepath, page_id)
+    unlinked_files: list[Path] = []
+
+    for filepath in files_to_process:
+        if not filepath.exists():
+            print(f"Warning: File not found: {filepath}", file=sys.stderr)
+            continue
+        content = filepath.read_text()
+        fm, _ = parse_front_matter(content)
+        if fm.get("confluence"):
+            linked_files.append((filepath, str(fm["confluence"])))
+        else:
+            unlinked_files.append(filepath)
+
+    # Handle --create for unlinked files
+    create_mode = getattr(args, 'create', False)
+    parent_id = None
+    space_key = None
+
+    skipped_count = 0
+    if unlinked_files:
+        if not create_mode:
+            for f in unlinked_files:
+                print(f"Skipping {f}: no 'confluence:' front matter", file=sys.stderr)
+                skipped_count += 1
+            unlinked_files = []
+            if skipped_count > 0:
+                print(f"\nSkipped {skipped_count} file(s) without front matter. Use --create to create new pages.", file=sys.stderr)
+        else:
+            # Determine parent: from --parent flag or from siblings
+            if args.parent:
+                parent_id = parse_page_id(args.parent)
+                info = _get_page_info(base_url, auth, parent_id)
+                if info:
+                    space_key = info["space_key"]
+                else:
+                    print(f"Error: Could not get info for parent page {parent_id}", file=sys.stderr)
+                    sys.exit(1)
+            elif linked_files:
+                # Get parent from linked files - verify they all have same parent
+                parents_seen: dict[str | None, str] = {}  # parent_id -> space_key
+                for _, page_id in linked_files:
+                    info = _get_page_info(base_url, auth, page_id)
+                    if info:
+                        parents_seen[info["parent_id"]] = info["space_key"]
+
+                if len(parents_seen) == 0:
+                    print("Error: Could not determine parent from existing pages", file=sys.stderr)
+                    sys.exit(1)
+                elif len(parents_seen) > 1:
+                    print("Error: Linked files have different parents. Use --parent to specify.", file=sys.stderr)
+                    for pid in parents_seen:
+                        print(f"  Parent: {pid}", file=sys.stderr)
+                    sys.exit(1)
+                else:
+                    parent_id = list(parents_seen.keys())[0]
+                    space_key = list(parents_seen.values())[0]
+                    if parent_id is None:
+                        print("Error: Linked pages have no parent (are at space root). Use --parent to specify.", file=sys.stderr)
+                        sys.exit(1)
+            else:
+                print("Error: No linked files to determine parent from. Use --parent to specify.", file=sys.stderr)
+                sys.exit(1)
+
     # Process files
     success_count = 0
     fail_count = 0
 
-    for filepath in files_to_process:
+    # Process linked files
+    for filepath, page_id in linked_files:
         success = _put_one_file(
             filepath, base_url, auth,
-            args.page if len(files_to_process) == 1 else None,  # page override only for single file
-            args.title if len(files_to_process) == 1 else None,  # title override only for single file
+            args.page if len(files_to_process) == 1 else None,
+            args.title if len(files_to_process) == 1 else None,
             getattr(args, 'pull', False),
             getattr(args, 'force', False),
             getattr(args, 'status', False),
         )
+        if success:
+            success_count += 1
+        else:
+            fail_count += 1
+
+    # Create pages for unlinked files
+    for filepath in unlinked_files:
+        success = _create_page_for_file(filepath, base_url, auth, parent_id, space_key)
         if success:
             success_count += 1
         else:

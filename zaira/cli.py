@@ -604,6 +604,15 @@ def main() -> None:
         action="store_true",
         help="Show sync status without making changes",
     )
+    wiki_put.add_argument(
+        "--create",
+        action="store_true",
+        help="Create new pages for files without 'confluence:' front matter",
+    )
+    wiki_put.add_argument(
+        "--parent",
+        help="Parent page for new pages (auto-detected from siblings if not specified)",
+    )
     wiki_put.set_defaults(wiki_func=wiki_put_command)
 
     wiki_attach = wiki_subparsers.add_parser(

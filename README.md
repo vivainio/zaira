@@ -312,9 +312,15 @@ zaira wiki put -m page.md --pull
 # Force push (overwrite conflicts)
 zaira wiki put -m page.md --force
 
+# Create new pages for files without front matter
+zaira wiki put -m docs/*.md --create              # Parent auto-detected from siblings
+zaira wiki put -m docs/*.md --create --parent 123  # Explicit parent
+
 # Explicit page ID (single file, overrides front matter)
 zaira wiki put -m page.md -p 123456
 ```
+
+**Creating new pages:** With `--create`, files without `confluence:` front matter become new pages. The parent is auto-detected from sibling files (must all share the same parent), or specify with `--parent`. After creation, front matter is added to the file.
 
 **Front matter:** Files link to Confluence pages via YAML front matter:
 
