@@ -1054,11 +1054,59 @@ def download_images(
             print(f"  Downloaded image: {filename}")
 
 
+def delete_command(args: argparse.Namespace) -> None:
+    """Delete a Confluence page."""
+    base_url, auth = get_confluence_auth()
+    page_id = parse_page_id(args.page)
+
+    # Get page info first to confirm it exists and show title
+    r = requests.get(
+        f"{base_url}/content/{page_id}",
+        params={"expand": "space"},
+        auth=auth,
+    )
+
+    if not r.ok:
+        print(f"Error: {r.status_code} - {r.reason}", file=sys.stderr)
+        if r.status_code == 404:
+            print(f"Page not found: {page_id}", file=sys.stderr)
+        else:
+            print(r.text, file=sys.stderr)
+        sys.exit(1)
+
+    page = r.json()
+    title = page["title"]
+    space_key = page["space"]["key"]
+
+    # Confirm deletion unless --yes is specified
+    if not args.yes:
+        print(f"About to delete: {title}")
+        print(f"  Space: {space_key}")
+        print(f"  Page ID: {page_id}")
+        confirm = input("Type 'yes' to confirm deletion: ")
+        if confirm.lower() != "yes":
+            print("Deletion cancelled.")
+            sys.exit(0)
+
+    # Delete the page
+    r = requests.delete(
+        f"{base_url}/content/{page_id}",
+        auth=auth,
+    )
+
+    if not r.ok:
+        print(f"Error deleting page: {r.status_code} - {r.reason}", file=sys.stderr)
+        print(r.text, file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Deleted page {page_id}: {title}")
+
+
 def wiki_command(args: argparse.Namespace) -> None:
     """Handle wiki subcommand."""
     if hasattr(args, "wiki_func"):
         args.wiki_func(args)
     else:
         print("Usage: zaira wiki <subcommand>")
-        print("Subcommands: get, search, create, put, attach")
+        print("Subcommands: get, search, create, put, attach, delete")
         sys.exit(1)

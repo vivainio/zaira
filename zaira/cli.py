@@ -13,7 +13,7 @@ from zaira.edit import edit_command
 from zaira.export import export_command
 from zaira.link import link_command
 from zaira.transition import transition_command
-from zaira.wiki import wiki_command, get_command as wiki_get_command, search_command as wiki_search_command, create_command as wiki_create_command, put_command as wiki_put_command, attach_command as wiki_attach_command
+from zaira.wiki import wiki_command, get_command as wiki_get_command, search_command as wiki_search_command, create_command as wiki_create_command, put_command as wiki_put_command, attach_command as wiki_attach_command, delete_command as wiki_delete_command
 from zaira.info import (
     info_command,
     link_types_command,
@@ -639,6 +639,21 @@ def main() -> None:
         help="Replace existing attachments with same filename",
     )
     wiki_attach.set_defaults(wiki_func=wiki_attach_command)
+
+    wiki_delete = wiki_subparsers.add_parser(
+        "delete",
+        help="Delete a Confluence page",
+    )
+    wiki_delete.add_argument(
+        "page",
+        help="Page ID or Confluence URL",
+    )
+    wiki_delete.add_argument(
+        "-y", "--yes",
+        action="store_true",
+        help="Skip confirmation prompt",
+    )
+    wiki_delete.set_defaults(wiki_func=wiki_delete_command)
 
     args = parser.parse_args()
 
