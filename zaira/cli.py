@@ -612,12 +612,13 @@ def main() -> None:
         help="Sync a markdown file with a Confluence page",
     )
     wiki_sync.add_argument(
-        "page",
-        help="Page ID or Confluence URL",
-    )
-    wiki_sync.add_argument(
         "file",
         help="Local markdown file to sync",
+    )
+    wiki_sync.add_argument(
+        "page",
+        nargs="?",
+        help="Page ID or URL (optional if 'confluence:' in front matter)",
     )
     wiki_sync.add_argument(
         "--push",

@@ -19,6 +19,56 @@ from zaira.mdconv import markdown_to_storage, storage_to_markdown
 SYNC_PROPERTY_KEY = "zaira-sync"
 
 
+def parse_front_matter(content: str) -> tuple[dict, str]:
+    """Parse YAML front matter from markdown content.
+
+    Args:
+        content: Markdown content with optional front matter
+
+    Returns:
+        Tuple of (front_matter_dict, body_content)
+    """
+    import yaml
+
+    if not content.startswith("---"):
+        return {}, content
+
+    # Find the closing ---
+    end_match = re.search(r'\n---\s*\n', content[3:])
+    if not end_match:
+        return {}, content
+
+    end_pos = end_match.end() + 3
+    front_matter_str = content[4:end_match.start() + 3]
+    body = content[end_pos:]
+
+    try:
+        front_matter = yaml.safe_load(front_matter_str) or {}
+    except yaml.YAMLError:
+        return {}, content
+
+    return front_matter, body
+
+
+def write_front_matter(front_matter: dict, body: str) -> str:
+    """Write YAML front matter to markdown content.
+
+    Args:
+        front_matter: Front matter dict
+        body: Markdown body content
+
+    Returns:
+        Combined content with front matter
+    """
+    import yaml
+
+    if not front_matter:
+        return body
+
+    fm_str = yaml.safe_dump(front_matter, default_flow_style=False, sort_keys=False)
+    return f"---\n{fm_str}---\n\n{body.lstrip()}"
+
+
 def get_confluence_auth() -> tuple[str, HTTPBasicAuth]:
     """Get Confluence base URL and auth.
 
@@ -462,11 +512,26 @@ def compute_file_hash(filepath: Path) -> str:
 def sync_command(args: argparse.Namespace) -> None:
     """Sync a markdown file with a Confluence page."""
     base_url, auth = get_confluence_auth()
-    page_id = parse_page_id(args.page)
     filepath = Path(args.file)
 
     if not filepath.exists():
         print(f"Error: File not found: {filepath}", file=sys.stderr)
+        sys.exit(1)
+
+    # Read file and parse front matter
+    file_content = filepath.read_text()
+    front_matter, body_content = parse_front_matter(file_content)
+
+    # Get page ID from args or front matter
+    page_id = None
+    if args.page:
+        page_id = parse_page_id(args.page)
+    elif front_matter.get("confluence"):
+        page_id = str(front_matter["confluence"])
+
+    if not page_id:
+        print("Error: No page ID specified", file=sys.stderr)
+        print("Provide page ID as argument or add 'confluence: <id>' to front matter", file=sys.stderr)
         sys.exit(1)
 
     # Get current page info
@@ -491,9 +556,8 @@ def sync_command(args: argparse.Namespace) -> None:
     # Get sync metadata
     sync_meta = get_sync_property(base_url, auth, page_id)
 
-    # Compute local file hash
-    local_hash = compute_file_hash(filepath)
-    local_content = filepath.read_text()
+    # Compute hash of body content only (excluding front matter)
+    local_hash = hashlib.sha256(body_content.encode()).hexdigest()
 
     # Determine sync status
     if sync_meta:
@@ -533,8 +597,13 @@ def sync_command(args: argparse.Namespace) -> None:
     # Handle --pull flag
     if args.pull:
         md_content = storage_to_markdown(remote_body)
-        filepath.write_text(md_content)
-        new_hash = compute_file_hash(filepath)
+
+        # Preserve/update front matter with confluence page ID
+        front_matter["confluence"] = int(page_id)
+        new_content = write_front_matter(front_matter, md_content)
+        filepath.write_text(new_content)
+
+        new_hash = hashlib.sha256(md_content.encode()).hexdigest()
 
         # Update sync metadata
         set_sync_property(base_url, auth, page_id, {
@@ -562,8 +631,8 @@ def sync_command(args: argparse.Namespace) -> None:
             print("Already in sync, nothing to push")
             return
 
-        # Convert and push
-        storage_content = markdown_to_storage(local_content)
+        # Convert and push (body only, without front matter)
+        storage_content = markdown_to_storage(body_content)
 
         update_payload = {
             "version": {"number": remote_version + 1},
