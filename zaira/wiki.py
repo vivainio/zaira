@@ -153,6 +153,53 @@ def _get_children(base_url: str, auth: HTTPBasicAuth, page_id: str) -> list[str]
     return children
 
 
+def _print_page_tree(
+    base_url: str,
+    auth: HTTPBasicAuth,
+    page_id: str,
+    indent: int = 0,
+) -> int:
+    """Print page and its children as a tree.
+
+    Returns:
+        Count of pages printed (including children)
+    """
+    # Get page info
+    r = requests.get(
+        f"{base_url}/content/{page_id}",
+        params={"expand": "space"},
+        auth=auth,
+    )
+    if not r.ok:
+        print(f"{'  ' * indent}Error: Could not fetch {page_id}", file=sys.stderr)
+        return 0
+
+    page = r.json()
+    title = page["title"]
+    space_key = page["space"]["key"]
+
+    # Build URL
+    server = get_server_from_config()
+    url = f"{server}/wiki/spaces/{space_key}/pages/{page_id}"
+
+    print(f"{'  ' * indent}{title} ({page_id})")
+    print(f"{'  ' * indent}  {url}")
+
+    count = 1
+
+    # Get and print children
+    r = requests.get(
+        f"{base_url}/content/{page_id}/child/page",
+        params={"limit": 100},
+        auth=auth,
+    )
+    if r.ok:
+        for child in r.json().get("results", []):
+            count += _print_page_tree(base_url, auth, child["id"], indent + 1)
+
+    return count
+
+
 def _fetch_page(base_url: str, auth: HTTPBasicAuth, page_id: str) -> dict | None:
     """Fetch a single page with body and metadata.
 
@@ -227,6 +274,14 @@ def get_command(args: argparse.Namespace) -> None:
     if not page_ids:
         print("Error: No pages specified", file=sys.stderr)
         sys.exit(1)
+
+    # Handle --list: just print page tree and exit
+    if getattr(args, 'list', False):
+        total = 0
+        for pid in page_ids:
+            total += _print_page_tree(base_url, auth, pid)
+        print(f"\n{total} page(s)")
+        return
 
     # Expand children if requested
     if getattr(args, 'children', False):

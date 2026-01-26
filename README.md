@@ -282,6 +282,9 @@ zaira wiki get 123 456 789 -o docs/
 # Export page and all children recursively
 zaira wiki get 123 --children -o docs/
 
+# List page and children (without exporting)
+zaira wiki get 123 --list
+
 # Search pages
 zaira wiki search "search terms"
 zaira wiki search "docs" --space TEAM     # Filter by space

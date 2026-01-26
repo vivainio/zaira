@@ -504,6 +504,11 @@ def main() -> None:
         help="Also export all child pages recursively",
     )
     wiki_get.add_argument(
+        "-l", "--list",
+        action="store_true",
+        help="List page(s) and children without exporting",
+    )
+    wiki_get.add_argument(
         "--format",
         choices=["md", "html", "json"],
         default="md",
