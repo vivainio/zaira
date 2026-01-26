@@ -1,6 +1,7 @@
 """Confluence API commands."""
 
 import argparse
+import difflib
 import hashlib
 import json
 import re
@@ -495,6 +496,7 @@ def _put_one_file(
     pull: bool,
     force: bool,
     status: bool,
+    diff: bool = False,
 ) -> bool:
     """Process a single markdown file for wiki put.
 
@@ -578,6 +580,26 @@ def _put_one_file(
             print("Status: No sync metadata")
         return True
 
+    # Handle --diff
+    if diff:
+        remote_md = storage_to_markdown(remote_body)
+        local_lines = body_only.splitlines(keepends=True)
+        remote_lines = remote_md.splitlines(keepends=True)
+
+        diff_lines = list(difflib.unified_diff(
+            remote_lines,
+            local_lines,
+            fromfile=f"remote (v{remote_version})",
+            tofile=f"local ({filepath})",
+        ))
+
+        if diff_lines:
+            print(f"Diff for {filepath}:")
+            print("".join(diff_lines))
+        else:
+            print(f"{filepath}: no content differences")
+        return True
+
     # Handle --pull
     if pull:
         download_images(base_url, auth, page_id, filepath)
@@ -600,7 +622,7 @@ def _put_one_file(
     if not force and sync_meta and local_changed and remote_changed:
         print(f"Conflict in {filepath}: local and remote both changed", file=sys.stderr)
         print(f"  Remote: version {stored_version} -> {remote_version}", file=sys.stderr)
-        print("  Use --force to overwrite or --pull to discard local", file=sys.stderr)
+        print("  Use --diff to see changes, --force to overwrite, or --pull to discard local", file=sys.stderr)
         return False
 
     if sync_meta and not local_changed and not force:
@@ -684,6 +706,7 @@ def put_command(args: argparse.Namespace) -> None:
                     getattr(args, 'pull', False),
                     getattr(args, 'force', False),
                     getattr(args, 'status', False),
+                    getattr(args, 'diff', False),
                 )
                 sys.exit(0 if success else 1)
             finally:
@@ -781,6 +804,7 @@ def put_command(args: argparse.Namespace) -> None:
             getattr(args, 'pull', False),
             getattr(args, 'force', False),
             getattr(args, 'status', False),
+            getattr(args, 'diff', False),
         )
         if success:
             success_count += 1

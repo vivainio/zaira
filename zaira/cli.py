@@ -605,6 +605,11 @@ def main() -> None:
         help="Show sync status without making changes",
     )
     wiki_put.add_argument(
+        "--diff",
+        action="store_true",
+        help="Show diff between local and remote content",
+    )
+    wiki_put.add_argument(
         "--create",
         action="store_true",
         help="Create new pages for files without 'confluence:' front matter",

@@ -342,7 +342,7 @@ Content here with ![images](./images/diagram.png)
 Error: Conflict detected!
   Local file changed since last sync
   Remote changed: version 5 -> 7
-Use --force to overwrite remote, or --pull to discard local changes
+Use --diff to see changes, --force to overwrite remote, or --pull to discard local changes
 ```
 
 ### info
