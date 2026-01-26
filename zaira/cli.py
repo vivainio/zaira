@@ -556,6 +556,11 @@ def main() -> None:
         "-p", "--parent",
         help="Parent page ID or URL (optional)",
     )
+    wiki_create.add_argument(
+        "-m", "--markdown",
+        action="store_true",
+        help="Convert body from Markdown to Confluence storage format",
+    )
     wiki_create.set_defaults(wiki_func=wiki_create_command)
 
     wiki_put = wiki_subparsers.add_parser(
@@ -574,6 +579,11 @@ def main() -> None:
     wiki_put.add_argument(
         "-t", "--title",
         help="New page title (optional, keeps existing if not specified)",
+    )
+    wiki_put.add_argument(
+        "-m", "--markdown",
+        action="store_true",
+        help="Convert body from Markdown to Confluence storage format",
     )
     wiki_put.set_defaults(wiki_func=wiki_put_command)
 

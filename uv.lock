@@ -120,6 +120,15 @@ wheels = [
 ]
 
 [[package]]
+name = "markdown"
+version = "3.10.1"
+source = { registry = "https://basware.jfrog.io/artifactory/api/pypi/basware-python-dev/simple" }
+sdist = { url = "https://basware.jfrog.io/artifactory/api/pypi/basware-python-dev/packages/packages/b7/b1/af95bcae8549f1f3fd70faacb29075826a0d689a27f232e8cee315efa053/markdown-3.10.1.tar.gz", hash = "sha256:1c19c10bd5c14ac948c53d0d762a04e2fa35a6d58a6b7b1e6bfcbe6fefc0001a" }
+wheels = [
+    { url = "https://basware.jfrog.io/artifactory/api/pypi/basware-python-dev/packages/packages/59/1b/6ef961f543593969d25b2afe57a3564200280528caa9bd1082eecdd7b3bc/markdown-3.10.1-py3-none-any.whl", hash = "sha256:867d788939fe33e4b736426f5b9f651ad0c0ae0ecf89df0ca5d1176c70812fe3" },
+]
+
+[[package]]
 name = "oauthlib"
 version = "3.3.1"
 source = { registry = "https://basware.jfrog.io/artifactory/api/pypi/basware-python-dev/simple" }
@@ -265,6 +274,7 @@ version = "0.0.0.dev0"
 source = { editable = "." }
 dependencies = [
     { name = "jira" },
+    { name = "markdown" },
     { name = "platformdirs" },
     { name = "pyyaml" },
 ]
@@ -272,6 +282,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "jira", specifier = ">=3.5.0" },
+    { name = "markdown", specifier = ">=3.5" },
     { name = "platformdirs", specifier = ">=4.0.0" },
     { name = "pyyaml", specifier = ">=6.0" },
 ]

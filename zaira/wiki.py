@@ -8,6 +8,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 from zaira.jira_client import load_credentials, get_server_from_config
+from zaira.mdconv import markdown_to_storage, storage_to_markdown
 
 
 def get_confluence_auth() -> tuple[str, HTTPBasicAuth]:
@@ -94,72 +95,13 @@ def get_command(args: argparse.Namespace) -> None:
         print()
         print(body_html)
     else:
-        # Default: md - convert HTML to markdown
+        # Default: md - convert storage format to markdown
         print(f"Title: {title}")
         print(f"Space: {space_name} ({space_key})")
         print(f"Version: {version}")
         print(f"Page ID: {page_id}")
         print()
-        from html.parser import HTMLParser
-
-        class MarkdownExtractor(HTMLParser):
-            HEADER_LEVELS = {
-                "h1": "#", "h2": "##", "h3": "###",
-                "h4": "####", "h5": "#####", "h6": "######",
-            }
-
-            def __init__(self):
-                super().__init__()
-                self.text = []
-                self.in_li = False
-                self.in_code = False
-
-            def handle_starttag(self, tag, attrs):
-                if tag == "br":
-                    self.text.append("\n")
-                elif tag in self.HEADER_LEVELS:
-                    self.text.append(f"\n{self.HEADER_LEVELS[tag]} ")
-                elif tag == "li":
-                    self.text.append("- ")
-                    self.in_li = True
-                elif tag in {"code", "pre"}:
-                    self.text.append("`")
-                    self.in_code = True
-                elif tag == "strong" or tag == "b":
-                    self.text.append("**")
-                elif tag == "em" or tag == "i":
-                    self.text.append("*")
-                elif tag == "hr":
-                    self.text.append("\n---\n")
-
-            def handle_endtag(self, tag):
-                if tag in self.HEADER_LEVELS:
-                    self.text.append("\n")
-                elif tag == "li":
-                    self.text.append("\n")
-                    self.in_li = False
-                elif tag in {"p", "div", "tr"}:
-                    self.text.append("\n")
-                elif tag in {"code", "pre"}:
-                    self.text.append("`")
-                    self.in_code = False
-                elif tag == "strong" or tag == "b":
-                    self.text.append("**")
-                elif tag == "em" or tag == "i":
-                    self.text.append("*")
-                elif tag in {"ul", "ol", "table", "blockquote"}:
-                    self.text.append("\n")
-
-            def handle_data(self, data):
-                self.text.append(data)
-
-        extractor = MarkdownExtractor()
-        extractor.feed(body_html)
-        # Collapse multiple newlines into max 2
-        import re
-        text = "".join(extractor.text)
-        text = re.sub(r"\n{3,}", "\n\n", text)
-        print(text.strip())
+        print(storage_to_markdown(body_html))
 
 
 def search_command(args: argparse.Namespace) -> None:
@@ -341,6 +283,10 @@ def create_command(args: argparse.Namespace) -> None:
         print("Error: Body content cannot be empty", file=sys.stderr)
         sys.exit(1)
 
+    # Convert markdown to Confluence storage format if requested
+    if args.markdown:
+        body_content = markdown_to_storage(body_content)
+
     # Build create payload
     create_payload = {
         "type": "page",
@@ -391,6 +337,10 @@ def put_command(args: argparse.Namespace) -> None:
     if not body_content.strip():
         print("Error: Body content cannot be empty", file=sys.stderr)
         sys.exit(1)
+
+    # Convert markdown to Confluence storage format if requested
+    if args.markdown:
+        body_content = markdown_to_storage(body_content)
 
     # Get current page to retrieve version and title
     r = requests.get(
