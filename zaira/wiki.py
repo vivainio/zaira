@@ -786,6 +786,7 @@ def _put_one_file(
         download_images(base_url, auth, page_id, filepath)
         md_content = storage_to_markdown(remote_body)
         front_matter["confluence"] = int(page_id)
+        front_matter["title"] = current_title  # Sync title from remote
         new_content = write_front_matter(front_matter, md_content)
         filepath.write_text(new_content)
 
@@ -815,9 +816,18 @@ def _put_one_file(
 
     # Convert and push
     storage_content = markdown_to_storage(body_only)
+
+    # Determine title: -t flag > front matter > current remote title
+    if title_override:
+        new_title = title_override
+    elif front_matter.get("title") and front_matter["title"] != current_title:
+        new_title = front_matter["title"]
+    else:
+        new_title = current_title
+
     update_payload = {
         "version": {"number": remote_version + 1},
-        "title": title_override if title_override else current_title,
+        "title": new_title,
         "type": page["type"],
         "body": {"storage": {"value": storage_content, "representation": "storage"}},
     }
@@ -835,7 +845,11 @@ def _put_one_file(
         "source_file": str(filepath),
         "images": image_hashes,
     })
-    print(f"Pushed {filepath} (version {remote_version} -> {new_version})")
+
+    msg = f"Pushed {filepath} (version {remote_version} -> {new_version})"
+    if new_title != current_title:
+        msg += f", renamed to '{new_title}'"
+    print(msg)
     return True
 
 
