@@ -325,6 +325,9 @@ zaira wiki put -m docs/
 # Check sync status
 zaira wiki put -m page.md --status
 
+# View diff between local and remote
+zaira wiki put -m page.md --diff
+
 # Pull remote changes to local file
 zaira wiki put -m page.md --pull
 
@@ -341,14 +344,14 @@ zaira wiki put -m page.md -p 123456
 
 **Creating new pages:** With `--create`, files without `confluence:` front matter become new pages. The parent is auto-detected from sibling files (must all share the same parent), or specify with `--parent`. After creation, front matter is added to the file.
 
-**Front matter:** Files link to Confluence pages via YAML front matter:
+**Front matter:** Files link to Confluence pages via YAML front matter. Title and labels sync automatically on push/pull:
 
 ```markdown
 ---
 confluence: 123456
+title: My Document
+labels: [docs, api]
 ---
-
-# My Document
 
 Content here with ![images](./images/diagram.png)
 ```
