@@ -263,6 +263,16 @@ def attach_command(args: argparse.Namespace) -> None:
         print("Error: No files to upload", file=sys.stderr)
         sys.exit(1)
 
+    # Get existing attachments to check for duplicates
+    r = requests.get(
+        f"{base_url}/content/{page_id}/child/attachment",
+        auth=auth,
+    )
+    existing = {}
+    if r.ok:
+        for att in r.json().get("results", []):
+            existing[att["title"]] = att["id"]
+
     # Upload each file
     uploaded = []
     for filepath in files_to_upload:
@@ -273,28 +283,40 @@ def attach_command(args: argparse.Namespace) -> None:
 
         # Confluence attachment API requires multipart form data
         # The header X-Atlassian-Token: nocheck is required to bypass XSRF protection
-        with open(path, "rb") as f:
-            r = requests.post(
-                f"{base_url}/content/{page_id}/child/attachment",
-                files={"file": (path.name, f)},
-                headers={"X-Atlassian-Token": "nocheck"},
-                auth=auth,
-            )
+        headers = {"X-Atlassian-Token": "nocheck"}
+
+        # Check if attachment already exists - use PUT to update
+        if path.name in existing:
+            att_id = existing[path.name]
+            with open(path, "rb") as f:
+                r = requests.post(
+                    f"{base_url}/content/{page_id}/child/attachment/{att_id}/data",
+                    files={"file": (path.name, f)},
+                    headers=headers,
+                    auth=auth,
+                )
+            action = "Updated"
+        else:
+            with open(path, "rb") as f:
+                r = requests.post(
+                    f"{base_url}/content/{page_id}/child/attachment",
+                    files={"file": (path.name, f)},
+                    headers=headers,
+                    auth=auth,
+                )
+            action = "Uploaded"
 
         if not r.ok:
             print(f"Error uploading {path.name}: {r.status_code} - {r.reason}", file=sys.stderr)
             print(r.text, file=sys.stderr)
             continue
 
-        result = r.json()
-        if result.get("results"):
-            att = result["results"][0]
-            uploaded.append(path.name)
-            print(f"Uploaded: {path.name}")
+        uploaded.append((path.name, action))
+        print(f"{action}: {path.name}")
 
     if uploaded:
         print(f"\nTo reference in page body:")
-        for name in uploaded:
+        for name, _ in uploaded:
             print(f'  <ac:image><ri:attachment ri:filename="{name}"/></ac:image>')
     else:
         sys.exit(1)
