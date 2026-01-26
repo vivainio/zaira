@@ -264,14 +264,15 @@ def attach_command(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     # Get existing attachments to check for duplicates
-    r = requests.get(
-        f"{base_url}/content/{page_id}/child/attachment",
-        auth=auth,
-    )
     existing = {}
-    if r.ok:
-        for att in r.json().get("results", []):
-            existing[att["title"]] = att["id"]
+    if args.replace:
+        r = requests.get(
+            f"{base_url}/content/{page_id}/child/attachment",
+            auth=auth,
+        )
+        if r.ok:
+            for att in r.json().get("results", []):
+                existing[att["title"]] = att["id"]
 
     # Upload each file
     uploaded = []
@@ -285,7 +286,7 @@ def attach_command(args: argparse.Namespace) -> None:
         # The header X-Atlassian-Token: nocheck is required to bypass XSRF protection
         headers = {"X-Atlassian-Token": "nocheck"}
 
-        # Check if attachment already exists - use PUT to update
+        # Check if attachment already exists - use POST to data endpoint to update
         if path.name in existing:
             att_id = existing[path.name]
             with open(path, "rb") as f:

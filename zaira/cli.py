@@ -590,6 +590,11 @@ def main() -> None:
         nargs="+",
         help="Files to upload (supports glob patterns)",
     )
+    wiki_attach.add_argument(
+        "-r", "--replace",
+        action="store_true",
+        help="Replace existing attachments with same filename",
+    )
     wiki_attach.set_defaults(wiki_func=wiki_attach_command)
 
     args = parser.parse_args()
