@@ -70,7 +70,16 @@ def write_front_matter(front_matter: dict, body: str) -> str:
     if not front_matter:
         return body
 
-    fm_str = yaml.safe_dump(front_matter, default_flow_style=False, sort_keys=False)
+    # Use inline style for lists (e.g., labels: [a, b, c])
+    class InlineListDumper(yaml.SafeDumper):
+        pass
+
+    def represent_list(dumper, data):
+        return dumper.represent_sequence('tag:yaml.org,2002:seq', data, flow_style=True)
+
+    InlineListDumper.add_representer(list, represent_list)
+
+    fm_str = yaml.dump(front_matter, Dumper=InlineListDumper, default_flow_style=False, sort_keys=False)
     return f"---\n{fm_str}---\n\n{body.lstrip()}"
 
 
