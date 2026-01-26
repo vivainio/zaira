@@ -31,7 +31,7 @@ def create_link(from_key: str, to_key: str, link_type: str) -> bool:
         err = str(e)
         if "No issue link type with name" in err:
             print(f"Error: Unknown link type '{link_type}'", file=sys.stderr)
-            print(f"\nValid link types:", file=sys.stderr)
+            print("\nValid link types:", file=sys.stderr)
             for name in sorted(get_link_types()):
                 print(f"  {name}", file=sys.stderr)
         else:

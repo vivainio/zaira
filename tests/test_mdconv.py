@@ -1,7 +1,5 @@
 """Tests for markdown conversion utilities."""
 
-import pytest
-
 from zaira.mdconv import markdown_to_storage, storage_to_markdown
 
 
@@ -46,7 +44,10 @@ class TestMarkdownToStorage:
         for md_lang, confluence_lang in test_cases:
             md = f"```{md_lang}\ncode\n```"
             html = markdown_to_storage(md)
-            assert f'<ac:parameter ac:name="language">{confluence_lang}</ac:parameter>' in html
+            assert (
+                f'<ac:parameter ac:name="language">{confluence_lang}</ac:parameter>'
+                in html
+            )
 
     def test_code_block_without_language(self):
         md = "```\nplain code\n```"
@@ -131,7 +132,7 @@ class TestStorageToMarkdown:
             '<ac:structured-macro ac:name="code">'
             '<ac:parameter ac:name="language">python</ac:parameter>'
             '<ac:plain-text-body><![CDATA[print("hello")]]></ac:plain-text-body>'
-            '</ac:structured-macro>'
+            "</ac:structured-macro>"
         )
         md = storage_to_markdown(html)
         assert "```python" in md
@@ -143,8 +144,8 @@ class TestStorageToMarkdown:
         html = (
             '<ac:structured-macro ac:name="code">'
             '<ac:parameter ac:name="language">html/xml</ac:parameter>'
-            '<ac:plain-text-body><![CDATA[<div></div>]]></ac:plain-text-body>'
-            '</ac:structured-macro>'
+            "<ac:plain-text-body><![CDATA[<div></div>]]></ac:plain-text-body>"
+            "</ac:structured-macro>"
         )
         md = storage_to_markdown(html)
         assert "```xml" in md
@@ -153,8 +154,8 @@ class TestStorageToMarkdown:
         html = (
             '<ac:structured-macro ac:name="code">'
             '<ac:parameter ac:name="language">none</ac:parameter>'
-            '<ac:plain-text-body><![CDATA[code]]></ac:plain-text-body>'
-            '</ac:structured-macro>'
+            "<ac:plain-text-body><![CDATA[code]]></ac:plain-text-body>"
+            "</ac:structured-macro>"
         )
         md = storage_to_markdown(html)
         # Should have empty language (just ```)

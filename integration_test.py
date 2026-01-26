@@ -33,7 +33,9 @@ def run_stdin(cmd: str, stdin: str) -> subprocess.CompletedProcess:
     """Run a zaira CLI command with stdin input."""
     full_cmd = f"python -m zaira {cmd}"
     print(f"  $ zaira {cmd} (stdin)")
-    result = subprocess.run(full_cmd, shell=True, input=stdin, capture_output=True, text=True)
+    result = subprocess.run(
+        full_cmd, shell=True, input=stdin, capture_output=True, text=True
+    )
     if result.returncode != 0:
         print(f"  FAILED: {result.stderr}")
         sys.exit(1)
@@ -190,7 +192,9 @@ def test_export_formats(key: str):
 def test_export_jql(key: str):
     """Test JQL export."""
     print("\n=== Export with JQL ===")
-    result = run(f'export --jql "project = SAN AND labels = integration-test" --format json')
+    result = run(
+        'export --jql "project = SAN AND labels = integration-test" --format json'
+    )
     assert key in result.stdout
 
 
@@ -210,7 +214,10 @@ def test_info():
 def test_edit_multiple(key: str):
     """Test editing multiple fields."""
     print("\n=== Edit multiple fields ===")
-    run(f'edit {key} -F "Priority=Low" -F "Labels=integration-test,multi-edit"', check=False)
+    run(
+        f'edit {key} -F "Priority=Low" -F "Labels=integration-test,multi-edit"',
+        check=False,
+    )
 
 
 def test_edit_yaml(key: str):
@@ -233,7 +240,7 @@ def test_init():
         orig_dir = os.getcwd()
         try:
             os.chdir(tmpdir)
-            result = run("init -p SAN --force", check=False)
+            run("init -p SAN --force", check=False)
             config = Path("zproject.toml")
             if config.exists():
                 content = config.read_text()
@@ -258,7 +265,11 @@ def cleanup(keys: list[str]):
         if result.returncode != 0:
             continue
 
-        available = [line.split("→")[-1].strip() for line in result.stdout.split("\n") if "→" in line]
+        available = [
+            line.split("→")[-1].strip()
+            for line in result.stdout.split("\n")
+            if "→" in line
+        ]
         for status in ["Disposal", "Closed", "Done"]:
             if status in available:
                 run(f'transition {key} "{status}"', check=False)

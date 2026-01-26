@@ -21,12 +21,12 @@ def extract_local_images(md_content: str) -> list[tuple[str, str]]:
         List of (alt_text, image_path) tuples for local images only
     """
     # Pattern: ![alt](path) - but not URLs
-    pattern = r'!\[([^\]]*)\]\(([^)]+)\)'
+    pattern = r"!\[([^\]]*)\]\(([^)]+)\)"
     images = []
     for match in re.finditer(pattern, md_content):
         alt, path = match.group(1), match.group(2)
         # Skip URLs (http://, https://, //)
-        if not path.startswith(('http://', 'https://', '//')):
+        if not path.startswith(("http://", "https://", "//")):
             images.append((alt, path))
     return images
 
@@ -39,17 +39,18 @@ def convert_images_to_attachments(md_content: str) -> str:
 
     The actual file upload happens separately.
     """
+
     def replace_image(match: re.Match) -> str:
         alt = match.group(1)
         path = match.group(2)
         # Skip URLs
-        if path.startswith(('http://', 'https://', '//')):
+        if path.startswith(("http://", "https://", "//")):
             return match.group(0)
         # Use just the filename for attachment reference
         filename = Path(path).name
-        return f'![{alt}](attachment:{filename})'
+        return f"![{alt}](attachment:{filename})"
 
-    return re.sub(r'!\[([^\]]*)\]\(([^)]+)\)', replace_image, md_content)
+    return re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", replace_image, md_content)
 
 
 def convert_attachments_to_images(md_content: str, image_dir: str = "./images") -> str:
@@ -58,15 +59,16 @@ def convert_attachments_to_images(md_content: str, image_dir: str = "./images") 
     Converts: ![alt](attachment:foo.png)
     To: ![alt](./images/foo.png)
     """
+
     def replace_attachment(match: re.Match) -> str:
         alt = match.group(1)
         path = match.group(2)
-        if path.startswith('attachment:'):
-            filename = path[len('attachment:'):]
-            return f'![{alt}]({image_dir}/{filename})'
+        if path.startswith("attachment:"):
+            filename = path[len("attachment:") :]
+            return f"![{alt}]({image_dir}/{filename})"
         return match.group(0)
 
-    return re.sub(r'!\[([^\]]*)\]\(([^)]+)\)', replace_attachment, md_content)
+    return re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", replace_attachment, md_content)
 
 
 # Map markdown language names to Confluence code macro languages
@@ -116,8 +118,8 @@ def _code_block_to_macro(match: re.Match) -> str:
     return (
         f'<ac:structured-macro ac:name="code">'
         f'<ac:parameter ac:name="language">{lang}</ac:parameter>'
-        f'<ac:plain-text-body><![CDATA[{code}]]></ac:plain-text-body>'
-        f'</ac:structured-macro>'
+        f"<ac:plain-text-body><![CDATA[{code}]]></ac:plain-text-body>"
+        f"</ac:structured-macro>"
     )
 
 
@@ -141,13 +143,13 @@ def _normalize_list_indent(md_content: str) -> str:
     The Python markdown library requires 4-space indentation for nested lists.
     This preprocessor allows users to write with 2-space indents.
     """
-    lines = md_content.split('\n')
+    lines = md_content.split("\n")
     result = []
     in_code_block = False
 
     for line in lines:
         # Track fenced code blocks to avoid modifying them
-        if line.startswith('```'):
+        if line.startswith("```"):
             in_code_block = not in_code_block
             result.append(line)
             continue
@@ -158,16 +160,16 @@ def _normalize_list_indent(md_content: str) -> str:
 
         # Match list items with leading whitespace
         # Pattern: leading spaces + list marker (-, *, +, or number.)
-        match = re.match(r'^( +)([-*+]|\d+\.) ', line)
+        match = re.match(r"^( +)([-*+]|\d+\.) ", line)
         if match:
             indent = match.group(1)
             # Double the indent (2 -> 4, 4 -> 8, etc.)
             new_indent = indent * 2
-            result.append(new_indent + line[len(indent):])
+            result.append(new_indent + line[len(indent) :])
         else:
             result.append(line)
 
-    return '\n'.join(result)
+    return "\n".join(result)
 
 
 def markdown_to_storage(md_content: str, convert_local_images: bool = True) -> str:
@@ -189,8 +191,8 @@ def markdown_to_storage(md_content: str, convert_local_images: bool = True) -> s
 
     # Convert [TOC] marker before markdown processing
     md_content = re.sub(
-        r'^\[TOC\]$',
-        '<!--TOC_PLACEHOLDER-->',
+        r"^\[TOC\]$",
+        "<!--TOC_PLACEHOLDER-->",
         md_content,
         flags=re.MULTILINE,
     )
@@ -212,7 +214,7 @@ def markdown_to_storage(md_content: str, convert_local_images: bool = True) -> s
 
     # Convert TOC placeholder to Confluence TOC macro
     html = re.sub(
-        r'(<p>)?<!--TOC_PLACEHOLDER-->(</p>)?',
+        r"(<p>)?<!--TOC_PLACEHOLDER-->(</p>)?",
         '<ac:structured-macro ac:name="toc"/>',
         html,
     )
@@ -230,7 +232,7 @@ def markdown_to_storage(md_content: str, convert_local_images: bool = True) -> s
             return f'<ac:image{alt_attr}><ri:attachment ri:filename="{filename}"/></ac:image>'
         return match.group(0)
 
-    html = re.sub(r'<img\s+([^>]*)/>', img_to_attachment, html)
+    html = re.sub(r"<img\s+([^>]*)/>", img_to_attachment, html)
 
     return html
 
@@ -276,7 +278,6 @@ def _elem_to_markdown(
     table_state: dict,
 ) -> str:
     """Recursively convert an XML element to markdown."""
-    result = []
     tag = _get_tag(elem)
 
     # Confluence structured-macro
@@ -297,12 +298,23 @@ def _elem_to_markdown(
         alt = _get_attr(elem, "alt", AC_NS) or ""
         for child in elem:
             if _get_tag(child) == "attachment":
-                filename = _get_attr(child, "filename", RI_NS) or _get_attr(child, "filename") or ""
+                filename = (
+                    _get_attr(child, "filename", RI_NS)
+                    or _get_attr(child, "filename")
+                    or ""
+                )
                 return f"![{alt}]({image_dir}/{filename})"
         return ""
 
     # Headers
-    header_map = {"h1": "#", "h2": "##", "h3": "###", "h4": "####", "h5": "#####", "h6": "######"}
+    header_map = {
+        "h1": "#",
+        "h2": "##",
+        "h3": "###",
+        "h4": "####",
+        "h5": "#####",
+        "h6": "######",
+    }
     if tag in header_map:
         inner = _process_children(elem, image_dir, list_stack, in_table, table_state)
         return f"\n{header_map[tag]} {inner}\n"
@@ -355,7 +367,9 @@ def _elem_to_markdown(
         for child in elem:
             child_tag = _get_tag(child)
             if child_tag in {"th", "td"}:
-                cell_text = _process_children(child, image_dir, list_stack, in_table, table_state)
+                cell_text = _process_children(
+                    child, image_dir, list_stack, in_table, table_state
+                )
                 cells.append(cell_text.strip())
         if not cells:
             return ""
@@ -432,7 +446,9 @@ def _process_children(
 
     # Process children
     for child in elem:
-        result.append(_elem_to_markdown(child, image_dir, list_stack, in_table, table_state))
+        result.append(
+            _elem_to_markdown(child, image_dir, list_stack, in_table, table_state)
+        )
         # Tail text after child
         if child.tail:
             tail = child.tail
@@ -455,11 +471,7 @@ def storage_to_markdown(html_content: str, image_dir: str = "./images") -> str:
         Markdown text
     """
     # Wrap content in root element with namespace declarations
-    wrapped = (
-        f'<root xmlns:ac="{AC_NS}" xmlns:ri="{RI_NS}">'
-        f"{html_content}"
-        f"</root>"
-    )
+    wrapped = f'<root xmlns:ac="{AC_NS}" xmlns:ri="{RI_NS}">{html_content}</root>'
 
     try:
         root = ET.fromstring(wrapped)
@@ -474,12 +486,11 @@ def storage_to_markdown(html_content: str, image_dir: str = "./images") -> str:
         html_content = html_content.replace("&mdash;", "\u2014")
         html_content = html_content.replace("&ndash;", "\u2013")
         html_content = html_content.replace("&hellip;", "\u2026")
-        wrapped = (
-            f'<root xmlns:ac="{AC_NS}" xmlns:ri="{RI_NS}">'
-            f"{html_content}"
-            f"</root>"
-        )
-        root = ET.fromstring(wrapped)
+        wrapped = f'<root xmlns:ac="{AC_NS}" xmlns:ri="{RI_NS}">{html_content}</root>'
+        try:
+            root = ET.fromstring(wrapped)
+        except ET.ParseError as e:
+            raise ValueError(f"Failed to parse Confluence storage format: {e}") from e
 
     text = _elem_to_markdown(root, image_dir, [], False, {})
 

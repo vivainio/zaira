@@ -43,7 +43,9 @@ def run_stdin(cmd: str, stdin: str) -> subprocess.CompletedProcess:
     """Run a zaira CLI command with stdin input."""
     full_cmd = f"python -m zaira {cmd}"
     print(f"  $ zaira {cmd} (stdin)")
-    result = subprocess.run(full_cmd, shell=True, input=stdin, capture_output=True, text=True)
+    result = subprocess.run(
+        full_cmd, shell=True, input=stdin, capture_output=True, text=True
+    )
     if result.returncode != 0:
         print(f"  FAILED: {result.stderr}")
         sys.exit(1)
@@ -98,7 +100,9 @@ def test_wiki_create() -> str:
     timestamp = int(time.time())
     title = f"Integration Test {timestamp}"
 
-    result = run(f'wiki create -t "{title}" -b "Test content created at {timestamp}" -p {WIKI_TEST_ROOT_PAGE} -m')
+    result = run(
+        f'wiki create -t "{title}" -b "Test content created at {timestamp}" -p {WIKI_TEST_ROOT_PAGE} -m'
+    )
 
     page_id = extract_page_id(result.stdout)
     assert page_id, "Failed to extract page ID from create output"
@@ -148,8 +152,9 @@ def test_wiki_put_roundtrip(page_id: str):
 
         # Check status (should be in sync)
         result = run(f"wiki put {outfile} --status")
-        assert "In sync" in result.stdout or "already in sync" in result.stdout.lower(), \
-            "Expected in-sync status after fresh export"
+        assert (
+            "In sync" in result.stdout or "already in sync" in result.stdout.lower()
+        ), "Expected in-sync status after fresh export"
 
         # Modify the file
         content = outfile.read_text()
@@ -158,18 +163,21 @@ def test_wiki_put_roundtrip(page_id: str):
 
         print("\n=== Put status (after modify) ===")
         result = run(f"wiki put {outfile} --status")
-        assert "Local ahead" in result.stdout or "local" in result.stdout.lower(), \
+        assert "Local ahead" in result.stdout or "local" in result.stdout.lower(), (
             "Expected local-ahead status after modification"
+        )
 
         print("\n=== Put diff ===")
         result = run(f"wiki put {outfile} --diff")
-        assert "Modified at" in result.stdout or "@@" in result.stdout, \
+        assert "Modified at" in result.stdout or "@@" in result.stdout, (
             "Expected diff output"
+        )
 
         print("\n=== Put (push changes) ===")
         result = run(f"wiki put {outfile}")
-        assert "Pushed" in result.stdout or "version" in result.stdout.lower(), \
+        assert "Pushed" in result.stdout or "version" in result.stdout.lower(), (
             "Expected push confirmation"
+        )
 
 
 def test_wiki_put_pull(page_id: str):
@@ -226,15 +234,16 @@ def test_wiki_list_children():
     print("\n=== List children ===")
     result = run(f"wiki get {WIKI_TEST_ROOT_PAGE} --list")
     # Should show tree structure
-    assert WIKI_TEST_ROOT_PAGE in result.stdout or "Created via zaira" in result.stdout, \
-        "Root page not in list output"
+    assert (
+        WIKI_TEST_ROOT_PAGE in result.stdout or "Created via zaira" in result.stdout
+    ), "Root page not in list output"
 
 
 def test_wiki_get_children():
     """Test exporting with children."""
     print("\n=== Get with children ===")
     with tempfile.TemporaryDirectory() as tmpdir:
-        result = run(f"wiki get {WIKI_TEST_ROOT_PAGE} --children -o {tmpdir}")
+        run(f"wiki get {WIKI_TEST_ROOT_PAGE} --children -o {tmpdir}")
 
         # Should have exported multiple files
         md_files = list(Path(tmpdir).glob("*.md"))
@@ -253,15 +262,17 @@ def test_wiki_attach(page_id: str):
 
     try:
         result = run(f"wiki attach {page_id} {tmpfile}")
-        assert "Uploaded" in result.stdout or "test" in result.stdout.lower(), \
+        assert "Uploaded" in result.stdout or "test" in result.stdout.lower(), (
             "Expected upload confirmation"
+        )
 
         # Test replace
         print("\n=== Attach replace ===")
         tmpfile.write_text(f"Updated content {time.time()}\n")
         result = run(f"wiki attach {page_id} {tmpfile} --replace")
-        assert "Updated" in result.stdout or "Uploaded" in result.stdout, \
+        assert "Updated" in result.stdout or "Uploaded" in result.stdout, (
             "Expected update confirmation"
+        )
     finally:
         tmpfile.unlink()
 
@@ -289,12 +300,15 @@ def test_wiki_conflict(page_id: str):
             or "conflict" in result.stdout.lower()
             or "conflict" in result.stderr.lower()
         )
-        assert has_conflict, f"Expected conflict detection, got: stdout={result.stdout!r}, stderr={result.stderr!r}"
+        assert has_conflict, (
+            f"Expected conflict detection, got: stdout={result.stdout!r}, stderr={result.stderr!r}"
+        )
 
         print("\n=== Force push ===")
         result = run(f"wiki put {outfile} --force")
-        assert "Pushed" in result.stdout or "version" in result.stdout.lower(), \
+        assert "Pushed" in result.stdout or "version" in result.stdout.lower(), (
             "Expected force push to succeed"
+        )
 
 
 def test_wiki_delete():
@@ -302,7 +316,9 @@ def test_wiki_delete():
     print("\n=== Delete page ===")
     # Create a page specifically for deletion test
     timestamp = int(time.time())
-    result = run(f'wiki create -t "Delete Test {timestamp}" -b "To be deleted" -p {WIKI_TEST_ROOT_PAGE} -m')
+    result = run(
+        f'wiki create -t "Delete Test {timestamp}" -b "To be deleted" -p {WIKI_TEST_ROOT_PAGE} -m'
+    )
     page_id = extract_page_id(result.stdout)
     assert page_id, "Failed to create page for delete test"
 

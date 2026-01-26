@@ -2,10 +2,10 @@
 
 import argparse
 import sys
+from typing import Any
 
 import yaml
 
-from zaira.create import detect_markdown
 from zaira.info import get_field_id, get_field_type
 from zaira.jira_client import get_jira, get_jira_site
 
@@ -49,7 +49,7 @@ def _format_assignee(value: str | None) -> dict | None:
     return {"accountId": value}
 
 
-def map_field(name: str, value: str) -> tuple[str, any]:
+def map_field(name: str, value: str) -> tuple[str, Any]:
     """Map a field name to Jira field ID and format value.
 
     Returns:
@@ -83,7 +83,7 @@ def map_field(name: str, value: str) -> tuple[str, any]:
     return name, format_field_value(name, value)
 
 
-def format_field_value(field_id: str, value: any) -> any:
+def format_field_value(field_id: str, value: Any) -> Any:
     """Format value based on field type.
 
     Wraps option/select field values in {"value": ...} format.
@@ -143,7 +143,10 @@ def parse_field_args(field_args: list[str]) -> dict:
     fields = {}
     for arg in field_args:
         if "=" not in arg:
-            print(f"Warning: Invalid field format '{arg}', expected 'Name=value'", file=sys.stderr)
+            print(
+                f"Warning: Invalid field format '{arg}', expected 'Name=value'",
+                file=sys.stderr,
+            )
             continue
         name, value = arg.split("=", 1)
         field_id, formatted_value = map_field(name.strip(), value.strip())
@@ -202,10 +205,13 @@ def get_allowed_values(jira, key: str, field_ids: list[str]) -> dict[str, list[s
         if not field_name:
             continue
         try:
-            data = jira._get_json("jql/autocompletedata/suggestions", params={
-                "fieldName": field_name
-            })
-            values = [r.get("value", r.get("displayName", "?")) for r in data.get("results", [])]
+            data = jira._get_json(
+                "jql/autocompletedata/suggestions", params={"fieldName": field_name}
+            )
+            values = [
+                r.get("value", r.get("displayName", "?"))
+                for r in data.get("results", [])
+            ]
             if values:
                 result[fid] = values
         except Exception:
@@ -223,7 +229,9 @@ def _extract_field_name(error_msg: str, fallback: str) -> str:
     return fallback
 
 
-def _print_allowed_values(allowed: dict[str, list[str]], errors: dict[str, str]) -> None:
+def _print_allowed_values(
+    allowed: dict[str, list[str]], errors: dict[str, str]
+) -> None:
     """Print allowed values for failed fields."""
     for fid, values in allowed.items():
         field_name = _extract_field_name(errors.get(fid, fid), fid)
@@ -294,10 +302,15 @@ def edit_command(args: argparse.Namespace) -> None:
     if args.title:
         fields["summary"] = args.title
     if args.description:
+        from zaira.create import detect_markdown
+
         desc = read_input(args.description)
         md_errors = detect_markdown(desc)
         if md_errors:
-            print("Error: Description contains markdown syntax. Use Jira wiki markup instead:", file=sys.stderr)
+            print(
+                "Error: Description contains markdown syntax. Use Jira wiki markup instead:",
+                file=sys.stderr,
+            )
             for err in md_errors:
                 print(f"  - {err}", file=sys.stderr)
             sys.exit(1)
@@ -315,7 +328,10 @@ def edit_command(args: argparse.Namespace) -> None:
         fields.update(parse_yaml_fields(content))
 
     if not fields:
-        print("Error: No fields to update. Use --title, --description, --field, or --from", file=sys.stderr)
+        print(
+            "Error: No fields to update. Use --title, --description, --field, or --from",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     jira_site = get_jira_site()
