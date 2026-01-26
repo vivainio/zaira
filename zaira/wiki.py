@@ -241,6 +241,56 @@ def search_command(args: argparse.Namespace) -> None:
             print()
 
 
+def create_command(args: argparse.Namespace) -> None:
+    """Create a new Confluence page."""
+    base_url, auth = get_confluence_auth()
+
+    # Read body from stdin if '-'
+    if args.body == "-":
+        body_content = sys.stdin.read()
+    else:
+        body_content = args.body
+
+    if not body_content.strip():
+        print("Error: Body content cannot be empty", file=sys.stderr)
+        sys.exit(1)
+
+    # Build create payload
+    create_payload = {
+        "type": "page",
+        "title": args.title,
+        "space": {"key": args.space},
+        "body": {
+            "storage": {
+                "value": body_content,
+                "representation": "storage",
+            }
+        },
+    }
+
+    # Optional parent page
+    if args.parent:
+        parent_id = parse_page_id(args.parent)
+        create_payload["ancestors"] = [{"id": parent_id}]
+
+    r = requests.post(
+        f"{base_url}/content",
+        json=create_payload,
+        auth=auth,
+    )
+
+    if not r.ok:
+        print(f"Error: {r.status_code} - {r.reason}", file=sys.stderr)
+        print(r.text, file=sys.stderr)
+        sys.exit(1)
+
+    result = r.json()
+    page_id = result["id"]
+    server = get_server_from_config()
+    url = f"{server}/wiki/spaces/{args.space}/pages/{page_id}"
+    print(f"Created page {page_id}: {url}")
+
+
 def put_command(args: argparse.Namespace) -> None:
     """Update a Confluence page."""
     base_url, auth = get_confluence_auth()
@@ -310,5 +360,5 @@ def wiki_command(args: argparse.Namespace) -> None:
         args.wiki_func(args)
     else:
         print("Usage: zaira wiki <subcommand>")
-        print("Subcommands: get, search, put")
+        print("Subcommands: get, search, create, put")
         sys.exit(1)
