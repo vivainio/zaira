@@ -290,6 +290,11 @@ zaira wiki create -s SPACE -t "Child Page" -b "<p>Content</p>" -p 123456  # Unde
 zaira wiki put 123456 -b "<p>New content</p>"
 zaira wiki put 123456 -b "<p>Content</p>" -t "New Title"  # Also change title
 cat content.html | zaira wiki put 123456 -b -             # From stdin
+
+# Upload attachments
+zaira wiki attach 123456 image.png                        # Single file
+zaira wiki attach 123456 *.png                            # Glob pattern
+# Then reference in page: <ac:image><ri:attachment ri:filename="image.png"/></ac:image>
 ```
 
 ### info
