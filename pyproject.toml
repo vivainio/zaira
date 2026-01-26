@@ -33,6 +33,9 @@ Issues = "https://github.com/vivainio/zaira/issues"
 [project.scripts]
 zaira = "zaira.cli:main"
 
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
 [tool.uv]
 package = true
 
