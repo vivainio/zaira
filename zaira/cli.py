@@ -13,7 +13,7 @@ from zaira.edit import edit_command
 from zaira.export import export_command
 from zaira.link import link_command
 from zaira.transition import transition_command
-from zaira.wiki import wiki_command, get_command as wiki_get_command, search_command as wiki_search_command
+from zaira.wiki import wiki_command, get_command as wiki_get_command, search_command as wiki_search_command, put_command as wiki_put_command
 from zaira.info import (
     info_command,
     link_types_command,
@@ -532,6 +532,25 @@ def main() -> None:
         help="Output format (default: title/space/url)",
     )
     wiki_search.set_defaults(wiki_func=wiki_search_command)
+
+    wiki_put = wiki_subparsers.add_parser(
+        "put",
+        help="Update a Confluence page",
+    )
+    wiki_put.add_argument(
+        "page",
+        help="Page ID or Confluence URL",
+    )
+    wiki_put.add_argument(
+        "-b", "--body",
+        required=True,
+        help="Page body in Confluence storage format (use '-' to read from stdin)",
+    )
+    wiki_put.add_argument(
+        "-t", "--title",
+        help="New page title (optional, keeps existing if not specified)",
+    )
+    wiki_put.set_defaults(wiki_func=wiki_put_command)
 
     args = parser.parse_args()
 

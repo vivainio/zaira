@@ -241,11 +241,74 @@ def search_command(args: argparse.Namespace) -> None:
             print()
 
 
+def put_command(args: argparse.Namespace) -> None:
+    """Update a Confluence page."""
+    base_url, auth = get_confluence_auth()
+    page_id = parse_page_id(args.page)
+
+    # Read body from stdin if '-'
+    if args.body == "-":
+        body_content = sys.stdin.read()
+    else:
+        body_content = args.body
+
+    if not body_content.strip():
+        print("Error: Body content cannot be empty", file=sys.stderr)
+        sys.exit(1)
+
+    # Get current page to retrieve version and title
+    r = requests.get(
+        f"{base_url}/content/{page_id}",
+        params={"expand": "version"},
+        auth=auth,
+    )
+
+    if not r.ok:
+        print(f"Error: {r.status_code} - {r.reason}", file=sys.stderr)
+        if r.status_code == 404:
+            print(f"Page not found: {page_id}", file=sys.stderr)
+        else:
+            print(r.text, file=sys.stderr)
+        sys.exit(1)
+
+    page = r.json()
+    current_version = page["version"]["number"]
+    current_title = page["title"]
+
+    # Build update payload
+    update_payload = {
+        "version": {"number": current_version + 1},
+        "title": args.title if args.title else current_title,
+        "type": page["type"],
+        "body": {
+            "storage": {
+                "value": body_content,
+                "representation": "storage",
+            }
+        },
+    }
+
+    r = requests.put(
+        f"{base_url}/content/{page_id}",
+        json=update_payload,
+        auth=auth,
+    )
+
+    if not r.ok:
+        print(f"Error: {r.status_code} - {r.reason}", file=sys.stderr)
+        print(r.text, file=sys.stderr)
+        sys.exit(1)
+
+    result = r.json()
+    new_version = result["version"]["number"]
+    print(f"Updated page {page_id} (version {current_version} -> {new_version})")
+
+
 def wiki_command(args: argparse.Namespace) -> None:
     """Handle wiki subcommand."""
     if hasattr(args, "wiki_func"):
         args.wiki_func(args)
     else:
         print("Usage: zaira wiki <subcommand>")
-        print("Subcommands: get, search")
+        print("Subcommands: get, search, put")
         sys.exit(1)
