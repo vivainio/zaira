@@ -270,7 +270,7 @@ zaira link FOO-1234 FOO-5678 -t Duplicates
 Access Confluence pages using the same credentials:
 
 ```bash
-# Get page by ID or URL
+# Get page by ID or URL (outputs markdown with front matter)
 zaira wiki get 123456
 zaira wiki get "https://site.atlassian.net/wiki/spaces/SPACE/pages/123456/Title"
 zaira wiki get 123456 --format html       # Raw storage format
@@ -282,19 +282,61 @@ zaira wiki search "docs" --space TEAM     # Filter by space
 zaira wiki search --creator "John Doe"    # Filter by creator
 zaira wiki search "api" --format url      # Output just URLs
 
-# Create page (body in Confluence storage format)
-zaira wiki create -s SPACE -t "Page Title" -b "<p>Content here</p>"
-zaira wiki create -s SPACE -t "Child Page" -b "<p>Content</p>" -p 123456  # Under parent
-
-# Update page
-zaira wiki put 123456 -b "<p>New content</p>"
-zaira wiki put 123456 -b "<p>Content</p>" -t "New Title"  # Also change title
-cat content.html | zaira wiki put 123456 -b -             # From stdin
+# Create page from markdown
+zaira wiki create -s SPACE -t "Page Title" -m -b page.md
+zaira wiki create -s SPACE -t "Title" -m -b -   # From stdin
 
 # Upload attachments
 zaira wiki attach 123456 image.png                        # Single file
 zaira wiki attach 123456 *.png                            # Glob pattern
-# Then reference in page: <ac:image><ri:attachment ri:filename="image.png"/></ac:image>
+```
+
+#### wiki put (with sync)
+
+Update Confluence pages from markdown files with automatic sync tracking:
+
+```bash
+# Push local changes (page ID from front matter)
+zaira wiki put -m page.md
+
+# Multiple files / globs / directories
+zaira wiki put -m docs/*.md
+zaira wiki put -m docs/
+
+# Check sync status
+zaira wiki put -m page.md --status
+
+# Pull remote changes to local file
+zaira wiki put -m page.md --pull
+
+# Force push (overwrite conflicts)
+zaira wiki put -m page.md --force
+
+# Explicit page ID (single file, overrides front matter)
+zaira wiki put -m page.md -p 123456
+```
+
+**Front matter:** Files link to Confluence pages via YAML front matter:
+
+```markdown
+---
+confluence: 123456
+---
+
+# My Document
+
+Content here with ![images](./images/diagram.png)
+```
+
+**Image handling:** Local images (`![alt](./images/foo.png)`) are automatically uploaded as Confluence attachments on push, and downloaded to `images/` on pull. Only changed images are re-uploaded.
+
+**Conflict detection:** Tracks versions and content hashes. If both local and remote changed since last sync, you'll get a conflict warning:
+
+```
+Error: Conflict detected!
+  Local file changed since last sync
+  Remote changed: version 5 -> 7
+Use --force to overwrite remote, or --pull to discard local changes
 ```
 
 ### info

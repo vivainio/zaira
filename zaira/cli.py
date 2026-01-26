@@ -13,7 +13,7 @@ from zaira.edit import edit_command
 from zaira.export import export_command
 from zaira.link import link_command
 from zaira.transition import transition_command
-from zaira.wiki import wiki_command, get_command as wiki_get_command, search_command as wiki_search_command, create_command as wiki_create_command, put_command as wiki_put_command, attach_command as wiki_attach_command, sync_command as wiki_sync_command
+from zaira.wiki import wiki_command, get_command as wiki_get_command, search_command as wiki_search_command, create_command as wiki_create_command, put_command as wiki_put_command, attach_command as wiki_attach_command
 from zaira.info import (
     info_command,
     link_types_command,
@@ -550,7 +550,7 @@ def main() -> None:
     wiki_create.add_argument(
         "-b", "--body",
         required=True,
-        help="Page body in Confluence storage format (use '-' to read from stdin)",
+        help="Page body: file path, '-' for stdin, or literal content",
     )
     wiki_create.add_argument(
         "-p", "--parent",
@@ -565,25 +565,44 @@ def main() -> None:
 
     wiki_put = wiki_subparsers.add_parser(
         "put",
-        help="Update a Confluence page",
+        help="Update Confluence page(s) from markdown files",
     )
     wiki_put.add_argument(
-        "page",
-        help="Page ID or Confluence URL",
+        "files",
+        nargs="*",
+        help="Markdown files, glob patterns, or directories (page ID from front matter)",
+    )
+    wiki_put.add_argument(
+        "-p", "--page",
+        help="Page ID or URL (for single file without front matter)",
     )
     wiki_put.add_argument(
         "-b", "--body",
-        required=True,
-        help="Page body in Confluence storage format (use '-' to read from stdin)",
+        help="Body content: '-' for stdin, or literal (legacy, prefer positional files)",
     )
     wiki_put.add_argument(
         "-t", "--title",
-        help="New page title (optional, keeps existing if not specified)",
+        help="New page title (single file only)",
     )
     wiki_put.add_argument(
         "-m", "--markdown",
         action="store_true",
-        help="Convert body from Markdown to Confluence storage format",
+        help="Treat input as Markdown (auto-enabled for .md files)",
+    )
+    wiki_put.add_argument(
+        "--pull",
+        action="store_true",
+        help="Pull remote changes to local file(s) instead of pushing",
+    )
+    wiki_put.add_argument(
+        "--force",
+        action="store_true",
+        help="Force push even if remote has changed (overwrite conflicts)",
+    )
+    wiki_put.add_argument(
+        "--status",
+        action="store_true",
+        help="Show sync status without making changes",
     )
     wiki_put.set_defaults(wiki_func=wiki_put_command)
 
@@ -606,37 +625,6 @@ def main() -> None:
         help="Replace existing attachments with same filename",
     )
     wiki_attach.set_defaults(wiki_func=wiki_attach_command)
-
-    wiki_sync = wiki_subparsers.add_parser(
-        "sync",
-        help="Sync markdown files with Confluence pages",
-    )
-    wiki_sync.add_argument(
-        "files",
-        nargs="+",
-        help="Markdown files to sync (glob patterns supported, or directory)",
-    )
-    wiki_sync.add_argument(
-        "--push",
-        action="store_true",
-        help="Push local changes to Confluence",
-    )
-    wiki_sync.add_argument(
-        "--pull",
-        action="store_true",
-        help="Pull remote changes to local file",
-    )
-    wiki_sync.add_argument(
-        "--status",
-        action="store_true",
-        help="Show sync status without making changes",
-    )
-    wiki_sync.add_argument(
-        "--force",
-        action="store_true",
-        help="Force push even if remote has changed (overwrite conflicts)",
-    )
-    wiki_sync.set_defaults(wiki_func=wiki_sync_command)
 
     args = parser.parse_args()
 

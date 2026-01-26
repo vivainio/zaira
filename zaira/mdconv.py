@@ -1,10 +1,14 @@
 """Markdown conversion utilities."""
 
 import re
-from html.parser import HTMLParser
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import markdown
+
+# Confluence namespace URIs
+AC_NS = "http://atlassian.com/content"
+RI_NS = "http://atlassian.com/resource/identifier"
 
 
 def extract_local_images(md_content: str) -> list[tuple[str, str]]:
@@ -231,6 +235,215 @@ def markdown_to_storage(md_content: str, convert_local_images: bool = True) -> s
     return html
 
 
+def _get_tag(elem: ET.Element) -> str:
+    """Get local tag name without namespace."""
+    return elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
+
+
+def _get_attr(elem: ET.Element, name: str, ns: str | None = None) -> str | None:
+    """Get attribute value, checking both namespaced and prefixed forms."""
+    if ns:
+        # Try full namespace URI form first
+        val = elem.get(f"{{{ns}}}{name}")
+        if val is not None:
+            return val
+    # Try without namespace
+    return elem.get(name)
+
+
+def _extract_code_macro(elem: ET.Element) -> tuple[str, str]:
+    """Extract language and code from a Confluence code macro element."""
+    lang = ""
+    code = ""
+
+    for child in elem:
+        tag = _get_tag(child)
+        if tag == "parameter":
+            param_name = _get_attr(child, "name", AC_NS) or _get_attr(child, "name")
+            if param_name == "language":
+                lang = (child.text or "").strip()
+        elif tag == "plain-text-body":
+            code = child.text or ""
+
+    return lang, code
+
+
+def _elem_to_markdown(
+    elem: ET.Element,
+    image_dir: str,
+    list_stack: list[tuple],
+    in_table: bool,
+    table_state: dict,
+) -> str:
+    """Recursively convert an XML element to markdown."""
+    result = []
+    tag = _get_tag(elem)
+
+    # Confluence structured-macro
+    if tag == "structured-macro":
+        macro_name = _get_attr(elem, "name", AC_NS) or _get_attr(elem, "name")
+        if macro_name == "code":
+            lang, code = _extract_code_macro(elem)
+            lang = LANG_MAP_REVERSE.get(lang.lower(), lang.lower()) if lang else ""
+            code = code.rstrip("\n")
+            return f"\n```{lang}\n{code}\n```\n"
+        elif macro_name == "toc":
+            return "\n[TOC]\n"
+        # Unknown macro - skip
+        return ""
+
+    # Confluence image with attachment
+    if tag == "image":
+        alt = _get_attr(elem, "alt", AC_NS) or ""
+        for child in elem:
+            if _get_tag(child) == "attachment":
+                filename = _get_attr(child, "filename", RI_NS) or _get_attr(child, "filename") or ""
+                return f"![{alt}]({image_dir}/{filename})"
+        return ""
+
+    # Headers
+    header_map = {"h1": "#", "h2": "##", "h3": "###", "h4": "####", "h5": "#####", "h6": "######"}
+    if tag in header_map:
+        inner = _process_children(elem, image_dir, list_stack, in_table, table_state)
+        return f"\n{header_map[tag]} {inner}\n"
+
+    # Lists
+    if tag == "ul":
+        new_stack = list_stack + [("ul",)]
+        prefix = "\n" if list_stack else ""
+        inner = _process_children(elem, image_dir, new_stack, in_table, table_state)
+        suffix = "\n" if not list_stack else ""
+        return prefix + inner + suffix
+
+    if tag == "ol":
+        start = int(elem.get("start", 1))
+        new_stack = list_stack + [("ol", start)]
+        prefix = "\n" if list_stack else ""
+        inner = _process_children(elem, image_dir, new_stack, in_table, table_state)
+        suffix = "\n" if not list_stack else ""
+        return prefix + inner + suffix
+
+    if tag == "li":
+        indent = "  " * (len(list_stack) - 1)
+        if list_stack and list_stack[-1][0] == "ol":
+            num = list_stack[-1][1]
+            marker = f"{indent}{num}. "
+            # Mutate for next sibling - create new tuple
+            list_stack[-1] = ("ol", num + 1)
+        else:
+            marker = f"{indent}- "
+        inner = _process_children(elem, image_dir, list_stack, in_table, table_state)
+        return marker + inner.strip() + "\n"
+
+    # Table handling
+    if tag == "table":
+        state = {"in_thead": False, "header_done": False}
+        inner = _process_children(elem, image_dir, list_stack, True, state)
+        return "\n" + inner + "\n"
+
+    if tag == "thead":
+        table_state["in_thead"] = True
+        inner = _process_children(elem, image_dir, list_stack, in_table, table_state)
+        table_state["in_thead"] = False
+        return inner
+
+    if tag == "tbody":
+        return _process_children(elem, image_dir, list_stack, in_table, table_state)
+
+    if tag == "tr":
+        cells = []
+        for child in elem:
+            child_tag = _get_tag(child)
+            if child_tag in {"th", "td"}:
+                cell_text = _process_children(child, image_dir, list_stack, in_table, table_state)
+                cells.append(cell_text.strip())
+        if not cells:
+            return ""
+        row = "| " + " | ".join(cells) + " |\n"
+        if table_state.get("in_thead") or not table_state.get("header_done"):
+            row += "|" + "|".join(["---"] * len(cells)) + "|\n"
+            table_state["header_done"] = True
+        return row
+
+    if tag in {"th", "td"}:
+        return _process_children(elem, image_dir, list_stack, in_table, table_state)
+
+    # Inline formatting
+    if tag in {"strong", "b"}:
+        inner = _process_children(elem, image_dir, list_stack, in_table, table_state)
+        return f"**{inner}**"
+
+    if tag in {"em", "i"}:
+        inner = _process_children(elem, image_dir, list_stack, in_table, table_state)
+        return f"*{inner}*"
+
+    if tag == "code":
+        inner = _process_children(elem, image_dir, list_stack, in_table, table_state)
+        return f"`{inner}`"
+
+    if tag == "a":
+        href = elem.get("href", "")
+        inner = _process_children(elem, image_dir, list_stack, in_table, table_state)
+        return f"[{inner}]({href})"
+
+    if tag == "img":
+        src = elem.get("src", "")
+        alt = elem.get("alt", "")
+        return f"![{alt}]({src})"
+
+    if tag == "br":
+        return "\n"
+
+    if tag == "hr":
+        return "\n---\n"
+
+    if tag == "blockquote":
+        inner = _process_children(elem, image_dir, list_stack, in_table, table_state)
+        lines = inner.strip().split("\n")
+        return "\n" + "\n".join(f"> {line}" for line in lines) + "\n"
+
+    # Block elements that just add spacing
+    if tag in {"p", "div"}:
+        inner = _process_children(elem, image_dir, list_stack, in_table, table_state)
+        return inner + "\n\n"
+
+    # Default: process children
+    return _process_children(elem, image_dir, list_stack, in_table, table_state)
+
+
+def _process_children(
+    elem: ET.Element,
+    image_dir: str,
+    list_stack: list[tuple],
+    in_table: bool,
+    table_state: dict,
+) -> str:
+    """Process element's text and children."""
+    result = []
+
+    # Element's direct text
+    if elem.text:
+        text = elem.text
+        # Skip whitespace-only in lists/tables
+        if (list_stack or in_table) and not text.strip():
+            pass
+        else:
+            result.append(text)
+
+    # Process children
+    for child in elem:
+        result.append(_elem_to_markdown(child, image_dir, list_stack, in_table, table_state))
+        # Tail text after child
+        if child.tail:
+            tail = child.tail
+            if (list_stack or in_table) and not tail.strip():
+                pass
+            else:
+                result.append(tail)
+
+    return "".join(result)
+
+
 def storage_to_markdown(html_content: str, image_dir: str = "./images") -> str:
     """Convert Confluence storage format to Markdown.
 
@@ -241,187 +454,35 @@ def storage_to_markdown(html_content: str, image_dir: str = "./images") -> str:
     Returns:
         Markdown text
     """
-    # Convert Confluence attachment images to markdown
-    # <ac:image ac:alt="..."><ri:attachment ri:filename="..."/></ac:image>
-    def attachment_to_img(match: re.Match) -> str:
-        alt = match.group(1) or ""
-        filename = match.group(2)
-        return f'![{alt}]({image_dir}/{filename})'
-
-    html_content = re.sub(
-        r'<ac:image(?:\s+ac:alt="([^"]*)")?[^>]*>\s*<ri:attachment\s+ri:filename="([^"]+)"[^/]*/>\s*</ac:image>',
-        attachment_to_img,
-        html_content,
+    # Wrap content in root element with namespace declarations
+    wrapped = (
+        f'<root xmlns:ac="{AC_NS}" xmlns:ri="{RI_NS}">'
+        f"{html_content}"
+        f"</root>"
     )
 
-    # Convert Confluence TOC macro to [TOC]
-    html_content = re.sub(
-        r'<ac:structured-macro[^>]*ac:name="toc"[^>]*/?>(?:</ac:structured-macro>)?',
-        '\n[TOC]\n',
-        html_content,
-    )
+    try:
+        root = ET.fromstring(wrapped)
+    except ET.ParseError:
+        # Handle common issues: HTML entities not defined in XML
+        # Replace common HTML entities with Unicode equivalents
+        html_content = html_content.replace("&nbsp;", "\u00a0")
+        html_content = html_content.replace("&ldquo;", "\u201c")
+        html_content = html_content.replace("&rdquo;", "\u201d")
+        html_content = html_content.replace("&lsquo;", "\u2018")
+        html_content = html_content.replace("&rsquo;", "\u2019")
+        html_content = html_content.replace("&mdash;", "\u2014")
+        html_content = html_content.replace("&ndash;", "\u2013")
+        html_content = html_content.replace("&hellip;", "\u2026")
+        wrapped = (
+            f'<root xmlns:ac="{AC_NS}" xmlns:ri="{RI_NS}">'
+            f"{html_content}"
+            f"</root>"
+        )
+        root = ET.fromstring(wrapped)
 
-    # First, convert Confluence code macros to placeholder fenced blocks
-    # Pattern: <ac:structured-macro ac:name="code">...<ac:parameter ac:name="language">X</ac:parameter>...<ac:plain-text-body><![CDATA[...]]></ac:plain-text-body>...</ac:structured-macro>
-    html_content = re.sub(
-        r'<ac:structured-macro[^>]*ac:name="code"[^>]*>.*?'
-        r'<ac:parameter[^>]*ac:name="language"[^>]*>([^<]*)</ac:parameter>.*?'
-        r'<ac:plain-text-body><!\[CDATA\[(.*?)\]\]></ac:plain-text-body>.*?'
-        r'</ac:structured-macro>',
-        _macro_to_code_block,
-        html_content,
-        flags=re.DOTALL,
-    )
+    text = _elem_to_markdown(root, image_dir, [], False, {})
 
-    # Also handle code macros without language parameter
-    html_content = re.sub(
-        r'<ac:structured-macro[^>]*ac:name="code"[^>]*>.*?'
-        r'<ac:plain-text-body><!\[CDATA\[(.*?)\]\]></ac:plain-text-body>.*?'
-        r'</ac:structured-macro>',
-        lambda m: f"\n```\n{m.group(1).rstrip(chr(10))}\n```\n",
-        html_content,
-        flags=re.DOTALL,
-    )
-
-    class MarkdownExtractor(HTMLParser):
-        HEADER_LEVELS = {
-            "h1": "#", "h2": "##", "h3": "###",
-            "h4": "####", "h5": "#####", "h6": "######",
-        }
-
-        def __init__(self):
-            super().__init__()
-            self.text = []
-            self.in_code = False
-            self.list_stack = []  # Track nested lists: ("ul",) or ("ol", current_num)
-            self.just_closed_list = False  # Track if we just closed a nested list
-            # Table state
-            self.in_table = False
-            self.in_thead = False
-            self.table_row = []  # Current row cells
-            self.table_header_done = False
-
-        def handle_starttag(self, tag, attrs):
-            attrs_dict = dict(attrs)
-            if tag == "br":
-                self.text.append("\n")
-            elif tag in self.HEADER_LEVELS:
-                self.text.append(f"\n{self.HEADER_LEVELS[tag]} ")
-            elif tag == "ul":
-                if self.list_stack:  # Nested list - need newline
-                    self.text.append("\n")
-                self.list_stack.append(("ul",))
-            elif tag == "ol":
-                if self.list_stack:  # Nested list - need newline
-                    self.text.append("\n")
-                start = int(attrs_dict.get("start", 1))
-                self.list_stack.append(("ol", start))
-            elif tag == "li":
-                indent = "  " * (len(self.list_stack) - 1)  # 2-space indent (normalized on input)
-                if self.list_stack and self.list_stack[-1][0] == "ol":
-                    num = self.list_stack[-1][1]
-                    self.text.append(f"{indent}{num}. ")
-                    # Increment for next item
-                    self.list_stack[-1] = ("ol", num + 1)
-                else:
-                    self.text.append(f"{indent}- ")
-            elif tag == "code" and not self.in_code:
-                self.text.append("`")
-                self.in_code = True
-            elif tag == "pre":
-                pass  # Handled by code
-            elif tag in {"strong", "b"}:
-                self.text.append("**")
-            elif tag in {"em", "i"}:
-                self.text.append("*")
-            elif tag == "hr":
-                self.text.append("\n---\n")
-            elif tag == "a":
-                href = attrs_dict.get("href", "")
-                self.text.append("[")
-                self._pending_link = href
-            elif tag == "img":
-                src = attrs_dict.get("src", "")
-                alt = attrs_dict.get("alt", "")
-                self.text.append(f"![{alt}]({src})")
-            elif tag == "blockquote":
-                self.text.append("\n> ")
-            elif tag == "table":
-                self.in_table = True
-                self.table_header_done = False
-                self.text.append("\n")
-            elif tag == "thead":
-                self.in_thead = True
-            elif tag == "tbody":
-                self.in_thead = False
-            elif tag in {"tr", "th", "td"}:
-                if tag == "tr":
-                    self.table_row = []
-
-        def handle_endtag(self, tag):
-            if tag in self.HEADER_LEVELS:
-                self.text.append("\n")
-            elif tag in {"ul", "ol"}:
-                if self.list_stack:
-                    self.list_stack.pop()
-                # Only add newline after top-level list
-                if not self.list_stack:
-                    self.text.append("\n")
-                else:
-                    self.just_closed_list = True
-            elif tag == "li":
-                # Skip newline if we just closed a nested list (already have one)
-                if self.just_closed_list:
-                    self.just_closed_list = False
-                else:
-                    self.text.append("\n")
-            elif tag in {"p", "div"}:
-                self.text.append("\n\n")
-            elif tag == "code" and self.in_code:
-                self.text.append("`")
-                self.in_code = False
-            elif tag == "pre":
-                pass
-            elif tag in {"strong", "b"}:
-                self.text.append("**")
-            elif tag in {"em", "i"}:
-                self.text.append("*")
-            elif tag == "a":
-                href = getattr(self, "_pending_link", "")
-                self.text.append(f"]({href})")
-                self._pending_link = ""
-            elif tag == "blockquote":
-                self.text.append("\n")
-            elif tag == "table":
-                self.in_table = False
-                self.text.append("\n")
-            elif tag == "thead":
-                self.in_thead = False
-            elif tag in {"th", "td"}:
-                pass  # Cell content captured in handle_data
-            elif tag == "tr":
-                if self.table_row:
-                    self.text.append("| " + " | ".join(self.table_row) + " |\n")
-                    if self.in_thead or (self.in_table and not self.table_header_done):
-                        # Add separator after header row
-                        self.text.append("|" + "|".join(["---"] * len(self.table_row)) + "|\n")
-                        self.table_header_done = True
-                    self.table_row = []
-
-        def handle_data(self, data):
-            # Skip whitespace-only data when inside a list or table (between tags)
-            if (self.list_stack or self.in_table) and not data.strip():
-                return
-            # Capture table cell content
-            if self.in_table:
-                self.table_row.append(data.strip())
-                return
-            self.text.append(data)
-
-    extractor = MarkdownExtractor()
-    extractor.feed(html_content)
-
-    text = "".join(extractor.text)
     # Collapse multiple newlines into max 2
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()

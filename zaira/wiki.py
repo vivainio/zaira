@@ -157,13 +157,14 @@ def get_command(args: argparse.Namespace) -> None:
         print()
         print(body_html)
     else:
-        # Default: md - convert storage format to markdown
-        print(f"Title: {title}")
-        print(f"Space: {space_name} ({space_key})")
-        print(f"Version: {version}")
-        print(f"Page ID: {page_id}")
-        print()
-        print(storage_to_markdown(body_html))
+        # Default: md - convert storage format to markdown with front matter
+        md_body = storage_to_markdown(body_html)
+        front_matter = {
+            "confluence": int(page_id),
+            "title": title,
+            "space": space_key,
+        }
+        print(write_front_matter(front_matter, md_body))
 
 
 def search_command(args: argparse.Namespace) -> None:
@@ -335,9 +336,11 @@ def create_command(args: argparse.Namespace) -> None:
     """Create a new Confluence page."""
     base_url, auth = get_confluence_auth()
 
-    # Read body from stdin if '-'
+    # Read body from stdin, file, or use as literal
     if args.body == "-":
         body_content = sys.stdin.read()
+    elif Path(args.body).is_file():
+        body_content = Path(args.body).read_text()
     else:
         body_content = args.body
 
@@ -385,71 +388,244 @@ def create_command(args: argparse.Namespace) -> None:
     print(f"Created page {page_id}: {url}")
 
 
-def put_command(args: argparse.Namespace) -> None:
-    """Update a Confluence page."""
-    base_url, auth = get_confluence_auth()
-    page_id = parse_page_id(args.page)
+def _put_one_file(
+    filepath: Path,
+    base_url: str,
+    auth: HTTPBasicAuth,
+    page_id_override: str | None,
+    title_override: str | None,
+    pull: bool,
+    force: bool,
+    status: bool,
+) -> bool:
+    """Process a single markdown file for wiki put.
 
-    # Read body from stdin if '-'
-    if args.body == "-":
-        body_content = sys.stdin.read()
-    else:
-        body_content = args.body
+    Returns:
+        True if successful, False otherwise
+    """
+    if not filepath.exists():
+        print(f"Error: File not found: {filepath}", file=sys.stderr)
+        return False
 
+    body_content = filepath.read_text()
     if not body_content.strip():
-        print("Error: Body content cannot be empty", file=sys.stderr)
-        sys.exit(1)
+        print(f"Error: File is empty: {filepath}", file=sys.stderr)
+        return False
 
-    # Convert markdown to Confluence storage format if requested
-    if args.markdown:
-        body_content = markdown_to_storage(body_content)
+    # Parse front matter
+    front_matter, body_only = parse_front_matter(body_content)
+    page_id = page_id_override or (str(front_matter["confluence"]) if front_matter.get("confluence") else None)
 
-    # Get current page to retrieve version and title
+    if not page_id:
+        print(f"Skipping {filepath}: no 'confluence:' in front matter", file=sys.stderr)
+        return False
+
+    # Get current page
     r = requests.get(
         f"{base_url}/content/{page_id}",
-        params={"expand": "version"},
+        params={"expand": "version,body.storage"},
         auth=auth,
     )
 
     if not r.ok:
-        print(f"Error: {r.status_code} - {r.reason}", file=sys.stderr)
-        if r.status_code == 404:
-            print(f"Page not found: {page_id}", file=sys.stderr)
-        else:
-            print(r.text, file=sys.stderr)
-        sys.exit(1)
+        print(f"Error fetching page {page_id}: {r.status_code}", file=sys.stderr)
+        return False
 
     page = r.json()
-    current_version = page["version"]["number"]
+    remote_version = page["version"]["number"]
+    remote_body = page["body"]["storage"]["value"]
     current_title = page["title"]
 
-    # Build update payload
+    # Get sync metadata
+    sync_meta = get_sync_property(base_url, auth, page_id)
+
+    # Compute local content hash
+    local_hash = hashlib.sha256(body_only.encode()).hexdigest()
+
+    # Determine sync status
+    if sync_meta:
+        stored_hash = sync_meta.get("source_hash", "")
+        stored_version = sync_meta.get("uploaded_version", 0)
+        stored_image_hashes = sync_meta.get("images", {})
+
+        content_changed = local_hash != stored_hash
+        images_changed = check_images_changed(filepath, body_only, stored_image_hashes)
+        local_changed = content_changed or images_changed
+        remote_changed = remote_version != stored_version
+    else:
+        stored_version = 0
+        stored_image_hashes = {}
+        local_changed = True
+        remote_changed = False
+
+    # Handle --status
+    if status:
+        print(f"Page ID: {page_id}")
+        print(f"File: {filepath}")
+        print(f"Remote version: {remote_version}")
+        if sync_meta:
+            print(f"Last synced version: {sync_meta.get('uploaded_version', 'N/A')}")
+            print(f"Last synced: {sync_meta.get('uploaded_at', 'N/A')}")
+            print(f"Local changed: {'Yes' if local_changed else 'No'}")
+            print(f"Remote changed: {'Yes' if remote_changed else 'No'}")
+            if local_changed and remote_changed:
+                print("Status: CONFLICT (both changed)")
+            elif local_changed:
+                print("Status: Local ahead")
+            elif remote_changed:
+                print("Status: Remote ahead")
+            else:
+                print("Status: In sync")
+        else:
+            print("Status: No sync metadata")
+        return True
+
+    # Handle --pull
+    if pull:
+        download_images(base_url, auth, page_id, filepath)
+        md_content = storage_to_markdown(remote_body)
+        front_matter["confluence"] = int(page_id)
+        new_content = write_front_matter(front_matter, md_content)
+        filepath.write_text(new_content)
+
+        new_hash = hashlib.sha256(md_content.encode()).hexdigest()
+        set_sync_property(base_url, auth, page_id, {
+            "source_hash": new_hash,
+            "uploaded_at": datetime.now(timezone.utc).isoformat(),
+            "uploaded_version": remote_version,
+            "source_file": str(filepath),
+        })
+        print(f"Pulled version {remote_version} to {filepath}")
+        return True
+
+    # Handle push (default)
+    if not force and sync_meta and local_changed and remote_changed:
+        print(f"Conflict in {filepath}: local and remote both changed", file=sys.stderr)
+        print(f"  Remote: version {stored_version} -> {remote_version}", file=sys.stderr)
+        print("  Use --force to overwrite or --pull to discard local", file=sys.stderr)
+        return False
+
+    if sync_meta and not local_changed and not force:
+        print(f"{filepath}: already in sync")
+        return True
+
+    # Upload images
+    image_hashes = sync_images(base_url, auth, page_id, filepath, body_only, stored_image_hashes)
+
+    # Convert and push
+    storage_content = markdown_to_storage(body_only)
     update_payload = {
-        "version": {"number": current_version + 1},
-        "title": args.title if args.title else current_title,
+        "version": {"number": remote_version + 1},
+        "title": title_override if title_override else current_title,
         "type": page["type"],
-        "body": {
-            "storage": {
-                "value": body_content,
-                "representation": "storage",
-            }
-        },
+        "body": {"storage": {"value": storage_content, "representation": "storage"}},
     }
 
-    r = requests.put(
-        f"{base_url}/content/{page_id}",
-        json=update_payload,
-        auth=auth,
-    )
-
+    r = requests.put(f"{base_url}/content/{page_id}", json=update_payload, auth=auth)
     if not r.ok:
-        print(f"Error: {r.status_code} - {r.reason}", file=sys.stderr)
-        print(r.text, file=sys.stderr)
+        print(f"Error updating {filepath}: {r.status_code}", file=sys.stderr)
+        return False
+
+    new_version = r.json()["version"]["number"]
+    set_sync_property(base_url, auth, page_id, {
+        "source_hash": local_hash,
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+        "uploaded_version": new_version,
+        "source_file": str(filepath),
+        "images": image_hashes,
+    })
+    print(f"Pushed {filepath} (version {remote_version} -> {new_version})")
+    return True
+
+
+def put_command(args: argparse.Namespace) -> None:
+    """Update Confluence page(s) from markdown files."""
+    import glob as glob_module
+
+    base_url, auth = get_confluence_auth()
+
+    # Collect files to process
+    files_to_process: list[Path] = []
+
+    # Handle positional files argument
+    if args.files:
+        for pattern in args.files:
+            path = Path(pattern)
+            if path.is_dir():
+                files_to_process.extend(path.glob("*.md"))
+            elif "*" in pattern or "?" in pattern:
+                files_to_process.extend(Path(p) for p in glob_module.glob(pattern))
+            else:
+                files_to_process.append(path)
+
+    # Handle legacy -b argument
+    elif args.body:
+        if args.body == "-":
+            # Stdin mode - need page ID
+            body_content = sys.stdin.read()
+            if not body_content.strip():
+                print("Error: Empty input from stdin", file=sys.stderr)
+                sys.exit(1)
+
+            front_matter, body_only = parse_front_matter(body_content)
+            page_id = args.page or (str(front_matter["confluence"]) if front_matter.get("confluence") else None)
+
+            if not page_id:
+                print("Error: No page ID. Use -p PAGE or include 'confluence:' in front matter", file=sys.stderr)
+                sys.exit(1)
+
+            # For stdin, write to temp file and process
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+                f.write(body_content)
+                temp_path = Path(f.name)
+
+            try:
+                success = _put_one_file(
+                    temp_path, base_url, auth, page_id, args.title,
+                    getattr(args, 'pull', False),
+                    getattr(args, 'force', False),
+                    getattr(args, 'status', False),
+                )
+                sys.exit(0 if success else 1)
+            finally:
+                temp_path.unlink()
+
+        elif Path(args.body).is_file():
+            files_to_process.append(Path(args.body))
+        else:
+            print(f"Error: Not a file: {args.body}", file=sys.stderr)
+            sys.exit(1)
+
+    else:
+        print("Error: No files specified. Use positional args or -b", file=sys.stderr)
         sys.exit(1)
 
-    result = r.json()
-    new_version = result["version"]["number"]
-    print(f"Updated page {page_id} (version {current_version} -> {new_version})")
+    if not files_to_process:
+        print("No markdown files found", file=sys.stderr)
+        sys.exit(1)
+
+    # Process files
+    success_count = 0
+    fail_count = 0
+
+    for filepath in files_to_process:
+        success = _put_one_file(
+            filepath, base_url, auth,
+            args.page if len(files_to_process) == 1 else None,  # page override only for single file
+            args.title if len(files_to_process) == 1 else None,  # title override only for single file
+            getattr(args, 'pull', False),
+            getattr(args, 'force', False),
+            getattr(args, 'status', False),
+        )
+        if success:
+            success_count += 1
+        else:
+            fail_count += 1
+
+    # Summary for batch operations
+    if len(files_to_process) > 1:
+        print(f"\nProcessed {success_count} file(s), {fail_count} failed")
 
 
 def get_sync_property(base_url: str, auth: HTTPBasicAuth, page_id: str) -> dict | None:
@@ -511,6 +687,41 @@ def set_sync_property(
 def compute_file_hash(filepath: Path) -> str:
     """Compute SHA256 hash of file contents."""
     return hashlib.sha256(filepath.read_bytes()).hexdigest()
+
+
+def check_images_changed(
+    md_file: Path,
+    body_content: str,
+    stored_image_hashes: dict[str, str],
+) -> bool:
+    """Check if any local images have changed compared to stored hashes.
+
+    Args:
+        md_file: Path to markdown file
+        body_content: Markdown body content
+        stored_image_hashes: Dict of filename -> hash from last sync
+
+    Returns:
+        True if any image has changed or is new
+    """
+    images = extract_local_images(body_content)
+    if not images:
+        return False
+
+    md_dir = md_file.parent
+
+    for _alt, rel_path in images:
+        img_path = md_dir / rel_path
+        if not img_path.exists():
+            continue
+
+        filename = img_path.name
+        current_hash = compute_file_hash(img_path)
+
+        if stored_image_hashes.get(filename) != current_hash:
+            return True
+
+    return False
 
 
 def sync_images(
@@ -622,7 +833,8 @@ def download_images(
     if not r.ok:
         return
 
-    attachments = r.json().get("results", [])
+    data = r.json()
+    attachments = data.get("results", [])
     if not attachments:
         return
 
@@ -630,7 +842,8 @@ def download_images(
     img_path = md_file.parent / image_dir
     img_path.mkdir(exist_ok=True)
 
-    server = get_server_from_config()
+    # Use base URL from response (includes /wiki context path)
+    download_base = data.get("_links", {}).get("base", get_server_from_config())
 
     for att in attachments:
         filename = att["title"]
@@ -638,242 +851,11 @@ def download_images(
         if not filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp')):
             continue
 
-        download_url = server + att["_links"]["download"]
+        download_url = download_base + att["_links"]["download"]
         r = requests.get(download_url, auth=auth)
         if r.ok:
             (img_path / filename).write_bytes(r.content)
             print(f"  Downloaded image: {filename}")
-
-
-def sync_one_file(
-    filepath: Path,
-    base_url: str,
-    auth: HTTPBasicAuth,
-    push: bool,
-    pull: bool,
-    status: bool,
-    force: bool,
-) -> bool:
-    """Sync a single markdown file with its Confluence page.
-
-    Returns:
-        True if successful, False otherwise
-    """
-    if not filepath.exists():
-        print(f"Error: File not found: {filepath}", file=sys.stderr)
-        return False
-
-    # Read file and parse front matter
-    file_content = filepath.read_text()
-    front_matter, body_content = parse_front_matter(file_content)
-
-    # Get page ID from front matter
-    page_id = None
-    if front_matter.get("confluence"):
-        page_id = str(front_matter["confluence"])
-
-    if not page_id:
-        print(f"Skipping {filepath}: no 'confluence:' in front matter", file=sys.stderr)
-        return False
-
-    # Get current page info
-    r = requests.get(
-        f"{base_url}/content/{page_id}",
-        params={"expand": "body.storage,version"},
-        auth=auth,
-    )
-
-    if not r.ok:
-        print(f"Error syncing {filepath}: {r.status_code} - {r.reason}", file=sys.stderr)
-        if r.status_code == 404:
-            print(f"Page not found: {page_id}", file=sys.stderr)
-        else:
-            print(r.text, file=sys.stderr)
-        return False
-
-    page = r.json()
-    remote_version = page["version"]["number"]
-    remote_body = page["body"]["storage"]["value"]
-
-    # Get sync metadata
-    sync_meta = get_sync_property(base_url, auth, page_id)
-
-    # Compute hash of body content only (excluding front matter)
-    local_hash = hashlib.sha256(body_content.encode()).hexdigest()
-
-    # Determine sync status
-    if sync_meta:
-        stored_hash = sync_meta.get("source_hash", "")
-        stored_version = sync_meta.get("uploaded_version", 0)
-
-        local_changed = local_hash != stored_hash
-        remote_changed = remote_version != stored_version
-    else:
-        # No sync metadata - first sync
-        local_changed = True
-        remote_changed = True
-        stored_version = 0
-
-    # Handle --status flag
-    if status:
-        print(f"Page ID: {page_id}")
-        print(f"File: {filepath}")
-        print(f"Remote version: {remote_version}")
-        if sync_meta:
-            print(f"Last synced version: {sync_meta.get('uploaded_version', 'N/A')}")
-            print(f"Last synced: {sync_meta.get('uploaded_at', 'N/A')}")
-            print(f"Local changed: {'Yes' if local_changed else 'No'}")
-            print(f"Remote changed: {'Yes' if remote_changed else 'No'}")
-            if local_changed and remote_changed:
-                print("Status: CONFLICT (both changed)")
-            elif local_changed:
-                print("Status: Local ahead (safe to push)")
-            elif remote_changed:
-                print("Status: Remote ahead (safe to pull)")
-            else:
-                print("Status: In sync")
-        else:
-            print("Status: Not synced (no metadata)")
-        return True
-
-    # Handle --pull flag
-    if pull:
-        # Download images first
-        download_images(base_url, auth, page_id, filepath)
-
-        md_content = storage_to_markdown(remote_body)
-
-        # Preserve/update front matter with confluence page ID
-        front_matter["confluence"] = int(page_id)
-        new_content = write_front_matter(front_matter, md_content)
-        filepath.write_text(new_content)
-
-        new_hash = hashlib.sha256(md_content.encode()).hexdigest()
-
-        # Update sync metadata
-        set_sync_property(base_url, auth, page_id, {
-            "source_hash": new_hash,
-            "uploaded_at": datetime.now(timezone.utc).isoformat(),
-            "uploaded_version": remote_version,
-            "source_file": str(filepath),
-        })
-
-        print(f"Pulled version {remote_version} to {filepath}")
-        return True
-
-    # Handle --push flag or default sync
-    if push or (not pull and not status):
-        # Check for conflicts unless --force
-        if not force and local_changed and remote_changed and sync_meta:
-            print(f"Error: Conflict in {filepath}!", file=sys.stderr)
-            print(f"  Local file changed since last sync", file=sys.stderr)
-            print(f"  Remote changed: version {stored_version} -> {remote_version}", file=sys.stderr)
-            print("Use --force to overwrite, or --pull to get remote changes", file=sys.stderr)
-            return False
-
-        # Check if there's anything to push
-        if not local_changed and not force:
-            print(f"{filepath}: already in sync")
-            return True
-
-        # Upload images first (before content references them)
-        stored_image_hashes = sync_meta.get("images", {}) if sync_meta else {}
-        image_hashes = sync_images(
-            base_url, auth, page_id, filepath, body_content, stored_image_hashes
-        )
-
-        # Convert and push (body only, without front matter)
-        storage_content = markdown_to_storage(body_content)
-
-        update_payload = {
-            "version": {"number": remote_version + 1},
-            "title": page["title"],
-            "type": page["type"],
-            "body": {
-                "storage": {
-                    "value": storage_content,
-                    "representation": "storage",
-                }
-            },
-        }
-
-        r = requests.put(
-            f"{base_url}/content/{page_id}",
-            json=update_payload,
-            auth=auth,
-        )
-
-        if not r.ok:
-            print(f"Error syncing {filepath}: {r.status_code} - {r.reason}", file=sys.stderr)
-            print(r.text, file=sys.stderr)
-            return False
-
-        result = r.json()
-        new_version = result["version"]["number"]
-
-        # Update sync metadata including image hashes
-        set_sync_property(base_url, auth, page_id, {
-            "source_hash": local_hash,
-            "uploaded_at": datetime.now(timezone.utc).isoformat(),
-            "uploaded_version": new_version,
-            "source_file": str(filepath),
-            "images": image_hashes,
-        })
-
-        print(f"Pushed {filepath} to page {page_id} (version {remote_version} -> {new_version})")
-        return True
-
-    return True
-
-
-def sync_command(args: argparse.Namespace) -> None:
-    """Sync markdown files with Confluence pages."""
-    import glob as glob_module
-
-    base_url, auth = get_confluence_auth()
-
-    # Expand file arguments (globs, directories)
-    files_to_sync = []
-    for pattern in args.files:
-        path = Path(pattern)
-        if path.is_dir():
-            # Sync all .md files in directory
-            files_to_sync.extend(path.glob("*.md"))
-        elif "*" in pattern or "?" in pattern:
-            # Glob pattern
-            files_to_sync.extend(Path(p) for p in glob_module.glob(pattern))
-        else:
-            files_to_sync.append(path)
-
-    if not files_to_sync:
-        print("No markdown files found", file=sys.stderr)
-        sys.exit(1)
-
-    # Sync each file
-    success_count = 0
-    fail_count = 0
-
-    for filepath in files_to_sync:
-        success = sync_one_file(
-            filepath=filepath,
-            base_url=base_url,
-            auth=auth,
-            push=args.push,
-            pull=args.pull,
-            status=args.status,
-            force=args.force,
-        )
-        if success:
-            success_count += 1
-        else:
-            fail_count += 1
-
-    # Summary for multiple files
-    if len(files_to_sync) > 1:
-        print(f"\nSynced {success_count} file(s), {fail_count} failed")
-
-    if fail_count > 0:
-        sys.exit(1)
 
 
 def wiki_command(args: argparse.Namespace) -> None:
@@ -882,5 +864,5 @@ def wiki_command(args: argparse.Namespace) -> None:
         args.wiki_func(args)
     else:
         print("Usage: zaira wiki <subcommand>")
-        print("Subcommands: get, search, create, put, attach, sync")
+        print("Subcommands: get, search, create, put, attach")
         sys.exit(1)
