@@ -130,3 +130,74 @@ class TestCommentCommand:
             comment_command(args)
 
         mock_jira.add_comment.assert_called_once_with("TEST-123", "stdin comment")
+
+
+class TestSpecialCharacters:
+    """Tests for special character handling in comments."""
+
+    def test_comment_with_quotes(self, mock_jira, capsys):
+        """Handles comments containing various quote characters."""
+        mock_jira.add_comment.return_value = MagicMock()
+
+        args = argparse.Namespace(key="TEST-123", body='He said "hello" and \'goodbye\'')
+
+        with patch("zaira.comment.get_jira_site", return_value="jira.example.com"):
+            comment_command(args)
+
+        mock_jira.add_comment.assert_called_once_with(
+            "TEST-123", 'He said "hello" and \'goodbye\''
+        )
+        captured = capsys.readouterr()
+        assert "Comment added" in captured.out
+
+    def test_comment_with_newlines(self, mock_jira, capsys):
+        """Handles comments containing newline characters."""
+        mock_jira.add_comment.return_value = MagicMock()
+
+        body = "Line 1\nLine 2\n\nLine 4 after blank"
+        args = argparse.Namespace(key="TEST-123", body=body)
+
+        with patch("zaira.comment.get_jira_site", return_value="jira.example.com"):
+            comment_command(args)
+
+        mock_jira.add_comment.assert_called_once_with("TEST-123", body)
+        captured = capsys.readouterr()
+        assert "Comment added" in captured.out
+
+    def test_comment_with_unicode(self, mock_jira, capsys):
+        """Handles comments containing unicode characters and emoji."""
+        mock_jira.add_comment.return_value = MagicMock()
+
+        body = "Testing unicode: café, naïve, 日本語, emoji 🎉👍"
+        args = argparse.Namespace(key="TEST-123", body=body)
+
+        with patch("zaira.comment.get_jira_site", return_value="jira.example.com"):
+            comment_command(args)
+
+        mock_jira.add_comment.assert_called_once_with("TEST-123", body)
+        captured = capsys.readouterr()
+        assert "Comment added" in captured.out
+
+    def test_comment_with_special_jira_chars(self, mock_jira, capsys):
+        """Handles comments with characters that have special meaning in Jira."""
+        mock_jira.add_comment.return_value = MagicMock()
+
+        body = "Code: {code}print('hello'){code} and [link|http://example.com]"
+        args = argparse.Namespace(key="TEST-123", body=body)
+
+        with patch("zaira.comment.get_jira_site", return_value="jira.example.com"):
+            comment_command(args)
+
+        mock_jira.add_comment.assert_called_once_with("TEST-123", body)
+
+    def test_comment_with_backslashes(self, mock_jira, capsys):
+        """Handles comments containing backslashes."""
+        mock_jira.add_comment.return_value = MagicMock()
+
+        body = r"Path: C:\Users\test\file.txt and regex: \d+\.\d+"
+        args = argparse.Namespace(key="TEST-123", body=body)
+
+        with patch("zaira.comment.get_jira_site", return_value="jira.example.com"):
+            comment_command(args)
+
+        mock_jira.add_comment.assert_called_once_with("TEST-123", body)

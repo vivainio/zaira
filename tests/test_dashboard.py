@@ -164,7 +164,7 @@ class TestGetDashboard:
 
         result = get_dashboard(42)
 
-        assert result is not None
+        assert isinstance(result, Dashboard)
         assert result.id == 42
         assert result.name == "Specific Dashboard"
         mock_jira._get_json.assert_called_with("dashboard/42")

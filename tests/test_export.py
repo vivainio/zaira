@@ -331,11 +331,7 @@ class TestFormatCustomFieldValue:
     def test_list_values(self):
         """Lists format as bracketed, comma-separated values."""
         result = format_custom_field_value(["a", "b", "c"])
-        assert result.startswith("[")
-        assert result.endswith("]")
-        assert "a" in result
-        assert "b" in result
-        assert "c" in result
+        assert result == "[a, b, c]"
 
     def test_string_values(self):
         """Strings are quoted for YAML."""
