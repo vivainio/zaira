@@ -570,3 +570,123 @@ class TestFormatTicketJson:
         assert data["custom_field"] == "value"
         assert data["nested"] == {"a": 1, "b": 2}
         assert data["list_field"] == [1, 2, 3]
+
+
+class TestTicketMarkdownCustomFields:
+    """Tests for format_ticket_markdown with custom fields."""
+
+    def test_includes_custom_fields(self):
+        """Includes custom fields in YAML front matter."""
+        from zaira.export import format_ticket_markdown
+        from zaira.types import Comment
+
+        ticket = {
+            "key": "TEST-CF",
+            "summary": "Custom fields test",
+            "issuetype": "Story",
+            "status": "Open",
+            "priority": "High",
+            "assignee": "user@example.com",
+            "reporter": "user@example.com",
+            "description": "Test",
+            "components": [],
+            "labels": [],
+            "parent": None,
+            "issuelinks": [],
+            "custom_fields": {
+                "Story Points": 5,
+                "Sprint": "Sprint 10",
+            },
+        }
+
+        result = format_ticket_markdown(ticket, [], "2024-01-17", "jira.example.com")
+
+        assert "Story Points: 5" in result
+        assert "Sprint: Sprint 10" in result
+
+    def test_handles_empty_description(self):
+        """Handles empty/None description."""
+        from zaira.export import format_ticket_markdown
+        from zaira.types import Comment
+
+        ticket = {
+            "key": "TEST-ND",
+            "summary": "No description",
+            "issuetype": "Task",
+            "status": "Open",
+            "priority": "Medium",
+            "assignee": "Unassigned",
+            "reporter": "user",
+            "description": None,  # None description
+            "components": [],
+            "labels": [],
+            "parent": None,
+            "issuelinks": [],
+        }
+
+        result = format_ticket_markdown(ticket, [], "2024-01-17", "jira.example.com")
+
+        assert "No description" in result
+
+    def test_formats_components_and_labels(self):
+        """Formats components and labels lists."""
+        from zaira.export import format_ticket_markdown
+        from zaira.types import Comment
+
+        ticket = {
+            "key": "TEST-CL",
+            "summary": "With components",
+            "issuetype": "Bug",
+            "status": "Open",
+            "priority": "Low",
+            "assignee": "user",
+            "reporter": "user",
+            "description": "Test",
+            "components": ["Backend", "API"],
+            "labels": ["urgent", "bug"],
+            "parent": None,
+            "issuelinks": [],
+        }
+
+        result = format_ticket_markdown(ticket, [], "2024-01-17", "jira.example.com")
+
+        assert "components:" in result
+        assert "Backend" in result
+        assert "API" in result
+        assert "labels:" in result
+        assert "urgent" in result
+
+
+class TestExtractDescriptionEdgeCases:
+    """Additional edge cases for extract_description."""
+
+    def test_handles_empty_content_list(self):
+        """Handles ADF with empty content list."""
+        from zaira.export import extract_description
+
+        adf = {"type": "doc", "content": []}
+        result = extract_description(adf)
+        assert result == ""
+
+    def test_handles_deeply_nested_content(self):
+        """Handles deeply nested ADF content."""
+        from zaira.export import extract_description
+
+        adf = {
+            "type": "doc",
+            "content": [
+                {
+                    "type": "panel",
+                    "content": [
+                        {
+                            "type": "paragraph",
+                            "content": [
+                                {"type": "text", "text": "Deep text"},
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+        result = extract_description(adf)
+        assert "Deep text" in result
