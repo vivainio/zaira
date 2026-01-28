@@ -1,6 +1,6 @@
 [project]
 name = "zaira"
-version = "0.0.0.dev0"
+version = "0.10.2"
 description = "CLI tool for offline Jira ticket management. Export tickets to markdown, generate reports, and keep everything in sync."
 readme = "README.md"
 license = "MIT"
