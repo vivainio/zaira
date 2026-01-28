@@ -1,6 +1,6 @@
 [project]
 name = "zaira"
-version = "0.0.0.dev0"
+version = "0.10.1"
 description = "CLI tool for offline Jira ticket management. Export tickets to markdown, generate reports, and keep everything in sync."
 readme = "README.md"
 license = "MIT"
@@ -34,7 +34,10 @@ Issues = "https://github.com/vivainio/zaira/issues"
 zaira = "zaira.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8.0"]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=7.0.0",
+]
 
 [tool.uv]
 package = true
