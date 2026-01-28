@@ -21,8 +21,8 @@ def detect_markdown(text: str) -> list[str]:
     lines = text.split("\n")
 
     for i, line in enumerate(lines, 1):
-        # Detect markdown headings: ## Heading
-        if re.match(r"^#{1,6}\s+\S", line):
+        # Detect markdown headings: ## Heading (but not single # which is Jira numbered list)
+        if re.match(r"^#{2,6}\s+\S", line):
             level = len(re.match(r"^(#+)", line).group(1))
             errors.append(
                 f"Line {i}: Use 'h{level}. ' instead of '{'#' * level} ' for headings"
