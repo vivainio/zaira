@@ -287,3 +287,48 @@ class TestFetchCachedData:
             result = _fetch_cached_data("priorities", mock_fetch, refresh=False)
 
         assert result == ["High", "Medium", "Low"]
+
+
+class TestGetFieldIdEdgeCases:
+    """Additional tests for get_field_id edge cases."""
+
+    def test_returns_none_for_missing_fields_key(self, tmp_path):
+        """Returns None when 'fields' key is missing."""
+        schema_file = tmp_path / "schema.json"
+        schema = {"statuses": {}}  # No 'fields' key
+        schema_file.write_text(json.dumps(schema))
+
+        with patch("zaira.info.get_schema_path", return_value=schema_file):
+            result = get_field_id("Story Points")
+
+        assert result is None
+
+
+class TestGetFieldNameEdgeCases:
+    """Additional tests for get_field_name edge cases."""
+
+    def test_returns_none_for_missing_fields_key(self, tmp_path):
+        """Returns None when 'fields' key is missing."""
+        schema_file = tmp_path / "schema.json"
+        schema = {"statuses": {}}
+        schema_file.write_text(json.dumps(schema))
+
+        with patch("zaira.info.get_schema_path", return_value=schema_file):
+            result = get_field_name("customfield_123")
+
+        assert result is None
+
+
+class TestGetFieldTypeEdgeCases:
+    """Additional tests for get_field_type edge cases."""
+
+    def test_returns_none_for_missing_fieldtypes_key(self, tmp_path):
+        """Returns None when 'fieldTypes' key is missing."""
+        schema_file = tmp_path / "schema.json"
+        schema = {"fields": {}}  # No 'fieldTypes' key
+        schema_file.write_text(json.dumps(schema))
+
+        with patch("zaira.info.get_schema_path", return_value=schema_file):
+            result = get_field_type("customfield_123")
+
+        assert result is None
