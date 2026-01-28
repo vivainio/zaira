@@ -7,11 +7,16 @@ import pytest
 from zaira.dashboard import (
     _get_owner_name,
     _dict_to_dashboard,
+    _extract_gadget_type,
+    generate_dashboard_markdown,
     get_dashboards,
     get_my_dashboards,
     get_dashboard,
+    get_dashboard_raw,
+    _get_gadget_config,
+    _get_filter,
 )
-from zaira.types import Dashboard
+from zaira.types import Dashboard, DashboardGadget
 
 
 class TestGetOwnerName:
@@ -173,3 +178,161 @@ class TestGetDashboard:
         assert result is None
         captured = capsys.readouterr()
         assert "Error fetching dashboard" in captured.err
+
+
+class TestGetDashboardRaw:
+    """Tests for get_dashboard_raw function with mocked Jira."""
+
+    def test_returns_raw_data(self, mock_jira):
+        """Returns raw API response."""
+        mock_jira._get_json.return_value = {"id": "123", "raw": "data"}
+
+        result = get_dashboard_raw(123)
+
+        assert result == {"id": "123", "raw": "data"}
+        mock_jira._get_json.assert_called_with("dashboard/123")
+
+    def test_returns_none_on_error(self, mock_jira):
+        """Returns None on error."""
+        mock_jira._get_json.side_effect = Exception("Error")
+
+        result = get_dashboard_raw(999)
+
+        assert result is None
+
+
+class TestGetGadgetConfig:
+    """Tests for _get_gadget_config function with mocked Jira."""
+
+    def test_returns_config_value(self, mock_jira):
+        """Returns value from config response."""
+        mock_jira._get_json.return_value = {"value": {"filterId": "123"}}
+
+        result = _get_gadget_config(100, "gadget1")
+
+        assert result == {"filterId": "123"}
+
+    def test_returns_none_on_error(self, mock_jira):
+        """Returns None on error."""
+        mock_jira._get_json.side_effect = Exception("Error")
+
+        result = _get_gadget_config(100, "gadget1")
+
+        assert result is None
+
+
+class TestGetFilter:
+    """Tests for _get_filter function with mocked Jira."""
+
+    def test_returns_filter_data(self, mock_jira):
+        """Returns filter data."""
+        mock_jira._get_json.return_value = {"name": "My Filter", "jql": "project = TEST"}
+
+        result = _get_filter("123")
+
+        assert result == {"name": "My Filter", "jql": "project = TEST"}
+
+    def test_returns_none_on_error(self, mock_jira):
+        """Returns None on error."""
+        mock_jira._get_json.side_effect = Exception("Error")
+
+        result = _get_filter("999")
+
+        assert result is None
+
+
+class TestExtractGadgetType:
+    """Tests for _extract_gadget_type function (pure)."""
+
+    def test_extracts_from_uri(self):
+        """Extracts gadget type from URI format."""
+        uri = "rest/gadgets/1.0/g/com.atlassian.jira.gadgets:filter-results-gadget/more"
+        result = _extract_gadget_type(uri)
+
+        assert result == "Filter Results"
+
+    def test_extracts_from_module_key(self):
+        """Extracts gadget type from module key format."""
+        key = "com.atlassian.jira.gadgets:pie-chart-gadget"
+        result = _extract_gadget_type(key)
+
+        assert result == "Pie Chart"
+
+    def test_handles_empty_string(self):
+        """Returns 'unknown' for empty string."""
+        assert _extract_gadget_type("") == "unknown"
+        assert _extract_gadget_type(None) == "unknown"
+
+    def test_handles_simple_string(self):
+        """Handles simple string without colon."""
+        result = _extract_gadget_type("simple-gadget")
+        assert "Simple" in result
+
+
+class TestGenerateDashboardMarkdown:
+    """Tests for generate_dashboard_markdown function (pure)."""
+
+    def test_generates_basic_markdown(self):
+        """Generates markdown with dashboard info."""
+        dashboard = Dashboard(
+            id=123,
+            name="Test Dashboard",
+            description="A test dashboard",
+            owner="John Doe",
+            view_url="https://jira.example.com/dashboard/123",
+            is_favourite=True,
+        )
+        gadgets = []
+
+        result = generate_dashboard_markdown(dashboard, gadgets)
+
+        assert "title: Test Dashboard" in result
+        assert "dashboard_id: 123" in result
+        assert "# Test Dashboard" in result
+        assert "_A test dashboard_" in result
+        assert "**Owner:** John Doe" in result
+        assert "**Favourite:** Yes" in result
+
+    def test_includes_gadgets(self):
+        """Includes gadget information."""
+        dashboard = Dashboard(
+            id=456,
+            name="With Gadgets",
+            description="",
+            owner="Jane",
+            view_url="https://example.com",
+            is_favourite=False,
+        )
+        gadgets = [
+            DashboardGadget(
+                id="g1",
+                title="Filter Results",
+                gadget_type="Filter Results",
+                position=(0, 0),
+                filter_id="100",
+                filter_name="My Filter",
+                jql="project = TEST",
+            ),
+        ]
+
+        result = generate_dashboard_markdown(dashboard, gadgets)
+
+        assert "## Gadgets" in result
+        assert "Filter Results" in result
+        assert "project = TEST" in result
+
+    def test_no_description(self):
+        """Handles dashboard without description."""
+        dashboard = Dashboard(
+            id=789,
+            name="No Desc",
+            description="",
+            owner="User",
+            view_url="https://example.com",
+            is_favourite=False,
+        )
+
+        result = generate_dashboard_markdown(dashboard, [])
+
+        assert "# No Desc" in result
+        assert "**Favourite:** No" in result
