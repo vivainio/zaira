@@ -690,3 +690,918 @@ class TestExtractDescriptionEdgeCases:
         }
         result = extract_description(adf)
         assert "Deep text" in result
+
+
+class TestGetTicket:
+    """Tests for get_ticket function."""
+
+    def test_returns_ticket_data(self, mock_jira):
+        """Returns formatted ticket data."""
+        from zaira.export import get_ticket
+
+        mock_issue = MagicMock()
+        mock_issue.id = "12345"
+        mock_issue.key = "TEST-1"
+        mock_issue.fields.summary = "Test ticket"
+        mock_issue.fields.description = "Description text"
+        mock_issue.fields.issuetype.name = "Bug"
+        mock_issue.fields.status.name = "Open"
+        mock_issue.fields.status.statusCategory.name = "To Do"
+        mock_issue.fields.priority.name = "High"
+        mock_issue.fields.assignee = None
+        mock_issue.fields.reporter = None
+        mock_issue.fields.created = "2024-01-01T10:00:00"
+        mock_issue.fields.updated = "2024-01-02T15:00:00"
+        mock_issue.fields.components = []
+        mock_issue.fields.labels = ["bug"]
+        mock_issue.fields.parent = None
+        mock_issue.fields.issuelinks = []
+
+        mock_jira.issue.return_value = mock_issue
+
+        result = get_ticket("TEST-1")
+
+        assert result["key"] == "TEST-1"
+        assert result["summary"] == "Test ticket"
+        assert result["status"] == "Open"
+        assert result["labels"] == ["bug"]
+
+    def test_returns_none_on_error(self, mock_jira, capsys):
+        """Returns None when ticket fetch fails."""
+        from zaira.export import get_ticket
+
+        mock_jira.issue.side_effect = Exception("Not found")
+
+        result = get_ticket("INVALID-1")
+
+        assert result is None
+        captured = capsys.readouterr()
+        assert "Error fetching" in captured.out
+
+    def test_includes_parent_info(self, mock_jira):
+        """Includes parent information when present."""
+        from zaira.export import get_ticket
+
+        mock_parent = MagicMock()
+        mock_parent.key = "EPIC-1"
+        mock_parent.fields.summary = "Epic ticket"
+
+        mock_issue = MagicMock()
+        mock_issue.id = "12345"
+        mock_issue.key = "TEST-1"
+        mock_issue.fields.summary = "Subtask"
+        mock_issue.fields.description = None
+        mock_issue.fields.issuetype.name = "Sub-task"
+        mock_issue.fields.status.name = "Open"
+        mock_issue.fields.status.statusCategory.name = "To Do"
+        mock_issue.fields.priority.name = "Medium"
+        mock_issue.fields.assignee = None
+        mock_issue.fields.reporter = None
+        mock_issue.fields.created = "2024-01-01"
+        mock_issue.fields.updated = "2024-01-02"
+        mock_issue.fields.components = []
+        mock_issue.fields.labels = []
+        mock_issue.fields.parent = mock_parent
+        mock_issue.fields.issuelinks = []
+
+        mock_jira.issue.return_value = mock_issue
+
+        result = get_ticket("TEST-1")
+
+        assert result["parent"]["key"] == "EPIC-1"
+        assert result["parent"]["summary"] == "Epic ticket"
+
+    def test_includes_issue_links(self, mock_jira):
+        """Includes issue link information."""
+        from zaira.export import get_ticket
+
+        mock_outward = MagicMock()
+        mock_outward.key = "TEST-2"
+        mock_outward.fields.summary = "Related ticket"
+
+        mock_link = MagicMock()
+        mock_link.type.name = "Blocks"
+        mock_link.outwardIssue = mock_outward
+        del mock_link.inwardIssue  # Simulate outward link
+
+        mock_issue = MagicMock()
+        mock_issue.id = "12345"
+        mock_issue.key = "TEST-1"
+        mock_issue.fields.summary = "Test"
+        mock_issue.fields.description = None
+        mock_issue.fields.issuetype.name = "Bug"
+        mock_issue.fields.status.name = "Open"
+        mock_issue.fields.status.statusCategory.name = "To Do"
+        mock_issue.fields.priority.name = "High"
+        mock_issue.fields.assignee = None
+        mock_issue.fields.reporter = None
+        mock_issue.fields.created = "2024-01-01"
+        mock_issue.fields.updated = "2024-01-02"
+        mock_issue.fields.components = []
+        mock_issue.fields.labels = []
+        mock_issue.fields.parent = None
+        mock_issue.fields.issuelinks = [mock_link]
+
+        mock_jira.issue.return_value = mock_issue
+
+        result = get_ticket("TEST-1")
+
+        assert len(result["issuelinks"]) == 1
+        assert result["issuelinks"][0]["type"] == "Blocks"
+        assert result["issuelinks"][0]["key"] == "TEST-2"
+        assert result["issuelinks"][0]["direction"] == "outward"
+
+    def test_includes_custom_fields(self, mock_jira):
+        """Includes custom fields when requested."""
+        from zaira.export import get_ticket
+        from unittest.mock import patch
+
+        mock_issue = MagicMock()
+        mock_issue.id = "12345"
+        mock_issue.key = "TEST-1"
+        mock_issue.fields.summary = "Test"
+        mock_issue.fields.description = None
+        mock_issue.fields.issuetype.name = "Story"
+        mock_issue.fields.status.name = "Open"
+        mock_issue.fields.status.statusCategory.name = "To Do"
+        mock_issue.fields.priority.name = "Medium"
+        mock_issue.fields.assignee = None
+        mock_issue.fields.reporter = None
+        mock_issue.fields.created = "2024-01-01"
+        mock_issue.fields.updated = "2024-01-02"
+        mock_issue.fields.components = []
+        mock_issue.fields.labels = []
+        mock_issue.fields.parent = None
+        mock_issue.fields.issuelinks = []
+        mock_issue.raw = {"fields": {"customfield_10001": 5}}
+
+        mock_jira.issue.return_value = mock_issue
+
+        with patch("zaira.export.get_field_name", return_value="Story Points"):
+            result = get_ticket("TEST-1", include_custom=True)
+
+        assert "custom_fields" in result
+        assert result["custom_fields"]["Story Points"] == 5
+
+    def test_includes_full_fields_for_json(self, mock_jira):
+        """Includes extra fields when full=True."""
+        from zaira.export import get_ticket
+
+        mock_issue = MagicMock()
+        mock_issue.id = "12345"
+        mock_issue.key = "TEST-1"
+        mock_issue.fields.summary = "Test"
+        mock_issue.fields.description = None
+        mock_issue.fields.issuetype.name = "Bug"
+        mock_issue.fields.status.name = "Done"
+        mock_issue.fields.status.statusCategory.name = "Done"
+        mock_issue.fields.priority.name = "High"
+        mock_issue.fields.assignee = None
+        mock_issue.fields.reporter = None
+        mock_issue.fields.creator = None
+        mock_issue.fields.created = "2024-01-01"
+        mock_issue.fields.updated = "2024-01-02"
+        mock_issue.fields.components = []
+        mock_issue.fields.labels = []
+        mock_issue.fields.parent = None
+        mock_issue.fields.issuelinks = []
+        mock_issue.fields.project.key = "TEST"
+        mock_issue.fields.resolution.name = "Fixed"
+        mock_issue.fields.resolutiondate = "2024-01-03"
+        mock_issue.fields.fixVersions = []
+        mock_issue.fields.versions = []
+        mock_issue.fields.votes.votes = 5
+        mock_issue.fields.watches.watchCount = 3
+        mock_issue.fields.subtasks = []
+
+        mock_jira.issue.return_value = mock_issue
+
+        result = get_ticket("TEST-1", full=True)
+
+        assert result["project"] == "TEST"
+        assert result["resolution"] == "Fixed"
+        assert result["votes"] == 5
+        assert result["watches"] == 3
+
+    def test_includes_attachments(self, mock_jira):
+        """Includes attachment metadata when requested."""
+        from zaira.export import get_ticket
+
+        mock_attachment = MagicMock()
+        mock_attachment.id = "att123"
+        mock_attachment.filename = "screenshot.png"
+        mock_attachment.size = 102400
+        mock_attachment.mimeType = "image/png"
+        mock_attachment.author.displayName = "John Doe"
+        mock_attachment.created = "2024-01-15T10:00:00"
+
+        mock_issue = MagicMock()
+        mock_issue.id = "12345"
+        mock_issue.key = "TEST-1"
+        mock_issue.fields.summary = "Test"
+        mock_issue.fields.description = None
+        mock_issue.fields.issuetype.name = "Bug"
+        mock_issue.fields.status.name = "Open"
+        mock_issue.fields.status.statusCategory.name = "To Do"
+        mock_issue.fields.priority.name = "High"
+        mock_issue.fields.assignee = None
+        mock_issue.fields.reporter = None
+        mock_issue.fields.created = "2024-01-01"
+        mock_issue.fields.updated = "2024-01-02"
+        mock_issue.fields.components = []
+        mock_issue.fields.labels = []
+        mock_issue.fields.parent = None
+        mock_issue.fields.issuelinks = []
+        mock_issue.fields.attachment = [mock_attachment]
+
+        mock_jira.issue.return_value = mock_issue
+
+        result = get_ticket("TEST-1", include_attachments=True)
+
+        assert "attachments" in result
+        assert len(result["attachments"]) == 1
+        assert result["attachments"][0]["filename"] == "screenshot.png"
+
+
+class TestGetComments:
+    """Tests for get_comments function."""
+
+    def test_returns_comments(self, mock_jira):
+        """Returns formatted comment list."""
+        from zaira.export import get_comments
+
+        mock_comment = MagicMock()
+        mock_comment.author.displayName = "Alice"
+        mock_comment.created = "2024-01-15T10:00:00"
+        mock_comment.body = "This is a comment"
+
+        mock_issue = MagicMock()
+        mock_issue.fields.comment.comments = [mock_comment]
+
+        mock_jira.issue.return_value = mock_issue
+
+        result = get_comments("TEST-1")
+
+        assert len(result) == 1
+        assert result[0].author == "Alice"
+        assert result[0].body == "This is a comment"
+
+    def test_returns_empty_on_error(self, mock_jira):
+        """Returns empty list on error."""
+        from zaira.export import get_comments
+
+        mock_jira.issue.side_effect = Exception("Error")
+
+        result = get_comments("TEST-1")
+
+        assert result == []
+
+    def test_handles_adf_body(self, mock_jira):
+        """Handles ADF format comment body."""
+        from zaira.export import get_comments
+
+        mock_body = MagicMock()
+        mock_body.raw = {
+            "type": "doc",
+            "content": [
+                {"type": "paragraph", "content": [{"type": "text", "text": "ADF comment"}]}
+            ],
+        }
+
+        mock_comment = MagicMock()
+        mock_comment.author.displayName = "Bob"
+        mock_comment.created = "2024-01-15"
+        mock_comment.body = mock_body
+
+        mock_issue = MagicMock()
+        mock_issue.fields.comment.comments = [mock_comment]
+
+        mock_jira.issue.return_value = mock_issue
+
+        result = get_comments("TEST-1")
+
+        assert len(result) == 1
+        assert "ADF comment" in result[0].body
+
+
+class TestGetPullRequests:
+    """Tests for get_pull_requests function."""
+
+    def test_returns_pull_requests(self, mock_jira):
+        """Returns formatted PR list."""
+        from zaira.export import get_pull_requests
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "detail": [
+                {
+                    "pullRequests": [
+                        {"name": "Fix bug", "url": "https://github.com/org/repo/pull/1", "status": "MERGED"},
+                        {"name": "Add feature", "url": "https://github.com/org/repo/pull/2", "status": "OPEN"},
+                    ]
+                }
+            ]
+        }
+        mock_jira._session.get.return_value = mock_response
+
+        result = get_pull_requests("12345")
+
+        assert len(result) == 2
+        assert result[0]["name"] == "Fix bug"
+        assert result[0]["status"] == "MERGED"
+
+    def test_returns_empty_on_error(self, mock_jira):
+        """Returns empty list on error."""
+        from zaira.export import get_pull_requests
+
+        mock_jira._session.get.side_effect = Exception("Error")
+
+        result = get_pull_requests("12345")
+
+        assert result == []
+
+
+class TestDownloadAttachment:
+    """Tests for download_attachment function."""
+
+    def test_downloads_file(self, mock_jira, tmp_path):
+        """Downloads attachment to specified directory."""
+        from zaira.export import download_attachment
+
+        mock_response = MagicMock()
+        mock_response.content = b"file content"
+        mock_response.raise_for_status = MagicMock()
+        mock_jira._session.get.return_value = mock_response
+        mock_jira._options = {"server": "https://jira.example.com"}
+
+        attachment = {"id": "att123", "filename": "test.txt", "size": 12}
+        output_dir = tmp_path / "attachments"
+
+        result = download_attachment(attachment, output_dir)
+
+        assert result is True
+        assert (output_dir / "test.txt").exists()
+        assert (output_dir / "test.txt").read_bytes() == b"file content"
+
+    def test_skips_large_files(self, mock_jira, tmp_path, capsys):
+        """Skips files larger than 10MB."""
+        from zaira.export import download_attachment
+
+        attachment = {"id": "att123", "filename": "large.zip", "size": 15 * 1024 * 1024}  # 15 MB
+        output_dir = tmp_path / "attachments"
+
+        result = download_attachment(attachment, output_dir)
+
+        assert result is False
+        captured = capsys.readouterr()
+        assert "Skipping" in captured.out
+        assert "10 MB limit" in captured.out
+
+    def test_handles_download_error(self, mock_jira, tmp_path, capsys):
+        """Handles download errors gracefully."""
+        from zaira.export import download_attachment
+
+        mock_jira._session.get.side_effect = Exception("Download failed")
+        mock_jira._options = {"server": "https://jira.example.com"}
+
+        attachment = {"id": "att123", "filename": "test.txt", "size": 100}
+        output_dir = tmp_path / "attachments"
+
+        result = download_attachment(attachment, output_dir)
+
+        assert result is False
+        captured = capsys.readouterr()
+        assert "Error downloading" in captured.out
+
+
+class TestSearchTickets:
+    """Tests for search_tickets function (export module version)."""
+
+    def test_returns_ticket_keys(self, mock_jira):
+        """Returns list of ticket keys."""
+        from zaira.export import search_tickets
+
+        mock_issue1 = MagicMock()
+        mock_issue1.key = "TEST-1"
+        mock_issue2 = MagicMock()
+        mock_issue2.key = "TEST-2"
+
+        mock_jira.search_issues.return_value = [mock_issue1, mock_issue2]
+
+        result = search_tickets("project = TEST")
+
+        assert result == ["TEST-1", "TEST-2"]
+
+    def test_returns_empty_on_error(self, mock_jira, capsys):
+        """Returns empty list on error."""
+        from zaira.export import search_tickets
+
+        mock_jira.search_issues.side_effect = Exception("Search error")
+
+        result = search_tickets("invalid query")
+
+        assert result == []
+        captured = capsys.readouterr()
+        assert "Error searching" in captured.out
+
+
+class TestExportTicket:
+    """Tests for export_ticket function."""
+
+    def test_exports_markdown(self, mock_jira, tmp_path, capsys):
+        """Exports ticket to markdown file."""
+        from zaira.export import export_ticket
+        from unittest.mock import patch
+
+        mock_issue = MagicMock()
+        mock_issue.id = "12345"
+        mock_issue.key = "TEST-1"
+        mock_issue.fields.summary = "Test ticket"
+        mock_issue.fields.description = "Description"
+        mock_issue.fields.issuetype.name = "Bug"
+        mock_issue.fields.status.name = "Open"
+        mock_issue.fields.status.statusCategory.name = "To Do"
+        mock_issue.fields.priority.name = "High"
+        mock_issue.fields.assignee = None
+        mock_issue.fields.reporter = None
+        mock_issue.fields.created = "2024-01-01"
+        mock_issue.fields.updated = "2024-01-02"
+        mock_issue.fields.components = []
+        mock_issue.fields.labels = []
+        mock_issue.fields.parent = None
+        mock_issue.fields.issuelinks = []
+        mock_issue.fields.attachment = []
+        mock_issue.fields.comment.comments = []
+
+        mock_jira.issue.return_value = mock_issue
+
+        with patch("zaira.export.get_jira_site", return_value="jira.example.com"):
+            result = export_ticket("TEST-1", tmp_path)
+
+        assert result is True
+        files = list(tmp_path.glob("TEST-1*.md"))
+        assert len(files) == 1
+        content = files[0].read_text()
+        assert "key: TEST-1" in content
+        assert "# TEST-1: Test ticket" in content
+
+    def test_exports_json(self, mock_jira, tmp_path):
+        """Exports ticket to JSON file."""
+        from zaira.export import export_ticket
+        from unittest.mock import patch
+        import json
+
+        mock_issue = MagicMock()
+        mock_issue.id = "12345"
+        mock_issue.key = "TEST-2"
+        mock_issue.fields.summary = "JSON test"
+        mock_issue.fields.description = None
+        mock_issue.fields.issuetype.name = "Task"
+        mock_issue.fields.status.name = "Done"
+        mock_issue.fields.status.statusCategory.name = "Done"
+        mock_issue.fields.priority.name = "Medium"
+        mock_issue.fields.assignee = None
+        mock_issue.fields.reporter = None
+        mock_issue.fields.creator = None
+        mock_issue.fields.created = "2024-01-01"
+        mock_issue.fields.updated = "2024-01-02"
+        mock_issue.fields.components = []
+        mock_issue.fields.labels = []
+        mock_issue.fields.parent = None
+        mock_issue.fields.issuelinks = []
+        mock_issue.fields.project.key = "TEST"
+        mock_issue.fields.resolution = None
+        mock_issue.fields.resolutiondate = None
+        mock_issue.fields.fixVersions = []
+        mock_issue.fields.versions = []
+        mock_issue.fields.votes.votes = 0
+        mock_issue.fields.watches.watchCount = 0
+        mock_issue.fields.subtasks = []
+        mock_issue.fields.attachment = []
+        mock_issue.fields.comment.comments = []
+
+        mock_jira.issue.return_value = mock_issue
+
+        with patch("zaira.export.get_jira_site", return_value="jira.example.com"):
+            result = export_ticket("TEST-2", tmp_path, fmt="json")
+
+        assert result is True
+        files = list(tmp_path.glob("TEST-2*.json"))
+        assert len(files) == 1
+        data = json.loads(files[0].read_text())
+        assert data["key"] == "TEST-2"
+
+    def test_returns_false_on_fetch_error(self, mock_jira, tmp_path, capsys):
+        """Returns False when ticket fetch fails."""
+        from zaira.export import export_ticket
+
+        mock_jira.issue.side_effect = Exception("Not found")
+
+        result = export_ticket("INVALID-1", tmp_path)
+
+        assert result is False
+
+    def test_creates_component_symlinks(self, mock_jira, tmp_path):
+        """Creates symlinks by component."""
+        from zaira.export import export_ticket
+        from unittest.mock import patch
+
+        mock_component = MagicMock()
+        mock_component.name = "Backend"
+
+        mock_issue = MagicMock()
+        mock_issue.id = "12345"
+        mock_issue.key = "TEST-3"
+        mock_issue.fields.summary = "Component test"
+        mock_issue.fields.description = None
+        mock_issue.fields.issuetype.name = "Bug"
+        mock_issue.fields.status.name = "Open"
+        mock_issue.fields.status.statusCategory.name = "To Do"
+        mock_issue.fields.priority.name = "High"
+        mock_issue.fields.assignee = None
+        mock_issue.fields.reporter = None
+        mock_issue.fields.created = "2024-01-01"
+        mock_issue.fields.updated = "2024-01-02"
+        mock_issue.fields.components = [mock_component]
+        mock_issue.fields.labels = []
+        mock_issue.fields.parent = None
+        mock_issue.fields.issuelinks = []
+        mock_issue.fields.attachment = []
+        mock_issue.fields.comment.comments = []
+
+        mock_jira.issue.return_value = mock_issue
+
+        with patch("zaira.export.get_jira_site", return_value="jira.example.com"):
+            export_ticket("TEST-3", tmp_path)
+
+        symlink_dir = tmp_path / "by-component" / "backend"
+        assert symlink_dir.exists()
+        symlinks = list(symlink_dir.glob("TEST-3*.md"))
+        assert len(symlinks) == 1
+        assert symlinks[0].is_symlink()
+
+
+class TestExportToStdout:
+    """Tests for export_to_stdout function."""
+
+    def test_outputs_markdown_to_stdout(self, mock_jira, capsys):
+        """Outputs markdown to stdout."""
+        from zaira.export import export_to_stdout
+        from unittest.mock import patch
+
+        mock_issue = MagicMock()
+        mock_issue.id = "12345"
+        mock_issue.key = "TEST-1"
+        mock_issue.fields.summary = "Stdout test"
+        mock_issue.fields.description = "Description"
+        mock_issue.fields.issuetype.name = "Bug"
+        mock_issue.fields.status.name = "Open"
+        mock_issue.fields.status.statusCategory.name = "To Do"
+        mock_issue.fields.priority.name = "High"
+        mock_issue.fields.assignee = None
+        mock_issue.fields.reporter = None
+        mock_issue.fields.created = "2024-01-01"
+        mock_issue.fields.updated = "2024-01-02"
+        mock_issue.fields.components = []
+        mock_issue.fields.labels = []
+        mock_issue.fields.parent = None
+        mock_issue.fields.issuelinks = []
+        mock_issue.fields.comment.comments = []
+
+        mock_jira.issue.return_value = mock_issue
+
+        with patch("zaira.export.get_jira_site", return_value="jira.example.com"):
+            result = export_to_stdout("TEST-1")
+
+        assert result is True
+        captured = capsys.readouterr()
+        assert "key: TEST-1" in captured.out
+        assert "# TEST-1: Stdout test" in captured.out
+
+    def test_outputs_json_to_stdout(self, mock_jira, capsys):
+        """Outputs JSON to stdout."""
+        from zaira.export import export_to_stdout
+        from unittest.mock import patch
+        import json
+
+        mock_issue = MagicMock()
+        mock_issue.id = "12345"
+        mock_issue.key = "TEST-2"
+        mock_issue.fields.summary = "JSON stdout"
+        mock_issue.fields.description = None
+        mock_issue.fields.issuetype.name = "Task"
+        mock_issue.fields.status.name = "Done"
+        mock_issue.fields.status.statusCategory.name = "Done"
+        mock_issue.fields.priority.name = "Medium"
+        mock_issue.fields.assignee = None
+        mock_issue.fields.reporter = None
+        mock_issue.fields.creator = None
+        mock_issue.fields.created = "2024-01-01"
+        mock_issue.fields.updated = "2024-01-02"
+        mock_issue.fields.components = []
+        mock_issue.fields.labels = []
+        mock_issue.fields.parent = None
+        mock_issue.fields.issuelinks = []
+        mock_issue.fields.project.key = "TEST"
+        mock_issue.fields.resolution = None
+        mock_issue.fields.resolutiondate = None
+        mock_issue.fields.fixVersions = []
+        mock_issue.fields.versions = []
+        mock_issue.fields.votes.votes = 0
+        mock_issue.fields.watches.watchCount = 0
+        mock_issue.fields.subtasks = []
+        mock_issue.fields.comment.comments = []
+
+        mock_jira.issue.return_value = mock_issue
+
+        with patch("zaira.export.get_jira_site", return_value="jira.example.com"):
+            result = export_to_stdout("TEST-2", fmt="json")
+
+        assert result is True
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert data["key"] == "TEST-2"
+
+    def test_returns_false_on_error(self, mock_jira, capsys):
+        """Returns False when ticket fetch fails."""
+        from zaira.export import export_to_stdout
+
+        mock_jira.issue.side_effect = Exception("Not found")
+
+        result = export_to_stdout("INVALID-1")
+
+        assert result is False
+        captured = capsys.readouterr()
+        assert "Error: Could not fetch" in captured.err
+
+
+class TestExportCommand:
+    """Tests for export_command function."""
+
+    def test_exports_to_stdout_by_default(self, mock_jira, capsys):
+        """Exports to stdout by default."""
+        from zaira.export import export_command
+        from unittest.mock import patch
+        import argparse
+
+        mock_issue = MagicMock()
+        mock_issue.id = "12345"
+        mock_issue.key = "TEST-1"
+        mock_issue.fields.summary = "Test"
+        mock_issue.fields.description = None
+        mock_issue.fields.issuetype.name = "Bug"
+        mock_issue.fields.status.name = "Open"
+        mock_issue.fields.status.statusCategory.name = "To Do"
+        mock_issue.fields.priority.name = "High"
+        mock_issue.fields.assignee = None
+        mock_issue.fields.reporter = None
+        mock_issue.fields.created = "2024-01-01"
+        mock_issue.fields.updated = "2024-01-02"
+        mock_issue.fields.components = []
+        mock_issue.fields.labels = []
+        mock_issue.fields.parent = None
+        mock_issue.fields.issuelinks = []
+        mock_issue.fields.comment.comments = []
+
+        mock_jira.issue.return_value = mock_issue
+
+        args = argparse.Namespace(
+            tickets=["TEST-1"],
+            jql=None,
+            board=None,
+            sprint=None,
+            output=None,
+            format="md",
+            files=False,
+            with_prs=False,
+            all_fields=False,
+        )
+
+        with patch("zaira.export.get_jira_site", return_value="jira.example.com"):
+            export_command(args)
+
+        captured = capsys.readouterr()
+        assert "TEST-1" in captured.out
+
+    def test_exports_to_files(self, mock_jira, tmp_path, capsys):
+        """Exports to files when --files is set."""
+        from zaira.export import export_command
+        from unittest.mock import patch
+        import argparse
+
+        mock_issue = MagicMock()
+        mock_issue.id = "12345"
+        mock_issue.key = "TEST-1"
+        mock_issue.fields.summary = "File export"
+        mock_issue.fields.description = None
+        mock_issue.fields.issuetype.name = "Bug"
+        mock_issue.fields.status.name = "Open"
+        mock_issue.fields.status.statusCategory.name = "To Do"
+        mock_issue.fields.priority.name = "High"
+        mock_issue.fields.assignee = None
+        mock_issue.fields.reporter = None
+        mock_issue.fields.created = "2024-01-01"
+        mock_issue.fields.updated = "2024-01-02"
+        mock_issue.fields.components = []
+        mock_issue.fields.labels = []
+        mock_issue.fields.parent = None
+        mock_issue.fields.issuelinks = []
+        mock_issue.fields.attachment = []
+        mock_issue.fields.comment.comments = []
+
+        mock_jira.issue.return_value = mock_issue
+
+        args = argparse.Namespace(
+            tickets=["TEST-1"],
+            jql=None,
+            board=None,
+            sprint=None,
+            output=str(tmp_path),
+            format="md",
+            files=True,
+            with_prs=False,
+            all_fields=False,
+        )
+
+        with patch("zaira.export.get_jira_site", return_value="jira.example.com"):
+            export_command(args)
+
+        files = list(tmp_path.glob("TEST-1*.md"))
+        assert len(files) == 1
+
+    def test_searches_with_jql(self, mock_jira, capsys):
+        """Searches for tickets using JQL."""
+        from zaira.export import export_command
+        from unittest.mock import patch
+        import argparse
+
+        mock_issue1 = MagicMock()
+        mock_issue1.key = "TEST-1"
+
+        mock_issue2 = MagicMock()
+        mock_issue2.id = "12345"
+        mock_issue2.key = "TEST-1"
+        mock_issue2.fields.summary = "Found"
+        mock_issue2.fields.description = None
+        mock_issue2.fields.issuetype.name = "Bug"
+        mock_issue2.fields.status.name = "Open"
+        mock_issue2.fields.status.statusCategory.name = "To Do"
+        mock_issue2.fields.priority.name = "High"
+        mock_issue2.fields.assignee = None
+        mock_issue2.fields.reporter = None
+        mock_issue2.fields.created = "2024-01-01"
+        mock_issue2.fields.updated = "2024-01-02"
+        mock_issue2.fields.components = []
+        mock_issue2.fields.labels = []
+        mock_issue2.fields.parent = None
+        mock_issue2.fields.issuelinks = []
+        mock_issue2.fields.comment.comments = []
+
+        mock_jira.search_issues.return_value = [mock_issue1]
+        mock_jira.issue.return_value = mock_issue2
+
+        args = argparse.Namespace(
+            tickets=[],
+            jql="project = TEST",
+            board=None,
+            sprint=None,
+            output=None,
+            format="md",
+            files=False,
+            with_prs=False,
+            all_fields=False,
+        )
+
+        with patch("zaira.export.get_jira_site", return_value="jira.example.com"):
+            export_command(args)
+
+        captured = capsys.readouterr()
+        assert "TEST-1" in captured.out
+
+    def test_exits_when_no_tickets(self, mock_jira, capsys):
+        """Exits when no tickets specified or found."""
+        from zaira.export import export_command
+        import argparse
+
+        args = argparse.Namespace(
+            tickets=[],
+            jql=None,
+            board=None,
+            sprint=None,
+            output=None,
+            format="md",
+            files=False,
+            with_prs=False,
+            all_fields=False,
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            export_command(args)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "No tickets specified" in captured.out
+
+    def test_uses_board_jql(self, mock_jira, capsys):
+        """Uses board to generate JQL."""
+        from zaira.export import export_command
+        from unittest.mock import patch
+        import argparse
+
+        mock_issue1 = MagicMock()
+        mock_issue1.key = "TEST-1"
+
+        mock_issue2 = MagicMock()
+        mock_issue2.id = "12345"
+        mock_issue2.key = "TEST-1"
+        mock_issue2.fields.summary = "Board ticket"
+        mock_issue2.fields.description = None
+        mock_issue2.fields.issuetype.name = "Story"
+        mock_issue2.fields.status.name = "Open"
+        mock_issue2.fields.status.statusCategory.name = "To Do"
+        mock_issue2.fields.priority.name = "Medium"
+        mock_issue2.fields.assignee = None
+        mock_issue2.fields.reporter = None
+        mock_issue2.fields.created = "2024-01-01"
+        mock_issue2.fields.updated = "2024-01-02"
+        mock_issue2.fields.components = []
+        mock_issue2.fields.labels = []
+        mock_issue2.fields.parent = None
+        mock_issue2.fields.issuelinks = []
+        mock_issue2.fields.comment.comments = []
+
+        mock_jira.search_issues.return_value = [mock_issue1]
+        mock_jira.issue.return_value = mock_issue2
+
+        args = argparse.Namespace(
+            tickets=[],
+            jql=None,
+            board=123,
+            sprint=None,
+            output=None,
+            format="md",
+            files=False,
+            with_prs=False,
+            all_fields=False,
+        )
+
+        with (
+            patch("zaira.export.get_board_issues_jql", return_value="filter = 999"),
+            patch("zaira.export.get_jira_site", return_value="jira.example.com"),
+        ):
+            export_command(args)
+
+        captured = capsys.readouterr()
+        assert "TEST-1" in captured.out
+
+    def test_uses_sprint_jql(self, mock_jira, capsys):
+        """Uses sprint to generate JQL."""
+        from zaira.export import export_command
+        from unittest.mock import patch
+        import argparse
+
+        mock_issue1 = MagicMock()
+        mock_issue1.key = "TEST-1"
+
+        mock_issue2 = MagicMock()
+        mock_issue2.id = "12345"
+        mock_issue2.key = "TEST-1"
+        mock_issue2.fields.summary = "Sprint ticket"
+        mock_issue2.fields.description = None
+        mock_issue2.fields.issuetype.name = "Task"
+        mock_issue2.fields.status.name = "Done"
+        mock_issue2.fields.status.statusCategory.name = "Done"
+        mock_issue2.fields.priority.name = "Low"
+        mock_issue2.fields.assignee = None
+        mock_issue2.fields.reporter = None
+        mock_issue2.fields.created = "2024-01-01"
+        mock_issue2.fields.updated = "2024-01-02"
+        mock_issue2.fields.components = []
+        mock_issue2.fields.labels = []
+        mock_issue2.fields.parent = None
+        mock_issue2.fields.issuelinks = []
+        mock_issue2.fields.comment.comments = []
+
+        mock_jira.search_issues.return_value = [mock_issue1]
+        mock_jira.issue.return_value = mock_issue2
+
+        args = argparse.Namespace(
+            tickets=[],
+            jql=None,
+            board=None,
+            sprint=456,
+            output=None,
+            format="md",
+            files=False,
+            with_prs=False,
+            all_fields=False,
+        )
+
+        with (
+            patch("zaira.export.get_sprint_issues_jql", return_value="Sprint = 456"),
+            patch("zaira.export.get_jira_site", return_value="jira.example.com"),
+        ):
+            export_command(args)
+
+        captured = capsys.readouterr()
+        assert "TEST-1" in captured.out
