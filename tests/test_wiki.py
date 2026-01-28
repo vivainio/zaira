@@ -213,3 +213,82 @@ class TestParseFrontMatterRoundTrip:
         parsed_fm, parsed_body = parse_front_matter(written)
 
         assert parsed_fm["labels"] == ["a", "b"]
+
+
+class TestSlugifyEdgeCases:
+    """Additional edge cases for slugify function."""
+
+    def test_all_special_chars(self):
+        """Handles string of only special characters."""
+        result = slugify("!@#$%^&*()")
+        assert result == ""
+
+    def test_mixed_unicode_ascii(self):
+        """Handles mixed unicode and ASCII."""
+        result = slugify("Test Seite")
+        assert "test" in result
+        assert "seite" in result
+
+    def test_multiple_spaces_and_hyphens(self):
+        """Collapses multiple spaces and hyphens."""
+        assert slugify("a   -   b") == "a-b"
+        assert slugify("test--case") == "test-case"
+
+
+class TestParsePageIdEdgeCases:
+    """Additional edge cases for parse_page_id."""
+
+    def test_url_with_trailing_slash(self):
+        """Handles URL with trailing slash."""
+        url = "https://site.atlassian.net/wiki/spaces/SPACE/pages/123456/"
+        assert parse_page_id(url) == "123456"
+
+    def test_url_with_query_params(self):
+        """Handles URL with query parameters."""
+        url = "https://site.atlassian.net/wiki/spaces/SPACE/pages/123456?param=value"
+        assert parse_page_id(url) == "123456"
+
+    def test_url_must_have_lowercase_pages(self):
+        """URL must have lowercase /pages/ to match."""
+        # URL with uppercase Pages won't match the pattern
+        url = "https://SITE.atlassian.net/wiki/SPACES/TEST/Pages/999999/Title"
+        # Returns the input unchanged since pattern doesn't match
+        assert parse_page_id(url) == url
+
+        # Lowercase /pages/ works
+        url_lower = "https://site.atlassian.net/wiki/spaces/TEST/pages/888888/Title"
+        assert parse_page_id(url_lower) == "888888"
+
+
+class TestWriteFrontMatterEdgeCases:
+    """Additional edge cases for write_front_matter."""
+
+    def test_nested_dict_values(self):
+        """Handles nested dict values."""
+        fm = {"meta": {"key": "value"}}
+        body = "Content"
+
+        result = write_front_matter(fm, body)
+
+        assert "meta:" in result
+        assert "key:" in result
+
+    def test_numeric_values(self):
+        """Handles numeric values."""
+        fm = {"page_id": 12345, "version": 3.14}
+        body = "Content"
+
+        result = write_front_matter(fm, body)
+
+        assert "12345" in result
+        assert "3.14" in result
+
+    def test_boolean_values(self):
+        """Handles boolean values."""
+        fm = {"draft": True, "published": False}
+        body = "Content"
+
+        result = write_front_matter(fm, body)
+
+        assert "true" in result.lower()
+        assert "false" in result.lower()

@@ -1,6 +1,118 @@
 """Tests for markdown conversion utilities."""
 
-from zaira.mdconv import markdown_to_storage, storage_to_markdown
+from zaira.mdconv import (
+    markdown_to_storage,
+    storage_to_markdown,
+    extract_local_images,
+    convert_images_to_attachments,
+    convert_attachments_to_images,
+)
+
+
+class TestExtractLocalImages:
+    """Tests for extract_local_images function."""
+
+    def test_extracts_local_images(self):
+        """Extracts local image references."""
+        md = "![Alt text](./images/photo.png)\n![Another](path/to/image.jpg)"
+        result = extract_local_images(md)
+
+        assert len(result) == 2
+        assert ("Alt text", "./images/photo.png") in result
+        assert ("Another", "path/to/image.jpg") in result
+
+    def test_skips_http_urls(self):
+        """Skips HTTP/HTTPS URLs."""
+        md = "![Web](https://example.com/image.png)\n![Local](./local.png)"
+        result = extract_local_images(md)
+
+        assert len(result) == 1
+        assert ("Local", "./local.png") in result
+
+    def test_skips_protocol_relative_urls(self):
+        """Skips protocol-relative URLs."""
+        md = "![Image](//cdn.example.com/img.png)"
+        result = extract_local_images(md)
+
+        assert len(result) == 0
+
+    def test_handles_empty_alt_text(self):
+        """Handles images with empty alt text."""
+        md = "![](image.png)"
+        result = extract_local_images(md)
+
+        assert result == [("", "image.png")]
+
+    def test_no_images(self):
+        """Returns empty list when no images."""
+        md = "Just text, no images"
+        result = extract_local_images(md)
+
+        assert result == []
+
+
+class TestConvertImagesToAttachments:
+    """Tests for convert_images_to_attachments function."""
+
+    def test_converts_local_images(self):
+        """Converts local image paths to attachment references."""
+        md = "![Alt](./images/photo.png)"
+        result = convert_images_to_attachments(md)
+
+        assert result == "![Alt](attachment:photo.png)"
+
+    def test_preserves_urls(self):
+        """Preserves HTTP/HTTPS URLs."""
+        md = "![Web](https://example.com/image.png)"
+        result = convert_images_to_attachments(md)
+
+        assert result == md
+
+    def test_preserves_protocol_relative_urls(self):
+        """Preserves protocol-relative URLs."""
+        md = "![Img](//cdn.example.com/img.png)"
+        result = convert_images_to_attachments(md)
+
+        assert result == md
+
+    def test_handles_nested_paths(self):
+        """Extracts just filename from nested paths."""
+        md = "![Img](path/to/deep/image.png)"
+        result = convert_images_to_attachments(md)
+
+        assert result == "![Img](attachment:image.png)"
+
+
+class TestConvertAttachmentsToImages:
+    """Tests for convert_attachments_to_images function."""
+
+    def test_converts_attachment_references(self):
+        """Converts attachment references to local paths."""
+        md = "![Alt](attachment:photo.png)"
+        result = convert_attachments_to_images(md)
+
+        assert result == "![Alt](./images/photo.png)"
+
+    def test_custom_image_dir(self):
+        """Uses custom image directory."""
+        md = "![Alt](attachment:photo.png)"
+        result = convert_attachments_to_images(md, image_dir="./assets")
+
+        assert result == "![Alt](./assets/photo.png)"
+
+    def test_preserves_non_attachment_refs(self):
+        """Preserves non-attachment image references."""
+        md = "![Alt](./local/image.png)"
+        result = convert_attachments_to_images(md)
+
+        assert result == md
+
+    def test_preserves_urls(self):
+        """Preserves HTTP URLs."""
+        md = "![Web](https://example.com/img.png)"
+        result = convert_attachments_to_images(md)
+
+        assert result == md
 
 
 class TestMarkdownToStorage:
