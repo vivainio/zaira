@@ -1,8 +1,9 @@
 """Tests for refresh module."""
 
+import argparse
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -220,3 +221,173 @@ synced: 2024-01-15T10:00:00
 """)
         result = ticket_needs_export(ticket_file, "invalid-date")
         assert result is True
+
+
+class TestRefreshCommand:
+    """Tests for refresh_command function."""
+
+    def test_exits_when_report_not_found(self, tmp_path, capsys):
+        """Exits with error when report file doesn't exist."""
+        from zaira.refresh import refresh_command
+
+        args = argparse.Namespace(report="nonexistent.md", full=False, force=False)
+
+        with patch("zaira.refresh.REPORTS_DIR", tmp_path / "reports"):
+            with pytest.raises(SystemExit) as exc_info:
+                refresh_command(args)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Report not found" in captured.out
+
+    def test_exits_when_no_front_matter(self, tmp_path, capsys):
+        """Exits with error when report has no front matter."""
+        from zaira.refresh import refresh_command
+
+        report = tmp_path / "report.md"
+        report.write_text("# Report\n\nNo front matter here.")
+
+        args = argparse.Namespace(report=str(report), full=False, force=False)
+
+        with pytest.raises(SystemExit) as exc_info:
+            refresh_command(args)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "No front matter found" in captured.out
+
+    def test_exits_when_no_refresh_command(self, tmp_path, capsys):
+        """Exits with error when no refresh command in front matter."""
+        from zaira.refresh import refresh_command
+
+        report = tmp_path / "report.md"
+        report.write_text("""---
+title: My Report
+---
+
+Report content.
+""")
+
+        args = argparse.Namespace(report=str(report), full=False, force=False)
+
+        with pytest.raises(SystemExit) as exc_info:
+            refresh_command(args)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "No refresh command" in captured.out
+
+    def test_finds_report_in_reports_dir(self, tmp_path, capsys):
+        """Finds report in reports directory when not found directly."""
+        from zaira.refresh import refresh_command
+
+        reports_dir = tmp_path / "reports"
+        reports_dir.mkdir()
+        report = reports_dir / "myreport.md"
+        report.write_text("""---
+refresh: zaira report --jql "project = TEST"
+---
+
+Report content.
+""")
+
+        args = argparse.Namespace(report="myreport.md", full=False, force=False)
+
+        # Mock subprocess to prevent actual command execution
+        with patch("zaira.refresh.REPORTS_DIR", reports_dir):
+            with patch("zaira.refresh.subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(returncode=0)
+                refresh_command(args)
+
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args[0][0]
+        assert "zaira" in call_args
+        assert "report" in call_args
+
+    def test_finds_report_with_md_extension(self, tmp_path, capsys):
+        """Finds report when .md extension is added."""
+        from zaira.refresh import refresh_command
+
+        reports_dir = tmp_path / "reports"
+        reports_dir.mkdir()
+        report = reports_dir / "myreport.md"
+        report.write_text("""---
+refresh: zaira report --jql "project = TEST"
+---
+
+Content.
+""")
+
+        args = argparse.Namespace(report="myreport", full=False, force=False)
+
+        with patch("zaira.refresh.REPORTS_DIR", reports_dir):
+            with patch("zaira.refresh.subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(returncode=0)
+                refresh_command(args)
+
+        mock_run.assert_called_once()
+
+    def test_exits_on_subprocess_failure(self, tmp_path, capsys):
+        """Exits with subprocess return code on failure."""
+        from zaira.refresh import refresh_command
+
+        report = tmp_path / "report.md"
+        report.write_text("""---
+refresh: zaira report --jql "project = TEST"
+---
+
+Content.
+""")
+
+        args = argparse.Namespace(report=str(report), full=False, force=False)
+
+        with patch("zaira.refresh.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=2)
+            with pytest.raises(SystemExit) as exc_info:
+                refresh_command(args)
+
+        assert exc_info.value.code == 2
+
+    def test_exits_on_invalid_refresh_command(self, tmp_path, capsys):
+        """Exits with error when refresh command can't be parsed."""
+        from zaira.refresh import refresh_command
+
+        report = tmp_path / "report.md"
+        # Unterminated quote makes shlex.split fail
+        report.write_text("""---
+refresh: zaira report --jql "unterminated
+---
+
+Content.
+""")
+
+        args = argparse.Namespace(report=str(report), full=False, force=False)
+
+        with pytest.raises(SystemExit) as exc_info:
+            refresh_command(args)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Could not parse refresh command" in captured.out
+
+    def test_adds_output_path_to_command(self, tmp_path, capsys):
+        """Adds -o flag with report path to refresh command."""
+        from zaira.refresh import refresh_command
+
+        report = tmp_path / "report.md"
+        report.write_text("""---
+refresh: zaira report --jql "project = TEST"
+---
+
+Content.
+""")
+
+        args = argparse.Namespace(report=str(report), full=False, force=False)
+
+        with patch("zaira.refresh.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            refresh_command(args)
+
+        call_args = mock_run.call_args[0][0]
+        assert "-o" in call_args
+        assert str(report) in call_args

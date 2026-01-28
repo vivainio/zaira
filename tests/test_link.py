@@ -1,10 +1,11 @@
 """Tests for link module."""
 
-from unittest.mock import MagicMock
+import argparse
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from zaira.link import get_link_types, create_link
+from zaira.link import get_link_types, create_link, link_command
 
 
 class TestGetLinkTypes:
@@ -60,3 +61,52 @@ class TestCreateLink:
         assert "Unknown link type" in captured.err
         assert "Valid link types:" in captured.err
         assert "Blocks" in captured.err
+
+
+class TestLinkCommand:
+    """Tests for link_command function."""
+
+    def test_creates_link_successfully(self, mock_jira, capsys):
+        """Creates link and shows success message."""
+        args = argparse.Namespace(
+            from_key="test-1",
+            to_key="test-2",
+            type="Blocks",
+        )
+
+        with patch("zaira.link.get_jira_site", return_value="jira.example.com"):
+            link_command(args)
+
+        captured = capsys.readouterr()
+        assert "Linking TEST-1 --[Blocks]--> TEST-2" in captured.out
+        assert "Link created: TEST-1 Blocks TEST-2" in captured.out
+        assert "jira.example.com" in captured.out
+
+    def test_exits_on_failure(self, mock_jira, capsys):
+        """Exits with error when link creation fails."""
+        mock_jira.create_issue_link.side_effect = Exception("API Error")
+
+        args = argparse.Namespace(
+            from_key="test-1",
+            to_key="test-2",
+            type="Blocks",
+        )
+
+        with patch("zaira.link.get_jira_site", return_value="jira.example.com"):
+            with pytest.raises(SystemExit) as exc_info:
+                link_command(args)
+
+        assert exc_info.value.code == 1
+
+    def test_uppercases_ticket_keys(self, mock_jira, capsys):
+        """Converts ticket keys to uppercase."""
+        args = argparse.Namespace(
+            from_key="test-1",
+            to_key="proj-2",
+            type="Relates",
+        )
+
+        with patch("zaira.link.get_jira_site", return_value="jira.example.com"):
+            link_command(args)
+
+        mock_jira.create_issue_link.assert_called_once_with("Relates", "TEST-1", "PROJ-2")
