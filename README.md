@@ -36,16 +36,16 @@ api_token = "your-api-token"
 
 Get your API token from: https://id.atlassian.com/manage-profile/security/api-tokens
 
-### 2. Initialize project
+### 2. Initialize project (optional, for project managers)
 
-After configuring credentials, initialize with your Jira project key(s):
+For advanced workflows with named queries, report templates, and board aliases, generate `zproject.toml`:
 
 ```bash
-zaira init FOO              # Single project
-zaira init FOO BAR          # Multiple projects
+zaira init-project FOO              # Single project
+zaira init-project FOO BAR          # Multiple projects
 ```
 
-This discovers each project's components, labels, and boards, then generates `zproject.toml` with named queries and reports.
+This discovers each project's components, labels, and boards, then generates `zproject.toml` with named queries and reports. This is intended for project managers and power users who need repeatable reports and batch operations. Most commands work without this file.
 
 ## Commands
 
@@ -394,9 +394,9 @@ zaira info --save
 
 Instance schema is cached at `~/.cache/zaira/zschema_PROFILE.json` and project schemas at `~/.cache/zaira/zproject_PROFILE_PROJECT.json`.
 
-## Project Configuration
+## Project Configuration (for project managers)
 
-The `zproject.toml` file stores project-specific settings. After running `zaira init`, you're encouraged to edit this file to rename reports, add custom queries, and organize boards to match your workflow:
+The `zproject.toml` file stores project-specific settings for project managers and power users. After running `zaira init-project`, you can edit this file to rename reports, add custom queries, and organize boards to match your workflow:
 
 ```toml
 [project]
@@ -507,7 +507,7 @@ ps["components"]  # ['Backend', 'Frontend', ...]
 ps["labels"]      # ['bug', 'feature', ...]
 ```
 
-The client uses credentials from `~/.config/zaira/credentials.toml`. Schema functions return cached data populated by `zaira init`.
+The client uses credentials from `~/.config/zaira/credentials.toml`. Schema functions return cached data populated by `zaira init-project` or `zaira info --save`.
 
 ## License
 

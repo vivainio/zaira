@@ -33,7 +33,7 @@ from zaira.info import (
     components_command,
     labels_command,
 )
-from zaira.init import init_command
+from zaira.init import init_command, init_project_command
 from zaira.my import my_command
 from zaira.report import report_command
 from zaira.refresh import refresh_command
@@ -273,28 +273,35 @@ def main() -> None:
     )
     refresh_parser.set_defaults(func=refresh_command)
 
-    # Init command
+    # Init command - credentials only
     init_parser = subparsers.add_parser(
         "init",
-        help="Initialize project configuration",
+        help="Setup Jira credentials",
     )
-    init_parser.add_argument(
+    init_parser.set_defaults(func=init_command)
+
+    # Init-project command - generate zproject.toml
+    init_project_parser = subparsers.add_parser(
+        "init-project",
+        help="Generate zproject.toml with discovered boards, queries, reports",
+    )
+    init_project_parser.add_argument(
         "projects",
         nargs="*",
         help="Project keys (e.g., FOO BAR)",
     )
-    init_parser.add_argument(
+    init_project_parser.add_argument(
         "-s",
         "--site",
         help="Jira site (e.g., company.atlassian.net)",
     )
-    init_parser.add_argument(
+    init_project_parser.add_argument(
         "-f",
         "--force",
         action="store_true",
-        help="Overwrite existing project.toml",
+        help="Overwrite existing zproject.toml",
     )
-    init_parser.set_defaults(func=init_command)
+    init_project_parser.set_defaults(func=init_project_command)
 
     # My command
     my_parser = subparsers.add_parser(

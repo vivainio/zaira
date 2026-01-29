@@ -178,12 +178,23 @@ api_token = "your-api-token"
 
 
 def init_command(args: argparse.Namespace) -> None:
-    """Handle init subcommand."""
+    """Handle init subcommand - credentials setup only."""
+    if check_credentials():
+        print("Credentials configured.")
+        print(f"  Site: {get_jira_site()}")
+        print(f"  Credentials: {CREDENTIALS_FILE}")
+    else:
+        setup_credentials()
+        sys.exit(1)
+
+
+def init_project_command(args: argparse.Namespace) -> None:
+    """Handle init-project subcommand - generate zproject.toml."""
     config_path = Path("zproject.toml")
 
     # Check credentials first
     if not check_credentials():
-        setup_credentials()
+        print("Error: credentials not configured. Run 'zaira init' first.")
         sys.exit(1)
 
     if config_path.exists() and not args.force:
@@ -195,7 +206,7 @@ def init_command(args: argparse.Namespace) -> None:
 
     if not projects:
         print("Error: at least one project is required")
-        print("Usage: zaira init PROJECT [PROJECT ...]")
+        print("Usage: zaira init-project PROJECT [PROJECT ...]")
         sys.exit(1)
 
     # Discover metadata for all projects
