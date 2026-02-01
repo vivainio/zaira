@@ -265,6 +265,37 @@ zaira link FOO-1234 FOO-5678 --type Blocks
 zaira link FOO-1234 FOO-5678 -t Duplicates
 ```
 
+### attach
+
+Upload attachments to a ticket:
+
+```bash
+zaira attach FOO-1234 screenshot.png
+zaira attach FOO-1234 *.png doc.pdf       # Multiple files
+```
+
+### dashboards
+
+List available Jira dashboards:
+
+```bash
+zaira dashboards
+zaira dashboards --mine              # Only your dashboards
+zaira dashboards --filter "sprint"   # Filter by name
+zaira dashboards --limit 100         # Max results (default: 50)
+```
+
+### dashboard
+
+Export a specific dashboard:
+
+```bash
+zaira dashboard 16148
+zaira dashboard "https://company.atlassian.net/jira/dashboards/16148"
+zaira dashboard 16148 --format json
+zaira dashboard 16148 -o dashboard.md
+```
+
 ### wiki
 
 Access Confluence pages using the same credentials:
@@ -289,15 +320,19 @@ zaira wiki get 123 --list
 zaira wiki search "search terms"
 zaira wiki search "docs" --space TEAM     # Filter by space
 zaira wiki search --creator "John Doe"    # Filter by creator
+zaira wiki search "api" --limit 50        # Limit results (default: 25)
 zaira wiki search "api" --format url      # Output just URLs
+zaira wiki search "api" --format json     # Full JSON response
 
 # Create page from markdown
 zaira wiki create -s SPACE -t "Page Title" -m -b page.md
 zaira wiki create -s SPACE -t "Title" -m -b -   # From stdin
+zaira wiki create -t "Child Page" -p 123 -m -b page.md  # Under parent (space inferred)
 
 # Upload attachments
 zaira wiki attach 123456 image.png                        # Single file
 zaira wiki attach 123456 *.png                            # Glob pattern
+zaira wiki attach 123456 image.png --replace              # Replace if exists
 
 # Delete page
 zaira wiki delete 123456              # Prompts for confirmation
