@@ -11,6 +11,7 @@ from zaira.create import create_command
 from zaira.dashboard import dashboard_command, dashboards_command
 from zaira.edit import edit_command
 from zaira.export import export_command
+from zaira.hours import hours_command
 from zaira.link import link_command
 from zaira.transition import transition_command
 from zaira.worklog import log_command
@@ -363,6 +364,46 @@ def main() -> None:
         help="List existing worklogs",
     )
     log_parser.set_defaults(func=log_command)
+
+    # Hours command
+    hours_parser = subparsers.add_parser(
+        "hours",
+        help="Show logged hours across tickets",
+    )
+    hours_parser.add_argument(
+        "tickets",
+        nargs="*",
+        help="Ticket keys to query (shows hours by person). Omit for personal timesheet.",
+    )
+    hours_parser.add_argument(
+        "--from",
+        dest="date_from",
+        help="Start date (YYYY-MM-DD)",
+    )
+    hours_parser.add_argument(
+        "--to",
+        dest="date_to",
+        help="End date (YYYY-MM-DD)",
+    )
+    hours_parser.add_argument(
+        "-d",
+        "--days",
+        type=int,
+        help="Number of days to look back (default: 7)",
+    )
+    hours_parser.add_argument(
+        "-s",
+        "--summary",
+        action="store_true",
+        help="Show only ticket totals (no daily breakdown)",
+    )
+    hours_parser.add_argument(
+        "--format",
+        choices=["default", "csv"],
+        default="default",
+        help="Output format (csv only for ticket mode)",
+    )
+    hours_parser.set_defaults(func=hours_command)
 
     # Attach command
     attach_parser = subparsers.add_parser(

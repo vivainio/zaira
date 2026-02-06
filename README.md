@@ -288,6 +288,32 @@ zaira log FOO-1234 --list
 
 Time formats: `30m` (minutes), `2h` (hours), `1d` (day = 8h), `1w` (week = 40h), or compound like `1h 30m`. The `--list` flag shows all worklogs with author, date, and a total.
 
+### hours
+
+Show logged hours across all tickets for a time period:
+
+```bash
+# Last 7 days (default)
+zaira hours
+
+# Last 14 days
+zaira hours --days 14
+
+# Custom date range
+zaira hours --from 2026-01-20 --to 2026-01-24
+
+# Ticket totals only (no daily breakdown)
+zaira hours --summary
+
+# Hours by person on specific tickets
+zaira hours FOO-123 FOO-456
+
+# Combine ticket mode with date filtering
+zaira hours FOO-123 --from 2026-01-01 --to 2026-01-31
+```
+
+Without ticket keys, shows your personal timesheet with daily breakdown. With ticket keys, shows hours split by person per ticket.
+
 ### attach
 
 Upload attachments to a ticket:
