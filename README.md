@@ -265,6 +265,29 @@ zaira link FOO-1234 FOO-5678 --type Blocks
 zaira link FOO-1234 FOO-5678 -t Duplicates
 ```
 
+### log
+
+Log work hours to a ticket:
+
+```bash
+# Log time
+zaira log FOO-1234 2h
+zaira log FOO-1234 30m
+zaira log FOO-1234 "1h 30m"
+
+# Log with comment
+zaira log FOO-1234 2h --comment "Code review"
+zaira log FOO-1234 1h -c "Sprint planning"
+
+# Log to a specific date
+zaira log FOO-1234 3h --date 2026-02-05
+
+# List existing worklogs
+zaira log FOO-1234 --list
+```
+
+Time formats: `30m` (minutes), `2h` (hours), `1d` (day = 8h), `1w` (week = 40h), or compound like `1h 30m`. The `--list` flag shows all worklogs with author, date, and a total.
+
 ### attach
 
 Upload attachments to a ticket:
