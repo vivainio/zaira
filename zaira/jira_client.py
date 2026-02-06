@@ -14,6 +14,7 @@ from zaira.types import Credentials
 CONFIG_DIR = Path(user_config_dir("zaira"))
 CACHE_DIR = Path(user_cache_dir("zaira"))
 CREDENTIALS_FILE = CONFIG_DIR / "credentials.toml"
+CONFIG_FILE = CONFIG_DIR / "config.toml"
 
 
 def get_profile() -> str:

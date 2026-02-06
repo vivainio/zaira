@@ -53,3 +53,16 @@ def list_reports() -> dict[str, dict]:
     """List all named reports."""
     config = load_config()
     return config.get("reports", {})
+
+
+def get_max_hours_per_day() -> float:
+    """Get max hours per day from ~/.config/zaira/config.toml, default 7.5."""
+    from zaira.jira_client import CONFIG_FILE
+
+    if CONFIG_FILE.exists():
+        with open(CONFIG_FILE, "rb") as f:
+            config = tomllib.load(f)
+        value = config.get("worklog", {}).get("max_hours_per_day")
+        if value is not None:
+            return float(value)
+    return 7.5

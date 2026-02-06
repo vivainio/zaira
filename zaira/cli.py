@@ -363,6 +363,21 @@ def main() -> None:
         action="store_true",
         help="List existing worklogs",
     )
+    log_parser.add_argument(
+        "--spread",
+        help="Spread hours across days: '5d' (last 5 workdays) or 'YYYY-MM-DD,YYYY-MM-DD' (date range)",
+    )
+    log_parser.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        help="Skip confirmation prompt (for --spread)",
+    )
+    log_parser.add_argument(
+        "--include-weekends",
+        action="store_true",
+        help="Include weekends when spreading hours",
+    )
     log_parser.set_defaults(func=log_command)
 
     # Hours command

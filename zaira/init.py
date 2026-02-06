@@ -7,6 +7,7 @@ from pathlib import Path
 
 from zaira.jira_client import (
     CACHE_DIR,
+    CONFIG_FILE,
     CREDENTIALS_FILE,
     get_jira,
     get_jira_site,
@@ -141,6 +142,20 @@ def check_credentials() -> bool:
     return bool(creds.get("site") and creds.get("email") and creds.get("api_token"))
 
 
+def _create_config_file() -> None:
+    """Create config.toml with defaults if it doesn't exist."""
+    if CONFIG_FILE.exists():
+        return
+    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    template = """# Zaira configuration
+
+[worklog]
+# Max hours per day for 'zaira log --spread'
+max_hours_per_day = 7.5
+"""
+    CONFIG_FILE.write_text(template)
+
+
 def setup_credentials() -> None:
     """Create or prompt to edit credentials file."""
     if CREDENTIALS_FILE.exists():
@@ -166,6 +181,8 @@ api_token = "your-api-token"
         CREDENTIALS_FILE.write_text(template)
         CREDENTIALS_FILE.chmod(0o600)
 
+        _create_config_file()
+
         print(f"Created {CREDENTIALS_FILE}\n")
         print("Please edit this file with your Jira credentials:")
         print("  1. Set your Jira site (e.g., company.atlassian.net)")
@@ -180,9 +197,11 @@ api_token = "your-api-token"
 def init_command(args: argparse.Namespace) -> None:
     """Handle init subcommand - credentials setup only."""
     if check_credentials():
+        _create_config_file()
         print("Credentials configured.")
         print(f"  Site: {get_jira_site()}")
         print(f"  Credentials: {CREDENTIALS_FILE}")
+        print(f"  Config: {CONFIG_FILE}")
     else:
         setup_credentials()
         sys.exit(1)
