@@ -36,6 +36,16 @@ class Comment:
 
 
 @dataclass
+class Worklog:
+    """Jira worklog entry."""
+
+    author: str
+    time_spent: str
+    started: str
+    comment: str | None
+
+
+@dataclass
 class Dashboard:
     """Jira dashboard information."""
 

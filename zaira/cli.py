@@ -13,6 +13,7 @@ from zaira.edit import edit_command
 from zaira.export import export_command
 from zaira.link import link_command
 from zaira.transition import transition_command
+from zaira.worklog import log_command
 from zaira.wiki import (
     wiki_command,
     get_command as wiki_get_command,
@@ -330,6 +331,38 @@ def main() -> None:
         help="Comment text (use '-' to read from stdin)",
     )
     comment_parser.set_defaults(func=comment_command)
+
+    # Log (worklog) command
+    log_parser = subparsers.add_parser(
+        "log",
+        help="Log work hours to a ticket",
+    )
+    log_parser.add_argument(
+        "key",
+        help="Ticket key (e.g., PROJ-123)",
+    )
+    log_parser.add_argument(
+        "time",
+        nargs="?",
+        help="Time spent (e.g., 2h, 30m, 1d, '1h 30m')",
+    )
+    log_parser.add_argument(
+        "-c",
+        "--comment",
+        help="Worklog comment",
+    )
+    log_parser.add_argument(
+        "-d",
+        "--date",
+        help="Start date (YYYY-MM-DD, default: today)",
+    )
+    log_parser.add_argument(
+        "-l",
+        "--list",
+        action="store_true",
+        help="List existing worklogs",
+    )
+    log_parser.set_defaults(func=log_command)
 
     # Attach command
     attach_parser = subparsers.add_parser(

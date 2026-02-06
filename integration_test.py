@@ -212,6 +212,18 @@ def test_info():
         run(f"info {subcmd}", check=False)
 
 
+def test_worklog(key: str):
+    """Log work and verify with --list."""
+    print("\n=== Log work ===")
+    run(f'log {key} 1h -c "Integration test work"')
+    run(f'log {key} 30m -d 2026-02-01')
+
+    print("\n=== List worklogs ===")
+    result = run(f"log {key} --list")
+    assert "1h" in result.stdout, "Worklog 1h not in listing"
+    assert "30m" in result.stdout or "30" in result.stdout, "Worklog 30m not in listing"
+
+
 def test_edit_multiple(key: str):
     """Test editing multiple fields."""
     print("\n=== Edit multiple fields ===")
@@ -299,6 +311,7 @@ def main():
 
         test_export_formats(key1)
         test_export_jql(key1)
+        test_worklog(key1)
         test_my()
         test_info()
         test_edit_multiple(key1)
