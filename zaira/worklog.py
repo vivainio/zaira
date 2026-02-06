@@ -376,7 +376,7 @@ def log_command(args: argparse.Namespace) -> None:
 
         yes = getattr(args, "yes", False)
         if not yes:
-            print("Run again with --yes to confirm.")
+            print("This is a preview. Run again with --yes to confirm.")
             return
 
         comment = getattr(args, "comment", None)

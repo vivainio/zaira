@@ -511,7 +511,8 @@ class TestLogCommandSpread:
 
         captured = capsys.readouterr()
         assert "Spreading 8h across 5 workdays" in captured.out
-        assert "Run again with --yes" in captured.out
+        assert "preview" in captured.out.lower()
+        assert "--yes" in captured.out
         mock_jira.add_worklog.assert_not_called()
 
     def test_spread_yes_skips_prompt(self, mock_jira, capsys):
