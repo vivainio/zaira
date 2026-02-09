@@ -48,7 +48,7 @@ class TestTransitionTicket:
         result = transition_ticket("TEST-123", "Start Progress")
 
         assert result is True
-        mock_jira.transition_issue.assert_called_once_with("TEST-123", "1")
+        mock_jira.transition_issue.assert_called_once_with("TEST-123", "1", fields={})
 
     def test_transitions_by_target_status(self, mock_jira):
         """Transitions ticket by target status name."""
@@ -59,7 +59,7 @@ class TestTransitionTicket:
         result = transition_ticket("TEST-123", "In Progress")
 
         assert result is True
-        mock_jira.transition_issue.assert_called_once_with("TEST-123", "1")
+        mock_jira.transition_issue.assert_called_once_with("TEST-123", "1", fields={})
 
     def test_case_insensitive_match(self, mock_jira):
         """Matches status case-insensitively."""
@@ -85,6 +85,20 @@ class TestTransitionTicket:
         assert "Available transitions:" in captured.err
         assert "Start → In Progress" in captured.err
 
+    def test_passes_fields_to_api(self, mock_jira):
+        """Passes fields dict to transition_issue."""
+        mock_jira.transitions.return_value = [
+            {"id": "2", "name": "Done", "to": {"name": "Done"}},
+        ]
+        fields = {"resolution": {"name": "Done"}}
+
+        result = transition_ticket("TEST-123", "Done", fields=fields)
+
+        assert result is True
+        mock_jira.transition_issue.assert_called_once_with(
+            "TEST-123", "2", fields={"resolution": {"name": "Done"}}
+        )
+
     def test_returns_false_on_api_error(self, mock_jira, capsys):
         """Returns False on API error."""
         mock_jira.transitions.return_value = [
@@ -109,7 +123,7 @@ class TestTransitionCommand:
             {"id": "2", "name": "Resolve", "to": {"name": "Done"}},
         ]
 
-        args = argparse.Namespace(key="test-123", list=True, status=None)
+        args = argparse.Namespace(key="test-123", list=True, status=None, field=None)
 
         with patch("zaira.transition.get_jira_site", return_value="jira.example.com"):
             transition_command(args)
@@ -121,7 +135,7 @@ class TestTransitionCommand:
 
     def test_exits_when_no_status_and_no_list(self, capsys):
         """Exits with error when neither status nor --list provided."""
-        args = argparse.Namespace(key="test-123", list=False, status=None)
+        args = argparse.Namespace(key="test-123", list=False, status=None, field=None)
 
         with patch("zaira.transition.get_jira_site", return_value="jira.example.com"):
             with pytest.raises(SystemExit) as exc_info:
@@ -137,7 +151,7 @@ class TestTransitionCommand:
             {"id": "1", "name": "Done", "to": {"name": "Done"}},
         ]
 
-        args = argparse.Namespace(key="test-123", list=False, status="Done")
+        args = argparse.Namespace(key="test-123", list=False, status="Done", field=None)
 
         with patch("zaira.transition.get_jira_site", return_value="jira.example.com"):
             transition_command(args)
@@ -152,7 +166,7 @@ class TestTransitionCommand:
             {"id": "1", "name": "Start", "to": {"name": "In Progress"}},
         ]
 
-        args = argparse.Namespace(key="test-123", list=False, status="Invalid")
+        args = argparse.Namespace(key="test-123", list=False, status="Invalid", field=None)
 
         with patch("zaira.transition.get_jira_site", return_value="jira.example.com"):
             with pytest.raises(SystemExit) as exc_info:
@@ -160,13 +174,33 @@ class TestTransitionCommand:
 
         assert exc_info.value.code == 1
 
+    def test_transitions_with_fields(self, mock_jira, capsys):
+        """Passes --field args to transition."""
+        mock_jira.transitions.return_value = [
+            {"id": "2", "name": "Done", "to": {"name": "Done"}},
+        ]
+
+        args = argparse.Namespace(
+            key="test-123", list=False, status="Done",
+            field=["Resolution=Done"],
+        )
+
+        with patch("zaira.transition.get_jira_site", return_value="jira.example.com"):
+            transition_command(args)
+
+        captured = capsys.readouterr()
+        assert "Transitioned TEST-123" in captured.out
+        # Verify fields were passed (resolution is a system type → {"name": ...})
+        call_args = mock_jira.transition_issue.call_args
+        assert call_args[1]["fields"]["resolution"] == {"name": "Done"}
+
     def test_uppercases_ticket_key(self, mock_jira, capsys):
         """Converts ticket key to uppercase."""
         mock_jira.transitions.return_value = [
             {"id": "1", "name": "Done", "to": {"name": "Done"}},
         ]
 
-        args = argparse.Namespace(key="test-123", list=False, status="Done")
+        args = argparse.Namespace(key="test-123", list=False, status="Done", field=None)
 
         with patch("zaira.transition.get_jira_site", return_value="jira.example.com"):
             transition_command(args)

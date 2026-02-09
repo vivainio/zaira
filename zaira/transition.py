@@ -2,6 +2,7 @@
 
 import argparse
 import sys
+from typing import Any
 
 from zaira.jira_client import get_jira, get_jira_site
 
@@ -16,12 +17,15 @@ def get_transitions(key: str) -> list[dict]:
         return []
 
 
-def transition_ticket(key: str, status: str) -> bool:
+def transition_ticket(
+    key: str, status: str, fields: dict[str, Any] | None = None
+) -> bool:
     """Transition a ticket to a new status.
 
     Args:
         key: Ticket key (e.g., PROJ-123)
         status: Target status name or transition name
+        fields: Optional dict of field_id -> value to set during transition
 
     Returns:
         True if successful, False otherwise
@@ -48,7 +52,7 @@ def transition_ticket(key: str, status: str) -> bool:
                 print(f"  - {t['name']} → {t['to']['name']}", file=sys.stderr)
             return False
 
-        jira.transition_issue(key, match["id"])
+        jira.transition_issue(key, match["id"], fields=fields or {})
         return True
     except Exception as e:
         print(f"Error transitioning {key}: {e}", file=sys.stderr)
@@ -74,7 +78,15 @@ def transition_command(args: argparse.Namespace) -> None:
 
     status = args.status
 
-    if transition_ticket(key, status):
+    # Parse --field arguments
+    fields = {}
+    field_args = getattr(args, "field", None) or []
+    if field_args:
+        from zaira.edit import parse_field_args
+
+        fields = parse_field_args(field_args)
+
+    if transition_ticket(key, status, fields=fields):
         print(f"Transitioned {key}")
         print(f"View at: https://{jira_site}/browse/{key}")
     else:

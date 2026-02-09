@@ -556,6 +556,13 @@ def main() -> None:
         action="store_true",
         help="List available transitions",
     )
+    transition_parser.add_argument(
+        "-F",
+        "--field",
+        action="append",
+        metavar="NAME=VALUE",
+        help="Set field value during transition (repeatable). E.g., Resolution=Done",
+    )
     transition_parser.set_defaults(func=transition_command)
 
     # Info command with subcommands
