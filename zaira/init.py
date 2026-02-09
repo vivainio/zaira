@@ -69,7 +69,6 @@ def slugify(name: str) -> str:
 
 def generate_config(
     projects: list[str],
-    site: str,
     all_boards: dict[str, list[dict]],
     all_components: dict[str, list[str]],
 ) -> str:
@@ -77,11 +76,10 @@ def generate_config(
 
     Args:
         projects: List of project keys
-        site: Jira site URL
         all_boards: Dict mapping project key to list of boards
         all_components: Dict mapping project key to list of components
     """
-    lines = ["[project]", f'site = "{site}"', ""]
+    lines = []
 
     # Boards - collect from all projects
     lines.append("[boards]")
@@ -221,7 +219,6 @@ def init_project_command(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     projects = args.projects
-    site = args.site or get_jira_site()
 
     if not projects:
         print("Error: at least one project is required")
@@ -251,7 +248,7 @@ def init_project_command(args: argparse.Namespace) -> None:
         all_boards[project] = boards
         print(f"    Found {len(boards)} boards")
 
-    content = generate_config(projects, site, all_boards, all_components)
+    content = generate_config(projects, all_boards, all_components)
     config_path.write_text(content)
     print(f"\nCreated {config_path}\n")
 

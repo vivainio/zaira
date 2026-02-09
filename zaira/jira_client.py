@@ -44,15 +44,9 @@ def get_project_schema_path(project: str, profile: str | None = None) -> Path:
 
 
 def get_server_from_config() -> str | None:
-    """Get Jira server URL from credentials or zproject.toml."""
-    # First check credentials file
+    """Get Jira server URL from credentials."""
     creds = load_credentials()
     site = creds.get("site")
-
-    # Fall back to zproject.toml
-    if not site:
-        config = load_config()
-        site = config.get("project", {}).get("site")
 
     if site:
         if not site.startswith("https://"):
@@ -152,13 +146,6 @@ def get_server_url() -> str:
 
 def get_jira_site() -> str:
     """Get Jira site name (without https://)."""
-    # First check credentials file
     creds = load_credentials()
     site = creds.get("site", "")
-
-    # Fall back to zproject.toml
-    if not site:
-        config = load_config()
-        site = config.get("project", {}).get("site", "")
-
     return site.replace("https://", "").replace("http://", "")

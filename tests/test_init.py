@@ -40,13 +40,11 @@ class TestGenerateConfig:
         """Generates basic config structure."""
         result = generate_config(
             projects=["TEST"],
-            site="example.atlassian.net",
             all_boards={},
             all_components={},
         )
 
-        assert "[project]" in result
-        assert 'site = "example.atlassian.net"' in result
+        assert "[project]" not in result
         assert "[boards]" in result
         assert "[queries]" in result
 
@@ -54,7 +52,6 @@ class TestGenerateConfig:
         """Includes boards in config."""
         result = generate_config(
             projects=["PROJ"],
-            site="site.com",
             all_boards={
                 "PROJ": [
                     {"id": 123, "name": "Kanban Board", "type": "kanban"},
@@ -71,7 +68,6 @@ class TestGenerateConfig:
         """Shows placeholder when no boards."""
         result = generate_config(
             projects=["TEST"],
-            site="site.com",
             all_boards={},
             all_components={},
         )
@@ -82,7 +78,6 @@ class TestGenerateConfig:
         """Handles multiple projects."""
         result = generate_config(
             projects=["PROJ1", "PROJ2"],
-            site="site.com",
             all_boards={},
             all_components={
                 "PROJ1": ["Backend", "Frontend"],

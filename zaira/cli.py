@@ -240,11 +240,6 @@ def main() -> None:
         help="Project keys (e.g., FOO BAR)",
     )
     init_project_parser.add_argument(
-        "-s",
-        "--site",
-        help="Jira site (e.g., company.atlassian.net)",
-    )
-    init_project_parser.add_argument(
         "-f",
         "--force",
         action="store_true",

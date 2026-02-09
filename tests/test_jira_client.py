@@ -109,20 +109,6 @@ class TestGetServerFromConfig:
 
         assert result == "https://jira.example.com"
 
-    def test_falls_back_to_zproject(self, tmp_path, monkeypatch):
-        """Falls back to zproject.toml when credentials don't have site."""
-        monkeypatch.chdir(tmp_path)
-        config_content = b"""
-[project]
-site = "project.atlassian.net"
-"""
-        (tmp_path / "zproject.toml").write_bytes(config_content)
-
-        with patch.object(jira_client, "load_credentials", return_value={}):
-            result = jira_client.get_server_from_config()
-
-        assert result == "https://project.atlassian.net"
-
     def test_returns_none_when_no_site(self, tmp_path, monkeypatch):
         """Returns None when no site configured."""
         monkeypatch.chdir(tmp_path)
@@ -183,19 +169,6 @@ class TestGetJiraSite:
 
         assert result == "jira.example.com"
 
-    def test_falls_back_to_zproject(self, tmp_path, monkeypatch):
-        """Falls back to zproject.toml when credentials don't have site."""
-        monkeypatch.chdir(tmp_path)
-        config_content = b"""
-[project]
-site = "project.atlassian.net"
-"""
-        (tmp_path / "zproject.toml").write_bytes(config_content)
-
-        with patch.object(jira_client, "load_credentials", return_value={}):
-            result = jira_client.get_jira_site()
-
-        assert result == "project.atlassian.net"
 
 
 class TestJiraClientInjection:
