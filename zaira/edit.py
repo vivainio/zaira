@@ -6,7 +6,7 @@ from typing import Any
 
 import yaml
 
-from zaira.info import get_field_id, get_field_type
+from zaira.info import get_field_id, get_field_item_type, get_field_type
 from zaira.jira_client import get_jira, get_jira_site
 
 
@@ -107,10 +107,12 @@ def format_field_value(field_id: str, value: Any) -> Any:
         # Single select field
         return {"value": value}
     elif field_type == "array":
-        # Could be multi-select - check if string needs splitting
+        # Check item type to determine format
+        item_type = get_field_item_type(field_id)
         if isinstance(value, str):
             values = [v.strip() for v in value.split(",")]
-            # Try as option array (multi-select)
+            if item_type == "string":
+                return values
             return [{"value": v} for v in values]
         return value
 

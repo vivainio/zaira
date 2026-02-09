@@ -103,6 +103,21 @@ def get_field_type(field_id: str) -> str | None:
     return schema["fieldTypes"].get(field_id)
 
 
+def get_field_item_type(field_id: str) -> str | None:
+    """Get array item type by field ID.
+
+    Args:
+        field_id: Jira field ID (e.g., "customfield_10734")
+
+    Returns:
+        Item type (e.g., "string", "option") or None if not an array field.
+    """
+    schema = load_schema()
+    if not schema or "fieldItemTypes" not in schema:
+        return None
+    return schema["fieldItemTypes"].get(field_id)
+
+
 def load_project_schema(project: str) -> ProjectSchema | None:
     """Load cached project schema from global cache directory.
 
@@ -252,6 +267,14 @@ def fields_command(args: argparse.Namespace) -> None:
                 if f.get("schema", {}).get("type")
             },
         )
+        update_schema(
+            "fieldItemTypes",
+            {
+                f["id"]: f["schema"]["items"]
+                for f in raw_fields
+                if f.get("schema", {}).get("items")
+            },
+        )
         return raw_fields
 
     refresh = getattr(args, "refresh", False)
@@ -356,6 +379,11 @@ def fetch_and_save_schema(
             f["id"]: f.get("schema", {}).get("type")
             for f in fields
             if f.get("schema", {}).get("type")
+        }
+        schema["fieldItemTypes"] = {
+            f["id"]: f["schema"]["items"]
+            for f in fields
+            if f.get("schema", {}).get("items")
         }
     except Exception as e:
         print(f"  Warning: Could not fetch fields: {e}", file=sys.stderr)
