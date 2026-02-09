@@ -46,8 +46,8 @@ class TestGetSchemaPath:
         """Returns schema path with profile name."""
         result = jira_client.get_schema_path("myprofile")
 
-        assert "zschema_myprofile.json" in str(result)
-        assert result.name == "zschema_myprofile.json"
+        assert "schema_myprofile.json" in str(result)
+        assert result.name == "schema_myprofile.json"
 
     def test_uses_current_profile_when_none(self, tmp_path, monkeypatch):
         """Uses current profile when profile is None."""
@@ -59,7 +59,7 @@ profile = "test"
         (tmp_path / "zproject.toml").write_bytes(config_content)
 
         result = jira_client.get_schema_path(None)
-        assert "zschema_test.json" in str(result)
+        assert "schema_test.json" in str(result)
 
 
 class TestGetProjectSchemaPath:

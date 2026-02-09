@@ -16,16 +16,21 @@ from zaira.types import ProjectSchema, ZSchema
 T = TypeVar("T")
 
 
+SCHEMA_VERSION = 2
+
+
 def load_schema() -> ZSchema | None:
     """Load cached instance schema from global cache directory.
 
-    Returns:
-        Schema dict if found, None otherwise.
+    Returns None if missing or outdated (wrong version).
     """
     schema_file = get_schema_path()
     if not schema_file.exists():
         return None
-    return json.load(schema_file.open())
+    schema = json.load(schema_file.open())
+    if schema.get("version") != SCHEMA_VERSION:
+        return None
+    return schema
 
 
 def save_schema(schema: ZSchema) -> None:
@@ -42,6 +47,43 @@ def update_schema(key: str, value: dict | list) -> None:
     save_schema(schema)
 
 
+def _parse_field_type(type_str: str) -> tuple[str, str | None]:
+    """Parse compact type notation.
+
+    Returns:
+        (type, item_type): e.g. "[option]" -> ("array", "option"), "string" -> ("string", None)
+    """
+    if type_str.startswith("[") and type_str.endswith("]"):
+        return "array", type_str[1:-1]
+    return type_str, None
+
+
+def _build_fields_dict(raw_fields: list[dict]) -> dict:
+    """Build consolidated fields dict from Jira API response."""
+    result = {}
+    for f in raw_fields:
+        s = f.get("schema", {})
+        entry: dict = {"name": f["name"]}
+        type_str = _encode_field_type(s)
+        if type_str:
+            entry["type"] = type_str
+        result[f["id"]] = entry
+    return result
+
+
+def _encode_field_type(jira_schema: dict) -> str:
+    """Encode Jira field schema as compact type string.
+
+    e.g. {"type": "array", "items": "option"} -> "[option]"
+         {"type": "string"} -> "string"
+    """
+    t = jira_schema.get("type", "")
+    items = jira_schema.get("items")
+    if items:
+        return f"[{items}]"
+    return t
+
+
 def get_field_id(name: str) -> str | None:
     """Look up field ID by name (reverse lookup).
 
@@ -54,9 +96,8 @@ def get_field_id(name: str) -> str | None:
     schema = load_schema()
     if not schema or "fields" not in schema:
         return None
-    # Schema stores {id: name}, reverse it
-    for field_id, field_name in schema["fields"].items():
-        if field_name.lower() == name.lower():
+    for field_id, field_def in schema["fields"].items():
+        if field_def.get("name", "").lower() == name.lower():
             return field_id
     return None
 
@@ -73,7 +114,10 @@ def get_field_name(field_id: str) -> str | None:
     schema = load_schema()
     if not schema or "fields" not in schema:
         return None
-    return schema["fields"].get(field_id)
+    field_def = schema["fields"].get(field_id)
+    if field_def is None:
+        return None
+    return field_def.get("name")
 
 
 def get_field_map() -> dict[str, str]:
@@ -85,7 +129,7 @@ def get_field_map() -> dict[str, str]:
     schema = load_schema()
     if not schema or "fields" not in schema:
         return {}
-    return {name: field_id for field_id, name in schema["fields"].items()}
+    return {field_def.get("name", ""): field_id for field_id, field_def in schema["fields"].items()}
 
 
 def get_field_type(field_id: str) -> str | None:
@@ -98,9 +142,16 @@ def get_field_type(field_id: str) -> str | None:
         Field type (e.g., "option", "array", "string") or None if not found.
     """
     schema = load_schema()
-    if not schema or "fieldTypes" not in schema:
+    if not schema or "fields" not in schema:
         return None
-    return schema["fieldTypes"].get(field_id)
+    field_def = schema["fields"].get(field_id)
+    if field_def is None:
+        return None
+    type_str = field_def.get("type", "")
+    if not type_str:
+        return None
+    outer, _ = _parse_field_type(type_str)
+    return outer
 
 
 def get_field_item_type(field_id: str) -> str | None:
@@ -113,9 +164,16 @@ def get_field_item_type(field_id: str) -> str | None:
         Item type (e.g., "string", "option") or None if not an array field.
     """
     schema = load_schema()
-    if not schema or "fieldItemTypes" not in schema:
+    if not schema or "fields" not in schema:
         return None
-    return schema["fieldItemTypes"].get(field_id)
+    field_def = schema["fields"].get(field_id)
+    if field_def is None:
+        return None
+    type_str = field_def.get("type", "")
+    if not type_str:
+        return None
+    _, item_type = _parse_field_type(type_str)
+    return item_type
 
 
 def load_project_schema(project: str) -> ProjectSchema | None:
@@ -258,31 +316,15 @@ def fields_command(args: argparse.Namespace) -> None:
     def fetch_fields():
         jira = get_jira()
         raw_fields = jira.fields()
-        update_schema("fields", {f["id"]: f["name"] for f in raw_fields})
-        update_schema(
-            "fieldTypes",
-            {
-                f["id"]: f.get("schema", {}).get("type")
-                for f in raw_fields
-                if f.get("schema", {}).get("type")
-            },
-        )
-        update_schema(
-            "fieldItemTypes",
-            {
-                f["id"]: f["schema"]["items"]
-                for f in raw_fields
-                if f.get("schema", {}).get("items")
-            },
-        )
+        update_schema("fields", _build_fields_dict(raw_fields))
         return raw_fields
 
     refresh = getattr(args, "refresh", False)
     schema = load_schema()
 
-    # fields_command needs special handling: cache stores {id: name} but we need list
+    # fields_command needs special handling: cache stores {id: {...}} but we need list
     if not refresh and schema and "fields" in schema:
-        fields = [{"id": k, "name": v} for k, v in schema["fields"].items()]
+        fields = [{"id": k, "name": v.get("name", "")} for k, v in schema["fields"].items()]
     else:
         try:
             fields = fetch_fields()
@@ -364,27 +406,16 @@ def fetch_and_save_schema(
 ) -> None:
     """Fetch Jira instance metadata and save to global cache.
 
-    Instance schema: ~/.cache/zaira/zschema_PROFILE.json
+    Instance schema: ~/.cache/zaira/schema_PROFILE.json
     Project schema: ~/.cache/zaira/zproject_PROFILE_PROJECT.json
     """
     jira = get_jira()
-    schema: ZSchema = {}
+    schema: ZSchema = {"version": SCHEMA_VERSION}
 
     print("Fetching fields...")
     try:
         fields = jira.fields()
-        schema["fields"] = {f["id"]: f["name"] for f in fields}
-        # Store field types for select/option fields
-        schema["fieldTypes"] = {
-            f["id"]: f.get("schema", {}).get("type")
-            for f in fields
-            if f.get("schema", {}).get("type")
-        }
-        schema["fieldItemTypes"] = {
-            f["id"]: f["schema"]["items"]
-            for f in fields
-            if f.get("schema", {}).get("items")
-        }
+        schema["fields"] = _build_fields_dict(fields)
     except Exception as e:
         print(f"  Warning: Could not fetch fields: {e}", file=sys.stderr)
 

@@ -26,11 +26,11 @@ def get_profile() -> str:
 def get_schema_path(profile: str | None = None) -> Path:
     """Get path to instance schema file for a profile.
 
-    Schema is cached globally at ~/.cache/zaira/zschema_PROFILE.json.
+    Schema is cached globally at ~/.cache/zaira/schema_PROFILE.json.
     """
     if profile is None:
         profile = get_profile()
-    return CACHE_DIR / f"zschema_{profile}.json"
+    return CACHE_DIR / f"schema_{profile}.json"
 
 
 def get_project_schema_path(project: str, profile: str | None = None) -> Path:

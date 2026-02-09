@@ -39,7 +39,7 @@ def schema() -> "ZSchema | None":
         import zaira
         s = zaira.schema()
         print(s["statuses"])  # {'Open': 'To Do', 'In Progress': 'In Progress', ...}
-        print(s["fields"])    # {'customfield_10001': 'Epic Link', ...}
+        print(s["fields"])    # {'customfield_10001': {'name': 'Epic Link', 'type': '[option]'}, ...}
 
     Returns:
         Schema dict or None if not cached. Run 'zaira init' to populate.
