@@ -10,7 +10,6 @@ from zaira.comment import comment_command
 from zaira.create import create_command
 from zaira.dashboard import dashboard_command, dashboards_command
 from zaira.edit import edit_command
-from zaira.export import export_command
 from zaira.hours import hours_command
 from zaira.link import link_command
 from zaira.transition import transition_command
@@ -39,6 +38,8 @@ from zaira.init import init_command, init_project_command
 from zaira.my import my_command
 from zaira.report import report_command
 from zaira.refresh import refresh_command
+from zaira.search import search_command
+from zaira.get import get_command
 
 
 def main() -> None:
@@ -54,60 +55,6 @@ def main() -> None:
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Commands")
-
-    # Export command
-    export_parser = subparsers.add_parser(
-        "export",
-        help="Export Jira tickets to markdown",
-    )
-    export_parser.add_argument(
-        "tickets",
-        nargs="*",
-        help="Ticket keys (e.g., PROJ-123)",
-    )
-    export_parser.add_argument(
-        "--jql",
-        help="JQL query to find tickets",
-    )
-    export_parser.add_argument(
-        "-o",
-        "--output",
-        help="Output directory (default: tickets/)",
-    )
-    export_parser.add_argument(
-        "--board",
-        type=int,
-        help="Export tickets from board ID",
-    )
-    export_parser.add_argument(
-        "--sprint",
-        type=int,
-        help="Export tickets from sprint ID",
-    )
-    export_parser.add_argument(
-        "--format",
-        choices=["md", "json"],
-        default="md",
-        help="Output format (default: md)",
-    )
-    export_parser.add_argument(
-        "--with-prs",
-        action="store_true",
-        help="Include linked GitHub pull requests (extra API call per ticket)",
-    )
-    export_parser.add_argument(
-        "-a",
-        "--all-fields",
-        action="store_true",
-        help="Include custom fields (uses cached schema for name lookup)",
-    )
-    export_parser.add_argument(
-        "-f",
-        "--files",
-        action="store_true",
-        help="Force file output to tickets/ (even without zproject.toml)",
-    )
-    export_parser.set_defaults(func=export_command)
 
     # Report command
     report_parser = subparsers.add_parser(
@@ -317,6 +264,92 @@ def main() -> None:
         help="Show tickets I reported (created) instead of assigned to me",
     )
     my_parser.set_defaults(func=my_command)
+
+    # Search command
+    search_parser = subparsers.add_parser(
+        "search",
+        help="Search Jira tickets",
+    )
+    search_parser.add_argument(
+        "text",
+        nargs="?",
+        help="Text to search for",
+    )
+    search_parser.add_argument(
+        "--jql",
+        help="Raw JQL query",
+    )
+    search_parser.add_argument(
+        "-p",
+        "--project",
+        help="Filter by project key",
+    )
+    search_parser.add_argument(
+        "-s",
+        "--status",
+        help="Filter by status",
+    )
+    search_parser.add_argument(
+        "-a",
+        "--assignee",
+        help="Filter by assignee",
+    )
+    search_parser.add_argument(
+        "-n",
+        "--limit",
+        type=int,
+        default=0,
+        help="Maximum results (default: unlimited)",
+    )
+    search_parser.set_defaults(func=search_command)
+
+    # Get command
+    get_parser = subparsers.add_parser(
+        "get",
+        help="Get ticket(s) by key, JQL, board, or sprint",
+    )
+    get_parser.add_argument(
+        "keys",
+        nargs="*",
+        help="Ticket key(s) (e.g., PROJ-123)",
+    )
+    get_parser.add_argument(
+        "--jql",
+        help="JQL query to find tickets",
+    )
+    get_parser.add_argument(
+        "-o",
+        "--output",
+        help="Output directory (writes files instead of stdout)",
+    )
+    get_parser.add_argument(
+        "--board",
+        type=int,
+        help="Get tickets from board ID",
+    )
+    get_parser.add_argument(
+        "--sprint",
+        type=int,
+        help="Get tickets from sprint ID",
+    )
+    get_parser.add_argument(
+        "--format",
+        choices=["md", "json"],
+        default="md",
+        help="Output format (default: md)",
+    )
+    get_parser.add_argument(
+        "--with-prs",
+        action="store_true",
+        help="Include linked GitHub pull requests",
+    )
+    get_parser.add_argument(
+        "-a",
+        "--all-fields",
+        action="store_true",
+        help="Include custom fields",
+    )
+    get_parser.set_defaults(func=get_command)
 
     # Comment command
     comment_parser = subparsers.add_parser(
