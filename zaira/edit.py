@@ -103,6 +103,8 @@ def format_field_value(field_id: str, value: Any) -> Any:
         if isinstance(value, str):
             return _parse_number(value)
         return value
+    elif field_type in ("resolution", "priority", "version", "issuetype", "securitylevel"):
+        return {"name": value}
     elif field_type == "option":
         # Single select field
         return {"value": value}
