@@ -1,5 +1,6 @@
 """Markdown conversion utilities."""
 
+import html
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -476,16 +477,17 @@ def storage_to_markdown(html_content: str, image_dir: str = "./images") -> str:
     try:
         root = ET.fromstring(wrapped)
     except ET.ParseError:
-        # Handle common issues: HTML entities not defined in XML
-        # Replace common HTML entities with Unicode equivalents
-        html_content = html_content.replace("&nbsp;", "\u00a0")
-        html_content = html_content.replace("&ldquo;", "\u201c")
-        html_content = html_content.replace("&rdquo;", "\u201d")
-        html_content = html_content.replace("&lsquo;", "\u2018")
-        html_content = html_content.replace("&rsquo;", "\u2019")
-        html_content = html_content.replace("&mdash;", "\u2014")
-        html_content = html_content.replace("&ndash;", "\u2013")
-        html_content = html_content.replace("&hellip;", "\u2026")
+        # HTML entities (e.g. &copy; &mdash; &rarr;) are not defined in XML.
+        # Replace them with Unicode, but preserve the 5 XML predefined entities.
+        _XML_ENTITIES = {"amp", "lt", "gt", "quot", "apos"}
+
+        def _replace_entity(m: re.Match) -> str:
+            name = m.group(1)
+            if name in _XML_ENTITIES:
+                return m.group(0)
+            return html.unescape(m.group(0))
+
+        html_content = re.sub(r"&([a-zA-Z]+);", _replace_entity, html_content)
         wrapped = f'<root xmlns:ac="{AC_NS}" xmlns:ri="{RI_NS}">{html_content}</root>'
         try:
             root = ET.fromstring(wrapped)
