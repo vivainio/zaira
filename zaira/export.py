@@ -308,6 +308,81 @@ def get_comments(key: str) -> list[Comment]:
         return []
 
 
+def get_linked_tests(key: str) -> list[dict]:
+    """Fetch Xray Test and Test Execution issues linked to a Jira issue.
+
+    Follows 'Tests' link type (inward = "tested by") to find Test issues,
+    then checks for Test Executions linked to those tests.
+    """
+    jira = get_jira()
+    try:
+        issue = jira.issue(key, fields="issuelinks")
+        test_keys = []
+        for link in issue.fields.issuelinks or []:
+            if link.type.name != "Tests":
+                continue
+            if hasattr(link, "inwardIssue"):
+                linked = link.inwardIssue
+            elif hasattr(link, "outwardIssue"):
+                linked = link.outwardIssue
+            else:
+                continue
+            if linked.fields.issuetype.name in (
+                "Test",
+                "Test Case",
+                "Test Case 2",
+            ):
+                test_keys.append(linked.key)
+
+        if not test_keys:
+            return []
+
+        # Fetch full details for each test
+        tests = []
+        for tk in test_keys:
+            try:
+                t = jira.issue(tk, fields="summary,status,assignee,issuelinks")
+                f = t.fields
+                # Find test executions linked to this test
+                executions = []
+                also_tests = []
+                for link in f.issuelinks or []:
+                    if hasattr(link, "inwardIssue"):
+                        linked = link.inwardIssue
+                    elif hasattr(link, "outwardIssue"):
+                        linked = link.outwardIssue
+                    else:
+                        continue
+                    lt_name = linked.fields.issuetype.name
+                    if lt_name in ("Test Execution", "Sub Test Execution"):
+                        executions.append(
+                            {
+                                "key": linked.key,
+                                "summary": linked.fields.summary,
+                                "status": linked.fields.status.name,
+                            }
+                        )
+                    elif lt_name in ("Story", "Bug", "Task", "Epic") and linked.key != key:
+                        if link.type.name == "Tests":
+                            also_tests.append(linked.key)
+
+                tests.append(
+                    {
+                        "key": t.key,
+                        "summary": f.summary,
+                        "status": f.status.name,
+                        "assignee": get_user_identifier(f.assignee) or "Unassigned",
+                        "executions": executions,
+                        "alsoTests": also_tests,
+                    }
+                )
+            except Exception:
+                continue
+        return tests
+    except Exception:
+        return []
+
+
 def get_pull_requests(issue_id: str) -> list[dict]:
     """Fetch GitHub PRs linked to a Jira issue via dev-status API."""
     jira = get_jira()
@@ -456,6 +531,20 @@ url: https://{jira_site}/browse/{key}
     else:
         md += "_No links_\n"
 
+    tests = ticket.get("tests", [])
+    if tests:
+        md += """
+## Tests
+
+"""
+        for t in tests:
+            md += f"- {t['key']}: {t['summary']}\n"
+            md += f"  Status: {t['status']} | Assignee: {t['assignee']}\n"
+            if t.get("alsoTests"):
+                md += f"  Also tests: {', '.join(t['alsoTests'])}\n"
+            for ex in t.get("executions", []):
+                md += f"  - Execution {ex['key']}: {ex['summary']} ({ex['status']})\n"
+
     pull_requests = ticket.get("pullRequests", [])
     if pull_requests:
         md += """
@@ -513,6 +602,7 @@ def export_ticket(
     output_dir: Path,
     fmt: str = "md",
     with_prs: bool = False,
+    with_tests: bool = False,
     include_custom: bool = False,
     with_attachments: bool = False,
 ) -> bool:
@@ -531,6 +621,8 @@ def export_ticket(
 
     if with_prs:
         ticket["pullRequests"] = get_pull_requests(ticket["id"])
+    if with_tests:
+        ticket["tests"] = get_linked_tests(key)
 
     comments = get_comments(key)
     synced = datetime.now().isoformat(timespec="seconds")
@@ -599,7 +691,7 @@ def export_ticket(
 
 
 def export_to_stdout(
-    key: str, fmt: str = "md", with_prs: bool = False, include_custom: bool = False
+    key: str, fmt: str = "md", with_prs: bool = False, with_tests: bool = False, include_custom: bool = False
 ) -> bool:
     """Export a single ticket to stdout."""
     ticket = get_ticket(key, full=(fmt == "json"), include_custom=include_custom)
@@ -609,6 +701,8 @@ def export_to_stdout(
 
     if with_prs:
         ticket["pullRequests"] = get_pull_requests(ticket["id"])
+    if with_tests:
+        ticket["tests"] = get_linked_tests(key)
 
     comments = get_comments(key)
     synced = datetime.now().isoformat(timespec="seconds")
