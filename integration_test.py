@@ -12,6 +12,8 @@ import tempfile
 import time
 from pathlib import Path
 
+import pytest
+
 
 def run(cmd: str, check: bool = True) -> subprocess.CompletedProcess:
     """Run a zaira CLI command."""
@@ -24,8 +26,7 @@ def run(cmd: str, check: bool = True) -> subprocess.CompletedProcess:
         if result.stdout.count("\n") > 3:
             print("    ...")
     if result.returncode != 0 and check:
-        print(f"  FAILED: {result.stderr}")
-        sys.exit(1)
+        raise AssertionError(f"Command failed: zaira {cmd}\n{result.stderr}")
     return result
 
 
@@ -48,7 +49,7 @@ def extract_key(output: str) -> str:
     return match.group(0) if match else ""
 
 
-def test_create_ticket() -> str:
+def _create_ticket() -> str:
     """Create a test ticket and return its key."""
     print("\n=== Create ticket ===")
     content = f"""\
@@ -73,15 +74,30 @@ Created at: {time.strftime("%Y-%m-%d %H:%M:%S")}
 
     key = extract_key(result.stdout)
     if not key:
-        print("ERROR: Could not extract ticket key")
-        sys.exit(1)
+        pytest.fail("Could not extract ticket key")
     return key
 
 
-def test_export(key: str):
-    """Export and verify ticket."""
-    print("\n=== Export ticket ===")
-    result = run(f"export {key}")
+@pytest.fixture(scope="session")
+def key():
+    """Create a test ticket for the session and clean up afterwards."""
+    k = _create_ticket()
+    yield k
+    cleanup([k])
+
+
+@pytest.fixture(scope="session")
+def key2():
+    """Create a link-target ticket for the session and clean up afterwards."""
+    k = _create_link_target()
+    yield k
+    cleanup([k])
+
+
+def test_get(key: str):
+    """Get and verify ticket."""
+    print("\n=== Get ticket ===")
+    result = run(f"get {key}")
     assert key in result.stdout
     assert "Integration test" in result.stdout
 
@@ -90,7 +106,7 @@ def test_edit_title(key: str):
     """Edit title."""
     print("\n=== Edit title ===")
     run(f'edit {key} -t "[MODIFIED] Integration test {int(time.time())}"')
-    result = run(f"export {key}")
+    result = run(f"get {key}")
     assert "MODIFIED" in result.stdout
 
 
@@ -117,12 +133,12 @@ def test_comments(key: str):
     run_stdin(f"comment {key} -", f"Multiline comment\nMarker: {marker2}")
 
     print("\n=== Verify comments in export ===")
-    result = run(f"export {key}")
+    result = run(f"get {key}")
     assert marker1 in result.stdout, "Comment 1 not in export"
     assert marker2 in result.stdout, "Comment 2 not in export"
 
 
-def test_transitions(key: str) -> list[str]:
+def test_transitions(key: str):
     """List and test transitions."""
     print("\n=== List transitions ===")
     result = run(f"transition {key} --list")
@@ -140,10 +156,8 @@ def test_transitions(key: str) -> list[str]:
             run(f'transition {key} "{target}"')
             break
 
-    return statuses
 
-
-def test_create_link_target() -> str:
+def _create_link_target() -> str:
     """Create second ticket for linking."""
     print("\n=== Create link target ===")
     content = f"""\
@@ -165,7 +179,7 @@ Link target ticket.
     return extract_key(result.stdout)
 
 
-def test_links(key1: str, key2: str):
+def test_links(key: str, key2: str):
     """Test various link types."""
     if not key2:
         print("\n=== Links: skipped (no target) ===")
@@ -173,28 +187,28 @@ def test_links(key1: str, key2: str):
 
     print("\n=== Create links ===")
     for link_type in ["Relates", "Blocks", "Cloners"]:
-        result = run(f'link {key1} {key2} -t "{link_type}"', check=False)
+        result = run(f'link {key} {key2} -t "{link_type}"', check=False)
         status = "OK" if result.returncode == 0 else "skipped"
         print(f"  {link_type}: {status}")
 
     print("\n=== Verify links in export ===")
-    result = run(f"export {key1}")
+    result = run(f"get {key}")
     assert key2 in result.stdout, "Link target not in export"
 
 
-def test_export_formats(key: str):
-    """Test export to file in different formats."""
-    print("\n=== Export formats ===")
+def test_get_formats(key: str):
+    """Test get to file in different formats."""
+    print("\n=== Get formats ===")
     with tempfile.TemporaryDirectory() as tmpdir:
-        run(f"export {key} -o {tmpdir}/out.md")
-        run(f"export {key} -o {tmpdir}/out.json --format json")
+        run(f"get {key} -o {tmpdir}/out.md")
+        run(f"get {key} -o {tmpdir}/out.json --format json")
 
 
-def test_export_jql(key: str):
-    """Test JQL export."""
-    print("\n=== Export with JQL ===")
+def test_get_jql(key: str):
+    """Test JQL get."""
+    print("\n=== Get with JQL ===")
     result = run(
-        'export --jql "project = SAN AND labels = integration-test" --format json'
+        'get --jql "project = SAN AND labels = integration-test" --format json'
     )
     assert key in result.stdout
 
@@ -295,22 +309,22 @@ def main():
     print("ZAIRA INTEGRATION TESTS - SAN")
     print("=" * 50)
 
-    key1 = test_create_ticket()
+    key1 = _create_ticket()
     key2 = ""
 
     try:
-        test_export(key1)
+        test_get(key1)
         test_edit_title(key1)
         test_edit_description(key1)
         test_edit_field(key1)
         test_comments(key1)
         test_transitions(key1)
 
-        key2 = test_create_link_target()
+        key2 = _create_link_target()
         test_links(key1, key2)
 
-        test_export_formats(key1)
-        test_export_jql(key1)
+        test_get_formats(key1)
+        test_get_jql(key1)
         test_worklog(key1)
         test_my()
         test_info()
