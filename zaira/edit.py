@@ -16,10 +16,14 @@ STANDARD_FIELDS = {
     "title": "summary",
     "description": "description",
     "priority": "priority",
+    "resolution": "resolution",
     "assignee": "assignee",
     "labels": "labels",
     "components": "components",
 }
+
+# Standard fields that use {"name": value} format
+_NAME_FIELDS = {"priority", "resolution"}
 
 
 def read_input(value: str) -> str:
@@ -60,7 +64,7 @@ def map_field(name: str, value: str) -> tuple[str, Any]:
     # Handle standard fields
     if name_lower in STANDARD_FIELDS:
         field_id = STANDARD_FIELDS[name_lower]
-        if field_id == "priority":
+        if field_id in _NAME_FIELDS:
             return field_id, {"name": value}
         if field_id == "assignee":
             return field_id, _format_assignee(value)
