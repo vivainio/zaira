@@ -56,7 +56,7 @@ def get_server_from_config() -> str | None:
 
 
 def load_credentials() -> Credentials:
-    """Load credentials from $XDG_CONFIG_HOME/zaira/credentials.toml."""
+    """Load credentials from the platform config directory."""
     if not CREDENTIALS_FILE.exists():
         return {}
 
@@ -65,7 +65,7 @@ def load_credentials() -> Credentials:
 
 
 def save_credentials(email: str, api_token: str) -> None:
-    """Save credentials to $XDG_CONFIG_HOME/zaira/credentials.toml."""
+    """Save credentials to the platform config directory."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
     content = f'email = "{email}"\napi_token = "{api_token}"\n'
@@ -78,7 +78,7 @@ def save_credentials(email: str, api_token: str) -> None:
 def get_credentials() -> tuple[str, str, str]:
     """Get Jira credentials from config files.
 
-    Server comes from zproject.toml, credentials from $XDG_CONFIG_HOME/zaira/credentials.toml.
+    Server comes from zproject.toml, credentials from the platform config directory.
 
     Returns:
         Tuple of (server_url, email, api_token)

@@ -26,7 +26,7 @@ Run `zaira init` to create the credentials file:
 zaira init
 ```
 
-This creates `~/.config/zaira/credentials.toml`. Edit it with your Jira details:
+This creates a credentials file in your platform's config directory (`~/Library/Application Support/zaira/` on macOS, `~/.config/zaira/` on Linux). Edit it with your Jira details:
 
 ```toml
 site = "your-company.atlassian.net"
@@ -591,7 +591,7 @@ ps["components"]  # ['Backend', 'Frontend', ...]
 ps["labels"]      # ['bug', 'feature', ...]
 ```
 
-The client uses credentials from `~/.config/zaira/credentials.toml`. Schema functions return cached data populated by `zaira init-project` or `zaira info --save`.
+The client uses credentials from the platform config directory (`~/Library/Application Support/zaira/credentials.toml` on macOS, `~/.config/zaira/credentials.toml` on Linux). Schema functions return cached data populated by `zaira init-project` or `zaira info --save`.
 
 ## License
 

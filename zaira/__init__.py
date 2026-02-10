@@ -14,7 +14,7 @@ def client() -> "JIRA":
     """Get an authenticated Jira client.
 
     Returns an authenticated jira.JIRA instance using credentials
-    from $XDG_CONFIG_HOME/zaira/credentials.toml.
+    from the platform config directory (credentials.toml).
 
     Usage:
         import zaira

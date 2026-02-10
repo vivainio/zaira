@@ -56,7 +56,7 @@ def list_reports() -> dict[str, dict]:
 
 
 def get_max_hours_per_day() -> float:
-    """Get max hours per day from ~/.config/zaira/config.toml, default 7.5."""
+    """Get max hours per day from config.toml, default 7.5."""
     from zaira.jira_client import CONFIG_FILE
 
     if CONFIG_FILE.exists():
