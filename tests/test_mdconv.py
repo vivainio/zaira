@@ -338,6 +338,26 @@ class TestRoundTrip:
         storage2 = markdown_to_storage(back)
         assert storage == storage2
 
+    def test_nested_lists_deep(self):
+        md = (
+            "- First item\n"
+            "- Second item\n"
+            "- Third item\n"
+            "  - Nested item\n"
+            "  - Another nested item\n"
+            "    - Deep nested item\n"
+            "- Fourth item"
+        )
+        storage = markdown_to_storage(md)
+        back = storage_to_markdown(storage)
+        # Verify nesting is preserved
+        assert "  - Nested item" in back
+        assert "  - Another nested item" in back
+        assert "    - Deep nested item" in back
+        # Verify round-trip stability
+        storage2 = markdown_to_storage(back)
+        assert storage == storage2
+
     def test_ordered_lists(self):
         md = "1. First\n  1. Sub 1\n  2. Sub 2\n2. Second"
         storage = markdown_to_storage(md)
