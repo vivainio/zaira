@@ -121,7 +121,7 @@ def test_learn(key: str):
     """Learn editmeta from ticket to populate cache."""
     print("\n=== Learn editmeta ===")
     result = run(f"learn {key}")
-    assert "editable fields" in result.stdout
+    assert "fields ->" in result.stdout
 
 
 def test_edit_field(key: str):

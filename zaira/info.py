@@ -593,11 +593,88 @@ def learn_command(args: argparse.Namespace) -> None:
             print(f"    {name:<38} {ftype:<12} {info:<20}")
 
 
+def _iter_editmeta() -> list[tuple[str, str, EditmetaSchema]]:
+    """Load all cached editmeta files.
+
+    Returns list of (project, issue_type, editmeta) tuples.
+    """
+    results = []
+    for path in sorted(CACHE_DIR.glob("editmeta_*.yaml")):
+        data = yaml.safe_load(path.read_text())
+        if data and "fields" in data:
+            results.append((data.get("project", ""), data.get("issueType", ""), data))
+    return results
+
+
+def field_command(args: argparse.Namespace) -> None:
+    """Look up editmeta for named fields across all cached issue types."""
+    names = args.names
+    all_editmeta = _iter_editmeta()
+    if not all_editmeta:
+        print("No editmeta cached. Run 'zaira learn <KEY>' first.", file=sys.stderr)
+        sys.exit(1)
+
+    for name in names:
+        name_lower = name.lower()
+        # Collect matches: group by field ID, merge allowed values and locations
+        matches: dict[str, dict] = {}  # field_id -> merged info
+        for project, issue_type, editmeta in all_editmeta:
+            fields = editmeta["fields"]
+            hit = None
+            for fname, fdef in fields.items():
+                if fname.lower() == name_lower or fdef.get("id", "").lower() == name_lower:
+                    hit = (fname, fdef)
+                    break
+            if not hit:
+                continue
+            fname, fdef = hit
+            fid = fdef.get("id", "")
+            if fid not in matches:
+                matches[fid] = {
+                    "name": fname,
+                    "fdef": dict(fdef),
+                    "locations": [],
+                }
+            matches[fid]["locations"].append(f"{project}/{issue_type}")
+            # Merge allowed values (union, preserving order)
+            new_vals = fdef.get("allowedValues", [])
+            existing = matches[fid]["fdef"].get("allowedValues", [])
+            if new_vals:
+                seen = set(existing)
+                for v in new_vals:
+                    if v not in seen:
+                        existing.append(v)
+                        seen.add(v)
+                matches[fid]["fdef"]["allowedValues"] = existing
+
+        if not matches:
+            print(f"{name}: not found in any editmeta cache\n")
+            continue
+
+        for fid, info in matches.items():
+            fdef = info["fdef"]
+            locs = ", ".join(info["locations"])
+            print(f"{info['name']}  ({locs})")
+            print(f"  id:         {fid}")
+            print(f"  type:       {fdef.get('type', '')}")
+            print(f"  required:   {fdef.get('required', False)}")
+            ops = fdef.get("operations", [])
+            if ops:
+                print(f"  operations: {', '.join(ops)}")
+            allowed = fdef.get("allowedValues", [])
+            if allowed:
+                print(f"  values:     {', '.join(str(v) for v in allowed)}")
+            desc = fdef.get("description")
+            if desc:
+                print(f"  description: {desc}")
+            print()
+
+
 def info_command(args: argparse.Namespace) -> None:
     """Handle info subcommand."""
     if hasattr(args, "info_func"):
         args.info_func(args)
     else:
         print("Usage: zaira info <subcommand>")
-        print("Subcommands: link-types, statuses, issue-types, fields")
+        print("Subcommands: link-types, statuses, issue-types, fields, field")
         sys.exit(1)

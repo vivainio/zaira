@@ -32,6 +32,7 @@ from zaira.info import (
     statuses_command,
     issue_types_command,
     fields_command,
+    field_command,
 )
 from zaira.init import init_command, init_project_command
 from zaira.my import my_command
@@ -640,6 +641,14 @@ def main() -> None:
         help="Show all fields, not just custom fields",
     )
     info_fields.set_defaults(info_func=fields_command)
+
+    info_field = info_subparsers.add_parser("field", help="Look up editmeta for a field")
+    info_field.add_argument(
+        "names",
+        nargs="+",
+        help="Field name(s) or ID(s) to look up",
+    )
+    info_field.set_defaults(info_func=field_command)
 
     # Wiki (Confluence) command with subcommands
     wiki_parser = subparsers.add_parser(
