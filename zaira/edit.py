@@ -6,7 +6,7 @@ from typing import Any
 
 import yaml
 
-from zaira.info import get_field_id, get_field_item_type, get_field_type
+from zaira.info import get_editmeta_field, get_field_id, get_field_item_type, get_field_type
 from zaira.jira_client import get_jira, get_jira_site
 
 
@@ -53,8 +53,13 @@ def _format_assignee(value: str | None) -> dict | None:
     return {"accountId": value}
 
 
-def map_field(name: str, value: str) -> tuple[str, Any]:
+def map_field(name: str, value: str, project: str | None = None) -> tuple[str, Any]:
     """Map a field name to Jira field ID and format value.
+
+    Args:
+        name: Field name or ID
+        value: Raw value string
+        project: Optional project key for editmeta lookup
 
     Returns:
         Tuple of (field_id, formatted_value)
@@ -78,20 +83,30 @@ def map_field(name: str, value: str) -> tuple[str, Any]:
             return field_id, [{"name": c.strip()} for c in value.split(",")]
         return field_id, value
 
-    # Try custom field lookup
+    # Try editmeta lookup first (has richer type info)
+    if project:
+        em = get_editmeta_field(project, name)
+        if em:
+            field_id, field_def = em
+            formatted = format_field_value(field_id, value, project=project)
+            _validate_field_value(field_id, value, field_def)
+            return field_id, formatted
+
+    # Try custom field lookup from global schema
     field_id = get_field_id(name)
     if field_id:
-        return field_id, format_field_value(field_id, value)
+        return field_id, format_field_value(field_id, value, project=project)
 
     # Fall back to using name as-is (might be a field ID)
-    return name, format_field_value(name, value)
+    return name, format_field_value(name, value, project=project)
 
 
-def format_field_value(field_id: str, value: Any) -> Any:
+def format_field_value(field_id: str, value: Any, project: str | None = None) -> Any:
     """Format value based on field type.
 
     Wraps option/select field values in {"value": ...} format.
     Converts string values to numbers for numeric fields.
+    If project is provided, checks editmeta for richer type info.
     """
     # Already formatted as dict/list - leave as is
     if isinstance(value, (dict, list)):
@@ -101,24 +116,41 @@ def format_field_value(field_id: str, value: Any) -> Any:
     if isinstance(value, (int, float)):
         return value
 
-    field_type = get_field_type(field_id)
+    # Try editmeta for type info first
+    field_type = None
+    item_type = None
+    if project:
+        from zaira.info import _parse_field_type
+        em = get_editmeta_field(project, field_id)
+        if em:
+            _, field_def = em
+            type_str = field_def.get("type", "")
+            if type_str:
+                field_type, item_type = _parse_field_type(type_str)
+
+    # Fall back to global schema
+    if field_type is None:
+        field_type = get_field_type(field_id)
+    if field_type == "array" and item_type is None:
+        item_type = get_field_item_type(field_id)
+
     if field_type == "number":
-        # Numeric field - convert string to number
         if isinstance(value, str):
             return _parse_number(value)
         return value
     elif field_type in ("resolution", "priority", "version", "issuetype", "securitylevel"):
         return {"name": value}
+    elif field_type == "user":
+        return _format_assignee(value)
     elif field_type == "option":
-        # Single select field
         return {"value": value}
     elif field_type == "array":
-        # Check item type to determine format
-        item_type = get_field_item_type(field_id)
         if isinstance(value, str):
             values = [v.strip() for v in value.split(",")]
             if item_type == "string":
                 return values
+            if item_type == "user":
+                return [_format_assignee(v) for v in values]
             return [{"value": v} for v in values]
         return value
 
@@ -139,11 +171,42 @@ def _parse_number(value: str) -> int | float | str:
         return value
 
 
-def parse_field_args(field_args: list[str]) -> dict:
+def _validate_field_value(field_id: str, value: Any, editmeta_field: dict) -> None:
+    """Validate value against editmeta allowedValues (warning only).
+
+    Prints a warning to stderr if the value is not in the allowed values list.
+    Does not block — Jira is the authority.
+    """
+    allowed = editmeta_field.get("allowedValues")
+    if not allowed:
+        return
+
+    field_name = editmeta_field.get("name", field_id)
+    type_str = editmeta_field.get("type", "")
+
+    # For array fields, validate each comma-separated value
+    if type_str.startswith("[") and isinstance(value, str):
+        values = [v.strip() for v in value.split(",")]
+    else:
+        values = [str(value)]
+
+    allowed_lower = {v.lower(): v for v in allowed}
+    for v in values:
+        if v.lower() not in allowed_lower:
+            print(f"Warning: '{v}' not in allowed values for {field_name}", file=sys.stderr)
+            if len(allowed) <= 20:
+                print(f"  Allowed: {', '.join(allowed)}", file=sys.stderr)
+            else:
+                print(f"  Allowed ({len(allowed)} values): {', '.join(allowed[:20])}, ...", file=sys.stderr)
+            break  # One warning per field is enough
+
+
+def parse_field_args(field_args: list[str], project: str | None = None) -> dict:
     """Parse --field arguments into a fields dict.
 
     Args:
         field_args: List of "Name=value" strings
+        project: Optional project key for editmeta lookup
 
     Returns:
         Dict of field_id -> value
@@ -157,16 +220,17 @@ def parse_field_args(field_args: list[str]) -> dict:
             )
             continue
         name, value = arg.split("=", 1)
-        field_id, formatted_value = map_field(name.strip(), value.strip())
+        field_id, formatted_value = map_field(name.strip(), value.strip(), project=project)
         fields[field_id] = formatted_value
     return fields
 
 
-def parse_yaml_fields(content: str) -> dict:
+def parse_yaml_fields(content: str, project: str | None = None) -> dict:
     """Parse YAML content into a fields dict.
 
     Args:
         content: YAML string with field: value pairs
+        project: Optional project key for editmeta lookup
 
     Returns:
         Dict of field_id -> value
@@ -177,7 +241,7 @@ def parse_yaml_fields(content: str) -> dict:
 
     fields = {}
     for name, value in data.items():
-        field_id, formatted_value = map_field(name, value)
+        field_id, formatted_value = map_field(name, value, project=project)
         fields[field_id] = formatted_value
     return fields
 
@@ -185,19 +249,33 @@ def parse_yaml_fields(content: str) -> dict:
 def get_allowed_values(jira, key: str, field_ids: list[str]) -> dict[str, list[str]]:
     """Get allowed values for fields.
 
-    Tries editmeta first, then falls back to autocomplete API.
+    Checks editmeta cache first, then tries API editmeta, then autocomplete.
 
     Returns:
         Dict of field_id -> list of allowed value strings
     """
-    from zaira.info import get_field_name
+    from zaira.info import get_field_name, load_editmeta
 
     result = {}
 
-    # Try editmeta first
+    # Check editmeta cache first
+    project = key.split("-")[0]
+    editmeta = load_editmeta(project)
+    if editmeta and "fields" in editmeta:
+        for fid in field_ids:
+            if fid in editmeta["fields"]:
+                allowed = editmeta["fields"][fid].get("allowedValues", [])
+                if allowed:
+                    result[fid] = allowed
+
+    remaining = [fid for fid in field_ids if fid not in result]
+    if not remaining:
+        return result
+
+    # Try API editmeta for fields not in cache
     try:
         meta = jira._get_json(f"issue/{key}/editmeta")
-        for fid in field_ids:
+        for fid in remaining:
             if fid in meta.get("fields", {}):
                 allowed = meta["fields"][fid].get("allowedValues", [])
                 if allowed:
@@ -206,7 +284,7 @@ def get_allowed_values(jira, key: str, field_ids: list[str]) -> dict[str, list[s
         pass
 
     # For fields not found in editmeta, try autocomplete API
-    for fid in field_ids:
+    for fid in remaining:
         if fid in result:
             continue
         field_name = get_field_name(fid)
@@ -304,6 +382,7 @@ def edit_ticket(key: str, fields: dict) -> bool:
 def edit_command(args: argparse.Namespace) -> None:
     """Handle edit subcommand."""
     key = args.key.upper()
+    project = key.split("-")[0]
     fields = {}
 
     # Handle --title and --description (legacy)
@@ -327,13 +406,13 @@ def edit_command(args: argparse.Namespace) -> None:
     # Handle --field arguments
     field_args = getattr(args, "field", None) or []
     if field_args:
-        fields.update(parse_field_args(field_args))
+        fields.update(parse_field_args(field_args, project=project))
 
     # Handle --from file/stdin
     from_input = getattr(args, "from_file", None)
     if from_input:
         content = read_input(from_input)
-        fields.update(parse_yaml_fields(content))
+        fields.update(parse_yaml_fields(content, project=project))
 
     if not fields:
         print(

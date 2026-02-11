@@ -27,6 +27,7 @@ from zaira.wiki import (
 )
 from zaira.info import (
     info_command,
+    learn_command,
     link_types_command,
     statuses_command,
     priorities_command,
@@ -590,6 +591,18 @@ def main() -> None:
         help="Set field value during transition (repeatable). E.g., Resolution=Done",
     )
     transition_parser.set_defaults(func=transition_command)
+
+    # Learn command
+    learn_parser = subparsers.add_parser(
+        "learn",
+        help="Learn editable fields from an issue's editmeta",
+    )
+    learn_parser.add_argument(
+        "keys",
+        nargs="+",
+        help="Issue key(s) to learn from (e.g., SAN-50)",
+    )
+    learn_parser.set_defaults(func=learn_command)
 
     # Info command with subcommands
     info_parser = subparsers.add_parser(

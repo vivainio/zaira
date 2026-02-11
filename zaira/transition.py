@@ -84,7 +84,8 @@ def transition_command(args: argparse.Namespace) -> None:
     if field_args:
         from zaira.edit import parse_field_args
 
-        fields = parse_field_args(field_args)
+        project = key.split("-")[0]
+        fields = parse_field_args(field_args, project=project)
 
     if transition_ticket(key, status, fields=fields):
         print(f"Transitioned {key}")

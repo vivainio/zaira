@@ -107,7 +107,7 @@ class TestParseFieldArgs:
 
     def test_parses_simple_args(self):
         """Parses simple Name=value arguments."""
-        with patch("zaira.edit.map_field", side_effect=lambda n, v: (n.lower(), v)):
+        with patch("zaira.edit.map_field", side_effect=lambda n, v, project=None: (n.lower(), v)):
             result = parse_field_args(["summary=Test", "priority=High"])
 
         assert result["summary"] == "Test"
@@ -115,14 +115,14 @@ class TestParseFieldArgs:
 
     def test_handles_value_with_equals(self):
         """Handles values containing equals signs."""
-        with patch("zaira.edit.map_field", side_effect=lambda n, v: (n.lower(), v)):
+        with patch("zaira.edit.map_field", side_effect=lambda n, v, project=None: (n.lower(), v)):
             result = parse_field_args(["description=a=b=c"])
 
         assert result["description"] == "a=b=c"
 
     def test_warns_on_invalid_format(self, capsys):
         """Warns on arguments without equals sign."""
-        with patch("zaira.edit.map_field", side_effect=lambda n, v: (n.lower(), v)):
+        with patch("zaira.edit.map_field", side_effect=lambda n, v, project=None: (n.lower(), v)):
             result = parse_field_args(["invalid_no_equals", "valid=value"])
 
         captured = capsys.readouterr()
@@ -131,7 +131,7 @@ class TestParseFieldArgs:
 
     def test_strips_whitespace(self):
         """Strips whitespace from name and value."""
-        with patch("zaira.edit.map_field", side_effect=lambda n, v: (n.lower(), v)):
+        with patch("zaira.edit.map_field", side_effect=lambda n, v, project=None: (n.lower(), v)):
             result = parse_field_args(["  summary  =  Test Value  "])
 
         assert result["summary"] == "Test Value"
@@ -146,7 +146,7 @@ class TestParseYamlFields:
 summary: Test Ticket
 priority: High
 """
-        with patch("zaira.edit.map_field", side_effect=lambda n, v: (n.lower(), v)):
+        with patch("zaira.edit.map_field", side_effect=lambda n, v, project=None: (n.lower(), v)):
             result = parse_yaml_fields(content)
 
         assert result["summary"] == "Test Ticket"
@@ -159,7 +159,7 @@ labels:
   - bug
   - urgent
 """
-        with patch("zaira.edit.map_field", side_effect=lambda n, v: (n.lower(), v)):
+        with patch("zaira.edit.map_field", side_effect=lambda n, v, project=None: (n.lower(), v)):
             result = parse_yaml_fields(content)
 
         assert result["labels"] == ["bug", "urgent"]

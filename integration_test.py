@@ -117,10 +117,29 @@ def test_edit_description(key: str):
     run_stdin(f"edit {key} -d -", desc)
 
 
+def test_learn(key: str):
+    """Learn editmeta from ticket to populate cache."""
+    print("\n=== Learn editmeta ===")
+    result = run(f"learn {key}")
+    assert "editable fields" in result.stdout
+
+
 def test_edit_field(key: str):
     """Edit field with -F."""
     print("\n=== Edit field ===")
     run(f'edit {key} -F "Priority=High"')
+
+
+def test_edit_field_validated(key: str):
+    """Edit field using editmeta-resolved name and validate bad values warn."""
+    print("\n=== Edit field with editmeta validation ===")
+    # Valid value — should succeed silently (no warning on stderr)
+    result = run(f'edit {key} -F "Priority=Low"')
+    assert "Updated" in result.stdout
+
+    # Invalid value — should warn on stderr but still attempt the API call
+    result = run(f'edit {key} -F "Priority=BogusValue"', check=False)
+    assert "Warning:" in result.stderr or result.returncode != 0
 
 
 def test_comments(key: str):
@@ -351,9 +370,11 @@ def main():
 
     try:
         test_get(key1)
+        test_learn(key1)
         test_edit_title(key1)
         test_edit_description(key1)
         test_edit_field(key1)
+        test_edit_field_validated(key1)
         test_comments(key1)
         test_transitions(key1)
 

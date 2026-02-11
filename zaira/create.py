@@ -8,7 +8,7 @@ from pathlib import Path
 import yaml
 
 from zaira.edit import format_field_value
-from zaira.info import get_field_id, load_schema
+from zaira.info import get_editmeta_field, get_field_id, load_schema
 from zaira.jira_client import get_jira
 
 
@@ -86,12 +86,13 @@ def parse_ticket_file(path: Path) -> tuple[dict, str]:
     return parse_content(path.read_text())
 
 
-def map_fields(front_matter: dict, description: str) -> dict:
+def map_fields(front_matter: dict, description: str, project: str | None = None) -> dict:
     """Map front matter fields to Jira API field format.
 
     Args:
         front_matter: Parsed YAML front matter
         description: Markdown body as description
+        project: Optional project key for editmeta lookup
 
     Returns:
         Dict ready for Jira API create_issue()
@@ -146,10 +147,16 @@ def map_fields(front_matter: dict, description: str) -> dict:
             else:
                 fields[jira_field] = value
         else:
-            # Try custom field lookup by name
-            field_id = get_field_id(key)
+            # Try editmeta first, then global schema
+            field_id = None
+            if project:
+                em = get_editmeta_field(project, key)
+                if em:
+                    field_id = em[0]
+            if not field_id:
+                field_id = get_field_id(key)
             if field_id:
-                fields[field_id] = format_field_value(field_id, value)
+                fields[field_id] = format_field_value(field_id, value, project=project)
             else:
                 print(f"Warning: Unknown field '{key}', skipping", file=sys.stderr)
 
@@ -232,7 +239,7 @@ def create_command(args: argparse.Namespace) -> None:
                 print(f"  - {err}", file=sys.stderr)
             sys.exit(1)
 
-    fields = map_fields(front_matter, description)
+    fields = map_fields(front_matter, description, project=front_matter.get("project"))
     dry_run = getattr(args, "dry_run", False)
 
     key = create_ticket(fields, dry_run=dry_run)
