@@ -453,6 +453,62 @@ def load_editmeta(project: str, issue_type: str) -> EditmetaSchema | None:
     return None
 
 
+def _fetch_and_save_editmeta(key: str, project: str, issue_type: str) -> EditmetaSchema | None:
+    """Fetch editmeta from API for a specific issue and save to cache."""
+    jira = get_jira()
+    server = jira._options["server"]
+    try:
+        resp = jira._session.get(f"{server}/rest/api/3/issue/{key}/editmeta")
+        resp.raise_for_status()
+    except Exception:
+        return None
+
+    all_fields = _parse_editmeta_response(resp.json())
+    editmeta: EditmetaSchema = {
+        "project": project,
+        "issueType": issue_type,
+        "learnedFrom": [key],
+        "fields": all_fields,
+    }
+
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    path = get_editmeta_path(project, issue_type)
+    path.write_text(yaml.dump(editmeta, default_flow_style=False, sort_keys=False))
+    print(f"Learned {issue_type} editmeta from {key} ({len(all_fields)} fields)", file=sys.stderr)
+    return editmeta
+
+
+def ensure_editmeta(key: str, issue_type: str) -> EditmetaSchema | None:
+    """Load editmeta, fetching from API and caching if missing.
+
+    Requires an existing issue key (used by edit/transition).
+    """
+    project = key.split("-")[0]
+    editmeta = load_editmeta(project, issue_type)
+    if editmeta:
+        return editmeta
+    return _fetch_and_save_editmeta(key, project, issue_type)
+
+
+def ensure_editmeta_for_type(project: str, issue_type: str) -> EditmetaSchema | None:
+    """Load editmeta, finding a recent issue to learn from if missing.
+
+    Used by create when no issue key exists yet.
+    """
+    editmeta = load_editmeta(project, issue_type)
+    if editmeta:
+        return editmeta
+
+    jira = get_jira()
+    issues = jira.search_issues(
+        f'project = {project} AND issuetype = "{issue_type}" ORDER BY created DESC',
+        maxResults=1,
+    )
+    if not issues:
+        return None
+    return _fetch_and_save_editmeta(issues[0].key, project, issue_type)
+
+
 def _extract_allowed_values(field_meta: dict) -> list[str]:
     """Extract allowed value strings from editmeta field."""
     allowed = field_meta.get("allowedValues", [])

@@ -239,10 +239,21 @@ def create_command(args: argparse.Namespace) -> None:
                 print(f"  - {err}", file=sys.stderr)
             sys.exit(1)
 
+    project = front_matter.get("project", "")
+    issue_type = front_matter.get("type") or front_matter.get("issuetype") or ""
+
+    if not issue_type:
+        print("Error: 'type' (issue type) is required", file=sys.stderr)
+        sys.exit(1)
+
+    # Auto-learn editmeta if needed
+    from zaira.info import ensure_editmeta_for_type
+    ensure_editmeta_for_type(project, issue_type)
+
     fields = map_fields(
         front_matter, description,
-        project=front_matter.get("project"),
-        issue_type=front_matter.get("type") or front_matter.get("issuetype"),
+        project=project,
+        issue_type=issue_type,
     )
     dry_run = getattr(args, "dry_run", False)
 

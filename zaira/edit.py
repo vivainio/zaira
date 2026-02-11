@@ -388,7 +388,7 @@ def edit_command(args: argparse.Namespace) -> None:
     key = args.key.upper()
     project = key.split("-")[0]
 
-    # Fetch issue type for editmeta lookup
+    # Fetch issue type and ensure editmeta is cached
     jira = get_jira()
     try:
         issue = jira.issue(key, fields="issuetype")
@@ -396,6 +396,9 @@ def edit_command(args: argparse.Namespace) -> None:
     except Exception as e:
         print(f"Error: Could not fetch issue {key}: {e}", file=sys.stderr)
         sys.exit(1)
+
+    from zaira.info import ensure_editmeta
+    ensure_editmeta(key, issue_type)
 
     fields = {}
 

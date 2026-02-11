@@ -354,6 +354,11 @@ class TestCreateTicket:
 class TestCreateCommand:
     """Tests for create_command function."""
 
+    @pytest.fixture(autouse=True)
+    def _no_ensure_editmeta(self):
+        with patch("zaira.info.ensure_editmeta_for_type", return_value=None):
+            yield
+
     def test_exits_when_file_not_found(self, tmp_path, capsys):
         """Exits with error when file doesn't exist."""
         args = argparse.Namespace(file=str(tmp_path / "nonexistent.md"))
@@ -406,6 +411,7 @@ Description.
         ticket_file = tmp_path / "ticket.md"
         ticket_file.write_text("""---
 project: TEST
+type: Story
 summary: My ticket
 ---
 
@@ -428,6 +434,7 @@ With **bold** text.
         ticket_file = tmp_path / "ticket.md"
         ticket_file.write_text("""---
 project: TEST
+type: Story
 summary: My ticket
 ---
 
@@ -450,6 +457,7 @@ Description.
         ticket_file = tmp_path / "ticket.md"
         ticket_file.write_text("""---
 project: TEST
+type: Story
 summary: My ticket
 ---
 
@@ -471,6 +479,7 @@ Description.
         """Reads content from stdin when file is '-'."""
         content = """---
 project: TEST
+type: Story
 summary: Stdin ticket
 ---
 

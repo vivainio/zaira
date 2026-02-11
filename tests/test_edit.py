@@ -385,6 +385,11 @@ class TestHandleUpdateError:
 class TestEditCommand:
     """Tests for edit_command function."""
 
+    @pytest.fixture(autouse=True)
+    def _no_ensure_editmeta(self):
+        with patch("zaira.info.ensure_editmeta", return_value=None):
+            yield
+
     def test_exits_when_no_fields_specified(self, mock_jira, capsys):
         """Exits with error when no fields to update."""
         mock_issue = MagicMock()

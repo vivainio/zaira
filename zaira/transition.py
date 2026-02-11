@@ -86,9 +86,11 @@ def transition_command(args: argparse.Namespace) -> None:
 
         project = key.split("-")[0]
         from zaira.jira_client import get_jira
+        from zaira.info import ensure_editmeta
         jira = get_jira()
         issue = jira.issue(key, fields="issuetype")
         issue_type = issue.fields.issuetype.name
+        ensure_editmeta(key, issue_type)
         fields = parse_field_args(field_args, project=project, issue_type=issue_type)
 
     if transition_ticket(key, status, fields=fields):
