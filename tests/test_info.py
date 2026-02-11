@@ -16,6 +16,7 @@ from zaira.info import (
     get_field_type,
     load_project_schema,
     _fetch_cached_data,
+    _fetch_and_cache_fields,
 )
 
 
@@ -486,70 +487,6 @@ class TestStatusesCommand:
         assert exc_info.value.code == 1
 
 
-class TestPrioritiesCommand:
-    """Tests for priorities_command function."""
-
-    def test_displays_priorities_from_cache(self, mock_jira, capsys, tmp_path):
-        """Displays priorities from cached schema."""
-        from zaira.info import priorities_command
-        import argparse
-
-        schema_file = tmp_path / "schema.json"
-        schema = {"version": 2, "priorities": ["Highest", "High", "Medium", "Low", "Lowest"]}
-        schema_file.write_text(json.dumps(schema))
-
-        args = argparse.Namespace(refresh=False)
-
-        with patch("zaira.info.get_schema_path", return_value=schema_file):
-            priorities_command(args)
-
-        captured = capsys.readouterr()
-        assert "Priorities:" in captured.out
-        assert "Highest" in captured.out
-        assert "Low" in captured.out
-
-    def test_fetches_priorities_on_refresh(self, mock_jira, capsys, tmp_path):
-        """Fetches priorities from API on refresh."""
-        from zaira.info import priorities_command
-        import argparse
-
-        schema_file = tmp_path / "schema.json"
-        schema_file.write_text("{}")
-
-        mock_priority = MagicMock()
-        mock_priority.name = "High"
-        mock_jira.priorities.return_value = [mock_priority]
-
-        args = argparse.Namespace(refresh=True)
-
-        with (
-            patch("zaira.info.get_schema_path", return_value=schema_file),
-            patch("zaira.info.CACHE_DIR", tmp_path),
-        ):
-            priorities_command(args)
-
-        captured = capsys.readouterr()
-        assert "High" in captured.out
-
-    def test_handles_api_error(self, mock_jira, capsys, tmp_path):
-        """Handles API errors gracefully."""
-        from zaira.info import priorities_command
-        import argparse
-
-        schema_file = tmp_path / "nonexistent.json"
-        mock_jira.priorities.side_effect = Exception("API Error")
-
-        args = argparse.Namespace(refresh=False)
-
-        with (
-            patch("zaira.info.get_schema_path", return_value=schema_file),
-            pytest.raises(SystemExit) as exc_info,
-        ):
-            priorities_command(args)
-
-        assert exc_info.value.code == 1
-
-
 class TestIssueTypesCommand:
     """Tests for issue_types_command function."""
 
@@ -746,249 +683,8 @@ class TestFieldsCommand:
         assert exc_info.value.code == 1
 
 
-class TestComponentsCommand:
-    """Tests for components_command function."""
-
-    def test_displays_components(self, mock_jira, capsys, tmp_path):
-        """Displays components for a project."""
-        from zaira.info import components_command
-        import argparse
-
-        project_schema_file = tmp_path / "project_schema.json"
-        project_schema = {"components": ["Backend", "Frontend", "API"]}
-        project_schema_file.write_text(json.dumps(project_schema))
-
-        args = argparse.Namespace(project="TEST")
-
-        with patch("zaira.info.get_project_schema_path", return_value=project_schema_file):
-            components_command(args)
-
-        captured = capsys.readouterr()
-        assert "Components for TEST:" in captured.out
-        assert "Backend" in captured.out
-        assert "Frontend" in captured.out
-
-    def test_handles_no_components(self, mock_jira, capsys, tmp_path):
-        """Handles project with no components."""
-        from zaira.info import components_command
-        import argparse
-
-        project_schema_file = tmp_path / "project_schema.json"
-        project_schema = {"components": []}
-        project_schema_file.write_text(json.dumps(project_schema))
-
-        args = argparse.Namespace(project="EMPTY")
-
-        with patch("zaira.info.get_project_schema_path", return_value=project_schema_file):
-            components_command(args)
-
-        captured = capsys.readouterr()
-        assert "No components found" in captured.out
-
-    def test_exits_when_no_cached_components(self, mock_jira, capsys, tmp_path):
-        """Exits when no cached components exist."""
-        from zaira.info import components_command
-        import argparse
-
-        args = argparse.Namespace(project="NOCACHE")
-
-        with (
-            patch("zaira.info.get_project_schema_path", return_value=tmp_path / "nonexistent.json"),
-            pytest.raises(SystemExit) as exc_info,
-        ):
-            components_command(args)
-
-        assert exc_info.value.code == 1
-        captured = capsys.readouterr()
-        assert "No cached components" in captured.err
-
-
-class TestLabelsCommand:
-    """Tests for labels_command function."""
-
-    def test_displays_labels(self, mock_jira, capsys, tmp_path):
-        """Displays labels for a project."""
-        from zaira.info import labels_command
-        import argparse
-
-        project_schema_file = tmp_path / "project_schema.json"
-        project_schema = {"labels": ["bug", "feature", "urgent"]}
-        project_schema_file.write_text(json.dumps(project_schema))
-
-        args = argparse.Namespace(project="TEST")
-
-        with patch("zaira.info.get_project_schema_path", return_value=project_schema_file):
-            labels_command(args)
-
-        captured = capsys.readouterr()
-        assert "Labels for TEST:" in captured.out
-        assert "bug" in captured.out
-        assert "urgent" in captured.out
-
-    def test_handles_no_labels(self, mock_jira, capsys, tmp_path):
-        """Handles project with no labels."""
-        from zaira.info import labels_command
-        import argparse
-
-        project_schema_file = tmp_path / "project_schema.json"
-        project_schema = {"labels": []}
-        project_schema_file.write_text(json.dumps(project_schema))
-
-        args = argparse.Namespace(project="EMPTY")
-
-        with patch("zaira.info.get_project_schema_path", return_value=project_schema_file):
-            labels_command(args)
-
-        captured = capsys.readouterr()
-        assert "No labels found" in captured.out
-
-    def test_exits_when_no_cached_labels(self, mock_jira, capsys, tmp_path):
-        """Exits when no cached labels exist."""
-        from zaira.info import labels_command
-        import argparse
-
-        args = argparse.Namespace(project="NOCACHE")
-
-        with (
-            patch("zaira.info.get_project_schema_path", return_value=tmp_path / "nonexistent.json"),
-            pytest.raises(SystemExit) as exc_info,
-        ):
-            labels_command(args)
-
-        assert exc_info.value.code == 1
-        captured = capsys.readouterr()
-        assert "No cached labels" in captured.err
-
-
-class TestFetchAndSaveSchema:
-    """Tests for fetch_and_save_schema function."""
-
-    def test_fetches_and_saves_full_schema(self, mock_jira, capsys, tmp_path):
-        """Fetches all schema data and saves to file."""
-        from zaira.info import fetch_and_save_schema
-
-        # Mock all Jira API calls
-        mock_jira.fields.return_value = [
-            {"id": "customfield_10001", "name": "Story Points", "schema": {"type": "number"}},
-        ]
-
-        mock_status = MagicMock()
-        mock_status.name = "Open"
-        mock_status.statusCategory.name = "To Do"
-        mock_jira.statuses.return_value = [mock_status]
-
-        mock_priority = MagicMock()
-        mock_priority.name = "High"
-        mock_jira.priorities.return_value = [mock_priority]
-
-        mock_type = MagicMock()
-        mock_type.name = "Bug"
-        mock_type.subtask = False
-        mock_jira.issue_types.return_value = [mock_type]
-
-        mock_link = MagicMock()
-        mock_link.name = "Blocks"
-        mock_link.outward = "blocks"
-        mock_link.inward = "is blocked by"
-        mock_jira.issue_link_types.return_value = [mock_link]
-
-        schema_file = tmp_path / "schema.json"
-
-        with (
-            patch("zaira.info.get_schema_path", return_value=schema_file),
-            patch("zaira.info.CACHE_DIR", tmp_path),
-        ):
-            fetch_and_save_schema()
-
-        assert schema_file.exists()
-        saved = json.loads(schema_file.read_text())
-        assert "fields" in saved
-        assert "statuses" in saved
-        assert "priorities" in saved
-        assert "issueTypes" in saved
-        assert "linkTypes" in saved
-
-    def test_saves_project_schema(self, mock_jira, capsys, tmp_path):
-        """Saves project-specific schema when provided."""
-        from zaira.info import fetch_and_save_schema
-
-        # Minimal mocks - just enough to not error
-        mock_jira.fields.return_value = []
-        mock_jira.statuses.return_value = []
-        mock_jira.priorities.return_value = []
-        mock_jira.issue_types.return_value = []
-        mock_jira.issue_link_types.return_value = []
-
-        schema_file = tmp_path / "schema.json"
-        project_file = tmp_path / "project_TEST.json"
-
-        with (
-            patch("zaira.info.get_schema_path", return_value=schema_file),
-            patch("zaira.info.get_project_schema_path", return_value=project_file),
-            patch("zaira.info.CACHE_DIR", tmp_path),
-        ):
-            fetch_and_save_schema(
-                project="TEST",
-                components=["Backend", "Frontend"],
-                labels=["bug", "feature"],
-            )
-
-        assert project_file.exists()
-        saved = json.loads(project_file.read_text())
-        assert saved["components"] == ["Backend", "Frontend"]
-        assert saved["labels"] == ["bug", "feature"]
-
-    def test_handles_api_errors_gracefully(self, mock_jira, capsys, tmp_path):
-        """Continues despite individual API errors."""
-        from zaira.info import fetch_and_save_schema
-
-        # Make all APIs fail
-        mock_jira.fields.side_effect = Exception("Fields error")
-        mock_jira.statuses.side_effect = Exception("Statuses error")
-        mock_jira.priorities.side_effect = Exception("Priorities error")
-        mock_jira.issue_types.side_effect = Exception("Types error")
-        mock_jira.issue_link_types.side_effect = Exception("Links error")
-
-        schema_file = tmp_path / "schema.json"
-
-        with (
-            patch("zaira.info.get_schema_path", return_value=schema_file),
-            patch("zaira.info.CACHE_DIR", tmp_path),
-        ):
-            fetch_and_save_schema()
-
-        # Should still save (empty) schema
-        assert schema_file.exists()
-        captured = capsys.readouterr()
-        assert "Warning:" in captured.err  # Errors logged as warnings
-
-
 class TestInfoCommand:
     """Tests for info_command function."""
-
-    def test_runs_save_when_flag_set(self, mock_jira, capsys, tmp_path):
-        """Runs fetch_and_save_schema when --save flag is set."""
-        from zaira.info import info_command
-        import argparse
-
-        # Minimal mocks
-        mock_jira.fields.return_value = []
-        mock_jira.statuses.return_value = []
-        mock_jira.priorities.return_value = []
-        mock_jira.issue_types.return_value = []
-        mock_jira.issue_link_types.return_value = []
-
-        schema_file = tmp_path / "schema.json"
-
-        args = argparse.Namespace(save=True)
-
-        with (
-            patch("zaira.info.get_schema_path", return_value=schema_file),
-            patch("zaira.info.CACHE_DIR", tmp_path),
-        ):
-            info_command(args)
-
-        assert schema_file.exists()
 
     def test_calls_info_func(self, mock_jira, capsys, tmp_path):
         """Calls info_func when present on args."""
@@ -1000,7 +696,7 @@ class TestInfoCommand:
         def mock_func(args):
             called.append(True)
 
-        args = argparse.Namespace(save=False, info_func=mock_func)
+        args = argparse.Namespace(info_func=mock_func)
 
         info_command(args)
 
@@ -1011,7 +707,7 @@ class TestInfoCommand:
         from zaira.info import info_command
         import argparse
 
-        args = argparse.Namespace(save=False)
+        args = argparse.Namespace()
         # No info_func attribute
 
         with pytest.raises(SystemExit) as exc_info:
@@ -1021,3 +717,80 @@ class TestInfoCommand:
         captured = capsys.readouterr()
         assert "Usage:" in captured.out
         assert "zaira info <subcommand>" in captured.out
+
+
+class TestGetFieldNameAutoFetch:
+    """Tests for get_field_name auto-fetch behavior."""
+
+    def test_auto_fetches_when_no_fields_cached(self, mock_jira, tmp_path):
+        """Auto-fetches fields from API when not cached."""
+        schema_file = tmp_path / "schema.json"
+        schema = {"version": 2, "statuses": {}}  # No 'fields' key
+        schema_file.write_text(json.dumps(schema))
+
+        mock_jira.fields.return_value = [
+            {"id": "customfield_10001", "name": "Story Points", "schema": {"type": "number"}},
+        ]
+
+        with (
+            patch("zaira.info.get_schema_path", return_value=schema_file),
+            patch("zaira.info.CACHE_DIR", tmp_path),
+        ):
+            result = get_field_name("customfield_10001")
+
+        assert result == "Story Points"
+        mock_jira.fields.assert_called_once()
+
+    def test_auto_fetches_when_no_schema_file(self, mock_jira, tmp_path):
+        """Auto-fetches fields when schema file doesn't exist."""
+        schema_file = tmp_path / "nonexistent.json"
+
+        mock_jira.fields.return_value = [
+            {"id": "customfield_999", "name": "Epic Link", "schema": {"type": "string"}},
+        ]
+
+        with (
+            patch("zaira.info.get_schema_path", return_value=schema_file),
+            patch("zaira.info.CACHE_DIR", tmp_path),
+        ):
+            result = get_field_name("customfield_999")
+
+        assert result == "Epic Link"
+
+    def test_returns_none_when_auto_fetch_fails(self, mock_jira, tmp_path):
+        """Returns None when auto-fetch raises an exception."""
+        schema_file = tmp_path / "nonexistent.json"
+        mock_jira.fields.side_effect = Exception("API Error")
+
+        with patch("zaira.info.get_schema_path", return_value=schema_file):
+            result = get_field_name("customfield_123")
+
+        assert result is None
+
+    def test_returns_none_when_field_not_in_fetched_data(self, mock_jira, tmp_path):
+        """Returns None when field not found even after auto-fetch."""
+        schema_file = tmp_path / "nonexistent.json"
+
+        mock_jira.fields.return_value = [
+            {"id": "customfield_10001", "name": "Story Points", "schema": {"type": "number"}},
+        ]
+
+        with (
+            patch("zaira.info.get_schema_path", return_value=schema_file),
+            patch("zaira.info.CACHE_DIR", tmp_path),
+        ):
+            result = get_field_name("customfield_999")
+
+        assert result is None
+
+    def test_does_not_fetch_when_fields_cached(self, mock_jira, tmp_path):
+        """Does not call API when fields are already cached."""
+        schema_file = tmp_path / "schema.json"
+        schema = {"version": 2, "fields": {"customfield_10001": {"name": "Story Points"}}}
+        schema_file.write_text(json.dumps(schema))
+
+        with patch("zaira.info.get_schema_path", return_value=schema_file):
+            result = get_field_name("customfield_10001")
+
+        assert result == "Story Points"
+        mock_jira.fields.assert_not_called()

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from jira import JIRA
-    from zaira.types import ZSchema, ProjectSchema
+    from zaira.types import ZSchema
 
 __version__ = version("zaira")
 
@@ -49,23 +49,3 @@ def schema() -> "ZSchema | None":
     return load_schema()
 
 
-def project_schema(project: str) -> "ProjectSchema | None":
-    """Get cached project schema.
-
-    Returns project-specific metadata including components and labels.
-
-    Usage:
-        import zaira
-        s = zaira.project_schema("FOO")
-        print(s["components"])  # ['Backend', 'Frontend', ...]
-        print(s["labels"])      # ['bug', 'feature', ...]
-
-    Args:
-        project: Project key (e.g., "FOO")
-
-    Returns:
-        Project schema dict or None if not cached. Run 'zaira init' to populate.
-    """
-    from zaira.info import load_project_schema
-
-    return load_project_schema(project)

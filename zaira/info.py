@@ -105,8 +105,23 @@ def get_field_id(name: str) -> str | None:
     return None
 
 
+def _fetch_and_cache_fields() -> dict:
+    """Fetch fields from Jira API and cache them.
+
+    Returns:
+        Fields dict mapping field IDs to metadata.
+    """
+    jira = get_jira()
+    raw_fields = jira.fields()
+    fields = _build_fields_dict(raw_fields)
+    update_schema("fields", fields)
+    return fields
+
+
 def get_field_name(field_id: str) -> str | None:
     """Look up field name by ID.
+
+    Auto-fetches fields from Jira if not cached.
 
     Args:
         field_id: Jira field ID (e.g., "customfield_10001")
@@ -116,7 +131,14 @@ def get_field_name(field_id: str) -> str | None:
     """
     schema = load_schema()
     if not schema or "fields" not in schema:
-        return None
+        try:
+            fields = _fetch_and_cache_fields()
+        except Exception:
+            return None
+        field_def = fields.get(field_id)
+        if field_def is None:
+            return None
+        return field_def.get("name")
     field_def = schema["fields"].get(field_id)
     if field_def is None:
         return None
@@ -265,29 +287,6 @@ def statuses_command(args: argparse.Namespace) -> None:
         print(f"{name:<30} {category:<20}")
 
 
-def priorities_command(args: argparse.Namespace) -> None:
-    """List available priorities."""
-
-    def fetch_priorities():
-        jira = get_jira()
-        raw = jira.priorities()
-        data = [p.name for p in raw]
-        update_schema("priorities", data)
-        return data
-
-    try:
-        priorities = _fetch_cached_data(
-            "priorities", fetch_priorities, getattr(args, "refresh", False)
-        )
-    except Exception as e:
-        print(f"Error fetching priorities: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    print("Priorities:")
-    for name in priorities:
-        print(f"  {name}")
-
-
 def issue_types_command(args: argparse.Namespace) -> None:
     """List available issue types."""
 
@@ -315,13 +314,6 @@ def issue_types_command(args: argparse.Namespace) -> None:
 
 def fields_command(args: argparse.Namespace) -> None:
     """List custom fields."""
-
-    def fetch_fields():
-        jira = get_jira()
-        raw_fields = jira.fields()
-        update_schema("fields", _build_fields_dict(raw_fields))
-        return raw_fields
-
     refresh = getattr(args, "refresh", False)
     schema = load_schema()
 
@@ -330,7 +322,8 @@ def fields_command(args: argparse.Namespace) -> None:
         fields = [{"id": k, "name": v.get("name", "")} for k, v in schema["fields"].items()]
     else:
         try:
-            fields = fetch_fields()
+            fields_dict = _fetch_and_cache_fields()
+            fields = [{"id": k, "name": v.get("name", "")} for k, v in fields_dict.items()]
         except Exception as e:
             print(f"Error fetching fields: {e}", file=sys.stderr)
             sys.exit(1)
@@ -360,46 +353,6 @@ def fields_command(args: argparse.Namespace) -> None:
     print("-" * 65)
     for f in result:
         print(f"{f['id']:<25} {f['name']:<40}")
-
-
-def components_command(args: argparse.Namespace) -> None:
-    """List components for a project."""
-    project = args.project
-    schema = load_project_schema(project)
-
-    if not schema or "components" not in schema:
-        print(f"No cached components for project {project}.", file=sys.stderr)
-        print("Run 'zaira init' to discover project metadata.", file=sys.stderr)
-        sys.exit(1)
-
-    components = schema["components"]
-    if not components:
-        print(f"No components found for {project}")
-        return
-
-    print(f"Components for {project}:")
-    for comp in sorted(components):
-        print(f"  {comp}")
-
-
-def labels_command(args: argparse.Namespace) -> None:
-    """List labels for a project."""
-    project = args.project
-    schema = load_project_schema(project)
-
-    if not schema or "labels" not in schema:
-        print(f"No cached labels for project {project}.", file=sys.stderr)
-        print("Run 'zaira init' to discover project metadata.", file=sys.stderr)
-        sys.exit(1)
-
-    labels = schema["labels"]
-    if not labels:
-        print(f"No labels found for {project}")
-        return
-
-    print(f"Labels for {project}:")
-    for label in sorted(labels):
-        print(f"  {label}")
 
 
 def get_editmeta_field(
@@ -640,87 +593,11 @@ def learn_command(args: argparse.Namespace) -> None:
             print(f"    {name:<38} {ftype:<12} {info:<20}")
 
 
-def fetch_and_save_schema(
-    project: str | None = None,
-    components: list[str] | None = None,
-    labels: list[str] | None = None,
-) -> None:
-    """Fetch Jira instance metadata and save to global cache.
-
-    Instance schema: ~/.cache/zaira/schema_PROFILE.json
-    Project schema: ~/.cache/zaira/zproject_PROFILE_PROJECT.json
-    """
-    jira = get_jira()
-    schema: ZSchema = {"version": SCHEMA_VERSION}
-
-    print("Fetching fields...")
-    try:
-        fields = jira.fields()
-        schema["fields"] = _build_fields_dict(fields)
-    except Exception as e:
-        print(f"  Warning: Could not fetch fields: {e}", file=sys.stderr)
-
-    print("Fetching statuses...")
-    try:
-        statuses = jira.statuses()
-        schema["statuses"] = {
-            s.name: s.statusCategory.name if hasattr(s, "statusCategory") else None
-            for s in statuses
-        }
-    except Exception as e:
-        print(f"  Warning: Could not fetch statuses: {e}", file=sys.stderr)
-
-    print("Fetching priorities...")
-    try:
-        priorities = jira.priorities()
-        schema["priorities"] = [p.name for p in priorities]
-    except Exception as e:
-        print(f"  Warning: Could not fetch priorities: {e}", file=sys.stderr)
-
-    print("Fetching issue types...")
-    try:
-        issue_types = jira.issue_types()
-        schema["issueTypes"] = {t.name: {"subtask": t.subtask} for t in issue_types}
-    except Exception as e:
-        print(f"  Warning: Could not fetch issue types: {e}", file=sys.stderr)
-
-    print("Fetching link types...")
-    try:
-        link_types = jira.issue_link_types()
-        schema["linkTypes"] = {
-            t.name: {"outward": t.outward, "inward": t.inward} for t in link_types
-        }
-    except Exception as e:
-        print(f"  Warning: Could not fetch link types: {e}", file=sys.stderr)
-
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
-
-    # Save instance schema
-    schema_file = get_schema_path()
-    schema_file.write_text(json.dumps(schema, indent=2))
-    print(f"Saved instance schema to {schema_file}")
-
-    # Save project schema if provided
-    if project and (components is not None or labels is not None):
-        project_schema: ProjectSchema = {}
-        if components is not None:
-            project_schema["components"] = components
-        if labels is not None:
-            project_schema["labels"] = labels
-        project_file = get_project_schema_path(project)
-        project_file.write_text(json.dumps(project_schema, indent=2))
-        print(f"Saved project schema to {project_file}")
-
-
 def info_command(args: argparse.Namespace) -> None:
     """Handle info subcommand."""
-    if getattr(args, "save", False):
-        fetch_and_save_schema()
-        return
     if hasattr(args, "info_func"):
         args.info_func(args)
     else:
         print("Usage: zaira info <subcommand>")
-        print("Subcommands: link-types, statuses, priorities, issue-types, fields")
-        print("\nUse 'zaira info --save' to refresh cached schema")
+        print("Subcommands: link-types, statuses, issue-types, fields")
         sys.exit(1)

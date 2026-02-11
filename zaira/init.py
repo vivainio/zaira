@@ -14,7 +14,7 @@ from zaira.jira_client import (
     get_project_schema_path,
     load_credentials,
 )
-from zaira.info import fetch_and_save_schema
+from zaira.info import _fetch_and_cache_fields
 
 
 def discover_components(project: str) -> list[str]:
@@ -252,8 +252,14 @@ def init_project_command(args: argparse.Namespace) -> None:
     config_path.write_text(content)
     print(f"\nCreated {config_path}\n")
 
-    # Cache instance schema (once) and project metadata (per project)
-    fetch_and_save_schema()
+    # Cache fields (for field name lookups in export)
+    print("Fetching fields...")
+    try:
+        _fetch_and_cache_fields()
+        print("Cached field metadata.")
+    except Exception as e:
+        print(f"  Warning: Could not fetch fields: {e}", file=sys.stderr)
+
     for project in projects:
         project_schema = {
             "components": all_components.get(project, []),
