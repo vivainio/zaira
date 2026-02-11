@@ -196,6 +196,43 @@ def test_links(key: str, key2: str):
     assert key2 in result.stdout, "Link target not in export"
 
 
+def test_attach_and_get_attachment(key: str):
+    """Upload attachments then download by pattern."""
+    print("\n=== Attach files ===")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create test files
+        for name in ["report.txt", "report.pdf", "image.png"]:
+            p = Path(tmpdir) / name
+            p.write_text(f"test content for {name}\n")
+
+        # Upload all three
+        files = " ".join(f"{tmpdir}/{n}" for n in ["report.txt", "report.pdf", "image.png"])
+        result = run(f"attach {key} {files}")
+        assert "Uploaded 3/3" in result.stdout
+
+        print("\n=== Get attachments by pattern ===")
+        dl_dir = Path(tmpdir) / "downloaded"
+        dl_dir.mkdir()
+
+        # Download only report* files
+        result = run(f'get-attachment {key} "report*" -o {dl_dir}')
+        assert "2 attachment(s)" in result.stdout
+        assert (dl_dir / "report.txt").exists()
+        assert (dl_dir / "report.pdf").exists()
+        assert not (dl_dir / "image.png").exists()
+
+        # Download all with wildcard
+        dl_all = Path(tmpdir) / "all"
+        dl_all.mkdir()
+        result = run(f'get-attachment {key} "*" -o {dl_all}')
+        assert "3 attachment(s)" in result.stdout
+
+        # No match shows available
+        result = run(f'get-attachment {key} "*.zip"')
+        assert "No attachments matching" in result.stdout
+        assert "report.txt" in result.stdout
+
+
 def test_get_formats(key: str):
     """Test get to file in different formats."""
     print("\n=== Get formats ===")
@@ -323,6 +360,7 @@ def main():
         key2 = _create_link_target()
         test_links(key1, key2)
 
+        test_attach_and_get_attachment(key1)
         test_get_formats(key1)
         test_get_jql(key1)
         test_worklog(key1)

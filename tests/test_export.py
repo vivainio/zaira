@@ -1,7 +1,8 @@
 """Tests for export module."""
 
+import argparse
 from dataclasses import dataclass
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -1068,6 +1069,106 @@ class TestDownloadAttachment:
         assert result is False
         captured = capsys.readouterr()
         assert "Error downloading" in captured.out
+
+
+class TestGetAttachmentCommand:
+    """Tests for get_attachment_command."""
+
+    def _make_ticket(self, attachments):
+        return {
+            "key": "TEST-123",
+            "summary": "Test",
+            "attachments": attachments,
+        }
+
+    def test_downloads_matching_attachments(self, mock_jira, tmp_path, capsys):
+        """Downloads attachments that match the pattern."""
+        from zaira.export import get_attachment_command
+
+        ticket = self._make_ticket([
+            {"id": "1", "filename": "report.pdf", "size": 1024},
+            {"id": "2", "filename": "image.png", "size": 2048},
+            {"id": "3", "filename": "summary.pdf", "size": 512},
+        ])
+        args = argparse.Namespace(key="test-123", pattern="*.pdf", output=str(tmp_path))
+
+        mock_response = MagicMock()
+        mock_response.content = b"pdf content"
+        mock_response.raise_for_status = MagicMock()
+        mock_jira._session.get.return_value = mock_response
+        mock_jira._options = {"server": "https://jira.example.com"}
+
+        with patch("zaira.export.get_ticket", return_value=ticket):
+            get_attachment_command(args)
+
+        captured = capsys.readouterr()
+        assert "2 attachment(s)" in captured.out
+        assert "Downloaded 2/2" in captured.out
+        assert (tmp_path / "report.pdf").exists()
+        assert (tmp_path / "summary.pdf").exists()
+        assert not (tmp_path / "image.png").exists()
+
+    def test_no_match_lists_available(self, mock_jira, capsys):
+        """Shows available attachments when none match."""
+        from zaira.export import get_attachment_command
+
+        ticket = self._make_ticket([
+            {"id": "1", "filename": "data.csv", "size": 1024},
+        ])
+        args = argparse.Namespace(key="test-123", pattern="*.pdf", output=None)
+
+        with patch("zaira.export.get_ticket", return_value=ticket):
+            get_attachment_command(args)
+
+        captured = capsys.readouterr()
+        assert "No attachments matching '*.pdf'" in captured.out
+        assert "data.csv" in captured.out
+
+    def test_no_attachments(self, mock_jira, capsys):
+        """Handles ticket with no attachments."""
+        from zaira.export import get_attachment_command
+
+        ticket = self._make_ticket([])
+        args = argparse.Namespace(key="test-123", pattern="*", output=None)
+
+        with patch("zaira.export.get_ticket", return_value=ticket):
+            get_attachment_command(args)
+
+        captured = capsys.readouterr()
+        assert "No attachments on TEST-123" in captured.out
+
+    def test_ticket_fetch_error(self, mock_jira, capsys):
+        """Exits on ticket fetch failure."""
+        from zaira.export import get_attachment_command
+
+        args = argparse.Namespace(key="test-123", pattern="*", output=None)
+
+        with patch("zaira.export.get_ticket", return_value=None):
+            with pytest.raises(SystemExit) as exc_info:
+                get_attachment_command(args)
+
+        assert exc_info.value.code == 1
+
+    def test_defaults_to_current_dir(self, mock_jira, tmp_path, capsys, monkeypatch):
+        """Uses current directory when no output specified."""
+        from zaira.export import get_attachment_command
+
+        ticket = self._make_ticket([
+            {"id": "1", "filename": "file.txt", "size": 100},
+        ])
+        args = argparse.Namespace(key="test-123", pattern="*", output=None)
+
+        mock_response = MagicMock()
+        mock_response.content = b"content"
+        mock_response.raise_for_status = MagicMock()
+        mock_jira._session.get.return_value = mock_response
+        mock_jira._options = {"server": "https://jira.example.com"}
+
+        monkeypatch.chdir(tmp_path)
+        with patch("zaira.export.get_ticket", return_value=ticket):
+            get_attachment_command(args)
+
+        assert (tmp_path / "file.txt").exists()
 
 
 class TestSearchTickets:

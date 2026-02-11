@@ -10,6 +10,7 @@ from zaira.comment import comment_command
 from zaira.create import create_command
 from zaira.dashboard import dashboard_command, dashboards_command
 from zaira.edit import edit_command
+from zaira.export import get_attachment_command
 from zaira.hours import hours_command
 from zaira.link import link_command
 from zaira.transition import transition_command
@@ -468,6 +469,26 @@ def main() -> None:
         help="Files to upload",
     )
     attach_parser.set_defaults(func=attach_command)
+
+    # Get-attachment command
+    get_att_parser = subparsers.add_parser(
+        "get-attachment",
+        help="Download attachments by filename pattern",
+    )
+    get_att_parser.add_argument(
+        "key",
+        help="Ticket key (e.g., PROJ-123)",
+    )
+    get_att_parser.add_argument(
+        "pattern",
+        help="Filename pattern (e.g., '*.pdf', 'report*')",
+    )
+    get_att_parser.add_argument(
+        "-o",
+        "--output",
+        help="Output directory (default: current directory)",
+    )
+    get_att_parser.set_defaults(func=get_attachment_command)
 
     # Edit command
     edit_parser = subparsers.add_parser(

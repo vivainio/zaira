@@ -446,6 +446,49 @@ def download_attachment(attachment: Attachment, output_dir: Path) -> bool:
         return False
 
 
+def get_attachment_command(args: argparse.Namespace) -> None:
+    """Handle get-attachment subcommand."""
+    from fnmatch import fnmatch
+
+    key = args.key.upper()
+    pattern = args.pattern
+    output_dir = Path(getattr(args, "output", None) or ".")
+
+    ticket = get_ticket(key, include_attachments=True)
+    if not ticket:
+        print(f"Error: Could not fetch {key}", file=sys.stderr)
+        sys.exit(1)
+
+    attachments = ticket.get("attachments", [])
+    if not attachments:
+        print(f"No attachments on {key}")
+        return
+
+    matched = [a for a in attachments if fnmatch(a["filename"], pattern)]
+    if not matched:
+        print(f"No attachments matching '{pattern}' on {key}")
+        print("Available attachments:")
+        for a in attachments:
+            size_kb = a.get("size", 0) // 1024
+            print(f"  {a['filename']} ({size_kb} KB)")
+        return
+
+    print(f"Downloading {len(matched)} attachment(s) from {key}...")
+    success = 0
+    for att in matched:
+        size_kb = att.get("size", 0) // 1024
+        print(f"  {att['filename']} ({size_kb} KB)...", end=" ")
+        if download_attachment(att, output_dir):
+            print("done")
+            success += 1
+        else:
+            print("failed")
+
+    print(f"\nDownloaded {success}/{len(matched)} files to {output_dir}/")
+    if success < len(matched):
+        sys.exit(1)
+
+
 def search_tickets(jql: str) -> list[str]:
     """Search for tickets and return list of keys."""
     jira = get_jira()
