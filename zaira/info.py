@@ -71,8 +71,11 @@ def _parse_field_type(type_str: str) -> tuple[str, str | None]:
     """Parse compact type notation.
 
     Returns:
-        (type, item_type): e.g. "[option]" -> ("array", "option"), "string" -> ("string", None)
+        (type, item_type): e.g. "option list" -> ("array", "option"), "string" -> ("string", None)
     """
+    if type_str.endswith(" list"):
+        return "array", type_str[:-5]
+    # Legacy format
     if type_str.startswith("[") and type_str.endswith("]"):
         return "array", type_str[1:-1]
     return type_str, None
@@ -94,13 +97,13 @@ def _build_fields_dict(raw_fields: list[dict]) -> dict:
 def _encode_field_type(jira_schema: dict) -> str:
     """Encode Jira field schema as compact type string.
 
-    e.g. {"type": "array", "items": "option"} -> "[option]"
+    e.g. {"type": "array", "items": "option"} -> "option list"
          {"type": "string"} -> "string"
     """
     t = jira_schema.get("type", "")
     items = jira_schema.get("items")
     if items:
-        return f"[{items}]"
+        return f"{items} list"
     return t
 
 
