@@ -598,7 +598,7 @@ def main() -> None:
     learn_parser.add_argument(
         "keys",
         nargs="+",
-        help="Issue key(s) to learn from (e.g., SAN-50)",
+        help="Issue key(s) or YAML file(s) to learn from",
     )
     learn_parser.set_defaults(func=learn_command)
 

@@ -20,6 +20,23 @@ T = TypeVar("T")
 
 
 SCHEMA_VERSION = 2
+FIELD_DESCRIPTIONS_FILE = CACHE_DIR / "field_descriptions.yaml"
+
+
+def load_field_descriptions() -> dict[str, str]:
+    """Load shared field descriptions (field name -> description)."""
+    if not FIELD_DESCRIPTIONS_FILE.exists():
+        return {}
+    data = yaml.safe_load(FIELD_DESCRIPTIONS_FILE.read_text())
+    return data if isinstance(data, dict) else {}
+
+
+def save_field_descriptions(descriptions: dict[str, str]) -> None:
+    """Save shared field descriptions."""
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    FIELD_DESCRIPTIONS_FILE.write_text(
+        yaml.dump(descriptions, default_flow_style=False, sort_keys=True, allow_unicode=True)
+    )
 
 
 def load_schema() -> ZSchema | None:
@@ -499,12 +516,87 @@ def _parse_editmeta_response(raw: dict) -> dict:
     return fields
 
 
+def _learn_from_file(filepath: str) -> None:
+    """Import from a YAML file.
+
+    If the file has project/issueType keys, treat as editmeta.
+    Otherwise treat as field descriptions (field name -> description string).
+    """
+    from pathlib import Path
+
+    path = Path(filepath)
+    if not path.exists():
+        print(f"File not found: {filepath}", file=sys.stderr)
+        return
+
+    data = yaml.safe_load(path.read_text())
+    if not data or not isinstance(data, dict):
+        print(f"Invalid YAML: {filepath}", file=sys.stderr)
+        return
+
+    # If it has project + issueType, it's an editmeta file
+    if data.get("project") and data.get("issueType"):
+        _learn_editmeta_from_file(filepath, data)
+        return
+
+    # Otherwise treat as field descriptions: {name: description, ...}
+    descriptions = load_field_descriptions()
+    count = 0
+    for name, value in data.items():
+        if isinstance(value, str):
+            descriptions[name] = value
+            count += 1
+    save_field_descriptions(descriptions)
+    print(f"  {filepath} -> field_descriptions.yaml  ({count} descriptions)")
+
+
+def _learn_editmeta_from_file(filepath: str, data: dict) -> None:
+    """Import editmeta from a YAML file, merging into existing cache."""
+    project = data["project"]
+    issue_type = data["issueType"]
+
+    incoming_fields = data.get("fields", {})
+    if not incoming_fields:
+        print(f"No fields in {filepath}", file=sys.stderr)
+        return
+
+    # Merge into existing editmeta (if any)
+    existing = load_editmeta(project, issue_type)
+    if existing and "fields" in existing:
+        for name, fdef in incoming_fields.items():
+            if name in existing["fields"]:
+                existing["fields"][name].update(fdef)
+            else:
+                existing["fields"][name] = fdef
+        merged = existing
+    else:
+        merged = data
+
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    dest = get_editmeta_path(project, issue_type)
+    dest.write_text(yaml.dump(merged, default_flow_style=False, sort_keys=False))
+
+    n_fields = len(incoming_fields)
+    print(f"  {filepath} -> {dest.name}  ({n_fields} fields, {project}/{issue_type})")
+
+
 def learn_command(args: argparse.Namespace) -> None:
-    """Learn editable fields from issue editmeta."""
-    raw_keys = [k.upper() for k in args.keys]
+    """Learn editable fields from issue editmeta or YAML files."""
+    raw_args = args.keys
+
+    # Split into files and issue keys
+    files = [a for a in raw_args if a.endswith((".yaml", ".yml"))]
+    raw_keys = [k.upper() for k in raw_args if not k.endswith((".yaml", ".yml"))]
+
+    # Import YAML files first
+    for f in files:
+        _learn_from_file(f)
+
     if not raw_keys:
-        print("No issue keys provided.", file=sys.stderr)
-        sys.exit(1)
+        if not files:
+            print("No issue keys or files provided.", file=sys.stderr)
+            sys.exit(1)
+        return
 
     jira = get_jira()
     server = jira._options["server"]
@@ -531,8 +623,7 @@ def learn_command(args: argparse.Namespace) -> None:
                     keys.append(issue.key)
 
     if not keys:
-        print("No issue keys to learn from.", file=sys.stderr)
-        sys.exit(1)
+        return
 
     # Group by (project, issue_type) and learn each
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -557,14 +648,6 @@ def learn_command(args: argparse.Namespace) -> None:
             continue
 
         all_fields = _parse_editmeta_response(resp.json())
-
-        # Preserve human-added descriptions from existing file
-        existing = load_editmeta(project, issue_type)
-        if existing and "fields" in existing:
-            for name, fdef in all_fields.items():
-                old = existing["fields"].get(name, {})
-                if "description" in old:
-                    fdef["description"] = old["description"]
 
         editmeta: EditmetaSchema = {
             "project": project,
@@ -614,6 +697,8 @@ def field_command(args: argparse.Namespace) -> None:
         print("No editmeta cached. Run 'zaira learn <KEY>' first.", file=sys.stderr)
         sys.exit(1)
 
+    descriptions = load_field_descriptions()
+
     for name in names:
         name_lower = name.lower()
         # Collect matches: group by field ID, merge allowed values and locations
@@ -635,17 +720,18 @@ def field_command(args: argparse.Namespace) -> None:
                     "fdef": dict(fdef),
                     "locations": [],
                 }
+            merged_fdef = matches[fid]["fdef"]
             matches[fid]["locations"].append(f"{project}/{issue_type}")
             # Merge allowed values (union, preserving order)
             new_vals = fdef.get("allowedValues", [])
-            existing = matches[fid]["fdef"].get("allowedValues", [])
+            existing = merged_fdef.get("allowedValues", [])
             if new_vals:
                 seen = set(existing)
                 for v in new_vals:
                     if v not in seen:
                         existing.append(v)
                         seen.add(v)
-                matches[fid]["fdef"]["allowedValues"] = existing
+                merged_fdef["allowedValues"] = existing
 
         if not matches:
             print(f"{name}: not found in any editmeta cache\n")
@@ -653,18 +739,16 @@ def field_command(args: argparse.Namespace) -> None:
 
         for fid, info in matches.items():
             fdef = info["fdef"]
+            fname = info["name"]
             locs = ", ".join(info["locations"])
-            print(f"{info['name']}  ({locs})")
+            print(f"{fname}  ({locs})")
             print(f"  id:         {fid}")
             print(f"  type:       {fdef.get('type', '')}")
             print(f"  required:   {fdef.get('required', False)}")
-            ops = fdef.get("operations", [])
-            if ops:
-                print(f"  operations: {', '.join(ops)}")
             allowed = fdef.get("allowedValues", [])
             if allowed:
                 print(f"  values:     {', '.join(str(v) for v in allowed)}")
-            desc = fdef.get("description")
+            desc = descriptions.get(fname)
             if desc:
                 print(f"  description: {desc}")
             print()
