@@ -273,10 +273,8 @@ class EditmetaFieldDef(TypedDict, total=False):
 
     id: str  # Jira field ID (e.g., "customfield_12345" or "summary")
     type: str
-    operations: list[str]
     required: bool
     allowedValues: list[str]
-    description: str  # Human-added description of what the field means
 
 
 class EditmetaSchema(TypedDict, total=False):

@@ -506,7 +506,6 @@ def _parse_editmeta_response(raw: dict) -> dict:
         entry: dict = {
             "id": field_id,
             "type": _encode_field_type(schema),
-            "operations": meta.get("operations", []),
             "required": meta.get("required", False),
         }
         allowed = _extract_allowed_values(meta)
