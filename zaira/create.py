@@ -86,13 +86,14 @@ def parse_ticket_file(path: Path) -> tuple[dict, str]:
     return parse_content(path.read_text())
 
 
-def map_fields(front_matter: dict, description: str, project: str | None = None) -> dict:
+def map_fields(front_matter: dict, description: str, project: str = "", issue_type: str = "") -> dict:
     """Map front matter fields to Jira API field format.
 
     Args:
         front_matter: Parsed YAML front matter
         description: Markdown body as description
-        project: Optional project key for editmeta lookup
+        project: Project key for editmeta lookup
+        issue_type: Issue type name for editmeta lookup
 
     Returns:
         Dict ready for Jira API create_issue()
@@ -149,14 +150,13 @@ def map_fields(front_matter: dict, description: str, project: str | None = None)
         else:
             # Try editmeta first, then global schema
             field_id = None
-            if project:
-                em = get_editmeta_field(project, key)
-                if em:
-                    field_id = em[0]
+            em = get_editmeta_field(project, issue_type, key)
+            if em:
+                field_id = em[0]
             if not field_id:
                 field_id = get_field_id(key)
             if field_id:
-                fields[field_id] = format_field_value(field_id, value, project=project)
+                fields[field_id] = format_field_value(field_id, value, project=project, issue_type=issue_type)
             else:
                 print(f"Warning: Unknown field '{key}', skipping", file=sys.stderr)
 
@@ -239,7 +239,11 @@ def create_command(args: argparse.Namespace) -> None:
                 print(f"  - {err}", file=sys.stderr)
             sys.exit(1)
 
-    fields = map_fields(front_matter, description, project=front_matter.get("project"))
+    fields = map_fields(
+        front_matter, description,
+        project=front_matter.get("project"),
+        issue_type=front_matter.get("type") or front_matter.get("issuetype"),
+    )
     dry_run = getattr(args, "dry_run", False)
 
     key = create_ticket(fields, dry_run=dry_run)

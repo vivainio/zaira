@@ -22,9 +22,10 @@ def get_schema_path() -> Path:
     return CACHE_DIR / "schema.json"
 
 
-def get_editmeta_path(project: str) -> Path:
-    """Get path to editmeta cache file (~/.cache/zaira/editmeta_PROJECT.yaml)."""
-    return CACHE_DIR / f"editmeta_{project}.yaml"
+def get_editmeta_path(project: str, issue_type: str) -> Path:
+    """Get path to editmeta cache file (~/.cache/zaira/editmeta_PROJECT_ISSUETYPE.yaml)."""
+    safe_type = issue_type.replace(" ", "-").lower()
+    return CACHE_DIR / f"editmeta_{project}_{safe_type}.yaml"
 
 
 def get_project_schema_path(project: str) -> Path:

@@ -266,9 +266,12 @@ class ZSchema(TypedDict, total=False):
 
 
 class EditmetaFieldDef(TypedDict, total=False):
-    """Editable field metadata from editmeta API."""
+    """Editable field metadata from editmeta API.
 
-    name: str
+    Keyed by field name in the YAML file. The Jira field ID is stored as 'id'.
+    """
+
+    id: str  # Jira field ID (e.g., "customfield_12345" or "summary")
     type: str
     operations: list[str]
     required: bool
@@ -284,6 +287,7 @@ class EditmetaSchema(TypedDict, total=False):
     """
 
     project: str
+    issueType: str
     learnedFrom: list[str]
     fields: dict[str, EditmetaFieldDef]
 

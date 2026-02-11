@@ -72,7 +72,7 @@ class TestMapFieldsCreate:
             result = map_fields(front_matter, "")
 
             # Verify format_field_value was called
-            mock_format.assert_called_once_with("customfield_10551", "5", project=None)
+            mock_format.assert_called_once_with("customfield_10551", "5", project="", issue_type="")
             assert result["customfield_10551"] == 5
 
     def test_custom_numeric_field_converted(self):

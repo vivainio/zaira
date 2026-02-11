@@ -3,7 +3,7 @@
 import argparse
 import json
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -107,7 +107,7 @@ class TestParseFieldArgs:
 
     def test_parses_simple_args(self):
         """Parses simple Name=value arguments."""
-        with patch("zaira.edit.map_field", side_effect=lambda n, v, project=None: (n.lower(), v)):
+        with patch("zaira.edit.map_field", side_effect=lambda n, v, project="", issue_type="": (n.lower(), v)):
             result = parse_field_args(["summary=Test", "priority=High"])
 
         assert result["summary"] == "Test"
@@ -115,14 +115,14 @@ class TestParseFieldArgs:
 
     def test_handles_value_with_equals(self):
         """Handles values containing equals signs."""
-        with patch("zaira.edit.map_field", side_effect=lambda n, v, project=None: (n.lower(), v)):
+        with patch("zaira.edit.map_field", side_effect=lambda n, v, project="", issue_type="": (n.lower(), v)):
             result = parse_field_args(["description=a=b=c"])
 
         assert result["description"] == "a=b=c"
 
     def test_warns_on_invalid_format(self, capsys):
         """Warns on arguments without equals sign."""
-        with patch("zaira.edit.map_field", side_effect=lambda n, v, project=None: (n.lower(), v)):
+        with patch("zaira.edit.map_field", side_effect=lambda n, v, project="", issue_type="": (n.lower(), v)):
             result = parse_field_args(["invalid_no_equals", "valid=value"])
 
         captured = capsys.readouterr()
@@ -131,7 +131,7 @@ class TestParseFieldArgs:
 
     def test_strips_whitespace(self):
         """Strips whitespace from name and value."""
-        with patch("zaira.edit.map_field", side_effect=lambda n, v, project=None: (n.lower(), v)):
+        with patch("zaira.edit.map_field", side_effect=lambda n, v, project="", issue_type="": (n.lower(), v)):
             result = parse_field_args(["  summary  =  Test Value  "])
 
         assert result["summary"] == "Test Value"
@@ -146,7 +146,7 @@ class TestParseYamlFields:
 summary: Test Ticket
 priority: High
 """
-        with patch("zaira.edit.map_field", side_effect=lambda n, v, project=None: (n.lower(), v)):
+        with patch("zaira.edit.map_field", side_effect=lambda n, v, project="", issue_type="": (n.lower(), v)):
             result = parse_yaml_fields(content)
 
         assert result["summary"] == "Test Ticket"
@@ -159,7 +159,7 @@ labels:
   - bug
   - urgent
 """
-        with patch("zaira.edit.map_field", side_effect=lambda n, v, project=None: (n.lower(), v)):
+        with patch("zaira.edit.map_field", side_effect=lambda n, v, project="", issue_type="": (n.lower(), v)):
             result = parse_yaml_fields(content)
 
         assert result["labels"] == ["bug", "urgent"]
@@ -385,8 +385,12 @@ class TestHandleUpdateError:
 class TestEditCommand:
     """Tests for edit_command function."""
 
-    def test_exits_when_no_fields_specified(self, capsys):
+    def test_exits_when_no_fields_specified(self, mock_jira, capsys):
         """Exits with error when no fields to update."""
+        mock_issue = MagicMock()
+        mock_issue.fields.issuetype.name = "Story"
+        mock_jira.issue.return_value = mock_issue
+
         args = argparse.Namespace(
             key="test-123",
             title=None,
@@ -442,8 +446,12 @@ class TestEditCommand:
             fields={"description": "New description text"}
         )
 
-    def test_exits_on_markdown_description(self, capsys):
+    def test_exits_on_markdown_description(self, mock_jira, capsys):
         """Exits with error when description contains markdown."""
+        mock_issue = MagicMock()
+        mock_issue.fields.issuetype.name = "Story"
+        mock_jira.issue.return_value = mock_issue
+
         args = argparse.Namespace(
             key="test-123",
             title=None,
@@ -539,7 +547,8 @@ class TestEditCommand:
         with patch("zaira.edit.get_jira_site", return_value="jira.example.com"):
             edit_command(args)
 
-        mock_jira.issue.assert_called_once_with("TEST-123")
+        # First call fetches issue type, second call is in edit_ticket
+        assert mock_jira.issue.call_args_list[0] == call("TEST-123", fields="issuetype")
 
     def test_reads_description_from_stdin(self, mock_jira, monkeypatch, capsys):
         """Reads description from stdin when value is '-'."""
