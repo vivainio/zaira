@@ -8,81 +8,24 @@ import pytest
 from zaira import jira_client
 
 
-class TestGetProfile:
-    """Tests for get_profile function."""
-
-    def test_returns_profile_from_config(self, tmp_path, monkeypatch):
-        """Returns profile name from zproject.toml."""
-        monkeypatch.chdir(tmp_path)
-        config_content = b"""
-[project]
-profile = "production"
-"""
-        (tmp_path / "zproject.toml").write_bytes(config_content)
-
-        result = jira_client.get_profile()
-        assert result == "production"
-
-    def test_returns_default_when_no_profile(self, tmp_path, monkeypatch):
-        """Returns 'default' when no profile specified."""
-        monkeypatch.chdir(tmp_path)
-        (tmp_path / "zproject.toml").write_bytes(b"[project]")
-
-        result = jira_client.get_profile()
-        assert result == "default"
-
-    def test_returns_default_when_no_config(self, tmp_path, monkeypatch):
-        """Returns 'default' when no config file."""
-        monkeypatch.chdir(tmp_path)
-
-        result = jira_client.get_profile()
-        assert result == "default"
-
-
 class TestGetSchemaPath:
     """Tests for get_schema_path function."""
 
-    def test_returns_path_with_profile(self):
-        """Returns schema path with profile name."""
-        result = jira_client.get_schema_path("myprofile")
+    def test_returns_path(self):
+        """Returns schema path."""
+        result = jira_client.get_schema_path()
 
-        assert "schema_myprofile.json" in str(result)
-        assert result.name == "schema_myprofile.json"
-
-    def test_uses_current_profile_when_none(self, tmp_path, monkeypatch):
-        """Uses current profile when profile is None."""
-        monkeypatch.chdir(tmp_path)
-        config_content = b"""
-[project]
-profile = "test"
-"""
-        (tmp_path / "zproject.toml").write_bytes(config_content)
-
-        result = jira_client.get_schema_path(None)
-        assert "schema_test.json" in str(result)
+        assert result.name == "schema.json"
 
 
 class TestGetProjectSchemaPath:
     """Tests for get_project_schema_path function."""
 
-    def test_returns_path_with_project_and_profile(self):
-        """Returns schema path with project and profile."""
-        result = jira_client.get_project_schema_path("PROJ", "staging")
+    def test_returns_path_with_project(self):
+        """Returns schema path with project."""
+        result = jira_client.get_project_schema_path("PROJ")
 
-        assert "zproject_staging_PROJ.json" in str(result)
-        assert result.name == "zproject_staging_PROJ.json"
-
-    def test_uses_current_profile_when_none(self, tmp_path, monkeypatch):
-        """Uses current profile when profile is None."""
-        monkeypatch.chdir(tmp_path)
-        config_content = b"""
-[project]
-profile = "dev"
-"""
-        (tmp_path / "zproject.toml").write_bytes(config_content)
-
-        result = jira_client.get_project_schema_path("TEST", None)
-        assert "zproject_dev_TEST.json" in str(result)
+        assert result.name == "zproject_PROJ.json"
 
 
 class TestGetServerFromConfig:

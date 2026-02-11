@@ -17,30 +17,19 @@ CREDENTIALS_FILE = CONFIG_DIR / "credentials.toml"
 CONFIG_FILE = CONFIG_DIR / "config.toml"
 
 
-def get_profile() -> str:
-    """Get current profile name from zproject.toml."""
-    config = load_config()
-    return config.get("project", {}).get("profile", "default")
+def get_schema_path() -> Path:
+    """Get path to instance schema file (~/.cache/zaira/schema.json)."""
+    return CACHE_DIR / "schema.json"
 
 
-def get_schema_path(profile: str | None = None) -> Path:
-    """Get path to instance schema file for a profile.
-
-    Schema is cached globally at ~/.cache/zaira/schema_PROFILE.json.
-    """
-    if profile is None:
-        profile = get_profile()
-    return CACHE_DIR / f"schema_{profile}.json"
+def get_editmeta_path(project: str) -> Path:
+    """Get path to editmeta cache file (~/.cache/zaira/editmeta_PROJECT.yaml)."""
+    return CACHE_DIR / f"editmeta_{project}.yaml"
 
 
-def get_project_schema_path(project: str, profile: str | None = None) -> Path:
-    """Get path to project schema file.
-
-    Project schema is cached at ~/.cache/zaira/zproject_PROFILE_PROJECT.json.
-    """
-    if profile is None:
-        profile = get_profile()
-    return CACHE_DIR / f"zproject_{profile}_{project}.json"
+def get_project_schema_path(project: str) -> Path:
+    """Get path to project schema file (~/.cache/zaira/zproject_PROJECT.json)."""
+    return CACHE_DIR / f"zproject_{project}.json"
 
 
 def get_server_from_config() -> str | None:

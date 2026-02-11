@@ -5,13 +5,16 @@ import json
 import sys
 from typing import Callable, TypeVar
 
+import yaml
+
 from zaira.jira_client import (
     get_jira,
     get_schema_path,
     get_project_schema_path,
+    get_editmeta_path,
     CACHE_DIR,
 )
-from zaira.types import ProjectSchema, ZSchema
+from zaira.types import EditmetaSchema, ProjectSchema, ZSchema
 
 T = TypeVar("T")
 
@@ -397,6 +400,182 @@ def labels_command(args: argparse.Namespace) -> None:
     print(f"Labels for {project}:")
     for label in sorted(labels):
         print(f"  {label}")
+
+
+def get_editmeta_field(project: str, name_or_id: str) -> tuple[str, dict] | None:
+    """Look up field in editmeta by name or ID.
+
+    Args:
+        project: Project key (e.g., "SAN")
+        name_or_id: Field name (e.g., "S&C Domain") or ID (e.g., "customfield_12345")
+
+    Returns:
+        (field_id, field_def) or None if not found.
+    """
+    editmeta = load_editmeta(project)
+    if not editmeta or "fields" not in editmeta:
+        return None
+
+    fields = editmeta["fields"]
+
+    # Direct ID match
+    if name_or_id in fields:
+        return name_or_id, fields[name_or_id]
+
+    # Name match (case-insensitive)
+    name_lower = name_or_id.lower()
+    for field_id, field_def in fields.items():
+        if field_def.get("name", "").lower() == name_lower:
+            return field_id, field_def
+
+    return None
+
+
+def load_editmeta(project: str) -> EditmetaSchema | None:
+    """Load cached editmeta for a project (YAML or legacy JSON).
+
+    Returns None if missing.
+    """
+    path = get_editmeta_path(project)
+    if path.exists():
+        return yaml.safe_load(path.read_text())
+    # Fallback: legacy .json file
+    legacy = path.with_suffix(".json")
+    if legacy.exists():
+        return json.load(legacy.open())
+    return None
+
+
+def _extract_allowed_values(field_meta: dict) -> list[str]:
+    """Extract allowed value strings from editmeta field."""
+    allowed = field_meta.get("allowedValues", [])
+    values = []
+    for av in allowed:
+        if isinstance(av, dict):
+            # Prefer "value" (custom fields), then "name" (system fields)
+            v = av.get("value") or av.get("name")
+            if v:
+                values.append(v)
+        elif isinstance(av, str):
+            values.append(av)
+    return values
+
+
+def _parse_editmeta_response(raw: dict) -> dict:
+    """Parse editmeta API response into our compact format."""
+    fields = {}
+    for field_id, meta in raw.get("fields", {}).items():
+        schema = meta.get("schema", {})
+        entry: dict = {
+            "name": meta.get("name", field_id),
+            "type": _encode_field_type(schema),
+            "operations": meta.get("operations", []),
+            "required": meta.get("required", False),
+        }
+        allowed = _extract_allowed_values(meta)
+        if allowed:
+            entry["allowedValues"] = allowed
+        fields[field_id] = entry
+    return fields
+
+
+def learn_command(args: argparse.Namespace) -> None:
+    """Learn editable fields from issue editmeta."""
+    raw_keys = [k.upper() for k in args.keys]
+    if not raw_keys:
+        print("No issue keys provided.", file=sys.stderr)
+        sys.exit(1)
+
+    jira = get_jira()
+    server = jira._options["server"]
+
+    # Resolve bare project keys (e.g. "SAN") to a recent issue key
+    keys: list[str] = []
+    for k in raw_keys:
+        if "-" in k:
+            keys.append(k)
+        else:
+            issues = jira.search_issues(
+                f"project = {k} ORDER BY created DESC", maxResults=1
+            )
+            if issues:
+                resolved = issues[0].key
+                print(f"Resolved {k} -> {resolved}")
+                keys.append(resolved)
+            else:
+                print(f"No issues found in project {k}", file=sys.stderr)
+
+    if not keys:
+        print("No issue keys to learn from.", file=sys.stderr)
+        sys.exit(1)
+
+    all_fields: dict = {}
+    learned_from: list[str] = []
+
+    for key in keys:
+        print(f"Learning from {key}...")
+        try:
+            resp = jira._session.get(f"{server}/rest/api/3/issue/{key}/editmeta")
+            resp.raise_for_status()
+        except Exception as e:
+            print(f"Error fetching editmeta for {key}: {e}", file=sys.stderr)
+            continue
+
+        parsed = _parse_editmeta_response(resp.json())
+        # Merge: later keys can add new fields or extend allowed values
+        for fid, fdef in parsed.items():
+            if fid in all_fields:
+                # Merge allowed values
+                existing = set(all_fields[fid].get("allowedValues", []))
+                new = set(fdef.get("allowedValues", []))
+                merged = sorted(existing | new)
+                if merged:
+                    all_fields[fid]["allowedValues"] = merged
+            else:
+                all_fields[fid] = fdef
+        learned_from.append(key)
+
+    if not learned_from:
+        print("No editmeta fetched.", file=sys.stderr)
+        sys.exit(1)
+
+    project = learned_from[0].split("-")[0]
+
+    # Preserve human-added descriptions from existing file
+    existing = load_editmeta(project)
+    if existing and "fields" in existing:
+        for fid, fdef in all_fields.items():
+            old = existing["fields"].get(fid, {})
+            if "description" in old:
+                fdef["description"] = old["description"]
+
+    editmeta: EditmetaSchema = {
+        "project": project,
+        "learnedFrom": learned_from,
+        "fields": all_fields,
+    }
+
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    path = get_editmeta_path(project)
+    path.write_text(yaml.dump(editmeta, default_flow_style=False, sort_keys=False))
+
+    print(f"\nFound {len(all_fields)} editable fields for project {project}")
+    print(f"Saved to {path}\n")
+
+    # Print summary table
+    print(f"{'Field':<40} {'Type':<12} {'Info':<20}")
+    print("-" * 72)
+    for fid in sorted(all_fields, key=lambda k: all_fields[k]["name"].lower()):
+        f = all_fields[fid]
+        name = f["name"]
+        ftype = f.get("type", "")
+        if f.get("required"):
+            info = "required"
+        elif f.get("allowedValues"):
+            info = f"{len(f['allowedValues'])} values"
+        else:
+            info = ""
+        print(f"  {name:<38} {ftype:<12} {info:<20}")
 
 
 def fetch_and_save_schema(
