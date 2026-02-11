@@ -261,3 +261,363 @@ class TestValidateTransition:
         fields = {vi.field for vi in v}
         assert "assignee" in fields
         assert "Resolution" in fields
+
+
+class TestIfThen:
+    def test_if_match_triggers(self):
+        rules = {
+            "if": [
+                {
+                    "match": {"Priority": "Critical"},
+                    "then": {"required": ["Rollback Plan"]},
+                }
+            ],
+        }
+        v = check_ticket(_ticket(priority="Critical"), rules)
+        assert len(v) == 1
+        assert v[0].field == "Rollback Plan"
+
+    def test_if_no_match_skips(self):
+        rules = {
+            "if": [
+                {
+                    "match": {"Priority": "Critical"},
+                    "then": {"required": ["Rollback Plan"]},
+                }
+            ],
+        }
+        assert check_ticket(_ticket(priority="Medium"), rules) == []
+
+    def test_if_multiple_conditions_and(self):
+        rules = {
+            "if": [
+                {
+                    "match": {"Priority": "Critical", "status": "Done"},
+                    "then": {"required": ["Post Mortem"]},
+                }
+            ],
+        }
+        # Both match
+        v = check_ticket(_ticket(priority="Critical", status="Done"), rules)
+        assert len(v) == 1
+        assert v[0].field == "Post Mortem"
+        # Only one matches
+        assert check_ticket(_ticket(priority="Critical", status="To Do"), rules) == []
+        assert check_ticket(_ticket(priority="Medium", status="Done"), rules) == []
+
+    def test_if_multiple_blocks(self):
+        rules = {
+            "if": [
+                {
+                    "match": {"Priority": "Critical"},
+                    "then": {"required": ["Rollback Plan"]},
+                },
+                {
+                    "match": {"Priority": "Blocker"},
+                    "then": {"required": ["Escalation Owner"]},
+                },
+            ],
+        }
+        v = check_ticket(_ticket(priority="Critical"), rules)
+        assert len(v) == 1
+        assert v[0].field == "Rollback Plan"
+        v = check_ticket(_ticket(priority="Blocker"), rules)
+        assert len(v) == 1
+        assert v[0].field == "Escalation Owner"
+        assert check_ticket(_ticket(priority="Medium"), rules) == []
+
+    def test_if_with_custom_field(self):
+        rules = {
+            "if": [
+                {
+                    "match": {"Target Environment": "Production"},
+                    "then": {"required": ["Rollback Plan"]},
+                }
+            ],
+        }
+        ticket = _ticket(custom_fields={"Target Environment": "Production"})
+        v = check_ticket(ticket, rules)
+        assert len(v) == 1
+        assert v[0].field == "Rollback Plan"
+        # Different env — no match
+        ticket2 = _ticket(custom_fields={"Target Environment": "Staging"})
+        assert check_ticket(ticket2, rules) == []
+
+    def test_if_then_all_check_types(self):
+        rules = {
+            "if": [
+                {
+                    "match": {"status": "Done"},
+                    "then": {
+                        "required": ["Resolution"],
+                        "non_empty": ["labels"],
+                        "contains": {"description": "outcome"},
+                        "not_contains": {"description": "TODO"},
+                    },
+                }
+            ],
+        }
+        ticket = _ticket(status="Done", description="TODO stuff", labels=[])
+        v = check_ticket(ticket, rules)
+        checks = {vi.check for vi in v}
+        assert "required" in checks
+        assert "non_empty" in checks
+        assert "contains" in checks
+        assert "not_contains" in checks
+
+    def test_if_combined_with_base_and_when(self):
+        rules = {
+            "required": ["summary"],
+            "when": {
+                "Done": {"required": ["Resolution"]},
+            },
+            "if": [
+                {
+                    "match": {"Priority": "Critical"},
+                    "then": {"required": ["Rollback Plan"]},
+                }
+            ],
+        }
+        ticket = _ticket(status="Done", priority="Critical")
+        v = check_ticket(ticket, rules)
+        fields = {vi.field for vi in v}
+        assert "Resolution" in fields
+        assert "Rollback Plan" in fields
+
+    def test_if_uses_status_override(self):
+        rules = {
+            "if": [
+                {
+                    "match": {"status": "Done"},
+                    "then": {"required": ["Resolution"]},
+                }
+            ],
+        }
+        # Ticket is To Do, but override to Done
+        ticket = _ticket(status="To Do")
+        v = check_ticket(ticket, rules, status="Done")
+        assert len(v) == 1
+        assert v[0].field == "Resolution"
+        # Without override, no match
+        assert check_ticket(ticket, rules) == []
+
+    def test_if_missing_field_no_match(self):
+        rules = {
+            "if": [
+                {
+                    "match": {"Nonexistent Field": "anything"},
+                    "then": {"required": ["summary"]},
+                }
+            ],
+        }
+        assert check_ticket(_ticket(), rules) == []
+
+    def test_if_match_list_field_contains(self):
+        rules = {
+            "if": [
+                {
+                    "match": {"components": "backend"},
+                    "then": {"required": ["API Review"]},
+                }
+            ],
+        }
+        v = check_ticket(_ticket(components=["backend", "api"]), rules)
+        assert len(v) == 1
+        assert v[0].field == "API Review"
+
+    def test_if_match_list_field_not_contains(self):
+        rules = {
+            "if": [
+                {
+                    "match": {"components": "backend"},
+                    "then": {"required": ["API Review"]},
+                }
+            ],
+        }
+        assert check_ticket(_ticket(components=["frontend"]), rules) == []
+
+    def test_if_match_labels(self):
+        rules = {
+            "if": [
+                {
+                    "match": {"labels": "security"},
+                    "then": {"required": ["Security Review"]},
+                }
+            ],
+        }
+        v = check_ticket(_ticket(labels=["security", "urgent"]), rules)
+        assert len(v) == 1
+        assert v[0].field == "Security Review"
+        assert check_ticket(_ticket(labels=["urgent"]), rules) == []
+
+    def test_if_match_list_and_scalar(self):
+        rules = {
+            "if": [
+                {
+                    "match": {"components": "backend", "Priority": "Critical"},
+                    "then": {"required": ["Rollback Plan"]},
+                }
+            ],
+        }
+        # Both match
+        v = check_ticket(_ticket(components=["backend"], priority="Critical"), rules)
+        assert len(v) == 1
+        # Only list matches
+        assert check_ticket(_ticket(components=["backend"], priority="Medium"), rules) == []
+        # Only scalar matches
+        assert check_ticket(_ticket(components=["frontend"], priority="Critical"), rules) == []
+
+    def test_if_match_empty_list_no_match(self):
+        rules = {
+            "if": [
+                {
+                    "match": {"components": "backend"},
+                    "then": {"required": ["API Review"]},
+                }
+            ],
+        }
+        assert check_ticket(_ticket(components=[]), rules) == []
+
+
+class TestSubtaskTypes:
+    def test_subtask_type_present(self):
+        rules = {"subtask_types": ["Deployment Wave"]}
+        ticket = _ticket(subtasks=[
+            {"key": "T-2", "summary": "Deploy", "status": "New", "issuetype": "Deployment Wave"},
+        ])
+        assert check_ticket(ticket, rules) == []
+
+    def test_subtask_type_missing(self):
+        rules = {"subtask_types": ["Deployment Wave"]}
+        ticket = _ticket(subtasks=[])
+        v = check_ticket(ticket, rules)
+        assert len(v) == 1
+        assert v[0].check == "subtask_types"
+        assert v[0].field == "Deployment Wave"
+
+    def test_subtask_type_wrong_type(self):
+        rules = {"subtask_types": ["Deployment Wave"]}
+        ticket = _ticket(subtasks=[
+            {"key": "T-2", "summary": "Sub", "status": "New", "issuetype": "Sub-task"},
+        ])
+        v = check_ticket(ticket, rules)
+        assert len(v) == 1
+
+    def test_multiple_subtask_types(self):
+        rules = {"subtask_types": ["Deployment Wave", "Test Execution"]}
+        ticket = _ticket(subtasks=[
+            {"key": "T-2", "summary": "Deploy", "status": "New", "issuetype": "Deployment Wave"},
+        ])
+        v = check_ticket(ticket, rules)
+        assert len(v) == 1
+        assert v[0].field == "Test Execution"
+
+    def test_subtask_types_in_when(self):
+        rules = {
+            "when": {
+                "Done": {"subtask_types": ["Deployment Wave"]},
+            },
+        }
+        ticket = _ticket(status="Done", subtasks=[])
+        v = check_ticket(ticket, rules)
+        assert len(v) == 1
+        assert check_ticket(_ticket(status="To Do", subtasks=[]), rules) == []
+
+    def test_subtask_types_in_if_then(self):
+        rules = {
+            "if": [
+                {
+                    "match": {"Priority": "Critical"},
+                    "then": {"subtask_types": ["Deployment Wave"]},
+                }
+            ],
+        }
+        ticket = _ticket(priority="Critical", subtasks=[])
+        v = check_ticket(ticket, rules)
+        assert len(v) == 1
+        assert check_ticket(_ticket(priority="Medium", subtasks=[]), rules) == []
+
+    def test_no_subtasks_field(self):
+        rules = {"subtask_types": ["Deployment Wave"]}
+        ticket = _ticket()
+        v = check_ticket(ticket, rules)
+        assert len(v) == 1
+
+
+class TestMatches:
+    def test_matches_passes(self):
+        rules = {"matches": {"description": r"AC-\d+"}}
+        assert check_ticket(_ticket(description="See AC-123 for details"), rules) == []
+
+    def test_matches_fails(self):
+        rules = {"matches": {"description": r"AC-\d+"}}
+        v = check_ticket(_ticket(description="no ticket ref"), rules)
+        assert len(v) == 1
+        assert v[0].check == "matches"
+        assert "AC-" in v[0].message
+
+    def test_matches_missing_field(self):
+        rules = {"matches": {"Story Points": r"\d+"}}
+        v = check_ticket(_ticket(), rules)
+        assert len(v) == 1
+        assert v[0].check == "matches"
+
+    def test_matches_none_field(self):
+        rules = {"matches": {"description": r"."}}
+        v = check_ticket(_ticket(description=None), rules)
+        assert len(v) == 1
+
+    def test_matches_non_string_field(self):
+        rules = {"matches": {"labels": r"foo"}}
+        v = check_ticket(_ticket(labels=["foo"]), rules)
+        assert len(v) == 1
+
+    def test_matches_case_insensitive_flag(self):
+        rules = {"matches": {"summary": r"(?i)urgent"}}
+        assert check_ticket(_ticket(summary="URGENT fix needed"), rules) == []
+
+    def test_matches_custom_field(self):
+        rules = {"matches": {"Release Notes": r"v\d+\.\d+"}}
+        ticket = _ticket(custom_fields={"Release Notes": "Released in v2.1"})
+        assert check_ticket(ticket, rules) == []
+
+    def test_not_matches_passes(self):
+        rules = {"not_matches": {"summary": r"(?i)\bwip\b"}}
+        assert check_ticket(_ticket(summary="Final version"), rules) == []
+
+    def test_not_matches_fails(self):
+        rules = {"not_matches": {"summary": r"(?i)\bwip\b"}}
+        v = check_ticket(_ticket(summary="WIP: draft"), rules)
+        assert len(v) == 1
+        assert v[0].check == "not_matches"
+
+    def test_not_matches_skips_missing(self):
+        rules = {"not_matches": {"Story Points": r"0"}}
+        assert check_ticket(_ticket(), rules) == []
+
+    def test_not_matches_skips_non_string(self):
+        rules = {"not_matches": {"labels": r"bad"}}
+        assert check_ticket(_ticket(labels=["bad"]), rules) == []
+
+    def test_matches_in_when(self):
+        rules = {
+            "when": {
+                "Done": {"matches": {"description": r"(?i)resolution"}},
+            },
+        }
+        v = check_ticket(_ticket(status="Done", description="no match"), rules)
+        assert len(v) == 1
+        assert check_ticket(_ticket(status="To Do", description="no match"), rules) == []
+
+    def test_matches_in_if_then(self):
+        rules = {
+            "if": [
+                {
+                    "match": {"Priority": "Critical"},
+                    "then": {"not_matches": {"description": r"(?i)\btodo\b"}},
+                }
+            ],
+        }
+        v = check_ticket(_ticket(priority="Critical", description="TODO fix"), rules)
+        assert len(v) == 1
+        assert check_ticket(_ticket(priority="Medium", description="TODO fix"), rules) == []

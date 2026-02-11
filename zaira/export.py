@@ -245,6 +245,7 @@ def get_ticket(
                     "key": st.key,
                     "summary": st.fields.summary,
                     "status": st.fields.status.name,
+                    "issuetype": st.fields.issuetype.name if st.fields.issuetype else "Unknown",
                 }
                 for st in (fields.subtasks or [])
             ]

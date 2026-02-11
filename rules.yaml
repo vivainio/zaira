@@ -1,3 +1,4 @@
-Task:
-  non_empty: [Description]
-  required: [assignee]
+Bug:
+  when:
+    Done:
+      subtask_types: [Deployment Wave]

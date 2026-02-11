@@ -271,7 +271,11 @@ Rules are scoped by issue type. Available checks:
 - `non_empty` — field must exist and not be empty string/empty list
 - `contains` — string field must contain a substring
 - `not_contains` — string field must not contain a substring
+- `matches` — string field must match a regex (`re.search`; use `(?i)` for case-insensitive)
+- `not_matches` — string field must not match a regex
+- `subtask_types` — must have at least one subtask of each listed issue type
 - `when.<status>` — additional rules that apply only when the ticket is in that status
+- `if` — conditional rules that match on any field value
 
 ```yaml
 Story:
@@ -279,18 +283,29 @@ Story:
   non_empty: [Description]
   contains:
     Description: "acceptance criteria"
+  matches:
+    Description: "\\bhttp\\S+"       # must contain a link
+  not_matches:
+    summary: "(?i)\\bwip\\b"        # summary must not contain WIP
   when:
     Done:
       required: [Resolution]
+      subtask_types: [Deployment Wave]
       not_contains:
         Description: "TODO"
-
-Deployment Wave:
-  required: [Release Date, Target Environment]
-  when:
-    Ready for Deployment:
-      required: [Deployment Owner, Rollback Plan]
+  if:
+    - match: { Priority: Critical }
+      then:
+        required: [Rollback Plan, Deployment Owner]
+    - match: { components: backend }
+      then:
+        required: [API Review]
+    - match: { labels: security, Priority: Critical }
+      then:
+        required: [Security Review]
 ```
+
+`when` is sugar for the common status case. `if` is a list of `{match, then}` blocks — all fields in `match` must match (AND logic), and `then` contains any of the standard check types including `subtask_types`. For list fields like `components` and `labels`, `match` checks membership (value is in the list). For scalar fields, it checks exact equality. `if` blocks also respect the status override during transition validation.
 
 Field names work for both standard fields (`summary`, `status`, `assignee`) and custom fields (`Release Date`, `Story Points`). Standard field lookup is case-insensitive.
 

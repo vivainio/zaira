@@ -1,5 +1,6 @@
 """Rules engine for ticket validation."""
 
+import re
 import sys
 from collections import namedtuple
 from pathlib import Path
@@ -40,52 +41,107 @@ def _get_field_value(ticket, field_name):
     return False, None
 
 
-def check_ticket(ticket, rules, status=None):
-    """Check a ticket dict against rules. Returns list of Violation.
+def _apply_rules(ticket, rule_block):
+    """Apply a single rule block and return violations.
 
-    If status is given, use it instead of ticket's current status (for
-    validating a transition target before it happens).
+    A rule block can contain: required, non_empty, contains, not_contains,
+    subtask_types.
     """
     violations = []
 
-    if status is None:
-        status = ticket.get("status", "")
-    base_required = rules.get("required", [])
-    base_non_empty = rules.get("non_empty", [])
+    for required_type in rule_block.get("subtask_types", []):
+        subtasks = ticket.get("subtasks", [])
+        if not any(st.get("issuetype") == required_type for st in subtasks):
+            violations.append(Violation(
+                required_type, "subtask_types",
+                f"missing subtask of type \"{required_type}\"",
+            ))
 
-    base_contains = rules.get("contains", {})
-
-    # Merge when-rules for current status
-    when = rules.get("when", {})
-    status_rules = when.get(status, {})
-    all_required = base_required + status_rules.get("required", [])
-    all_non_empty = base_non_empty + status_rules.get("non_empty", [])
-    all_contains = {**base_contains, **status_rules.get("contains", {})}
-    all_not_contains = {**rules.get("not_contains", {}), **status_rules.get("not_contains", {})}
-
-    for field in all_required:
+    for field in rule_block.get("required", []):
         found, value = _get_field_value(ticket, field)
         if not found or value is None:
             violations.append(Violation(field, "required", f"{field} is missing or null"))
 
-    for field in all_non_empty:
+    for field in rule_block.get("non_empty", []):
         found, value = _get_field_value(ticket, field)
         if not found or value is None:
             violations.append(Violation(field, "non_empty", f"{field} is missing or null"))
         elif value == "" or value == []:
             violations.append(Violation(field, "non_empty", f"{field} is empty"))
 
-    for field, substring in all_contains.items():
+    for field, substring in rule_block.get("contains", {}).items():
         found, value = _get_field_value(ticket, field)
         if not found or value is None:
             violations.append(Violation(field, "contains", f"{field} is missing or null"))
         elif not isinstance(value, str) or substring not in value:
             violations.append(Violation(field, "contains", f'{field} must contain "{substring}"'))
 
-    for field, substring in all_not_contains.items():
+    for field, substring in rule_block.get("not_contains", {}).items():
         found, value = _get_field_value(ticket, field)
         if found and isinstance(value, str) and substring in value:
             violations.append(Violation(field, "not_contains", f'{field} must not contain "{substring}"'))
+
+    for field, pattern in rule_block.get("matches", {}).items():
+        found, value = _get_field_value(ticket, field)
+        if not found or value is None:
+            violations.append(Violation(field, "matches", f"{field} is missing or null"))
+        elif not isinstance(value, str) or not re.search(pattern, value):
+            violations.append(Violation(field, "matches", f'{field} must match /{pattern}/'))
+
+    for field, pattern in rule_block.get("not_matches", {}).items():
+        found, value = _get_field_value(ticket, field)
+        if found and isinstance(value, str) and re.search(pattern, value):
+            violations.append(Violation(field, "not_matches", f'{field} must not match /{pattern}/'))
+
+    return violations
+
+
+def _match_condition(ticket, match, status):
+    """Check if all field conditions in a match dict are satisfied.
+
+    For scalar fields, compares as strings.
+    For list fields (components, labels), checks membership.
+    The special field 'status' uses the overridden status if provided.
+    """
+    for field, expected in match.items():
+        if field.lower() == "status":
+            actual = status
+        else:
+            found, actual = _get_field_value(ticket, field)
+            if not found:
+                return False
+        if isinstance(actual, list):
+            if str(expected) not in [str(v) for v in actual]:
+                return False
+        elif str(actual) != str(expected):
+            return False
+    return True
+
+
+def check_ticket(ticket, rules, status=None):
+    """Check a ticket dict against rules. Returns list of Violation.
+
+    If status is given, use it instead of ticket's current status (for
+    validating a transition target before it happens).
+    """
+    if status is None:
+        status = ticket.get("status", "")
+
+    # Base rules
+    violations = _apply_rules(ticket, rules)
+
+    # when.<status> rules (sugar for status-conditional)
+    when = rules.get("when", {})
+    status_rules = when.get(status, {})
+    if status_rules:
+        violations.extend(_apply_rules(ticket, status_rules))
+
+    # if/then rules
+    for cond in rules.get("if", []):
+        match = cond.get("match", {})
+        then = cond.get("then", {})
+        if match and _match_condition(ticket, match, status):
+            violations.extend(_apply_rules(ticket, then))
 
     return violations
 
@@ -119,7 +175,7 @@ def check_command(args):
 
     any_fail = False
     for key in keys:
-        ticket = get_ticket(key, include_custom=True)
+        ticket = get_ticket(key, full=True, include_custom=True)
         if not ticket:
             print(f"{key}: could not fetch ticket", file=sys.stderr)
             any_fail = True
@@ -139,7 +195,7 @@ def check_command(args):
             any_fail = True
             for v in violations:
                 print(f"  FAIL  {v.check:<11s} {v.field}")
-                if v.check == "contains":
+                if v.check in ("contains", "not_contains", "matches", "not_matches", "subtask_types"):
                     print(f"        {v.message}")
         else:
             print("  ok")

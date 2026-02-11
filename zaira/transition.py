@@ -100,14 +100,14 @@ def transition_command(args: argparse.Namespace) -> None:
 
         all_rules = try_load_rules()
         if all_rules:
-            ticket = get_ticket(key, include_custom=True)
+            ticket = get_ticket(key, full=True, include_custom=True)
             if ticket:
                 violations = validate_transition(ticket, all_rules, status)
                 if violations:
                     print(f"Blocked: {key} fails rules for '{status}':", file=sys.stderr)
                     for v in violations:
                         print(f"  FAIL  {v.check:<11s} {v.field}", file=sys.stderr)
-                        if v.check in ("contains", "not_contains"):
+                        if v.check in ("contains", "not_contains", "matches", "not_matches", "subtask_types"):
                             print(f"        {v.message}", file=sys.stderr)
                     print("\nUse --no-check to skip validation.", file=sys.stderr)
                     sys.exit(1)
