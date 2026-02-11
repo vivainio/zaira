@@ -621,3 +621,107 @@ class TestMatches:
         v = check_ticket(_ticket(priority="Critical", description="TODO fix"), rules)
         assert len(v) == 1
         assert check_ticket(_ticket(priority="Medium", description="TODO fix"), rules) == []
+
+
+class TestOneOf:
+    def test_one_of_passes(self):
+        rules = {"one_of": {"Priority": ["Critical", "High", "Medium"]}}
+        assert check_ticket(_ticket(priority="High"), rules) == []
+
+    def test_one_of_fails(self):
+        rules = {"one_of": {"Priority": ["Critical", "High"]}}
+        v = check_ticket(_ticket(priority="Low"), rules)
+        assert len(v) == 1
+        assert v[0].check == "one_of"
+        assert "Low" in v[0].message
+        assert "Critical" in v[0].message
+
+    def test_one_of_missing_field(self):
+        rules = {"one_of": {"Story Points": [1, 2, 3, 5, 8, 13]}}
+        v = check_ticket(_ticket(), rules)
+        assert len(v) == 1
+        assert v[0].check == "one_of"
+
+    def test_one_of_none_field(self):
+        rules = {"one_of": {"assignee": ["alice", "bob"]}}
+        v = check_ticket(_ticket(assignee=None), rules)
+        assert len(v) == 1
+
+    def test_one_of_list_field_all_valid(self):
+        rules = {"one_of": {"labels": ["bug", "feature", "urgent"]}}
+        assert check_ticket(_ticket(labels=["bug", "urgent"]), rules) == []
+
+    def test_one_of_list_field_some_invalid(self):
+        rules = {"one_of": {"labels": ["bug", "feature"]}}
+        v = check_ticket(_ticket(labels=["bug", "wontfix"]), rules)
+        assert len(v) == 1
+        assert "wontfix" in v[0].message
+
+    def test_one_of_numeric_comparison(self):
+        rules = {"one_of": {"Story Points": [1, 2, 3, 5, 8, 13]}}
+        ticket = _ticket(custom_fields={"Story Points": 5})
+        assert check_ticket(ticket, rules) == []
+
+    def test_one_of_in_when(self):
+        rules = {
+            "when": {
+                "Done": {"one_of": {"Priority": ["Critical", "High"]}},
+            },
+        }
+        v = check_ticket(_ticket(status="Done", priority="Low"), rules)
+        assert len(v) == 1
+        assert check_ticket(_ticket(status="To Do", priority="Low"), rules) == []
+
+    def test_one_of_in_if_then(self):
+        rules = {
+            "if": [
+                {
+                    "match": {"components": "backend"},
+                    "then": {"one_of": {"Priority": ["Critical", "High"]}},
+                }
+            ],
+        }
+        v = check_ticket(_ticket(components=["backend"], priority="Low"), rules)
+        assert len(v) == 1
+        assert check_ticket(_ticket(components=["frontend"], priority="Low"), rules) == []
+
+
+class TestNotOneOf:
+    def test_not_one_of_passes(self):
+        rules = {"not_one_of": {"Priority": ["Trivial", "Low"]}}
+        assert check_ticket(_ticket(priority="High"), rules) == []
+
+    def test_not_one_of_fails(self):
+        rules = {"not_one_of": {"Priority": ["Trivial", "Low"]}}
+        v = check_ticket(_ticket(priority="Low"), rules)
+        assert len(v) == 1
+        assert v[0].check == "not_one_of"
+        assert "Low" in v[0].message
+
+    def test_not_one_of_missing_field_passes(self):
+        rules = {"not_one_of": {"Story Points": [0]}}
+        assert check_ticket(_ticket(), rules) == []
+
+    def test_not_one_of_none_passes(self):
+        rules = {"not_one_of": {"assignee": ["bob"]}}
+        assert check_ticket(_ticket(assignee=None), rules) == []
+
+    def test_not_one_of_list_field_all_ok(self):
+        rules = {"not_one_of": {"labels": ["wontfix", "invalid"]}}
+        assert check_ticket(_ticket(labels=["bug", "urgent"]), rules) == []
+
+    def test_not_one_of_list_field_some_forbidden(self):
+        rules = {"not_one_of": {"labels": ["wontfix", "invalid"]}}
+        v = check_ticket(_ticket(labels=["bug", "wontfix"]), rules)
+        assert len(v) == 1
+        assert "wontfix" in v[0].message
+
+    def test_not_one_of_in_when(self):
+        rules = {
+            "when": {
+                "Done": {"not_one_of": {"Priority": ["Trivial"]}},
+            },
+        }
+        v = check_ticket(_ticket(status="Done", priority="Trivial"), rules)
+        assert len(v) == 1
+        assert check_ticket(_ticket(status="To Do", priority="Trivial"), rules) == []

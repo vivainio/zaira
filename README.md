@@ -273,6 +273,8 @@ Rules are scoped by issue type. Available checks:
 - `not_contains` — string field must not contain a substring
 - `matches` — string field must match a regex (`re.search`; use `(?i)` for case-insensitive)
 - `not_matches` — string field must not match a regex
+- `one_of` — field value must be one of the allowed values; for list fields, all values must be in the allowed set
+- `not_one_of` — field value must not be any of the forbidden values
 - `subtask_types` — must have at least one subtask of each listed issue type
 - `when.<status>` — additional rules that apply only when the ticket is in that status
 - `if` — conditional rules that match on any field value
@@ -287,6 +289,8 @@ Story:
     Description: "\\bhttp\\S+"       # must contain a link
   not_matches:
     summary: "(?i)\\bwip\\b"        # summary must not contain WIP
+  one_of:
+    Priority: [Critical, High, Medium]
   when:
     Done:
       required: [Resolution]

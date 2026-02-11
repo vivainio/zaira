@@ -93,6 +93,28 @@ def _apply_rules(ticket, rule_block):
         if found and isinstance(value, str) and re.search(pattern, value):
             violations.append(Violation(field, "not_matches", f'{field} must not match /{pattern}/'))
 
+    for field, allowed in rule_block.get("one_of", {}).items():
+        found, value = _get_field_value(ticket, field)
+        if not found or value is None:
+            violations.append(Violation(field, "one_of", f"{field} is missing or null"))
+        elif isinstance(value, list):
+            bad = [str(v) for v in value if str(v) not in [str(a) for a in allowed]]
+            if bad:
+                violations.append(Violation(field, "one_of", f'{field} has invalid values: {", ".join(bad)} (allowed: {", ".join(str(a) for a in allowed)})'))
+        elif str(value) not in [str(a) for a in allowed]:
+            violations.append(Violation(field, "one_of", f'{field} is "{value}" (allowed: {", ".join(str(a) for a in allowed)})'))
+
+    for field, forbidden in rule_block.get("not_one_of", {}).items():
+        found, value = _get_field_value(ticket, field)
+        if found and value is not None:
+            forbidden_strs = [str(f) for f in forbidden]
+            if isinstance(value, list):
+                bad = [str(v) for v in value if str(v) in forbidden_strs]
+                if bad:
+                    violations.append(Violation(field, "not_one_of", f'{field} has forbidden values: {", ".join(bad)}'))
+            elif str(value) in forbidden_strs:
+                violations.append(Violation(field, "not_one_of", f'{field} must not be "{value}"'))
+
     return violations
 
 
@@ -195,7 +217,7 @@ def check_command(args):
             any_fail = True
             for v in violations:
                 print(f"  FAIL  {v.check:<11s} {v.field}")
-                if v.check in ("contains", "not_contains", "matches", "not_matches", "subtask_types"):
+                if v.check in ("contains", "not_contains", "matches", "not_matches", "subtask_types", "one_of", "not_one_of"):
                     print(f"        {v.message}")
         else:
             print("  ok")

@@ -107,7 +107,7 @@ def transition_command(args: argparse.Namespace) -> None:
                     print(f"Blocked: {key} fails rules for '{status}':", file=sys.stderr)
                     for v in violations:
                         print(f"  FAIL  {v.check:<11s} {v.field}", file=sys.stderr)
-                        if v.check in ("contains", "not_contains", "matches", "not_matches", "subtask_types"):
+                        if v.check in ("contains", "not_contains", "matches", "not_matches", "subtask_types", "one_of", "not_one_of"):
                             print(f"        {v.message}", file=sys.stderr)
                     print("\nUse --no-check to skip validation.", file=sys.stderr)
                     sys.exit(1)
