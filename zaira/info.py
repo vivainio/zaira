@@ -506,8 +506,9 @@ def _parse_editmeta_response(raw: dict) -> dict:
         entry: dict = {
             "id": field_id,
             "type": _encode_field_type(schema),
-            "required": meta.get("required", False),
         }
+        if meta.get("required"):
+            entry["required"] = True
         allowed = _extract_allowed_values(meta)
         if allowed:
             entry["allowedValues"] = allowed
@@ -743,7 +744,8 @@ def field_command(args: argparse.Namespace) -> None:
             print(f"{fname}  ({locs})")
             print(f"  id:         {fid}")
             print(f"  type:       {fdef.get('type', '')}")
-            print(f"  required:   {fdef.get('required', False)}")
+            if fdef.get("required"):
+                print(f"  required:   True")
             allowed = fdef.get("allowedValues", [])
             if allowed:
                 print(f"  values:     {', '.join(str(v) for v in allowed)}")
