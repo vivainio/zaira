@@ -86,18 +86,16 @@ class TestMapField:
         assert value == [{"name": "Backend"}, {"name": "API"}]
 
     def test_custom_field_lookup(self):
-        """Looks up custom field by name."""
-        with patch("zaira.edit.get_field_id", return_value="customfield_123"):
-            with patch("zaira.edit.get_field_type", return_value=None):
-                field_id, value = map_field("Story Points", "5")
+        """Looks up custom field by name via editmeta."""
+        with patch("zaira.edit.get_editmeta_field", return_value=("customfield_123", {"id": "customfield_123", "type": "number"})):
+            field_id, value = map_field("Story Points", "5", project="TEST", issue_type="Story")
 
         assert field_id == "customfield_123"
 
     def test_falls_back_to_name_as_id(self):
-        """Falls back to using name as-is when not found."""
-        with patch("zaira.edit.get_field_id", return_value=None):
-            with patch("zaira.edit.get_field_type", return_value=None):
-                field_id, value = map_field("customfield_999", "value")
+        """Falls back to using name as-is when not found in editmeta."""
+        with patch("zaira.edit.get_editmeta_field", return_value=None):
+            field_id, value = map_field("customfield_999", "value")
 
         assert field_id == "customfield_999"
 
@@ -280,28 +278,28 @@ class TestFormatFieldValue:
 
     def test_formats_option_field(self):
         """Wraps option field value in dict."""
-        with patch("zaira.edit.get_field_type", return_value="option"):
-            result = format_field_value("customfield_123", "High")
+        with patch("zaira.edit.get_editmeta_field", return_value=("customfield_123", {"id": "customfield_123", "type": "option"})):
+            result = format_field_value("customfield_123", "High", project="TEST", issue_type="Story")
 
         assert result == {"value": "High"}
 
     def test_formats_array_field(self):
         """Formats array/multi-select field."""
-        with patch("zaira.edit.get_field_type", return_value="array"):
-            result = format_field_value("customfield_456", "a, b, c")
+        with patch("zaira.edit.get_editmeta_field", return_value=("customfield_456", {"id": "customfield_456", "type": "[option]"})):
+            result = format_field_value("customfield_456", "a, b, c", project="TEST", issue_type="Story")
 
         assert result == [{"value": "a"}, {"value": "b"}, {"value": "c"}]
 
     def test_converts_number_field(self):
         """Converts string to number for number field."""
-        with patch("zaira.edit.get_field_type", return_value="number"):
-            result = format_field_value("customfield_789", "42")
+        with patch("zaira.edit.get_editmeta_field", return_value=("customfield_789", {"id": "customfield_789", "type": "number"})):
+            result = format_field_value("customfield_789", "42", project="TEST", issue_type="Story")
 
         assert result == 42
 
     def test_returns_string_for_unknown_type(self):
         """Returns string value unchanged for unknown type."""
-        with patch("zaira.edit.get_field_type", return_value=None):
+        with patch("zaira.edit.get_editmeta_field", return_value=None):
             result = format_field_value("customfield_999", "text")
 
         assert result == "text"

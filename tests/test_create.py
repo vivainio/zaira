@@ -296,19 +296,19 @@ class TestMapFields:
         """Warns when field is not recognized."""
         front_matter = {"project": "TEST", "unknownfield": "value"}
 
-        with patch("zaira.create.get_field_id", return_value=None):
+        with patch("zaira.create.get_editmeta_field", return_value=None):
             fields = map_fields(front_matter, "")
 
         captured = capsys.readouterr()
         assert "Unknown field 'unknownfield'" in captured.err
 
     def test_maps_custom_field(self):
-        """Maps custom field when found in schema."""
+        """Maps custom field when found in editmeta."""
         front_matter = {"project": "TEST", "Story Points": "5"}
 
-        with patch("zaira.create.get_field_id", return_value="customfield_123"):
+        with patch("zaira.create.get_editmeta_field", return_value=("customfield_123", {"id": "customfield_123", "type": "number"})):
             with patch("zaira.create.format_field_value", return_value=5):
-                fields = map_fields(front_matter, "")
+                fields = map_fields(front_matter, "", project="TEST", issue_type="Story")
 
         assert fields["customfield_123"] == 5
 
@@ -421,36 +421,12 @@ With **bold** text.
 """)
         args = argparse.Namespace(file=str(ticket_file))
 
-        with patch("zaira.create.load_schema", return_value={"fields": {}}):
-            with pytest.raises(SystemExit) as exc_info:
-                create_command(args)
+        with pytest.raises(SystemExit) as exc_info:
+            create_command(args)
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
         assert "markdown syntax" in captured.err
-
-    def test_warns_when_no_schema(self, tmp_path, capsys, mock_jira):
-        """Warns when no schema is available for custom fields."""
-        ticket_file = tmp_path / "ticket.md"
-        ticket_file.write_text("""---
-project: TEST
-type: Story
-summary: My ticket
----
-
-Description.
-""")
-        mock_issue = MagicMock()
-        mock_issue.key = "TEST-123"
-        mock_jira.create_issue.return_value = mock_issue
-
-        args = argparse.Namespace(file=str(ticket_file), dry_run=False)
-
-        with patch("zaira.create.load_schema", return_value=None):
-            create_command(args)
-
-        captured = capsys.readouterr()
-        assert "No cached schema" in captured.err
 
     def test_creates_ticket_successfully(self, tmp_path, capsys, mock_jira):
         """Creates ticket and prints key."""
@@ -468,9 +444,7 @@ Description.
         mock_jira.create_issue.return_value = mock_issue
 
         args = argparse.Namespace(file=str(ticket_file), dry_run=False)
-
-        with patch("zaira.create.load_schema", return_value={"fields": {}}):
-            create_command(args)
+        create_command(args)
 
         captured = capsys.readouterr()
         assert "Created TEST-789" in captured.out
@@ -491,9 +465,7 @@ Body from stdin.
         mock_jira.create_issue.return_value = mock_issue
 
         args = argparse.Namespace(file="-", dry_run=False)
-
-        with patch("zaira.create.load_schema", return_value={"fields": {}}):
-            create_command(args)
+        create_command(args)
 
         captured = capsys.readouterr()
         assert "Created TEST-111" in captured.out

@@ -6,7 +6,7 @@ from typing import Any
 
 import yaml
 
-from zaira.info import get_editmeta_field, get_field_id, get_field_item_type, get_field_type
+from zaira.info import get_editmeta_field
 from zaira.jira_client import get_jira, get_jira_site
 
 
@@ -84,18 +84,13 @@ def map_field(name: str, value: str, project: str = "", issue_type: str = "") ->
             return field_id, [{"name": c.strip()} for c in value.split(",")]
         return field_id, value
 
-    # Try editmeta lookup first (has richer type info)
+    # Look up in editmeta
     em = get_editmeta_field(project, issue_type, name)
     if em:
         field_id, field_def = em
         formatted = format_field_value(field_id, value, project=project, issue_type=issue_type)
         _validate_field_value(field_id, value, field_def)
         return field_id, formatted
-
-    # Try custom field lookup from global schema
-    field_id = get_field_id(name)
-    if field_id:
-        return field_id, format_field_value(field_id, value, project=project, issue_type=issue_type)
 
     # Fall back to using name as-is (might be a field ID)
     return name, format_field_value(name, value, project=project, issue_type=issue_type)
@@ -116,23 +111,16 @@ def format_field_value(field_id: str, value: Any, project: str = "", issue_type:
     if isinstance(value, (int, float)):
         return value
 
-    # Try editmeta for type info first
+    # Look up type from editmeta
     field_type = None
     item_type = None
-    if project and issue_type:
-        from zaira.info import _parse_field_type
-        em = get_editmeta_field(project, issue_type, field_id)
-        if em:
-            _, field_def = em
-            type_str = field_def.get("type", "")
-            if type_str:
-                field_type, item_type = _parse_field_type(type_str)
-
-    # Fall back to global schema
-    if field_type is None:
-        field_type = get_field_type(field_id)
-    if field_type == "array" and item_type is None:
-        item_type = get_field_item_type(field_id)
+    from zaira.info import _parse_field_type
+    em = get_editmeta_field(project, issue_type, field_id)
+    if em:
+        _, field_def = em
+        type_str = field_def.get("type", "")
+        if type_str:
+            field_type, item_type = _parse_field_type(type_str)
 
     if field_type == "number":
         if isinstance(value, str):

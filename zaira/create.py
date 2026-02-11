@@ -8,7 +8,7 @@ from pathlib import Path
 import yaml
 
 from zaira.edit import format_field_value
-from zaira.info import get_editmeta_field, get_field_id, load_schema
+from zaira.info import get_editmeta_field
 from zaira.jira_client import get_jira
 
 
@@ -148,14 +148,9 @@ def map_fields(front_matter: dict, description: str, project: str = "", issue_ty
             else:
                 fields[jira_field] = value
         else:
-            # Try editmeta first, then global schema
-            field_id = None
             em = get_editmeta_field(project, issue_type, key)
             if em:
                 field_id = em[0]
-            if not field_id:
-                field_id = get_field_id(key)
-            if field_id:
                 fields[field_id] = format_field_value(field_id, value, project=project, issue_type=issue_type)
             else:
                 print(f"Warning: Unknown field '{key}', skipping", file=sys.stderr)
@@ -215,17 +210,6 @@ def create_command(args: argparse.Namespace) -> None:
     if "summary" not in front_matter:
         print("Error: 'summary' field is required", file=sys.stderr)
         sys.exit(1)
-
-    # Check if schema is available for custom field mapping
-    schema = load_schema()
-    if not schema or "fields" not in schema:
-        print(
-            "Warning: No cached schema. Custom fields won't be mapped.", file=sys.stderr
-        )
-        print(
-            "Run 'zaira info fields --refresh' to cache field mappings.",
-            file=sys.stderr,
-        )
 
     # Check for markdown syntax in description
     if description:
