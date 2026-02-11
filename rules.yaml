@@ -1,0 +1,3 @@
+Task:
+  non_empty: [Description]
+  required: [assignee]

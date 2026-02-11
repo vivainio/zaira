@@ -40,6 +40,7 @@ from zaira.report import report_command
 from zaira.refresh import refresh_command
 from zaira.search import search_command
 from zaira.get import get_command
+from zaira.rules import check_command
 
 
 def main() -> None:
@@ -351,6 +352,23 @@ def main() -> None:
     )
     get_parser.set_defaults(func=get_command)
 
+    # Check command
+    check_parser = subparsers.add_parser(
+        "check",
+        help="Validate tickets against rules.yaml",
+    )
+    check_parser.add_argument(
+        "keys",
+        nargs="+",
+        help="Ticket key(s) to check (e.g., PROJ-123)",
+    )
+    check_parser.add_argument(
+        "--rules",
+        default="rules.yaml",
+        help="Path to rules YAML file (default: rules.yaml)",
+    )
+    check_parser.set_defaults(func=check_command)
+
     # Comment command
     comment_parser = subparsers.add_parser(
         "comment",
@@ -587,6 +605,11 @@ def main() -> None:
         action="append",
         metavar="NAME=VALUE",
         help="Set field value during transition (repeatable). E.g., Resolution=Done",
+    )
+    transition_parser.add_argument(
+        "--no-check",
+        action="store_true",
+        help="Skip rules.yaml validation before transitioning",
     )
     transition_parser.set_defaults(func=transition_command)
 

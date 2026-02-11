@@ -255,6 +255,58 @@ zaira transition FOO-1234 "In Progress"
 zaira transition FOO-1234 Done
 ```
 
+### check (experimental)
+
+Validate tickets against a `rules.yaml` file in the current directory:
+
+```bash
+zaira check FOO-123
+zaira check FOO-123 FOO-456 FOO-789
+zaira check FOO-123 --rules path/to/rules.yaml
+```
+
+Rules are scoped by issue type. Available checks:
+
+- `required` — field must exist and be non-null
+- `non_empty` — field must exist and not be empty string/empty list
+- `contains` — string field must contain a substring
+- `not_contains` — string field must not contain a substring
+- `when.<status>` — additional rules that apply only when the ticket is in that status
+
+```yaml
+Story:
+  required: [Story Points, assignee]
+  non_empty: [Description]
+  contains:
+    Description: "acceptance criteria"
+  when:
+    Done:
+      required: [Resolution]
+      not_contains:
+        Description: "TODO"
+
+Deployment Wave:
+  required: [Release Date, Target Environment]
+  when:
+    Ready for Deployment:
+      required: [Deployment Owner, Rollback Plan]
+```
+
+Field names work for both standard fields (`summary`, `status`, `assignee`) and custom fields (`Release Date`, `Story Points`). Standard field lookup is case-insensitive.
+
+**Transition validation:** When `rules.yaml` exists, `zaira transition` automatically checks the target status rules before transitioning. If the ticket fails validation, the transition is blocked:
+
+```
+$ zaira transition FOO-123 Done
+Blocked: FOO-123 fails rules for 'Done':
+  FAIL  required    Resolution
+  FAIL  not_contains Description
+
+Use --no-check to skip validation.
+```
+
+Use `--no-check` to bypass: `zaira transition FOO-123 Done --no-check`
+
 ### link
 
 Create a link between two tickets:

@@ -93,6 +93,25 @@ def transition_command(args: argparse.Namespace) -> None:
         ensure_editmeta(key, issue_type)
         fields = parse_field_args(field_args, project=project, issue_type=issue_type)
 
+    # Validate against rules.yaml before transitioning
+    if not getattr(args, "no_check", False):
+        from zaira.rules import try_load_rules, validate_transition
+        from zaira.export import get_ticket
+
+        all_rules = try_load_rules()
+        if all_rules:
+            ticket = get_ticket(key, include_custom=True)
+            if ticket:
+                violations = validate_transition(ticket, all_rules, status)
+                if violations:
+                    print(f"Blocked: {key} fails rules for '{status}':", file=sys.stderr)
+                    for v in violations:
+                        print(f"  FAIL  {v.check:<11s} {v.field}", file=sys.stderr)
+                        if v.check in ("contains", "not_contains"):
+                            print(f"        {v.message}", file=sys.stderr)
+                    print("\nUse --no-check to skip validation.", file=sys.stderr)
+                    sys.exit(1)
+
     if transition_ticket(key, status, fields=fields):
         print(f"Transitioned {key}")
         print(f"View at: https://{jira_site}/browse/{key}")
