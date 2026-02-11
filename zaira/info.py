@@ -75,9 +75,6 @@ def _parse_field_type(type_str: str) -> tuple[str, str | None]:
     """
     if type_str.endswith(" list"):
         return "array", type_str[:-5]
-    # Legacy format
-    if type_str.startswith("[") and type_str.endswith("]"):
-        return "array", type_str[1:-1]
     return type_str, None
 
 
