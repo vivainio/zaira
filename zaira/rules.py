@@ -69,29 +69,33 @@ def _apply_rules(ticket, rule_block):
         elif value == "" or value == []:
             violations.append(Violation(field, "non_empty", f"{field} is empty"))
 
-    for field, substring in rule_block.get("contains", {}).items():
+    for field, substrings in rule_block.get("contains", {}).items():
         found, value = _get_field_value(ticket, field)
-        if not found or value is None:
-            violations.append(Violation(field, "contains", f"{field} is missing or null"))
-        elif not isinstance(value, str) or substring not in value:
-            violations.append(Violation(field, "contains", f'{field} must contain "{substring}"'))
+        for sub in (substrings if isinstance(substrings, list) else [substrings]):
+            if not found or value is None:
+                violations.append(Violation(field, "contains", f"{field} is missing or null"))
+            elif not isinstance(value, str) or sub not in value:
+                violations.append(Violation(field, "contains", f'{field} must contain "{sub}"'))
 
-    for field, substring in rule_block.get("not_contains", {}).items():
+    for field, substrings in rule_block.get("not_contains", {}).items():
         found, value = _get_field_value(ticket, field)
-        if found and isinstance(value, str) and substring in value:
-            violations.append(Violation(field, "not_contains", f'{field} must not contain "{substring}"'))
+        for sub in (substrings if isinstance(substrings, list) else [substrings]):
+            if found and isinstance(value, str) and sub in value:
+                violations.append(Violation(field, "not_contains", f'{field} must not contain "{sub}"'))
 
-    for field, pattern in rule_block.get("matches", {}).items():
+    for field, patterns in rule_block.get("matches", {}).items():
         found, value = _get_field_value(ticket, field)
-        if not found or value is None:
-            violations.append(Violation(field, "matches", f"{field} is missing or null"))
-        elif not isinstance(value, str) or not re.search(pattern, value):
-            violations.append(Violation(field, "matches", f'{field} must match /{pattern}/'))
+        for pat in (patterns if isinstance(patterns, list) else [patterns]):
+            if not found or value is None:
+                violations.append(Violation(field, "matches", f"{field} is missing or null"))
+            elif not isinstance(value, str) or not re.search(pat, value):
+                violations.append(Violation(field, "matches", f'{field} must match /{pat}/'))
 
-    for field, pattern in rule_block.get("not_matches", {}).items():
+    for field, patterns in rule_block.get("not_matches", {}).items():
         found, value = _get_field_value(ticket, field)
-        if found and isinstance(value, str) and re.search(pattern, value):
-            violations.append(Violation(field, "not_matches", f'{field} must not match /{pattern}/'))
+        for pat in (patterns if isinstance(patterns, list) else [patterns]):
+            if found and isinstance(value, str) and re.search(pat, value):
+                violations.append(Violation(field, "not_matches", f'{field} must not match /{pat}/'))
 
     for field, allowed in rule_block.get("one_of", {}).items():
         found, value = _get_field_value(ticket, field)
@@ -103,6 +107,36 @@ def _apply_rules(ticket, rule_block):
                 violations.append(Violation(field, "one_of", f'{field} has invalid values: {", ".join(bad)} (allowed: {", ".join(str(a) for a in allowed)})'))
         elif str(value) not in [str(a) for a in allowed]:
             violations.append(Violation(field, "one_of", f'{field} is "{value}" (allowed: {", ".join(str(a) for a in allowed)})'))
+
+    for field, spec in rule_block.get("count_matches", {}).items():
+        found, value = _get_field_value(ticket, field)
+        pattern = spec.get("pattern", "")
+        min_count = spec.get("min", 1)
+        max_count = spec.get("max")
+        if not found or value is None:
+            violations.append(Violation(field, "count_matches", f"{field} is missing or null"))
+        elif not isinstance(value, str):
+            violations.append(Violation(field, "count_matches", f"{field} is not a string"))
+        else:
+            count = len(re.findall(pattern, value))
+            if count < min_count:
+                violations.append(Violation(field, "count_matches", f'{field} has {count} matches for /{pattern}/ (need >= {min_count})'))
+            elif max_count is not None and count > max_count:
+                violations.append(Violation(field, "count_matches", f'{field} has {count} matches for /{pattern}/ (need <= {max_count})'))
+
+    for field, sections in rule_block.get("sections_present", {}).items():
+        found, value = _get_field_value(ticket, field)
+        if not found or value is None:
+            violations.append(Violation(field, "sections_present", f"{field} is missing or null"))
+        elif not isinstance(value, str):
+            violations.append(Violation(field, "sections_present", f"{field} is not a string"))
+        else:
+            for section in sections:
+                # Match markdown (## Section), Jira wiki (h2. Section), or plain heading patterns
+                esc = re.escape(section)
+                pat = rf"(?mi)(^#{{1,6}}\s+{esc}\b|^h[1-6]\.\s+{esc}\b)"
+                if not re.search(pat, value):
+                    violations.append(Violation(field, "sections_present", f'{field} is missing section "{section}"'))
 
     for field, forbidden in rule_block.get("not_one_of", {}).items():
         found, value = _get_field_value(ticket, field)
@@ -217,7 +251,7 @@ def check_command(args):
             any_fail = True
             for v in violations:
                 print(f"  FAIL  {v.check:<11s} {v.field}")
-                if v.check in ("contains", "not_contains", "matches", "not_matches", "subtask_types", "one_of", "not_one_of"):
+                if v.check in ("contains", "not_contains", "matches", "not_matches", "subtask_types", "one_of", "not_one_of", "count_matches", "sections_present"):
                     print(f"        {v.message}")
         else:
             print("  ok")

@@ -725,3 +725,222 @@ class TestNotOneOf:
         v = check_ticket(_ticket(status="Done", priority="Trivial"), rules)
         assert len(v) == 1
         assert check_ticket(_ticket(status="To Do", priority="Trivial"), rules) == []
+
+
+class TestContainsList:
+    def test_contains_list_all_present(self):
+        rules = {"contains": {"description": ["Root Cause", "Verification"]}}
+        t = _ticket(description="Root Cause: x\nVerification: y")
+        assert check_ticket(t, rules) == []
+
+    def test_contains_list_one_missing(self):
+        rules = {"contains": {"description": ["Root Cause", "Verification"]}}
+        t = _ticket(description="Root Cause: x")
+        v = check_ticket(t, rules)
+        assert len(v) == 1
+        assert "Verification" in v[0].message
+
+    def test_contains_list_all_missing(self):
+        rules = {"contains": {"description": ["Root Cause", "Verification"]}}
+        t = _ticket(description="nothing here")
+        v = check_ticket(t, rules)
+        assert len(v) == 2
+
+    def test_contains_list_field_missing(self):
+        rules = {"contains": {"description": ["foo", "bar"]}}
+        t = _ticket(description=None)
+        v = check_ticket(t, rules)
+        assert len(v) == 2
+        assert all(vi.check == "contains" for vi in v)
+
+    def test_contains_single_string_still_works(self):
+        rules = {"contains": {"description": "hello"}}
+        assert check_ticket(_ticket(description="hello world"), rules) == []
+
+    def test_not_contains_list_all_absent(self):
+        rules = {"not_contains": {"description": ["TODO", "FIXME"]}}
+        assert check_ticket(_ticket(description="all done"), rules) == []
+
+    def test_not_contains_list_one_present(self):
+        rules = {"not_contains": {"description": ["TODO", "FIXME"]}}
+        v = check_ticket(_ticket(description="TODO: fix this"), rules)
+        assert len(v) == 1
+        assert "TODO" in v[0].message
+
+    def test_not_contains_list_both_present(self):
+        rules = {"not_contains": {"description": ["TODO", "FIXME"]}}
+        v = check_ticket(_ticket(description="TODO FIXME"), rules)
+        assert len(v) == 2
+
+    def test_matches_list_all_match(self):
+        rules = {"matches": {"description": [r"(?i)unit test", r"(?i)e2e test"]}}
+        t = _ticket(description="Unit Test: x\nE2E Test: y")
+        assert check_ticket(t, rules) == []
+
+    def test_matches_list_one_missing(self):
+        rules = {"matches": {"description": [r"(?i)unit test", r"(?i)e2e test"]}}
+        t = _ticket(description="Unit Test: x")
+        v = check_ticket(t, rules)
+        assert len(v) == 1
+        assert "e2e test" in v[0].message
+
+    def test_not_matches_list_none_match(self):
+        rules = {"not_matches": {"summary": [r"(?i)\bwip\b", r"(?i)\bdraft\b"]}}
+        assert check_ticket(_ticket(summary="Final version"), rules) == []
+
+    def test_not_matches_list_one_matches(self):
+        rules = {"not_matches": {"summary": [r"(?i)\bwip\b", r"(?i)\bdraft\b"]}}
+        v = check_ticket(_ticket(summary="WIP: something"), rules)
+        assert len(v) == 1
+
+
+class TestCountMatches:
+    def test_count_matches_passes(self):
+        rules = {"count_matches": {"description": {"pattern": r"Verifies: AC-\d+", "min": 2}}}
+        t = _ticket(description="Verifies: AC-1\nVerifies: AC-2\nVerifies: AC-3")
+        assert check_ticket(t, rules) == []
+
+    def test_count_matches_fails_below_min(self):
+        rules = {"count_matches": {"description": {"pattern": r"Verifies: AC-\d+", "min": 3}}}
+        t = _ticket(description="Verifies: AC-1")
+        v = check_ticket(t, rules)
+        assert len(v) == 1
+        assert v[0].check == "count_matches"
+        assert "1 matches" in v[0].message
+        assert ">= 3" in v[0].message
+
+    def test_count_matches_with_max(self):
+        rules = {"count_matches": {"description": {"pattern": r"TODO", "max": 2}}}
+        t = _ticket(description="TODO TODO TODO")
+        v = check_ticket(t, rules)
+        assert len(v) == 1
+        assert "<= 2" in v[0].message
+
+    def test_count_matches_max_passes(self):
+        rules = {"count_matches": {"description": {"pattern": r"TODO", "min": 1, "max": 3}}}
+        t = _ticket(description="TODO TODO")
+        assert check_ticket(t, rules) == []
+
+    def test_count_matches_missing_field(self):
+        rules = {"count_matches": {"description": {"pattern": r".", "min": 1}}}
+        v = check_ticket(_ticket(description=None), rules)
+        assert len(v) == 1
+
+    def test_count_matches_non_string(self):
+        rules = {"count_matches": {"labels": {"pattern": r".", "min": 1}}}
+        v = check_ticket(_ticket(labels=["a"]), rules)
+        assert len(v) == 1
+
+    def test_count_matches_default_min(self):
+        rules = {"count_matches": {"description": {"pattern": r"AC-\d+"}}}
+        t = _ticket(description="See AC-1")
+        assert check_ticket(t, rules) == []
+
+    def test_count_matches_zero_matches(self):
+        rules = {"count_matches": {"description": {"pattern": r"AC-\d+", "min": 1}}}
+        t = _ticket(description="no references")
+        v = check_ticket(t, rules)
+        assert len(v) == 1
+        assert "0 matches" in v[0].message
+
+    def test_count_matches_in_when(self):
+        rules = {
+            "when": {
+                "Done": {"count_matches": {"description": {"pattern": r"Verifies:", "min": 2}}},
+            },
+        }
+        v = check_ticket(_ticket(status="Done", description="Verifies: one"), rules)
+        assert len(v) == 1
+        assert check_ticket(_ticket(status="To Do", description="Verifies: one"), rules) == []
+
+    def test_count_matches_in_if_then(self):
+        rules = {
+            "if": [
+                {
+                    "match": {"Priority": "Critical"},
+                    "then": {"count_matches": {"description": {"pattern": r"Verifies:", "min": 3}}},
+                }
+            ],
+        }
+        v = check_ticket(_ticket(priority="Critical", description="Verifies: one"), rules)
+        assert len(v) == 1
+        assert check_ticket(_ticket(priority="Medium", description="Verifies: one"), rules) == []
+
+
+class TestSectionsPresent:
+    def test_markdown_sections_present(self):
+        rules = {"sections_present": {"description": ["Unit Tests", "Integration Tests"]}}
+        desc = "## Unit Tests\n- test1\n## Integration Tests\n- test2"
+        assert check_ticket(_ticket(description=desc), rules) == []
+
+    def test_markdown_h3_sections(self):
+        rules = {"sections_present": {"description": ["Unit Tests"]}}
+        desc = "### Unit Tests\n- test1"
+        assert check_ticket(_ticket(description=desc), rules) == []
+
+    def test_jira_wiki_sections(self):
+        rules = {"sections_present": {"description": ["Unit Tests", "E2E Tests"]}}
+        desc = "h2. Unit Tests\n- test1\nh2. E2E Tests\n- test2"
+        assert check_ticket(_ticket(description=desc), rules) == []
+
+    def test_jira_wiki_h3(self):
+        rules = {"sections_present": {"description": ["Unit Tests"]}}
+        desc = "h3. Unit Tests\nsome tests"
+        assert check_ticket(_ticket(description=desc), rules) == []
+
+    def test_section_missing(self):
+        rules = {"sections_present": {"description": ["Unit Tests", "E2E Tests"]}}
+        desc = "## Unit Tests\n- test1"
+        v = check_ticket(_ticket(description=desc), rules)
+        assert len(v) == 1
+        assert v[0].check == "sections_present"
+        assert "E2E Tests" in v[0].message
+
+    def test_all_sections_missing(self):
+        rules = {"sections_present": {"description": ["Unit Tests", "E2E Tests"]}}
+        desc = "just some text"
+        v = check_ticket(_ticket(description=desc), rules)
+        assert len(v) == 2
+
+    def test_field_missing(self):
+        rules = {"sections_present": {"description": ["Unit Tests"]}}
+        v = check_ticket(_ticket(description=None), rules)
+        assert len(v) == 1
+
+    def test_field_non_string(self):
+        rules = {"sections_present": {"labels": ["Unit Tests"]}}
+        v = check_ticket(_ticket(labels=["x"]), rules)
+        assert len(v) == 1
+
+    def test_case_insensitive_section_name(self):
+        rules = {"sections_present": {"description": ["Unit Tests"]}}
+        desc = "## unit tests\n- test1"
+        assert check_ticket(_ticket(description=desc), rules) == []
+
+    def test_section_with_extra_text_after(self):
+        rules = {"sections_present": {"description": ["Unit Tests"]}}
+        desc = "## Unit Tests (3 scenarios)\n- test1"
+        assert check_ticket(_ticket(description=desc), rules) == []
+
+    def test_sections_in_when(self):
+        rules = {
+            "when": {
+                "Done": {"sections_present": {"description": ["Unit Tests"]}},
+            },
+        }
+        v = check_ticket(_ticket(status="Done", description="no sections"), rules)
+        assert len(v) == 1
+        assert check_ticket(_ticket(status="To Do", description="no sections"), rules) == []
+
+    def test_sections_in_if_then(self):
+        rules = {
+            "if": [
+                {
+                    "match": {"issuetype": "Story"},
+                    "then": {"sections_present": {"description": ["Unit Tests", "E2E Tests"]}},
+                }
+            ],
+        }
+        v = check_ticket(_ticket(issuetype="Story", description="no sections"), rules)
+        assert len(v) == 2
+        assert check_ticket(_ticket(issuetype="Bug", description="no sections"), rules) == []
