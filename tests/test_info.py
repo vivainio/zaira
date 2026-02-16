@@ -202,7 +202,7 @@ class TestGetFieldType:
         schema = {"version": 2, "fields": {
             "customfield_123": {"name": "Num Field", "type": "number"},
             "customfield_456": {"name": "Opt Field", "type": "option"},
-            "customfield_789": {"name": "Labels", "type": "[string]"},
+            "customfield_789": {"name": "Labels", "type": "string list"},
         }}
         schema_file.write_text(json.dumps(schema))
 
@@ -320,7 +320,8 @@ class TestGetFieldNameEdgeCases:
         schema = {"version": 2, "statuses": {}}
         schema_file.write_text(json.dumps(schema))
 
-        with patch("zaira.info.get_schema_path", return_value=schema_file):
+        with patch("zaira.info.get_schema_path", return_value=schema_file), \
+             patch("zaira.info._fetch_and_cache_fields", side_effect=Exception("no network")):
             result = get_field_name("customfield_123")
 
         assert result is None

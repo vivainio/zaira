@@ -285,7 +285,7 @@ class TestFormatFieldValue:
 
     def test_formats_array_field(self):
         """Formats array/multi-select field."""
-        with patch("zaira.edit.get_editmeta_field", return_value=("customfield_456", {"id": "customfield_456", "type": "[option]"})):
+        with patch("zaira.edit.get_editmeta_field", return_value=("customfield_456", {"id": "customfield_456", "type": "option list"})):
             result = format_field_value("customfield_456", "a, b, c", project="TEST", issue_type="Story")
 
         assert result == [{"value": "a"}, {"value": "b"}, {"value": "c"}]

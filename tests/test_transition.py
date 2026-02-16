@@ -179,13 +179,18 @@ class TestTransitionCommand:
         mock_jira.transitions.return_value = [
             {"id": "2", "name": "Done", "to": {"name": "Done"}},
         ]
+        mock_issue = MagicMock()
+        mock_issue.fields.issuetype.name = "Story"
+        mock_jira.issue.return_value = mock_issue
 
         args = argparse.Namespace(
             key="test-123", list=False, status="Done",
             field=["Resolution=Done"],
         )
 
-        with patch("zaira.transition.get_jira_site", return_value="jira.example.com"):
+        with patch("zaira.transition.get_jira_site", return_value="jira.example.com"), \
+             patch("zaira.info.ensure_editmeta", return_value=None), \
+             patch("zaira.rules.try_load_rules", return_value=None):
             transition_command(args)
 
         captured = capsys.readouterr()
