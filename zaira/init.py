@@ -63,8 +63,13 @@ def discover_boards(project: str) -> list[dict]:
 
 
 def slugify(name: str) -> str:
-    """Convert name to slug for config keys."""
-    return name.lower().replace(" ", "-").replace("(", "").replace(")", "")
+    """Convert name to slug for TOML bare keys (only A-Za-z0-9, -, _)."""
+    import re
+
+    slug = name.lower().replace(" ", "-")
+    slug = re.sub(r"[^a-z0-9_-]", "", slug)
+    slug = re.sub(r"-{2,}", "-", slug).strip("-")
+    return slug
 
 
 def generate_config(

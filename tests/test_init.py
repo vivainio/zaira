@@ -32,6 +32,14 @@ class TestSlugify:
         """Handles combined cases."""
         assert slugify("My Project (Dev)") == "my-project-dev"
 
+    def test_strips_ampersand(self):
+        """Strips & and other special chars that break TOML bare keys."""
+        assert slugify("DevOps Epics & Studies") == "devops-epics-studies"
+
+    def test_strips_special_characters(self):
+        """Strips all non-alphanumeric/dash/underscore characters."""
+        assert slugify("Board #1 @test!") == "board-1-test"
+
 
 class TestGenerateConfig:
     """Tests for generate_config function (pure)."""
