@@ -112,6 +112,10 @@ gh release create v0.3.0 --generate-notes
 
 ## Dependencies
 
+### uv.lock
+
+Do NOT commit `uv.lock` unless new dependencies are added or removed. The lock file picks up the local PyPI mirror URL from `~/.config/uv/uv.toml`, which must not be pushed to the public repo.
+
 ### Regenerating uv.lock for Public Distribution
 
 The development environment may have a private PyPI index configured in `~/.config/uv/uv.toml` or `~/.config/pip/pip.conf`. To regenerate `uv.lock` using public PyPI:
