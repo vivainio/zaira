@@ -469,6 +469,21 @@ def main() -> None:
         default="default",
         help="Output format (csv only for ticket mode)",
     )
+    hours_parser.add_argument(
+        "-m", "--missing",
+        action="store_true",
+        help="Show workdays with missing hours",
+    )
+    hours_parser.add_argument(
+        "--fill",
+        metavar="TICKET",
+        help="Fill missing hours on TICKET (preview; add --yes to confirm)",
+    )
+    hours_parser.add_argument(
+        "-y", "--yes",
+        action="store_true",
+        help="Confirm filling missing hours (requires --fill)",
+    )
     hours_parser.set_defaults(func=hours_command)
 
     # Attach command

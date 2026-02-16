@@ -5,6 +5,7 @@ import sys
 from datetime import datetime, timedelta
 
 from zaira.jira_client import get_jira
+from zaira.project import get_max_hours_per_day
 from zaira.types import get_user_identifier
 
 
@@ -168,12 +169,26 @@ def format_ticket_hours_csv(
     return "\n".join(lines)
 
 
+def _workdays_in_range(date_from: str, date_to: str) -> list[str]:
+    """Return list of weekday date strings (Mon-Fri) between date_from and date_to inclusive."""
+    start = datetime.strptime(date_from, "%Y-%m-%d")
+    end = datetime.strptime(date_to, "%Y-%m-%d")
+    days: list[str] = []
+    current = start
+    while current <= end:
+        if current.weekday() < 5:
+            days.append(current.strftime("%Y-%m-%d"))
+        current += timedelta(days=1)
+    return days
+
+
 def format_hours(
     daily: dict[str, list[tuple[str, str, float, str | None]]],
     ticket_totals: dict[str, float],
     date_from: str,
     date_to: str,
     summary_only: bool = False,
+    show_missing: bool = False,
 ) -> str:
     """Format worklog data for display.
 
@@ -183,11 +198,12 @@ def format_hours(
         date_from: Start date
         date_to: End date
         summary_only: Show only ticket totals, no daily breakdown
+        show_missing: Show workdays with missing hours
 
     Returns:
         Formatted string
     """
-    if not daily:
+    if not daily and not show_missing:
         return f"No worklogs found for {date_from} to {date_to}"
 
     lines: list[str] = []
@@ -204,11 +220,90 @@ def format_hours(
     grand_total = sum(ticket_totals.values())
     lines.append(f"\n{'=' * 50}")
     lines.append(f"Total: {grand_total:.1f}h  ({date_from} to {date_to})")
-    lines.append(f"\nBy ticket:")
-    for key, hours in sorted(ticket_totals.items(), key=lambda x: -x[1]):
-        lines.append(f"  {key:<12} {hours:.1f}h")
+    if ticket_totals:
+        lines.append(f"\nBy ticket:")
+        for key, hours in sorted(ticket_totals.items(), key=lambda x: -x[1]):
+            lines.append(f"  {key:<12} {hours:.1f}h")
+
+    if show_missing:
+        max_hours = get_max_hours_per_day()
+        workdays = _workdays_in_range(date_from, date_to)
+        missing_lines: list[str] = []
+        total_missing = 0.0
+        for day in workdays:
+            logged = sum(h for _, _, h, _ in daily.get(day, []))
+            if logged < max_hours:
+                gap = max_hours - logged
+                total_missing += gap
+                day_name = datetime.strptime(day, "%Y-%m-%d").strftime("%a")
+                missing_lines.append(
+                    f"  {day} ({day_name})   {logged:.1f}h logged, {gap:.1f}h missing"
+                )
+        if missing_lines:
+            lines.append(f"\nMissing hours:")
+            lines.extend(missing_lines)
+            lines.append(
+                f"  Total missing: {total_missing:.1f}h across {len(missing_lines)} day(s)"
+            )
 
     return "\n".join(lines)
+
+
+def fill_missing(
+    ticket: str,
+    date_from: str,
+    date_to: str,
+    daily: dict[str, list[tuple[str, str, float, str | None]]],
+    yes: bool = False,
+) -> None:
+    """Fill missing hours by logging worklogs for gap days.
+
+    Args:
+        ticket: Ticket key to log hours against
+        date_from: Start date (YYYY-MM-DD)
+        date_to: End date (YYYY-MM-DD)
+        daily: Daily entries from query_hours
+        yes: If True, actually log the hours; otherwise preview only
+    """
+    from zaira.worklog import _format_duration, add_worklog
+
+    max_hours = get_max_hours_per_day()
+    workdays = _workdays_in_range(date_from, date_to)
+    gaps: list[tuple[str, float]] = []
+
+    for day in workdays:
+        logged = sum(h for _, _, h, _ in daily.get(day, []))
+        if logged < max_hours:
+            gaps.append((day, max_hours - logged))
+
+    if not gaps:
+        print("No missing hours to fill.")
+        return
+
+    total_fill = sum(h for _, h in gaps)
+    print(f"\nFilling missing hours on {ticket}:\n")
+    for day, gap in gaps:
+        day_name = datetime.strptime(day, "%Y-%m-%d").strftime("%a")
+        print(f"  {day} ({day_name})  {_format_duration(gap)}")
+    print(f"  Total: {total_fill:.1f}h across {len(gaps)} day(s)\n")
+
+    if not yes:
+        print("This is a preview. Run again with --yes to confirm.")
+        return
+
+    failed = 0
+    for day, gap in gaps:
+        started = datetime.strptime(day, "%Y-%m-%d")
+        duration = _format_duration(gap)
+        if add_worklog(ticket, duration, started=started):
+            print(f"  Logged {duration} on {day}")
+        else:
+            failed += 1
+
+    if failed:
+        print(f"\n{failed} of {len(gaps)} entries failed.", file=sys.stderr)
+        sys.exit(1)
+    print(f"\nDone. Filled {total_fill:.1f}h across {len(gaps)} day(s).")
 
 
 def hours_command(args: argparse.Namespace) -> None:
@@ -276,4 +371,15 @@ def hours_command(args: argparse.Namespace) -> None:
             sys.exit(1)
 
     daily, ticket_totals = query_hours(date_from, date_to)
-    print(format_hours(daily, ticket_totals, date_from, date_to, args.summary))
+
+    show_missing = getattr(args, "missing", False)
+    fill_ticket = getattr(args, "fill", None)
+
+    print(format_hours(daily, ticket_totals, date_from, date_to, args.summary,
+                       show_missing=show_missing or bool(fill_ticket)))
+
+    if fill_ticket:
+        fill_missing(
+            fill_ticket.upper(), date_from, date_to, daily,
+            yes=getattr(args, "yes", False),
+        )

@@ -8,12 +8,14 @@ import pytest
 
 from zaira.hours import (
     _days_range,
+    _workdays_in_range,
     query_hours,
     query_ticket_hours,
     format_hours,
     format_ticket_hours,
     format_ticket_hours_csv,
     hours_command,
+    fill_missing,
 )
 
 
@@ -401,6 +403,166 @@ class TestFormatTicketHoursCsv:
         assert len(lines) == 3  # header + 2 data rows
         assert "FOO-1" in lines[1]
         assert "FOO-2" in lines[2]
+
+
+class TestWorkdaysInRange:
+    """Tests for _workdays_in_range function."""
+
+    def test_returns_only_weekdays(self):
+        """Only Mon-Fri dates are returned."""
+        # 2026-02-09 is Mon, 2026-02-15 is Sun
+        days = _workdays_in_range("2026-02-09", "2026-02-15")
+        assert len(days) == 5
+        assert days[0] == "2026-02-09"  # Mon
+        assert days[-1] == "2026-02-13"  # Fri
+
+    def test_single_weekday(self):
+        """Single weekday returns one date."""
+        days = _workdays_in_range("2026-02-10", "2026-02-10")
+        assert days == ["2026-02-10"]
+
+    def test_weekend_only_returns_empty(self):
+        """Weekend-only range returns empty list."""
+        # 2026-02-14 is Sat, 2026-02-15 is Sun
+        days = _workdays_in_range("2026-02-14", "2026-02-15")
+        assert days == []
+
+    def test_two_weeks(self):
+        """Two full weeks returns 10 workdays."""
+        # 2026-02-02 (Mon) to 2026-02-13 (Fri)
+        days = _workdays_in_range("2026-02-02", "2026-02-13")
+        assert len(days) == 10
+
+
+class TestFormatHoursMissing:
+    """Tests for format_hours with show_missing=True."""
+
+    @patch("zaira.hours.get_max_hours_per_day", return_value=7.5)
+    def test_shows_missing_days(self, _mock_max):
+        """Shows days with insufficient hours."""
+        # 2026-02-09 (Mon) to 2026-02-13 (Fri) = 5 workdays
+        daily = {
+            "2026-02-09": [("FOO-1", "Feature", 7.5, None)],
+            "2026-02-10": [("FOO-1", "Feature", 2.0, None)],
+        }
+        totals = {"FOO-1": 9.5}
+
+        result = format_hours(daily, totals, "2026-02-09", "2026-02-13",
+                              show_missing=True)
+
+        assert "Missing hours:" in result
+        assert "2026-02-10 (Tue)" in result
+        assert "5.5h missing" in result
+        assert "2026-02-11 (Wed)" in result
+        assert "7.5h missing" in result
+        assert "Total missing:" in result
+        # Mon has 7.5h so should NOT appear in missing
+        assert "2026-02-09" not in result.split("Missing hours:")[1].split("Total missing:")[0] or \
+               "0.0h missing" not in result
+
+    @patch("zaira.hours.get_max_hours_per_day", return_value=7.5)
+    def test_no_missing_when_all_full(self, _mock_max):
+        """No missing section when all days have full hours."""
+        # 2026-02-09 (Mon) to 2026-02-09 (Mon) = 1 workday
+        daily = {
+            "2026-02-09": [("FOO-1", "Feature", 7.5, None)],
+        }
+        totals = {"FOO-1": 7.5}
+
+        result = format_hours(daily, totals, "2026-02-09", "2026-02-09",
+                              show_missing=True)
+
+        assert "Missing hours:" not in result
+
+    @patch("zaira.hours.get_max_hours_per_day", return_value=7.5)
+    def test_shows_missing_with_no_worklogs(self, _mock_max):
+        """Shows missing days even when there are zero worklogs."""
+        result = format_hours({}, {}, "2026-02-09", "2026-02-09",
+                              show_missing=True)
+
+        assert "Missing hours:" in result
+        assert "7.5h missing" in result
+
+
+class TestHoursCommandMissing:
+    """Tests for hours_command with --missing flag."""
+
+    @patch("zaira.hours.get_max_hours_per_day", return_value=7.5)
+    def test_missing_flag(self, _mock_max, mock_jira, capsys):
+        """--missing flag shows missing hours section."""
+        mock_jira.search_issues.return_value = []
+
+        args = argparse.Namespace(
+            tickets=[], date_from="2026-02-09", date_to="2026-02-13",
+            days=None, summary=False, missing=True, fill=None, yes=False,
+        )
+
+        hours_command(args)
+
+        captured = capsys.readouterr()
+        assert "Missing hours:" in captured.out
+
+
+class TestHoursCommandFill:
+    """Tests for hours_command with --fill flag."""
+
+    @patch("zaira.hours.get_max_hours_per_day", return_value=7.5)
+    def test_fill_preview(self, _mock_max, mock_jira, capsys):
+        """--fill without --yes shows preview."""
+        mock_jira.search_issues.return_value = [
+            _mock_issue("FOO-1", "Feature"),
+        ]
+        mock_jira.myself.return_value = {"emailAddress": "me@test.com"}
+        mock_jira.worklogs.return_value = [
+            _mock_worklog("me@test.com", 27000, "2026-02-09T09:00:00"),  # 7.5h
+        ]
+
+        args = argparse.Namespace(
+            tickets=[], date_from="2026-02-09", date_to="2026-02-10",
+            days=None, summary=False, missing=False, fill="FOO-99", yes=False,
+        )
+
+        hours_command(args)
+
+        captured = capsys.readouterr()
+        assert "Filling missing hours on FOO-99" in captured.out
+        assert "preview" in captured.out.lower()
+        # Should not have actually logged anything
+        mock_jira.add_worklog.assert_not_called()
+
+
+class TestFillMissing:
+    """Tests for fill_missing function."""
+
+    @patch("zaira.hours.get_max_hours_per_day", return_value=7.5)
+    @patch("zaira.worklog.add_worklog", return_value=True)
+    def test_fill_with_yes(self, mock_add, _mock_max, capsys):
+        """fill_missing with yes=True logs worklogs."""
+        daily = {
+            "2026-02-09": [("FOO-1", "Feature", 7.5, None)],
+        }
+
+        fill_missing("FOO-99", "2026-02-09", "2026-02-10", daily, yes=True)
+
+        # Only 2026-02-10 (Tue) is missing
+        mock_add.assert_called_once()
+        call_args = mock_add.call_args
+        assert call_args[0][0] == "FOO-99"  # ticket
+        assert call_args[0][1] == "7h 30m"  # 7.5h duration
+        captured = capsys.readouterr()
+        assert "Done" in captured.out
+
+    @patch("zaira.hours.get_max_hours_per_day", return_value=7.5)
+    def test_fill_no_gaps(self, _mock_max, capsys):
+        """fill_missing with full hours does nothing."""
+        daily = {
+            "2026-02-09": [("FOO-1", "Feature", 7.5, None)],
+        }
+
+        fill_missing("FOO-99", "2026-02-09", "2026-02-09", daily, yes=True)
+
+        captured = capsys.readouterr()
+        assert "No missing hours" in captured.out
 
 
 class TestHoursCommandCsv:
