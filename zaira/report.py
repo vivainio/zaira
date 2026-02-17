@@ -4,6 +4,7 @@ import argparse
 import csv
 import io
 import json
+import shlex
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -180,7 +181,7 @@ def generate_front_matter(
         cmd_parts.append(f"--query {query}")
     elif jql and not board and not sprint:
         lines.append(f'jql: "{jql}"')
-        cmd_parts.append(f'--jql "{jql}"')
+        cmd_parts.append(f'--jql {shlex.quote(jql)}')
     if board:
         lines.append(f"board: {board}")
         cmd_parts.append(f"--board {board}")
@@ -189,12 +190,12 @@ def generate_front_matter(
         cmd_parts.append(f"--sprint {sprint}")
     if label:
         lines.append(f"label: {label}")
-        cmd_parts.append(f'--label "{label}"')
+        cmd_parts.append(f'--label {shlex.quote(label)}')
     if group_by:
         lines.append(f"group_by: {group_by}")
         cmd_parts.append(f"--group-by {group_by}")
 
-    cmd_parts.append(f'--title "{title}"')
+    cmd_parts.append(f'--title {shlex.quote(title)}')
     lines.append(f"refresh: {' '.join(cmd_parts)}")
     lines.append("---")
     return "\n".join(lines) + "\n\n"

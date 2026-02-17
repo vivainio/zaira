@@ -200,7 +200,7 @@ class TestGenerateFrontMatter:
             "My Report", query="backlog", group_by="status"
         )
 
-        assert 'refresh: zaira report --query backlog --group-by status --title "My Report"' in result
+        assert "refresh: zaira report --query backlog --group-by status --title 'My Report'" in result
 
 
 class TestGenerateTable:

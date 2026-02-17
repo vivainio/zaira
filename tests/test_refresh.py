@@ -368,7 +368,7 @@ Content.
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
-        assert "Could not parse refresh command" in captured.out
+        assert "No refresh command or query/board/jql in front matter" in captured.out
 
     def test_adds_output_path_to_command(self, tmp_path, capsys):
         """Adds -o flag with report path to refresh command."""
@@ -391,3 +391,23 @@ Content.
         call_args = mock_run.call_args[0][0]
         assert "-o" in call_args
         assert str(report) in call_args
+
+    def test_rebuilds_command_from_jql_field(self, tmp_path, capsys):
+        """Builds command from jql front matter field, handling nested quotes."""
+        from zaira.refresh import refresh_command
+
+        jql = 'status in ("On hold") AND project = TEST'
+        report = tmp_path / "report.md"
+        report.write_text(f'---\njql: "{jql}"\ntitle: My Report\nrefresh: broken\n---\n\nContent.\n')
+
+        args = argparse.Namespace(report=str(report), full=False, force=False)
+
+        with patch("zaira.refresh.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            refresh_command(args)
+
+        call_args = mock_run.call_args[0][0]
+        assert call_args[0:2] == ["zaira", "report"]
+        # JQL should be passed as a single argument, preserving inner quotes
+        jql_idx = call_args.index("--jql") + 1
+        assert call_args[jql_idx] == jql

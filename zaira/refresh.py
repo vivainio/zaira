@@ -86,6 +86,47 @@ def ticket_needs_export(ticket_file: Path, jira_updated: str) -> bool:
         return True  # Can't parse, assume needs export
 
 
+def _build_command(front_matter: FrontMatter) -> list[str] | None:
+    """Build refresh command from structured front matter fields.
+
+    Reconstructs the command from jql/query/board/sprint fields rather than
+    parsing the refresh string, which can break with nested quotes in JQL.
+    """
+    cmd = ["zaira", "report"]
+    has_source = False
+
+    if front_matter.get("query"):
+        cmd.extend(["--query", front_matter["query"]])
+        has_source = True
+    elif front_matter.get("jql"):
+        cmd.extend(["--jql", front_matter["jql"]])
+        has_source = True
+    if front_matter.get("board"):
+        cmd.extend(["--board", front_matter["board"]])
+        has_source = True
+    if front_matter.get("sprint"):
+        cmd.extend(["--sprint", front_matter["sprint"]])
+        has_source = True
+    if front_matter.get("label"):
+        cmd.extend(["--label", front_matter["label"]])
+    if front_matter.get("group_by"):
+        cmd.extend(["--group-by", front_matter["group_by"]])
+    if front_matter.get("title"):
+        cmd.extend(["--title", front_matter["title"]])
+
+    if not has_source and not front_matter.get("refresh"):
+        return None
+
+    # Fall back to parsing refresh string if no structured fields found
+    if not has_source:
+        try:
+            return shlex.split(front_matter["refresh"])
+        except ValueError:
+            return None
+
+    return cmd
+
+
 def refresh_command(args: argparse.Namespace) -> None:
     """Handle refresh subcommand."""
     from zaira.export import export_ticket
@@ -111,18 +152,14 @@ def refresh_command(args: argparse.Namespace) -> None:
         print(f"Error: No front matter found in {report_path}")
         sys.exit(1)
 
-    refresh_cmd = front_matter.get("refresh")
-    if not refresh_cmd:
-        print("Error: No refresh command in front matter")
+    # Rebuild command from structured front matter fields (more reliable
+    # than parsing the refresh string which can have nested-quote issues)
+    cmd_parts = _build_command(front_matter)
+    if not cmd_parts:
+        print("Error: No refresh command or query/board/jql in front matter")
         sys.exit(1)
 
     print(f"Refreshing: {report_path.name}")
-
-    try:
-        cmd_parts = shlex.split(refresh_cmd)
-    except ValueError:
-        print("Error: Could not parse refresh command")
-        sys.exit(1)
 
     # Add output path
     cmd_parts.extend(["-o", str(report_path)])
