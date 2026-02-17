@@ -204,7 +204,7 @@ def get_ticket(
                         else link.inwardIssue.fields.summary
                     ),
                 }
-                for link in (fields.issuelinks or [])
+                for link in (getattr(fields, "issuelinks", None) or [])
             ],
         }
 
@@ -319,7 +319,7 @@ def get_linked_tests(key: str) -> list[dict]:
     try:
         issue = jira.issue(key, fields="issuelinks")
         test_keys = []
-        for link in issue.fields.issuelinks or []:
+        for link in getattr(issue.fields, "issuelinks", None) or []:
             if link.type.name != "Tests":
                 continue
             if hasattr(link, "inwardIssue"):
@@ -347,7 +347,7 @@ def get_linked_tests(key: str) -> list[dict]:
                 # Find test executions linked to this test
                 executions = []
                 also_tests = []
-                for link in f.issuelinks or []:
+                for link in getattr(f, "issuelinks", None) or []:
                     if hasattr(link, "inwardIssue"):
                         linked = link.inwardIssue
                     elif hasattr(link, "outwardIssue"):
