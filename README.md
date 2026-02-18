@@ -1,6 +1,6 @@
 # Zaira
 
-> **Pronunciation:** *ZAY-rah* /ˈzeɪ.rə/ — named after Jira (*JEE-rah* /ˈdʒiː.rə/), though it works with Confluence too
+> **Pronunciation:** *ZAY-rah* /ˈzeɪ.rə/ — named after Jira (*JEE-rah* /ˈdʒiː.rə/), though it works with Confluence too. Finnish speakers may pronounce it however they like.
 
 A CLI tool for offline Jira ticket management. Export tickets to markdown, generate reports, and keep everything in sync.
 
