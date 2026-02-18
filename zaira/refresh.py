@@ -55,7 +55,7 @@ def find_ticket_file(key: str) -> Path | None:
 
 def get_local_synced_time(ticket_file: Path) -> datetime | None:
     """Get the synced timestamp from a local ticket file."""
-    content = ticket_file.read_text()
+    content = ticket_file.read_text(encoding="utf-8")
     meta = parse_front_matter(content)
     synced_str = meta.get("synced", "")
 
@@ -145,7 +145,7 @@ def refresh_command(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     # Parse front matter
-    content = report_path.read_text()
+    content = report_path.read_text(encoding="utf-8")
     front_matter = parse_front_matter(content)
 
     if not front_matter:
@@ -177,7 +177,7 @@ def refresh_command(args: argparse.Namespace) -> None:
         from zaira.project import get_query, get_board
 
         # Re-read front matter after refresh
-        front_matter = parse_front_matter(report_path.read_text())
+        front_matter = parse_front_matter(report_path.read_text(encoding="utf-8"))
 
         # Build JQL from front matter
         jql = front_matter.get("jql")

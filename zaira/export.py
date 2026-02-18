@@ -703,9 +703,9 @@ def export_ticket(
                 download_attachment(att, attach_dir)
 
     if fmt == "json":
-        outfile.write_text(format_ticket_json(ticket, comments, synced, jira_site))
+        outfile.write_text(format_ticket_json(ticket, comments, synced, jira_site), encoding="utf-8")
     else:
-        outfile.write_text(format_ticket_markdown(ticket, comments, synced, jira_site))
+        outfile.write_text(format_ticket_markdown(ticket, comments, synced, jira_site), encoding="utf-8")
 
     print(f"  Saved to {outfile}")
 

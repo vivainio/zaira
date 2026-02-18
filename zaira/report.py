@@ -591,7 +591,7 @@ def report_command(args: argparse.Namespace) -> None:
                 output_path = REPORTS_DIR / filename
 
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(report)
+            output_path.write_text(report, encoding="utf-8")
             print(f"Saved to {output_path}")
 
         sys.exit(0)
@@ -704,7 +704,7 @@ def report_command(args: argparse.Namespace) -> None:
             output_path = REPORTS_DIR / f"{slug}.{ext}"
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(report)
+        output_path.write_text(report, encoding="utf-8")
         print(f"Saved to {output_path}")
 
     # Full mode: also export tickets

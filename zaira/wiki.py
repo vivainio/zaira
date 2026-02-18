@@ -227,7 +227,7 @@ def _export_page_to_file(
     # Write file
     filename = f"{slugify(title)}.md"
     filepath = output_dir / filename
-    filepath.write_text(content)
+    filepath.write_text(content, encoding="utf-8")
 
     # Download images
     download_images(page_id, filepath)
@@ -471,7 +471,7 @@ def create_command(args: argparse.Namespace) -> None:
     if args.body == "-":
         body_content = sys.stdin.read()
     elif Path(args.body).is_file():
-        body_content = Path(args.body).read_text()
+        body_content = Path(args.body).read_text(encoding="utf-8")
     else:
         body_content = args.body
 
@@ -540,7 +540,7 @@ def _create_page_for_file(
     Returns:
         True if successful, False otherwise
     """
-    body_content = filepath.read_text()
+    body_content = filepath.read_text(encoding="utf-8")
     front_matter, body_only = parse_front_matter(body_content)
 
     # Use first heading as title, or filename
@@ -569,7 +569,7 @@ def _create_page_for_file(
     # Update file with front matter
     front_matter["confluence"] = int(new_page_id)
     new_content = write_front_matter(front_matter, body_only)
-    filepath.write_text(new_content)
+    filepath.write_text(new_content, encoding="utf-8")
 
     # Set sync metadata
     local_hash = hashlib.sha256(body_only.encode()).hexdigest()
@@ -610,7 +610,7 @@ def _put_one_file(
         print(f"Error: File not found: {filepath}", file=sys.stderr)
         return False
 
-    body_content = filepath.read_text()
+    body_content = filepath.read_text(encoding="utf-8")
     if not body_content.strip():
         print(f"Error: File is empty: {filepath}", file=sys.stderr)
         return False
@@ -721,7 +721,7 @@ def _put_one_file(
             del front_matter["labels"]
 
         new_content = write_front_matter(front_matter, md_content)
-        filepath.write_text(new_content)
+        filepath.write_text(new_content, encoding="utf-8")
 
         new_hash = hashlib.sha256(md_content.encode()).hexdigest()
         set_sync_property(
@@ -867,7 +867,7 @@ def put_command(args: argparse.Namespace) -> None:
             # For stdin, write to temp file and process
             import tempfile
 
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as f:
                 f.write(body_content)
                 temp_path = Path(f.name)
 
@@ -907,7 +907,7 @@ def put_command(args: argparse.Namespace) -> None:
         if not filepath.exists():
             print(f"Warning: File not found: {filepath}", file=sys.stderr)
             continue
-        content = filepath.read_text()
+        content = filepath.read_text(encoding="utf-8")
         fm, _ = parse_front_matter(content)
         if fm.get("confluence"):
             linked_files.append((filepath, str(fm["confluence"])))
