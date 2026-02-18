@@ -2,7 +2,7 @@
 
 > **Pronunciation:** *ZAY-rah* /ˈzeɪ.rə/ — named after Jira (*JEE-rah* /ˈdʒiː.rə/), though it works with Confluence too. Finnish speakers may pronounce it however they like.
 
-A CLI tool for offline Jira ticket management. Export tickets to markdown, generate reports, and keep everything in sync.
+A CLI tool for Jira and Confluence management. Export tickets to markdown, generate reports, and keep everything in sync.
 
 Designed for AI-assisted development workflows. By exporting Jira tickets to plain markdown files, AI agents and coding assistants can easily read project context, understand requirements, and reference ticket details without needing direct Jira API access.
 
