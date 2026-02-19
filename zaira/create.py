@@ -12,35 +12,26 @@ from zaira.info import get_editmeta_field
 from zaira.jira_client import get_jira
 
 
-def detect_markdown(text: str) -> list[str]:
-    """Detect markdown syntax that should be Jira wiki markup.
-
-    Returns list of error messages for each detected issue.
-    """
-    errors = []
+def detect_markdown(text: str) -> bool:
+    """Return True if text contains markdown syntax that should be converted."""
     lines = text.split("\n")
-
-    for i, line in enumerate(lines, 1):
-        # Detect markdown headings: ## Heading (but not single # which is Jira numbered list)
+    for line in lines:
+        # Markdown headings: ## Heading
         if re.match(r"^#{2,6}\s+\S", line):
-            level = len(re.match(r"^(#+)", line).group(1))
-            errors.append(
-                f"Line {i}: Use 'h{level}. ' instead of '{'#' * level} ' for headings"
-            )
-
-    # Detect markdown links: [text](url)
-    md_links = re.findall(r"\[([^\]]+)\]\(([^)]+)\)", text)
-    if md_links:
-        for link_text, url in md_links[:3]:  # Show first 3
-            errors.append(
-                f"Use '[{link_text}|{url}]' instead of '[{link_text}]({url})' for links"
-            )
-
-    # Detect markdown bold: **text**
+            return True
+        # Single # heading (h1)
+        if re.match(r"^#\s+\S", line):
+            return True
+        # Fenced code blocks
+        if re.match(r"^```", line):
+            return True
+    # Markdown links: [text](url)
+    if re.search(r"\[([^\]]+)\]\(([^)]+)\)", text):
+        return True
+    # Markdown bold: **text**
     if re.search(r"\*\*[^*]+\*\*", text):
-        errors.append("Use '*text*' instead of '**text**' for bold")
-
-    return errors
+        return True
+    return False
 
 
 # Standard Jira fields that don't need schema lookup
@@ -211,17 +202,10 @@ def create_command(args: argparse.Namespace) -> None:
         print("Error: 'summary' field is required", file=sys.stderr)
         sys.exit(1)
 
-    # Check for markdown syntax in description
-    if description:
-        md_errors = detect_markdown(description)
-        if md_errors:
-            print(
-                "Error: Description contains markdown syntax. Use Jira wiki markup instead:",
-                file=sys.stderr,
-            )
-            for err in md_errors:
-                print(f"  - {err}", file=sys.stderr)
-            sys.exit(1)
+    # Auto-convert markdown to Jira wiki if needed
+    if description and detect_markdown(description):
+        from zaira.mdconv import markdown_to_jira_wiki
+        description = markdown_to_jira_wiki(description)
 
     project = front_matter.get("project", "")
     issue_type = front_matter.get("type") or front_matter.get("issuetype") or ""

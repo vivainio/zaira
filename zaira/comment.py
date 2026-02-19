@@ -42,15 +42,9 @@ def comment_command(args: argparse.Namespace) -> None:
         print("Error: Comment body cannot be empty", file=sys.stderr)
         sys.exit(1)
 
-    md_errors = detect_markdown(body)
-    if md_errors:
-        print(
-            "Error: Comment contains markdown syntax. Use Jira wiki markup instead:",
-            file=sys.stderr,
-        )
-        for err in md_errors:
-            print(f"  - {err}", file=sys.stderr)
-        sys.exit(1)
+    if detect_markdown(body):
+        from zaira.mdconv import markdown_to_jira_wiki
+        body = markdown_to_jira_wiki(body)
 
     jira_site = get_jira_site()
     print(f"Adding comment to {key}...")

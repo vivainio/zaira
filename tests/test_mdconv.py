@@ -2,6 +2,7 @@
 
 from zaira.mdconv import (
     markdown_to_storage,
+    markdown_to_jira_wiki,
     storage_to_markdown,
     extract_local_images,
     convert_images_to_attachments,
@@ -312,6 +313,108 @@ class TestStorageToMarkdown:
         assert "| A | B |" in md
         assert "|---|---|" in md
         assert "| 1 | 2 |" in md
+
+
+class TestMarkdownToJiraWiki:
+    """Tests for markdown_to_jira_wiki function."""
+
+    def test_headers(self):
+        assert markdown_to_jira_wiki("## Section") == "h2. Section"
+        assert markdown_to_jira_wiki("# Title") == "h1. Title"
+        assert markdown_to_jira_wiki("### Sub") == "h3. Sub"
+
+    def test_bold(self):
+        result = markdown_to_jira_wiki("This is **bold** text")
+        assert result == "This is *bold* text"
+
+    def test_italic(self):
+        result = markdown_to_jira_wiki("This is *italic* text")
+        assert result == "This is _italic_ text"
+
+    def test_bold_double_underscore(self):
+        result = markdown_to_jira_wiki("This is __bold__ text")
+        assert result == "This is *bold* text"
+
+    def test_inline_code(self):
+        result = markdown_to_jira_wiki("Use `print()` here")
+        assert result == "Use {{print()}} here"
+
+    def test_link(self):
+        result = markdown_to_jira_wiki("[click here](https://example.com)")
+        assert result == "[click here|https://example.com]"
+
+    def test_image(self):
+        result = markdown_to_jira_wiki("![alt text](image.png)")
+        assert result == "!image.png!"
+
+    def test_image_before_link(self):
+        """Images are processed before links to avoid double-conversion."""
+        result = markdown_to_jira_wiki("![alt](img.png) and [link](url)")
+        assert result == "!img.png! and [link|url]"
+
+    def test_fenced_code_block(self):
+        md = "```python\nprint('hello')\n```"
+        result = markdown_to_jira_wiki(md)
+        assert result == "{code:language=python}\nprint('hello')\n{code}"
+
+    def test_fenced_code_block_no_lang(self):
+        md = "```\nplain code\n```"
+        result = markdown_to_jira_wiki(md)
+        assert result == "{code}\nplain code\n{code}"
+
+    def test_fenced_code_block_lang_alias(self):
+        md = "```py\ncode\n```"
+        result = markdown_to_jira_wiki(md)
+        assert "{code:language=python}" in result
+
+    def test_bullet_list(self):
+        md = "- Item 1\n- Item 2"
+        result = markdown_to_jira_wiki(md)
+        assert result == "* Item 1\n* Item 2"
+
+    def test_nested_bullet_list(self):
+        md = "- Item 1\n  - Nested\n- Item 2"
+        result = markdown_to_jira_wiki(md)
+        assert "* Item 1" in result
+        assert "** Nested" in result
+        assert "* Item 2" in result
+
+    def test_numbered_list(self):
+        md = "1. First\n2. Second"
+        result = markdown_to_jira_wiki(md)
+        assert result == "# First\n# Second"
+
+    def test_blockquote(self):
+        result = markdown_to_jira_wiki("> This is a quote")
+        assert result == "bq. This is a quote"
+
+    def test_horizontal_rule(self):
+        assert markdown_to_jira_wiki("---") == "----"
+        assert markdown_to_jira_wiki("***") == "----"
+
+    def test_strikethrough(self):
+        result = markdown_to_jira_wiki("~~deleted~~")
+        assert result == "-deleted-"
+
+    def test_jira_wiki_passthrough(self):
+        """Jira wiki syntax passes through unchanged."""
+        jira = "h2. Heading\n\n*bold* and _italic_\n\n[link|https://example.com]"
+        result = markdown_to_jira_wiki(jira)
+        # h2. heading line: no markdown headers, so _convert_inline_md processes it
+        assert "h2. Heading" in result
+        assert "[link|https://example.com]" in result
+
+    def test_full_document(self):
+        md = "## Overview\n\nThis is **important** and uses [the API](https://api.example.com).\n\n- Step 1\n- Step 2\n\n```python\ncode()\n```"
+        result = markdown_to_jira_wiki(md)
+        assert "h2. Overview" in result
+        assert "*important*" in result
+        assert "[the API|https://api.example.com]" in result
+        assert "* Step 1" in result
+        assert "* Step 2" in result
+        assert "{code:language=python}" in result
+        assert "code()" in result
+        assert "{code}" in result
 
 
 class TestRoundTrip:

@@ -449,10 +449,9 @@ class TestEditCommand:
             fields={"description": "New description text"}
         )
 
-    def test_exits_on_markdown_description(self, mock_jira, capsys):
-        """Exits with error when description contains markdown."""
+    def test_converts_markdown_description(self, mock_jira, capsys):
+        """Auto-converts markdown to Jira wiki in description."""
         mock_issue = MagicMock()
-        mock_issue.fields.issuetype.name = "Story"
         mock_jira.issue.return_value = mock_issue
 
         args = argparse.Namespace(
@@ -463,12 +462,12 @@ class TestEditCommand:
             from_file=None,
         )
 
-        with pytest.raises(SystemExit) as exc_info:
+        with patch("zaira.edit.get_jira_site", return_value="jira.example.com"):
             edit_command(args)
 
-        assert exc_info.value.code == 1
-        captured = capsys.readouterr()
-        assert "markdown syntax" in captured.err
+        call_fields = mock_issue.update.call_args[1]["fields"]
+        assert "h2." in call_fields["description"]
+        assert "##" not in call_fields["description"]
 
     def test_updates_with_field_args(self, mock_jira, capsys):
         """Updates ticket with --field arguments."""

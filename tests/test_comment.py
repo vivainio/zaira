@@ -71,17 +71,18 @@ class TestCommentCommand:
         captured = capsys.readouterr()
         assert "Comment body cannot be empty" in captured.err
 
-    def test_exits_on_markdown_syntax(self, capsys):
-        """Exits with error when body contains markdown."""
+    def test_converts_markdown_syntax(self, mock_jira, capsys):
+        """Auto-converts markdown to Jira wiki before posting."""
+        mock_jira.add_comment.return_value = MagicMock()
+
         args = argparse.Namespace(key="test-123", body="## Heading\n\nContent")
 
-        with pytest.raises(SystemExit) as exc_info:
+        with patch("zaira.comment.get_jira_site", return_value="jira.example.com"):
             comment_command(args)
 
-        assert exc_info.value.code == 1
-        captured = capsys.readouterr()
-        assert "markdown syntax" in captured.err
-        assert "h2." in captured.err
+        posted_body = mock_jira.add_comment.call_args[0][1]
+        assert "h2." in posted_body
+        assert "##" not in posted_body
 
     def test_adds_comment_successfully(self, mock_jira, capsys):
         """Adds comment and shows success message."""

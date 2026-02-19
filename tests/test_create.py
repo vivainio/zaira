@@ -19,67 +19,40 @@ from zaira.create import (
 class TestDetectMarkdown:
     """Tests for detect_markdown function."""
 
-    def test_no_markdown_returns_empty(self):
-        """Returns empty list for valid Jira markup."""
+    def test_no_markdown_returns_false(self):
+        """Returns False for valid Jira markup."""
         text = """h2. Heading
 
 *bold text*
 
 [link|https://example.com]
 """
-        result = detect_markdown(text)
-        assert result == []
+        assert detect_markdown(text) is False
 
     def test_detects_markdown_headings(self):
         """Detects markdown ## headings."""
-        text = "## My Heading"
-        result = detect_markdown(text)
-        assert len(result) == 1
-        assert "h2." in result[0]
+        assert detect_markdown("## My Heading") is True
 
-    def test_allows_single_hash(self):
-        """Allows single # (Jira numbered list syntax)."""
-        text = "# First item\n# Second item"
-        result = detect_markdown(text)
-        assert result == []
+    def test_detects_h1_heading(self):
+        """Detects markdown # h1 headings."""
+        assert detect_markdown("# My Heading") is True
+
+    def test_detects_fenced_code_block(self):
+        """Detects fenced code blocks."""
+        assert detect_markdown("```python\ncode\n```") is True
 
     def test_detects_markdown_links(self):
         """Detects markdown [text](url) links."""
-        text = "Check out [this link](https://example.com)"
-        result = detect_markdown(text)
-        assert len(result) == 1
-        assert "[this link|https://example.com]" in result[0]
+        assert detect_markdown("Check out [this link](https://example.com)") is True
 
     def test_detects_markdown_bold(self):
         """Detects markdown **bold** syntax."""
-        text = "This is **bold** text"
-        result = detect_markdown(text)
-        assert len(result) == 1
-        assert "'*text*'" in result[0]
+        assert detect_markdown("This is **bold** text") is True
 
-    def test_detects_multiple_issues(self):
-        """Detects multiple markdown issues."""
-        text = """## Heading
-
-**bold**
-
-[link](https://example.com)
-"""
-        result = detect_markdown(text)
-        assert len(result) == 3
-
-    def test_limits_link_errors(self):
-        """Only shows first 3 link errors."""
-        text = """
-[a](https://a.com)
-[b](https://b.com)
-[c](https://c.com)
-[d](https://d.com)
-[e](https://e.com)
-"""
-        result = detect_markdown(text)
-        link_errors = [e for e in result if "link" in e.lower()]
-        assert len(link_errors) == 3
+    def test_jira_wiki_not_detected(self):
+        """Jira wiki syntax is not flagged as markdown."""
+        text = "h1. Title\n\n*bold* and _italic_\n\n[link|https://example.com]\n\n{code:python}\ncode\n{code}"
+        assert detect_markdown(text) is False
 
 
 class TestParseContent:
@@ -406,8 +379,8 @@ Description.
         captured = capsys.readouterr()
         assert "'summary' field is required" in captured.err
 
-    def test_exits_on_markdown_in_description(self, tmp_path, capsys):
-        """Exits with error when description contains markdown."""
+    def test_converts_markdown_in_description(self, tmp_path, capsys, mock_jira):
+        """Auto-converts markdown to Jira wiki when description contains markdown."""
         ticket_file = tmp_path / "ticket.md"
         ticket_file.write_text("""---
 project: TEST
@@ -419,14 +392,17 @@ summary: My ticket
 
 With **bold** text.
 """)
-        args = argparse.Namespace(file=str(ticket_file))
+        mock_issue = MagicMock()
+        mock_issue.key = "TEST-999"
+        mock_jira.create_issue.return_value = mock_issue
 
-        with pytest.raises(SystemExit) as exc_info:
-            create_command(args)
+        args = argparse.Namespace(file=str(ticket_file), dry_run=False)
+        create_command(args)
 
-        assert exc_info.value.code == 1
-        captured = capsys.readouterr()
-        assert "markdown syntax" in captured.err
+        # Check the description was converted to Jira wiki
+        call_fields = mock_jira.create_issue.call_args[1]["fields"]
+        assert "h2." in call_fields["description"]
+        assert "**" not in call_fields["description"]
 
     def test_creates_ticket_successfully(self, tmp_path, capsys, mock_jira):
         """Creates ticket and prints key."""

@@ -395,17 +395,11 @@ def edit_command(args: argparse.Namespace) -> None:
         fields["summary"] = args.title
     if args.description:
         from zaira.create import detect_markdown
+        from zaira.mdconv import markdown_to_jira_wiki
 
         desc = read_input(args.description)
-        md_errors = detect_markdown(desc)
-        if md_errors:
-            print(
-                "Error: Description contains markdown syntax. Use Jira wiki markup instead:",
-                file=sys.stderr,
-            )
-            for err in md_errors:
-                print(f"  - {err}", file=sys.stderr)
-            sys.exit(1)
+        if detect_markdown(desc):
+            desc = markdown_to_jira_wiki(desc)
         fields["description"] = desc
 
     # Handle --field arguments

@@ -461,6 +461,110 @@ def _process_children(
     return "".join(result)
 
 
+_BOLD_OPEN = "\x00B\x00"
+_BOLD_CLOSE = "\x00b\x00"
+
+
+def _convert_inline_md(text: str) -> str:
+    """Convert inline markdown formatting to Jira wiki markup."""
+    # Images before links: ![alt](url) -> !url!
+    text = re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", r"!\2!", text)
+    # Links: [text](url) -> [text|url]
+    text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r"[\1|\2]", text)
+    # Bold: **text** or __text__ -> *text*
+    # Use placeholders so the italic pass doesn't re-convert them
+    text = re.sub(r"\*\*([^*\n]+)\*\*", rf"{_BOLD_OPEN}\1{_BOLD_CLOSE}", text)
+    text = re.sub(r"__([^_\n]+)__", rf"{_BOLD_OPEN}\1{_BOLD_CLOSE}", text)
+    # Italic: *text* -> _text_ (only single *, placeholders protect converted bold)
+    text = re.sub(r"(?<!\*)\*([^*\n]+)\*(?!\*)", r"_\1_", text)
+    # Restore bold placeholders as Jira *bold*
+    text = text.replace(_BOLD_OPEN, "*").replace(_BOLD_CLOSE, "*")
+    # Strikethrough: ~~text~~ -> -text-
+    text = re.sub(r"~~([^~\n]+)~~", r"-\1-", text)
+    # Inline code: `code` -> {{code}}
+    text = re.sub(r"`([^`]+)`", r"{{\1}}", text)
+    return text
+
+
+def markdown_to_jira_wiki(text: str) -> str:
+    """Convert markdown text to Jira wiki markup.
+
+    Handles headers, bold, italic, links, images, fenced code blocks,
+    inline code, bullet lists, numbered lists, blockquotes, and horizontal rules.
+    """
+    lines = text.split("\n")
+    result = []
+    i = 0
+
+    while i < len(lines):
+        line = lines[i]
+
+        # Fenced code blocks: ```lang\n...\n```
+        fence_match = re.match(r"^```(\w*)\s*$", line)
+        if fence_match:
+            lang = fence_match.group(1)
+            lang = LANG_MAP.get(lang.lower(), lang.lower()) if lang else ""
+            lang_attr = f":language={lang}" if lang else ""
+            code_lines = []
+            i += 1
+            while i < len(lines) and not re.match(r"^```\s*$", lines[i]):
+                code_lines.append(lines[i])
+                i += 1
+            result.append(f"{{code{lang_attr}}}")
+            result.extend(code_lines)
+            result.append("{code}")
+            i += 1  # skip closing ```
+            continue
+
+        # Headers: ## Heading -> h2. Heading
+        header_match = re.match(r"^(#{1,6})\s+(.*)", line)
+        if header_match:
+            level = len(header_match.group(1))
+            content = _convert_inline_md(header_match.group(2))
+            result.append(f"h{level}. {content}")
+            i += 1
+            continue
+
+        # Horizontal rule: --- or *** or ___ on its own line
+        if re.match(r"^(---+|\*\*\*+|___+)\s*$", line):
+            result.append("----")
+            i += 1
+            continue
+
+        # Blockquotes: > text -> bq. text
+        bq_match = re.match(r"^>\s*(.*)", line)
+        if bq_match:
+            result.append(f"bq. {_convert_inline_md(bq_match.group(1))}")
+            i += 1
+            continue
+
+        # Bullet lists: - item (markdown) -> * item (Jira)
+        bullet_match = re.match(r"^(\s*)-\s+(.*)", line)
+        if bullet_match:
+            indent = len(bullet_match.group(1))
+            level = indent // 2 + 1
+            content = _convert_inline_md(bullet_match.group(2))
+            result.append("*" * level + " " + content)
+            i += 1
+            continue
+
+        # Numbered lists: 1. item -> # item
+        num_match = re.match(r"^(\s*)\d+\.\s+(.*)", line)
+        if num_match:
+            indent = len(num_match.group(1))
+            level = indent // 2 + 1
+            content = _convert_inline_md(num_match.group(2))
+            result.append("#" * level + " " + content)
+            i += 1
+            continue
+
+        # Regular line - apply inline conversions
+        result.append(_convert_inline_md(line))
+        i += 1
+
+    return "\n".join(result)
+
+
 def storage_to_markdown(html_content: str, image_dir: str = "./images") -> str:
     """Convert Confluence storage format to Markdown.
 
