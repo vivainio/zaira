@@ -33,9 +33,9 @@ class TestDetectMarkdown:
         """Detects markdown ## headings."""
         assert detect_markdown("## My Heading") is True
 
-    def test_detects_h1_heading(self):
-        """Detects markdown # h1 headings."""
-        assert detect_markdown("# My Heading") is True
+    def test_allows_single_hash(self):
+        """Single # is Jira numbered list syntax, not detected as markdown."""
+        assert detect_markdown("# First item\n# Second item") is False
 
     def test_detects_fenced_code_block(self):
         """Detects fenced code blocks."""

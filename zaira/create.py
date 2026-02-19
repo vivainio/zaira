@@ -16,11 +16,8 @@ def detect_markdown(text: str) -> bool:
     """Return True if text contains markdown syntax that should be converted."""
     lines = text.split("\n")
     for line in lines:
-        # Markdown headings: ## Heading
+        # Markdown headings: ## Heading (2+ hashes; single # is Jira numbered list)
         if re.match(r"^#{2,6}\s+\S", line):
-            return True
-        # Single # heading (h1)
-        if re.match(r"^#\s+\S", line):
             return True
         # Fenced code blocks
         if re.match(r"^```", line):

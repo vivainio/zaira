@@ -320,16 +320,20 @@ class TestMarkdownToJiraWiki:
 
     def test_headers(self):
         assert markdown_to_jira_wiki("## Section") == "h2. Section"
-        assert markdown_to_jira_wiki("# Title") == "h1. Title"
         assert markdown_to_jira_wiki("### Sub") == "h3. Sub"
+
+    def test_h1_not_converted(self):
+        """Single # is Jira numbered list — not converted to h1."""
+        assert markdown_to_jira_wiki("# Title") == "# Title"
 
     def test_bold(self):
         result = markdown_to_jira_wiki("This is **bold** text")
         assert result == "This is *bold* text"
 
-    def test_italic(self):
+    def test_italic_single_star_unchanged(self):
+        """Single *text* is valid Jira bold — left as-is to avoid mangling."""
         result = markdown_to_jira_wiki("This is *italic* text")
-        assert result == "This is _italic_ text"
+        assert result == "This is *italic* text"
 
     def test_bold_double_underscore(self):
         result = markdown_to_jira_wiki("This is __bold__ text")
@@ -415,6 +419,64 @@ class TestMarkdownToJiraWiki:
         assert "{code:language=python}" in result
         assert "code()" in result
         assert "{code}" in result
+
+
+class TestMarkdownToJiraWikiSymmetry:
+    """Verify that markdown_to_jira_wiki output is stable.
+
+    After conversion, detect_markdown(result) must be False — meaning the
+    output is valid Jira wiki that won't be re-converted if passed through
+    the pipeline again.
+    """
+
+    CASES = [
+        "## Heading",
+        "# Title",
+        "**bold text**",
+        "*italic text*",
+        "__also bold__",
+        "[click here](https://example.com)",
+        "![alt](image.png)",
+        "```python\nprint('hi')\n```",
+        "```\nplain code\n```",
+        "`inline code`",
+        "- bullet one\n- bullet two",
+        "  - nested bullet",
+        "1. first\n2. second",
+        "> blockquote text",
+        "~~strikethrough~~",
+        "## Heading\n\n**bold** and *italic* with [a link](https://x.com).\n\n- item\n\n```py\ncode()\n```",
+    ]
+
+    def test_converted_output_not_detected_as_markdown(self):
+        """Each converted result must not trigger detect_markdown."""
+        from zaira.create import detect_markdown
+
+        for md in self.CASES:
+            result = markdown_to_jira_wiki(md)
+            assert not detect_markdown(result), (
+                f"Output still detected as markdown after conversion.\n"
+                f"  Input:  {md!r}\n"
+                f"  Output: {result!r}"
+            )
+
+    def test_idempotent_under_pipeline(self):
+        """Converting already-converted Jira wiki does not change it further."""
+        from zaira.create import detect_markdown
+
+        for md in self.CASES:
+            first = markdown_to_jira_wiki(md)
+            # Simulate passing through the pipeline a second time:
+            # detect_markdown guards the call in practice, but call directly
+            # to verify the output is stable.
+            if not detect_markdown(first):
+                second = markdown_to_jira_wiki(first)
+                assert second == first, (
+                    f"Output changed on second pass.\n"
+                    f"  Input:   {md!r}\n"
+                    f"  Pass 1:  {first!r}\n"
+                    f"  Pass 2:  {second!r}"
+                )
 
 
 class TestRoundTrip:

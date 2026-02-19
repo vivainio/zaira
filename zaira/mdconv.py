@@ -461,10 +461,6 @@ def _process_children(
     return "".join(result)
 
 
-_BOLD_OPEN = "\x00B\x00"
-_BOLD_CLOSE = "\x00b\x00"
-
-
 def _convert_inline_md(text: str) -> str:
     """Convert inline markdown formatting to Jira wiki markup."""
     # Images before links: ![alt](url) -> !url!
@@ -472,13 +468,11 @@ def _convert_inline_md(text: str) -> str:
     # Links: [text](url) -> [text|url]
     text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r"[\1|\2]", text)
     # Bold: **text** or __text__ -> *text*
-    # Use placeholders so the italic pass doesn't re-convert them
-    text = re.sub(r"\*\*([^*\n]+)\*\*", rf"{_BOLD_OPEN}\1{_BOLD_CLOSE}", text)
-    text = re.sub(r"__([^_\n]+)__", rf"{_BOLD_OPEN}\1{_BOLD_CLOSE}", text)
-    # Italic: *text* -> _text_ (only single *, placeholders protect converted bold)
-    text = re.sub(r"(?<!\*)\*([^*\n]+)\*(?!\*)", r"_\1_", text)
-    # Restore bold placeholders as Jira *bold*
-    text = text.replace(_BOLD_OPEN, "*").replace(_BOLD_CLOSE, "*")
+    text = re.sub(r"\*\*([^*\n]+)\*\*", r"*\1*", text)
+    text = re.sub(r"__([^_\n]+)__", r"*\1*", text)
+    # Note: single *text* is intentionally NOT converted to _text_ because
+    # *text* is valid Jira bold markup — converting it would mangle Jira wiki
+    # that passes through the pipeline a second time.
     # Strikethrough: ~~text~~ -> -text-
     text = re.sub(r"~~([^~\n]+)~~", r"-\1-", text)
     # Inline code: `code` -> {{code}}
@@ -516,8 +510,8 @@ def markdown_to_jira_wiki(text: str) -> str:
             i += 1  # skip closing ```
             continue
 
-        # Headers: ## Heading -> h2. Heading
-        header_match = re.match(r"^(#{1,6})\s+(.*)", line)
+        # Headers: ## Heading -> h2. Heading (single # skipped — Jira numbered list)
+        header_match = re.match(r"^(#{2,6})\s+(.*)", line)
         if header_match:
             level = len(header_match.group(1))
             content = _convert_inline_md(header_match.group(2))
