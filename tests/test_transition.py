@@ -48,7 +48,7 @@ class TestTransitionTicket:
         result = transition_ticket("TEST-123", "Start Progress")
 
         assert result is True
-        mock_jira.transition_issue.assert_called_once_with("TEST-123", "1", fields={})
+        mock_jira.transition_issue.assert_called_once_with("TEST-123", "1", fields={}, comment=None)
 
     def test_transitions_by_target_status(self, mock_jira):
         """Transitions ticket by target status name."""
@@ -59,7 +59,7 @@ class TestTransitionTicket:
         result = transition_ticket("TEST-123", "In Progress")
 
         assert result is True
-        mock_jira.transition_issue.assert_called_once_with("TEST-123", "1", fields={})
+        mock_jira.transition_issue.assert_called_once_with("TEST-123", "1", fields={}, comment=None)
 
     def test_case_insensitive_match(self, mock_jira):
         """Matches status case-insensitively."""
@@ -96,7 +96,7 @@ class TestTransitionTicket:
 
         assert result is True
         mock_jira.transition_issue.assert_called_once_with(
-            "TEST-123", "2", fields={"resolution": {"name": "Done"}}
+            "TEST-123", "2", fields={"resolution": {"name": "Done"}}, comment=None
         )
 
     def test_returns_false_on_api_error(self, mock_jira, capsys):
