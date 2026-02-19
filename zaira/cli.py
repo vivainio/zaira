@@ -622,6 +622,12 @@ def main() -> None:
         help="Set field value during transition (repeatable). E.g., Resolution=Done",
     )
     transition_parser.add_argument(
+        "-c",
+        "--comment",
+        metavar="TEXT",
+        help="Comment to include with the transition",
+    )
+    transition_parser.add_argument(
         "--no-check",
         action="store_true",
         help="Skip rules.yaml validation before transitioning",

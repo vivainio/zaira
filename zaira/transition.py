@@ -18,7 +18,10 @@ def get_transitions(key: str) -> list[dict]:
 
 
 def transition_ticket(
-    key: str, status: str, fields: dict[str, Any] | None = None
+    key: str,
+    status: str,
+    fields: dict[str, Any] | None = None,
+    comment: str | None = None,
 ) -> bool:
     """Transition a ticket to a new status.
 
@@ -26,6 +29,7 @@ def transition_ticket(
         key: Ticket key (e.g., PROJ-123)
         status: Target status name or transition name
         fields: Optional dict of field_id -> value to set during transition
+        comment: Optional comment to include with the transition
 
     Returns:
         True if successful, False otherwise
@@ -52,7 +56,7 @@ def transition_ticket(
                 print(f"  - {t['name']} → {t['to']['name']}", file=sys.stderr)
             return False
 
-        jira.transition_issue(key, match["id"], fields=fields or {})
+        jira.transition_issue(key, match["id"], fields=fields or {}, comment=comment)
         return True
     except Exception as e:
         print(f"Error transitioning {key}: {e}", file=sys.stderr)
@@ -112,7 +116,9 @@ def transition_command(args: argparse.Namespace) -> None:
                     print("\nUse --no-check to skip validation.", file=sys.stderr)
                     sys.exit(1)
 
-    if transition_ticket(key, status, fields=fields):
+    comment = getattr(args, "comment", None)
+
+    if transition_ticket(key, status, fields=fields, comment=comment):
         print(f"Transitioned {key}")
         print(f"View at: https://{jira_site}/browse/{key}")
     else:
