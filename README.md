@@ -259,13 +259,17 @@ zaira transition FOO-1234 Done
 
 ### check (experimental)
 
-Validate tickets against a `rules.yaml` file in the current directory:
+Validate tickets against a `rules.yaml` file:
 
 ```bash
 zaira check FOO-123
 zaira check FOO-123 FOO-456 FOO-789
 zaira check FOO-123 --rules path/to/rules.yaml
 ```
+
+**Rules file discovery:** `rules.yaml` is looked up in order:
+1. Current working directory
+2. Platform config directory (`~/.config/zaira/rules.yaml` on Linux, `%APPDATA%\zaira\rules.yaml` on Windows)
 
 Rules are scoped by issue type. Available checks:
 
@@ -278,6 +282,8 @@ Rules are scoped by issue type. Available checks:
 - `one_of` — field value must be one of the allowed values; for list fields, all values must be in the allowed set
 - `not_one_of` — field value must not be any of the forbidden values
 - `subtask_types` — must have at least one subtask of each listed issue type
+- `valid_transitions` — map of source status → list of allowed target statuses; `zaira transition` blocks moves not in the list
+- `no_open_linked` — list of specs; fails if any linked issue matches `type`/`priority` and is not in the Done status category
 - `when.<status>` — additional rules that apply only when the ticket is in that status
 - `if` — conditional rules that match on any field value
 
@@ -293,12 +299,20 @@ Story:
     summary: "(?i)\\bwip\\b"        # summary must not contain WIP
   one_of:
     Priority: [Critical, High, Medium]
+  valid_transitions:
+    New: [Analyzing, Backlog, On Hold]
+    Analyzing: [Implementing, Ready for Implementation, Backlog, On Hold]
+    Implementing: [Ready for Validation, Backlog, On Hold]
   when:
     Done:
       required: [Resolution]
       subtask_types: [Deployment Wave]
       not_contains:
         Description: "TODO"
+    Validating:
+      no_open_linked:
+        - type: Bug
+          priority: [Blocker, Critical, Major]
   if:
     - match: { Priority: Critical }
       then:
