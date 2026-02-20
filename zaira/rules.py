@@ -12,11 +12,26 @@ from zaira.export import get_ticket
 Violation = namedtuple("Violation", ["field", "check", "message"])
 
 
+def _find_rules_file(path="rules.yaml") -> Path | None:
+    """Search for rules file: explicit path, then cwd, then the zaira config dir."""
+    from zaira.jira_client import CONFIG_DIR
+    p = Path(path)
+    if p.is_absolute() or path != "rules.yaml":
+        return p if p.exists() else None
+    if p.exists():
+        return p
+    config_path = CONFIG_DIR / "rules.yaml"
+    if config_path.exists():
+        return config_path
+    return None
+
+
 def load_rules(path="rules.yaml"):
     """Load YAML rules file. Returns dict keyed by issue type name."""
-    p = Path(path)
-    if not p.exists():
-        print(f"Rules file not found: {p}", file=sys.stderr)
+    from zaira.jira_client import CONFIG_DIR
+    p = _find_rules_file(path)
+    if not p:
+        print(f"Rules file not found: {path} (also checked {CONFIG_DIR / 'rules.yaml'})", file=sys.stderr)
         sys.exit(1)
     with open(p) as f:
         return yaml.safe_load(f)
@@ -228,8 +243,8 @@ def check_ticket(ticket, rules, status=None):
 
 def try_load_rules(path="rules.yaml"):
     """Load rules file, returning None if it doesn't exist."""
-    p = Path(path)
-    if not p.exists():
+    p = _find_rules_file(path)
+    if not p:
         return None
     with open(p) as f:
         return yaml.safe_load(f)

@@ -1,8 +1,10 @@
 """Tests for zaira.rules module."""
 
+from pathlib import Path
 from unittest.mock import patch
 
-from zaira.rules import check_ticket, validate_transition, Violation
+from zaira.rules import check_ticket, validate_transition, Violation, _find_rules_file
+import zaira.jira_client as jira_client_mod
 
 
 def _ticket(**overrides):
@@ -1085,3 +1087,39 @@ class TestNoOpenLinked:
             v = check_ticket(ticket, rules)
         assert len(v) == 1
         assert check_ticket(_ticket(status="Implementing", issuelinks=[]), rules) == []
+
+
+class TestFindRulesFile:
+    def test_finds_cwd_file(self, tmp_path, monkeypatch):
+        rules_file = tmp_path / "rules.yaml"
+        rules_file.write_text("Bug: {}")
+        monkeypatch.chdir(tmp_path)
+        result = _find_rules_file("rules.yaml")
+        assert result is not None
+        assert result.resolve() == rules_file.resolve()
+
+    def test_explicit_path_returned_if_exists(self, tmp_path):
+        p = tmp_path / "myrules.yaml"
+        p.write_text("Bug: {}")
+        assert _find_rules_file(str(p)) == p
+
+    def test_explicit_path_returns_none_if_missing(self, tmp_path):
+        assert _find_rules_file(str(tmp_path / "nope.yaml")) is None
+
+    def test_falls_back_to_config_dir(self, tmp_path, monkeypatch):
+        fake_config = tmp_path / "zaira"
+        fake_config.mkdir()
+        rules_file = fake_config / "rules.yaml"
+        rules_file.write_text("Bug: {}")
+        monkeypatch.setattr(jira_client_mod, "CONFIG_DIR", fake_config)
+        monkeypatch.chdir(tmp_path)  # no rules.yaml here
+        result = _find_rules_file("rules.yaml")
+        assert result == rules_file
+
+    def test_returns_none_if_not_found_anywhere(self, tmp_path, monkeypatch):
+        fake_config = tmp_path / "zaira"
+        fake_config.mkdir()
+        monkeypatch.setattr(jira_client_mod, "CONFIG_DIR", fake_config)
+        monkeypatch.chdir(tmp_path)  # no rules.yaml here
+        result = _find_rules_file("rules.yaml")
+        assert result is None
