@@ -1,4 +1,0 @@
-Bug:
-  when:
-    Done:
-      subtask_types: [Deployment Wave]

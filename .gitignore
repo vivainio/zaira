@@ -49,3 +49,6 @@ credentials.toml
 .env
 *.pem
 *.key
+
+# Project-specific rules (may contain proprietary workflow details)
+rules.yaml

@@ -124,6 +124,30 @@ def _apply_rules(ticket, rule_block):
             elif max_count is not None and count > max_count:
                 violations.append(Violation(field, "count_matches", f'{field} has {count} matches for /{pattern}/ (need <= {max_count})'))
 
+    for spec in rule_block.get("no_open_linked", []):
+        linked_type = spec.get("type")
+        linked_priorities = spec.get("priority", [])
+        if isinstance(linked_priorities, str):
+            linked_priorities = [linked_priorities]
+        for link in ticket.get("issuelinks", []):
+            linked_key = link.get("key")
+            try:
+                linked_ticket = get_ticket(linked_key, full=True)
+            except Exception:
+                continue
+            if not linked_ticket:
+                continue
+            if linked_type and linked_ticket.get("issuetype") != linked_type:
+                continue
+            if linked_priorities and linked_ticket.get("priority") not in linked_priorities:
+                continue
+            status_cat = linked_ticket.get("statusCategory", "")
+            if status_cat != "Done":
+                violations.append(Violation(
+                    "issuelinks", "no_open_linked",
+                    f'linked {linked_ticket.get("issuetype")} {linked_key} ({linked_ticket.get("priority")}) is open: {linked_ticket.get("status")}',
+                ))
+
     for field, sections in rule_block.get("sections_present", {}).items():
         found, value = _get_field_value(ticket, field)
         if not found or value is None:
@@ -220,7 +244,20 @@ def validate_transition(ticket, all_rules, target_status):
     type_rules = all_rules.get(issue_type)
     if not type_rules:
         return []
-    return check_ticket(ticket, type_rules, status=target_status)
+
+    violations = []
+
+    # Check valid_transitions: is source -> target allowed?
+    source_status = ticket.get("status", "")
+    valid_targets = type_rules.get("valid_transitions", {}).get(source_status)
+    if valid_targets is not None and target_status not in valid_targets:
+        violations.append(Violation(
+            "transition", "valid_transitions",
+            f'cannot transition from "{source_status}" to "{target_status}" (allowed: {", ".join(valid_targets)})',
+        ))
+
+    violations.extend(check_ticket(ticket, type_rules, status=target_status))
+    return violations
 
 
 def check_command(args):

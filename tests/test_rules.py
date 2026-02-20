@@ -1,5 +1,7 @@
 """Tests for zaira.rules module."""
 
+from unittest.mock import patch
+
 from zaira.rules import check_ticket, validate_transition, Violation
 
 
@@ -944,3 +946,142 @@ class TestSectionsPresent:
         v = check_ticket(_ticket(issuetype="Story", description="no sections"), rules)
         assert len(v) == 2
         assert check_ticket(_ticket(issuetype="Bug", description="no sections"), rules) == []
+
+
+class TestValidTransitions:
+    def _rules(self):
+        return {
+            "Story": {
+                "valid_transitions": {
+                    "New": ["Analyzing", "Backlog"],
+                    "Analyzing": ["Implementing", "Backlog"],
+                },
+            }
+        }
+
+    def test_allowed_transition_passes(self):
+        ticket = _ticket(issuetype="Story", status="New")
+        v = validate_transition(ticket, self._rules(), "Analyzing")
+        assert v == []
+
+    def test_forbidden_transition_fails(self):
+        ticket = _ticket(issuetype="Story", status="New")
+        v = validate_transition(ticket, self._rules(), "Implementing")
+        assert len(v) == 1
+        assert v[0].check == "valid_transitions"
+        assert v[0].field == "transition"
+        assert "New" in v[0].message
+        assert "Implementing" in v[0].message
+
+    def test_unknown_source_status_skips_check(self):
+        # No valid_transitions entry for "On Hold" — no violation
+        ticket = _ticket(issuetype="Story", status="On Hold")
+        v = validate_transition(ticket, self._rules(), "Backlog")
+        assert v == []
+
+    def test_no_valid_transitions_key_skips_check(self):
+        all_rules = {"Story": {"when": {"Done": {"required": ["Resolution"]}}}}
+        ticket = _ticket(issuetype="Story", status="New")
+        v = validate_transition(ticket, all_rules, "Done")
+        assert len(v) == 1
+        assert v[0].field == "Resolution"
+
+    def test_field_violations_still_reported_on_forbidden_transition(self):
+        all_rules = {
+            "Story": {
+                "valid_transitions": {"New": ["Backlog"]},
+                "when": {"Implementing": {"required": ["Story Points"]}},
+            }
+        }
+        ticket = _ticket(issuetype="Story", status="New")
+        v = validate_transition(ticket, all_rules, "Implementing")
+        checks = {vi.check for vi in v}
+        assert "valid_transitions" in checks
+        assert "required" in checks
+
+    def test_unknown_issue_type_returns_empty(self):
+        ticket = _ticket(issuetype="Task", status="New")
+        v = validate_transition(ticket, self._rules(), "Analyzing")
+        assert v == []
+
+
+class TestNoOpenLinked:
+    def _linked_ticket(self, key, issuetype, priority, status, status_cat):
+        return {
+            "key": key,
+            "issuetype": issuetype,
+            "priority": priority,
+            "status": status,
+            "statusCategory": status_cat,
+        }
+
+    def test_no_violations_when_no_linked_issues(self):
+        rules = {"no_open_linked": [{"type": "Bug", "priority": ["Blocker", "Critical"]}]}
+        assert check_ticket(_ticket(issuelinks=[]), rules) == []
+
+    def test_no_violations_when_linked_bug_is_done(self):
+        rules = {"no_open_linked": [{"type": "Bug", "priority": ["Blocker"]}]}
+        ticket = _ticket(issuelinks=[{"key": "BUG-1", "type": "Blocks", "direction": "outward", "summary": "Bad bug"}])
+        with patch("zaira.rules.get_ticket") as mock_get:
+            mock_get.return_value = self._linked_ticket("BUG-1", "Bug", "Blocker", "Done", "Done")
+            v = check_ticket(ticket, rules)
+        assert v == []
+
+    def test_violation_when_open_blocker_bug_linked(self):
+        rules = {"no_open_linked": [{"type": "Bug", "priority": ["Blocker", "Critical", "Major"]}]}
+        ticket = _ticket(issuelinks=[{"key": "BUG-1", "type": "Blocks", "direction": "outward", "summary": "Bad bug"}])
+        with patch("zaira.rules.get_ticket") as mock_get:
+            mock_get.return_value = self._linked_ticket("BUG-1", "Bug", "Blocker", "In Progress", "In Progress")
+            v = check_ticket(ticket, rules)
+        assert len(v) == 1
+        assert v[0].check == "no_open_linked"
+        assert "BUG-1" in v[0].message
+        assert "Blocker" in v[0].message
+
+    def test_no_violation_when_type_does_not_match(self):
+        rules = {"no_open_linked": [{"type": "Bug", "priority": ["Blocker"]}]}
+        ticket = _ticket(issuelinks=[{"key": "TASK-1", "type": "relates to", "direction": "outward", "summary": "Task"}])
+        with patch("zaira.rules.get_ticket") as mock_get:
+            mock_get.return_value = self._linked_ticket("TASK-1", "Task", "Blocker", "In Progress", "In Progress")
+            v = check_ticket(ticket, rules)
+        assert v == []
+
+    def test_no_violation_when_priority_does_not_match(self):
+        rules = {"no_open_linked": [{"type": "Bug", "priority": ["Blocker", "Critical"]}]}
+        ticket = _ticket(issuelinks=[{"key": "BUG-2", "type": "relates to", "direction": "outward", "summary": "Minor bug"}])
+        with patch("zaira.rules.get_ticket") as mock_get:
+            mock_get.return_value = self._linked_ticket("BUG-2", "Bug", "Minor", "In Progress", "In Progress")
+            v = check_ticket(ticket, rules)
+        assert v == []
+
+    def test_multiple_linked_issues_multiple_violations(self):
+        rules = {"no_open_linked": [{"type": "Bug", "priority": ["Blocker", "Critical"]}]}
+        ticket = _ticket(issuelinks=[
+            {"key": "BUG-1", "type": "Blocks", "direction": "outward", "summary": "Bug 1"},
+            {"key": "BUG-2", "type": "Blocks", "direction": "outward", "summary": "Bug 2"},
+        ])
+        with patch("zaira.rules.get_ticket") as mock_get:
+            mock_get.side_effect = [
+                self._linked_ticket("BUG-1", "Bug", "Blocker", "Open", "To Do"),
+                self._linked_ticket("BUG-2", "Bug", "Critical", "In Progress", "In Progress"),
+            ]
+            v = check_ticket(ticket, rules)
+        assert len(v) == 2
+
+    def test_no_open_linked_in_when(self):
+        rules = {
+            "when": {
+                "Validating": {
+                    "no_open_linked": [{"type": "Bug", "priority": ["Blocker"]}],
+                },
+            },
+        }
+        ticket = _ticket(
+            status="Validating",
+            issuelinks=[{"key": "BUG-1", "type": "Blocks", "direction": "outward", "summary": "Bug"}],
+        )
+        with patch("zaira.rules.get_ticket") as mock_get:
+            mock_get.return_value = self._linked_ticket("BUG-1", "Bug", "Blocker", "Open", "To Do")
+            v = check_ticket(ticket, rules)
+        assert len(v) == 1
+        assert check_ticket(_ticket(status="Implementing", issuelinks=[]), rules) == []
