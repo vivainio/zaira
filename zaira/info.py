@@ -423,6 +423,20 @@ def load_editmeta(project: str, issue_type: str) -> EditmetaSchema | None:
     return None
 
 
+def _fix_component_allowed_values(fields: dict, project: str, jira) -> None:
+    """Replace component allowedValues with live project components.
+
+    The editmeta API returns an unreliable superset not scoped to the project.
+    """
+    if "Components" in fields and fields["Components"].get("type") == "component list":
+        try:
+            fields["Components"]["allowedValues"] = sorted(
+                c.name for c in jira.project_components(project)
+            )
+        except Exception:
+            pass
+
+
 def _fetch_and_save_editmeta(key: str, project: str, issue_type: str) -> EditmetaSchema | None:
     """Fetch editmeta from API for a specific issue and save to cache."""
     jira = get_jira()
@@ -434,6 +448,7 @@ def _fetch_and_save_editmeta(key: str, project: str, issue_type: str) -> Editmet
         return None
 
     all_fields = _parse_editmeta_response(resp.json())
+    _fix_component_allowed_values(all_fields, project, jira)
     editmeta: EditmetaSchema = {
         "project": project,
         "issueType": issue_type,
@@ -648,6 +663,7 @@ def learn_command(args: argparse.Namespace) -> None:
             continue
 
         all_fields = _parse_editmeta_response(resp.json())
+        _fix_component_allowed_values(all_fields, project, jira)
 
         editmeta: EditmetaSchema = {
             "project": project,

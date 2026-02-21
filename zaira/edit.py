@@ -53,6 +53,32 @@ def _format_assignee(value: str | None) -> dict | None:
     return {"accountId": value}
 
 
+def _get_project_components(project: str) -> list:
+    """Fetch project components from Jira, cached per process."""
+    if project not in _component_cache:
+        jira = get_jira()
+        _component_cache[project] = jira.project_components(project)
+    return _component_cache[project]
+
+
+_component_cache: dict = {}
+
+
+def _resolve_component(name: str, project: str) -> dict:
+    """Resolve component name case-insensitively to {"id": ...} using live project components."""
+    if not project:
+        return {"name": name}
+    name_lower = name.lower()
+    components = _get_project_components(project)
+    for comp in components:
+        if comp.name.lower() == name_lower:
+            return {"id": comp.id}
+    valid = sorted(c.name for c in components)
+    print(f"Error: component '{name}' not found in project {project}.", file=sys.stderr)
+    print(f"Valid components: {', '.join(valid)}", file=sys.stderr)
+    sys.exit(1)
+
+
 def map_field(name: str, value: str, project: str = "", issue_type: str = "") -> tuple[str, Any]:
     """Map a field name to Jira field ID and format value.
 
@@ -79,9 +105,8 @@ def map_field(name: str, value: str, project: str = "", issue_type: str = "") ->
                 return field_id, value
             return field_id, [v.strip() for v in value.split(",")]
         if field_id == "components":
-            if isinstance(value, list):
-                return field_id, [{"name": c} for c in value]
-            return field_id, [{"name": c.strip()} for c in value.split(",")]
+            names = value if isinstance(value, list) else [c.strip() for c in value.split(",")]
+            return field_id, [_resolve_component(n, project) for n in names]
         return field_id, value
 
     # Look up in editmeta
@@ -250,12 +275,17 @@ def get_allowed_values(jira, key: str, field_ids: list[str], issue_type: str = "
 
     # Check editmeta cache first (fields keyed by name, search by ID)
     project = key.split("-")[0]
+
+    # For components, always use live project_components — editmeta returns an unreliable superset
+    if "components" in field_ids:
+        result["components"] = sorted(c.name for c in _get_project_components(project))
+
     editmeta = load_editmeta(project, issue_type) if issue_type else None
     if editmeta and "fields" in editmeta:
         # Build ID -> field_def lookup
         id_to_field = {fdef["id"]: fdef for fdef in editmeta["fields"].values() if "id" in fdef}
         for fid in field_ids:
-            if fid in id_to_field:
+            if fid in id_to_field and fid not in result:
                 allowed = id_to_field[fid].get("allowedValues", [])
                 if allowed:
                     result[fid] = allowed
