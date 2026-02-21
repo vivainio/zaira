@@ -456,6 +456,15 @@ def edit_command(args: argparse.Namespace) -> None:
         print(f"Updated {key}")
         print(f"View at: https://{jira_site}/browse/{key}")
         from zaira.activity_log import record
-        record("edit", key, ", ".join(fields.keys()))
+        user_field_names = []
+        if args.title:
+            user_field_names.append("title")
+        if args.description:
+            user_field_names.append("description")
+        for f in getattr(args, "field", None) or []:
+            user_field_names.append(f.split("=")[0].strip())
+        if getattr(args, "from_file", None):
+            user_field_names.append("(from file)")
+        record("edit", key, ", ".join(user_field_names) or ", ".join(fields.keys()))
     else:
         sys.exit(1)
