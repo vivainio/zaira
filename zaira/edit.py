@@ -425,5 +425,7 @@ def edit_command(args: argparse.Namespace) -> None:
     if edit_ticket(key, fields):
         print(f"Updated {key}")
         print(f"View at: https://{jira_site}/browse/{key}")
+        from zaira.activity_log import record
+        record("edit", key, ", ".join(fields.keys()))
     else:
         sys.exit(1)

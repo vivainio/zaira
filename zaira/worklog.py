@@ -392,6 +392,8 @@ def log_command(args: argparse.Namespace) -> None:
             print(f"\n{failed} of {len(entries)} entries failed.", file=sys.stderr)
             sys.exit(1)
         print(f"\nDone. View at: https://{jira_site}/browse/{key}")
+        from zaira.activity_log import record
+        record("worklog", key, f"{args.time} spread:{spread}")
         return
 
     started = None
@@ -410,6 +412,8 @@ def log_command(args: argparse.Namespace) -> None:
     if add_worklog(key, args.time, comment=args.comment, started=started):
         print(f"Logged {args.time} to {key}")
         print(f"View at: https://{jira_site}/browse/{key}")
+        from zaira.activity_log import record
+        record("worklog", key, args.time)
     else:
         sys.exit(1)
 

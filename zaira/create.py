@@ -225,3 +225,6 @@ def create_command(args: argparse.Namespace) -> None:
     key = create_ticket(fields, dry_run=dry_run)
     if key:
         print(f"Created {key}")
+        from zaira.activity_log import record
+        summary = front_matter.get("summary", "")
+        record("create", key, summary if summary else None)

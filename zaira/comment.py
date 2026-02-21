@@ -52,5 +52,7 @@ def comment_command(args: argparse.Namespace) -> None:
     if add_comment(key, body):
         print(f"Comment added to {key}")
         print(f"View at: https://{jira_site}/browse/{key}")
+        from zaira.activity_log import record
+        record("comment", key)
     else:
         sys.exit(1)

@@ -41,6 +41,7 @@ from zaira.refresh import refresh_command
 from zaira.search import search_command
 from zaira.get import get_command
 from zaira.rules import check_command
+from zaira.activity_log import read_entries, format_entries
 
 
 def main() -> None:
@@ -928,6 +929,35 @@ def main() -> None:
         help="Skip confirmation prompt",
     )
     wiki_delete.set_defaults(wiki_func=wiki_delete_command)
+
+    # History command
+    history_parser = subparsers.add_parser(
+        "history",
+        help="Show recent write activity from the local log",
+    )
+    history_parser.add_argument(
+        "-n",
+        "--tail",
+        type=int,
+        default=20,
+        metavar="N",
+        help="Number of most recent entries to show (default: 20)",
+    )
+    history_parser.add_argument(
+        "-k",
+        "--key",
+        metavar="TICKET",
+        help="Filter by ticket key (e.g., AC-1234)",
+    )
+
+    def _history_command(args: argparse.Namespace) -> None:
+        entries = read_entries(
+            tail=args.tail,
+            key_filter=getattr(args, "key", None),
+        )
+        print(format_entries(entries))
+
+    history_parser.set_defaults(func=_history_command)
 
     args = parser.parse_args()
 

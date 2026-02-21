@@ -121,5 +121,7 @@ def transition_command(args: argparse.Namespace) -> None:
     if transition_ticket(key, status, fields=fields, comment=comment):
         print(f"Transitioned {key}")
         print(f"View at: https://{jira_site}/browse/{key}")
+        from zaira.activity_log import record
+        record("transition", key, f"→ {status}")
     else:
         sys.exit(1)
