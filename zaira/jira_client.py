@@ -13,6 +13,8 @@ from zaira.types import Credentials
 
 CONFIG_DIR = Path(user_config_dir("zaira", appauthor=False))
 CACHE_DIR = Path(user_cache_dir("zaira", appauthor=False))
+
+
 CREDENTIALS_FILE = CONFIG_DIR / "credentials.toml"
 CONFIG_FILE = CONFIG_DIR / "config.toml"
 

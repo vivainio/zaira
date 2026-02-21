@@ -1,7 +1,9 @@
 """Zaira CLI - Main entry point."""
 
 import argparse
+import shutil
 import sys
+from pathlib import Path
 
 from zaira import __version__
 from zaira.attach import attach_command
@@ -44,7 +46,27 @@ from zaira.rules import check_command
 from zaira.activity_log import read_entries, format_entries
 
 
+def _migrate_legacy_dirs() -> None:
+    """Migrate from old double-nested Windows paths (zaira\\zaira) to new single-level paths.
+
+    TODO: Remove this migration after a few months (added 2026-02).
+    """
+    if sys.platform != "win32":
+        return
+    from platformdirs import user_cache_dir, user_config_dir
+    from zaira.jira_client import CACHE_DIR, CONFIG_DIR
+    old_config = Path(user_config_dir("zaira"))
+    old_cache = Path(user_cache_dir("zaira"))
+    for old, new in [(old_config, CONFIG_DIR), (old_cache, CACHE_DIR)]:
+        if not old.exists() or new.exists():
+            continue
+        shutil.copytree(old, new)
+        print(f"Migrated zaira data from {old} to {new}", file=sys.stderr)
+
+
 def main() -> None:
+    _migrate_legacy_dirs()
+
     parser = argparse.ArgumentParser(
         prog="zaira",
         description="Jira CLI tool for offline ticket management",
