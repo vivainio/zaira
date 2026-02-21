@@ -5,7 +5,13 @@ on:
     types: [published]
 
 jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+    with:
+      python-versions: '["3.13"]'
+
   publish:
+    needs: test
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

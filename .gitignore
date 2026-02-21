@@ -52,3 +52,6 @@ credentials.toml
 
 # Project-specific rules (may contain proprietary workflow details)
 rules.yaml
+
+# Local specs symlink
+specs
