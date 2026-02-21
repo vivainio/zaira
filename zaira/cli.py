@@ -1,7 +1,6 @@
 """Zaira CLI - Main entry point."""
 
 import argparse
-import shutil
 import sys
 from pathlib import Path
 
@@ -53,15 +52,15 @@ def _migrate_legacy_dirs() -> None:
     """
     if sys.platform != "win32":
         return
-    from platformdirs import user_cache_dir, user_config_dir
-    from zaira.jira_client import CACHE_DIR, CONFIG_DIR
-    old_config = Path(user_config_dir("zaira"))
-    old_cache = Path(user_cache_dir("zaira"))
-    for old, new in [(old_config, CONFIG_DIR), (old_cache, CACHE_DIR)]:
-        if not old.exists() or new.exists():
-            continue
-        shutil.copytree(old, new)
-        print(f"Migrated zaira data from {old} to {new}", file=sys.stderr)
+    from platformdirs import user_config_dir
+    from zaira.jira_client import CONFIG_DIR
+    old = Path(user_config_dir("zaira"))  # AppData\Local\zaira\zaira
+    if not old.exists():
+        return
+    for item in old.iterdir():
+        item.rename(CONFIG_DIR / item.name)
+    old.rmdir()
+    print(f"Migrated zaira data from {old} to {CONFIG_DIR}", file=sys.stderr)
 
 
 def main() -> None:
