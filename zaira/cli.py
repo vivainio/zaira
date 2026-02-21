@@ -980,6 +980,24 @@ def main() -> None:
 
     history_parser.set_defaults(func=_history_command)
 
+    reset_parser = subparsers.add_parser(
+        "reset",
+        help="Clear all cached data (editmeta, schema, field descriptions)",
+    )
+
+    def _reset_command(args: argparse.Namespace) -> None:
+        from zaira.jira_client import CACHE_DIR
+        cleared = 0
+        for f in CACHE_DIR.iterdir():
+            if f.name == "activity.log":
+                continue
+            f.unlink() if f.is_file() else __import__("shutil").rmtree(f)
+            print(f"Removed {f.name}")
+            cleared += 1
+        print(f"Cache cleared ({cleared} files removed).")
+
+    reset_parser.set_defaults(func=_reset_command)
+
     args = parser.parse_args()
 
     if not args.command:
