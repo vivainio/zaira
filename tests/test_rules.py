@@ -3,7 +3,7 @@
 from pathlib import Path
 from unittest.mock import patch
 
-from zaira.rules import check_ticket, validate_transition, Violation, _find_rules_file
+from zaira.rules import check_ticket, validate_transition, Violation, _find_rules_file, load_rules
 import zaira.jira_client as jira_client_mod
 
 
@@ -1124,3 +1124,140 @@ class TestFindRulesFile:
         monkeypatch.chdir(tmp_path)  # no rules.yaml here
         result = _find_rules_file("rules.yaml")
         assert result is None
+
+
+class TestImport:
+    def _write(self, path, content):
+        path.write_text(content)
+        return path
+
+    def test_import_merges_base_and_override(self, tmp_path):
+        base = self._write(tmp_path / "base.yaml", """\
+Story:
+  required: [summary, assignee]
+""")
+        overlay = self._write(tmp_path / "overlay.yaml", f"""\
+import: base.yaml
+Story:
+  required: [Extra Field]
+""")
+        rules = load_rules(str(overlay))
+        assert set(rules["Story"]["required"]) == {"summary", "assignee", "Extra Field"}
+
+    def test_import_list_union_deduplicates(self, tmp_path):
+        self._write(tmp_path / "base.yaml", "Story:\n  required: [summary, assignee]\n")
+        overlay = self._write(tmp_path / "overlay.yaml", "import: base.yaml\nStory:\n  required: [assignee, Extra Field]\n")
+        rules = load_rules(str(overlay))
+        req = rules["Story"]["required"]
+        assert req.count("assignee") == 1
+        assert "Extra Field" in req
+
+    def test_import_dict_key_override_wins(self, tmp_path):
+        self._write(tmp_path / "base.yaml", "Story:\n  one_of:\n    Priority: [Low, Medium]\n    Severity: [Minor]\n")
+        overlay = self._write(tmp_path / "overlay.yaml", "import: base.yaml\nStory:\n  one_of:\n    Priority: [High, Critical]\n")
+        rules = load_rules(str(overlay))
+        assert rules["Story"]["one_of"]["Priority"] == ["High", "Critical"]
+        assert rules["Story"]["one_of"]["Severity"] == ["Minor"]
+
+    def test_import_no_open_linked_concatenated(self, tmp_path):
+        self._write(tmp_path / "base.yaml", "Story:\n  no_open_linked:\n    - {type: Bug, priority: Blocker}\n")
+        overlay = self._write(tmp_path / "overlay.yaml", "import: base.yaml\nStory:\n  no_open_linked:\n    - {type: Task, priority: Critical}\n")
+        rules = load_rules(str(overlay))
+        assert len(rules["Story"]["no_open_linked"]) == 2
+
+    def test_import_when_merges_per_status(self, tmp_path):
+        self._write(tmp_path / "base.yaml", """\
+Story:
+  when:
+    Done:
+      required: [Resolution]
+""")
+        overlay = self._write(tmp_path / "overlay.yaml", """\
+import: base.yaml
+Story:
+  when:
+    Done:
+      required: [Extra Done Field]
+    Implementing:
+      required: [Story Points]
+""")
+        rules = load_rules(str(overlay))
+        done = rules["Story"]["when"]["Done"]
+        assert set(done["required"]) == {"Resolution", "Extra Done Field"}
+        assert rules["Story"]["when"]["Implementing"]["required"] == ["Story Points"]
+
+    def test_import_if_concatenated(self, tmp_path):
+        self._write(tmp_path / "base.yaml", """\
+Story:
+  if:
+    - match: {Priority: Critical}
+      then: {required: [Rollback Plan]}
+""")
+        overlay = self._write(tmp_path / "overlay.yaml", """\
+import: base.yaml
+Story:
+  if:
+    - match: {Priority: Blocker}
+      then: {required: [Escalation Owner]}
+""")
+        rules = load_rules(str(overlay))
+        assert len(rules["Story"]["if"]) == 2
+
+    def test_import_valid_transitions_override_per_status(self, tmp_path):
+        self._write(tmp_path / "base.yaml", """\
+Story:
+  valid_transitions:
+    New: [Analyzing, Backlog]
+    Analyzing: [Implementing]
+""")
+        overlay = self._write(tmp_path / "overlay.yaml", """\
+import: base.yaml
+Story:
+  valid_transitions:
+    New: [Backlog]
+""")
+        rules = load_rules(str(overlay))
+        assert rules["Story"]["valid_transitions"]["New"] == ["Backlog"]
+        assert rules["Story"]["valid_transitions"]["Analyzing"] == ["Implementing"]
+
+    def test_import_adds_new_issue_type(self, tmp_path):
+        self._write(tmp_path / "base.yaml", "Story:\n  required: [summary]\n")
+        overlay = self._write(tmp_path / "overlay.yaml", "import: base.yaml\nBug:\n  required: [assignee]\n")
+        rules = load_rules(str(overlay))
+        assert "Story" in rules
+        assert "Bug" in rules
+
+    def test_import_chain(self, tmp_path):
+        self._write(tmp_path / "base.yaml", "Story:\n  required: [summary]\n")
+        self._write(tmp_path / "mid.yaml", "import: base.yaml\nStory:\n  required: [assignee]\n")
+        overlay = self._write(tmp_path / "overlay.yaml", "import: mid.yaml\nStory:\n  required: [Extra Field]\n")
+        rules = load_rules(str(overlay))
+        assert set(rules["Story"]["required"]) == {"summary", "assignee", "Extra Field"}
+
+    def test_import_cycle_raises(self, tmp_path):
+        import pytest
+        a = tmp_path / "a.yaml"
+        b = tmp_path / "b.yaml"
+        a.write_text("import: b.yaml\nStory:\n  required: [summary]\n")
+        b.write_text("import: a.yaml\nStory:\n  required: [assignee]\n")
+        with pytest.raises(ValueError, match="cycle"):
+            load_rules(str(a))
+
+    def test_import_missing_file_raises(self, tmp_path):
+        import pytest
+        overlay = self._write(tmp_path / "overlay.yaml", "import: nonexistent.yaml\nStory:\n  required: [summary]\n")
+        with pytest.raises(FileNotFoundError):
+            load_rules(str(overlay))
+
+    def test_import_path_relative_to_file(self, tmp_path):
+        subdir = tmp_path / "sub"
+        subdir.mkdir()
+        self._write(subdir / "base.yaml", "Story:\n  required: [summary]\n")
+        overlay = self._write(tmp_path / "overlay.yaml", "import: sub/base.yaml\nStory:\n  required: [Extra Field]\n")
+        rules = load_rules(str(overlay))
+        assert set(rules["Story"]["required"]) == {"summary", "Extra Field"}
+
+    def test_no_import_loads_normally(self, tmp_path):
+        rules_file = self._write(tmp_path / "rules.yaml", "Story:\n  required: [summary]\n")
+        rules = load_rules(str(rules_file))
+        assert rules == {"Story": {"required": ["summary"]}}

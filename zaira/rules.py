@@ -26,6 +26,64 @@ def _find_rules_file(path="rules.yaml") -> Path | None:
     return None
 
 
+def _merge_rule_block(base, override):
+    """Merge override rule block on top of base. Returns merged dict."""
+    result = dict(base)
+    for key, val in override.items():
+        if key in ("required", "non_empty", "subtask_types"):
+            base_list = result.get(key, [])
+            result[key] = list(dict.fromkeys(base_list + val))
+        elif key in ("contains", "not_contains", "matches", "not_matches",
+                     "one_of", "not_one_of", "count_matches", "sections_present"):
+            result[key] = {**result.get(key, {}), **val}
+        elif key == "no_open_linked":
+            result[key] = result.get(key, []) + val
+        elif key == "when":
+            base_when = dict(result.get("when", {}))
+            for status, status_block in val.items():
+                if status in base_when:
+                    base_when[status] = _merge_rule_block(base_when[status], status_block)
+                else:
+                    base_when[status] = status_block
+            result["when"] = base_when
+        elif key == "if":
+            result["if"] = result.get("if", []) + val
+        elif key == "valid_transitions":
+            result["valid_transitions"] = {**result.get("valid_transitions", {}), **val}
+        else:
+            result[key] = val
+    return result
+
+
+def _merge_all_rules(base, override):
+    """Merge override on top of base at the top level (issue-type keyed)."""
+    result = dict(base)
+    for issue_type, type_rules in override.items():
+        if issue_type in result:
+            result[issue_type] = _merge_rule_block(result[issue_type], type_rules)
+        else:
+            result[issue_type] = type_rules
+    return result
+
+
+def _load_rules_file(path: Path, seen: frozenset) -> dict:
+    """Load a YAML rules file, following import chains with cycle detection."""
+    abs_path = path.resolve()
+    if abs_path in seen:
+        raise ValueError(f"Import cycle detected: {path}")
+    seen = seen | {abs_path}
+    with open(path) as f:
+        data = yaml.safe_load(f) or {}
+    import_str = data.pop("import", None)
+    if import_str is None:
+        return data
+    import_path = (path.parent / import_str).resolve()
+    if not import_path.exists():
+        raise FileNotFoundError(f"Import not found: {import_path} (imported from {path})")
+    base = _load_rules_file(import_path, seen)
+    return _merge_all_rules(base, data)
+
+
 def load_rules(path="rules.yaml"):
     """Load YAML rules file. Returns dict keyed by issue type name."""
     from zaira.jira_client import CONFIG_DIR
@@ -33,8 +91,7 @@ def load_rules(path="rules.yaml"):
     if not p:
         print(f"Rules file not found: {path} (also checked {CONFIG_DIR / 'rules' / 'rules.yaml'})", file=sys.stderr)
         sys.exit(1)
-    with open(p) as f:
-        return yaml.safe_load(f)
+    return _load_rules_file(p, frozenset())
 
 
 def _get_field_value(ticket, field_name):
@@ -246,8 +303,7 @@ def try_load_rules(path="rules.yaml"):
     p = _find_rules_file(path)
     if not p:
         return None
-    with open(p) as f:
-        return yaml.safe_load(f)
+    return _load_rules_file(p, frozenset())
 
 
 def validate_transition(ticket, all_rules, target_status):
