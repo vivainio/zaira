@@ -41,6 +41,7 @@ from zaira.report import report_command
 from zaira.refresh import refresh_command
 from zaira.search import search_command
 from zaira.get import get_command
+from zaira.bundle import bundle_install_command, bundle_update_command
 from zaira.rules import check_command
 from zaira.activity_log import read_entries, format_entries
 
@@ -997,6 +998,29 @@ def main() -> None:
         print(f"Cache cleared ({cleared} files removed).")
 
     reset_parser.set_defaults(func=_reset_command)
+
+    # Bundle command with subcommands
+    def bundle_command(args: argparse.Namespace) -> None:
+        if hasattr(args, "bundle_func"):
+            args.bundle_func(args)
+        else:
+            print("Usage: zaira bundle <install|update>")
+            sys.exit(1)
+
+    bundle_parser = subparsers.add_parser("bundle", help="Install and update rule bundles")
+    bundle_parser.set_defaults(func=bundle_command)
+    bundle_subparsers = bundle_parser.add_subparsers(dest="bundle_command")
+
+    bundle_install_p = bundle_subparsers.add_parser(
+        "install", help="Install a bundle from a URL or local zip"
+    )
+    bundle_install_p.add_argument("source", help="URL or local path to a .zip bundle")
+    bundle_install_p.set_defaults(bundle_func=bundle_install_command)
+
+    bundle_update_p = bundle_subparsers.add_parser(
+        "update", help="Re-fetch bundle from recorded source URL"
+    )
+    bundle_update_p.set_defaults(bundle_func=bundle_update_command)
 
     args = parser.parse_args()
 

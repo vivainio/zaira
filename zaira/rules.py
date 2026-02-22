@@ -20,7 +20,7 @@ def _find_rules_file(path="rules.yaml") -> Path | None:
         return p if p.exists() else None
     if p.exists():
         return p
-    config_path = CONFIG_DIR / "rules.yaml"
+    config_path = CONFIG_DIR / "rules" / "rules.yaml"
     if config_path.exists():
         return config_path
     return None
@@ -31,7 +31,7 @@ def load_rules(path="rules.yaml"):
     from zaira.jira_client import CONFIG_DIR
     p = _find_rules_file(path)
     if not p:
-        print(f"Rules file not found: {path} (also checked {CONFIG_DIR / 'rules.yaml'})", file=sys.stderr)
+        print(f"Rules file not found: {path} (also checked {CONFIG_DIR / 'rules' / 'rules.yaml'})", file=sys.stderr)
         sys.exit(1)
     with open(p) as f:
         return yaml.safe_load(f)

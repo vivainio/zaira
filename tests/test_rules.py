@@ -1108,8 +1108,9 @@ class TestFindRulesFile:
 
     def test_falls_back_to_config_dir(self, tmp_path, monkeypatch):
         fake_config = tmp_path / "zaira"
-        fake_config.mkdir()
-        rules_file = fake_config / "rules.yaml"
+        rules_dir = fake_config / "rules"
+        rules_dir.mkdir(parents=True)
+        rules_file = rules_dir / "rules.yaml"
         rules_file.write_text("Bug: {}")
         monkeypatch.setattr(jira_client_mod, "CONFIG_DIR", fake_config)
         monkeypatch.chdir(tmp_path)  # no rules.yaml here

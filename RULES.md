@@ -19,8 +19,8 @@ transition (pass `--no-check` to skip).
 When no `--rules` path is given, zaira looks for `rules.yaml` in order:
 
 1. Current working directory (`./rules.yaml`)
-2. Platform config dir (`~/.config/zaira/rules.yaml` on Linux/macOS,
-   `%APPDATA%\zaira\rules.yaml` on Windows)
+2. Platform config dir (`~/.config/zaira/rules/rules.yaml` on Linux/macOS,
+   `%APPDATA%\zaira\rules\rules.yaml` on Windows)
 
 ## File structure
 
