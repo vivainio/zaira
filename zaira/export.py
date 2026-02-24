@@ -17,6 +17,20 @@ from zaira.mdconv import is_jira_wiki, jira_wiki_to_markdown
 from zaira.types import Attachment, Comment, Ticket, get_user_identifier, yaml_quote
 
 
+def _format_timestamp(ts: str) -> str:
+    """Format Jira timestamp to shorter ISO form.
+
+    2026-01-29T22:50:09.667+0200 -> 2026-01-29 22:50
+    """
+    if not ts:
+        return ts
+    try:
+        dt = datetime.fromisoformat(ts)
+        return dt.strftime("%Y-%m-%d %H:%M")
+    except (ValueError, TypeError):
+        return ts
+
+
 def normalize_title(title: str) -> str:
     """Convert title to filename-safe slug."""
     slug = title.lower()
@@ -304,7 +318,7 @@ def get_comments(key: str) -> list[Comment]:
             result.append(
                 Comment(
                     author=c.author.displayName if c.author else "Unknown",
-                    created=c.created or "",
+                    created=_format_timestamp(c.created or ""),
                     body=body_str,
                 )
             )
