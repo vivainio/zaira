@@ -177,32 +177,40 @@ def refresh_command(args: argparse.Namespace) -> None:
     if getattr(args, "full", False):
         from zaira.report import search_tickets
         from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
-        from zaira.project import get_query, get_board
+        from zaira.project import get_query, get_board, get_report
 
         # Re-read front matter after refresh
         front_matter = parse_front_matter(report_path.read_text(encoding="utf-8"))
 
+        # Resolve report definition if named report
+        fm = dict(front_matter)
+        if fm.get("report"):
+            report_def = get_report(fm["report"]) or {}
+            for k in ("query", "jql", "board", "sprint", "label"):
+                if k in report_def and k not in fm:
+                    fm[k] = str(report_def[k])
+
         # Build JQL from front matter
-        jql = front_matter.get("jql")
-        if front_matter.get("query"):
-            jql = get_query(front_matter["query"])
-        elif front_matter.get("board"):
-            board_id = front_matter["board"]
+        jql = fm.get("jql")
+        if fm.get("query"):
+            jql = get_query(fm["query"])
+        elif fm.get("board"):
+            board_id = fm["board"]
             try:
                 board_id = int(board_id)
             except ValueError:
                 board_id = get_board(board_id)
             if board_id:
                 jql = get_board_issues_jql(board_id)
-        elif front_matter.get("sprint"):
-            jql = get_sprint_issues_jql(int(front_matter["sprint"]))
+        elif fm.get("sprint"):
+            jql = get_sprint_issues_jql(int(fm["sprint"]))
 
         if not jql:
             print("Warning: Could not determine JQL for ticket export")
         else:
             # Add label filter if present
-            if front_matter.get("label"):
-                jql = f'{jql} AND labels = "{front_matter["label"]}"'
+            if fm.get("label"):
+                jql = f'{jql} AND labels = "{fm["label"]}"'
 
             print("\nExporting tickets...")
             tickets = search_tickets(jql)

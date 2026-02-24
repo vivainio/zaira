@@ -176,9 +176,14 @@ def generate_front_matter(
     lines.append(f"title: {title}")
     lines.append(f"generated: {datetime.now().isoformat(timespec='seconds')}")
 
-    # Store source fields for refresh --full (JQL reconstruction)
     if report_name:
+        # Named report — zproject.toml has all the details
         lines.append(f"report: {report_name}")
+        lines.append(f"refresh: zaira report {report_name}")
+        lines.append("---")
+        return "\n".join(lines) + "\n\n"
+
+    # Ad-hoc report — store source fields and build refresh command
     if query:
         lines.append(f"query: {query}")
     elif jql and not board and not sprint:
@@ -191,29 +196,25 @@ def generate_front_matter(
         lines.append(f"label: {label}")
     if group_by:
         lines.append(f"group_by: {group_by}")
-    # Build refresh command — named report keeps it simple
-    if report_name:
-        refresh_cmd = f"zaira report {report_name}"
-    else:
-        cmd_parts = ["zaira report"]
-        if query:
-            cmd_parts.append(f"--query {query}")
-        elif jql and not board and not sprint:
-            cmd_parts.append(f'--jql {shlex.quote(jql)}')
-        if board:
-            cmd_parts.append(f"--board {board}")
-        if sprint:
-            cmd_parts.append(f"--sprint {sprint}")
-        if label:
-            cmd_parts.append(f'--label {shlex.quote(label)}')
-        if group_by:
-            cmd_parts.append(f"--group-by {group_by}")
-        if links:
-            cmd_parts.append("--links")
-        cmd_parts.append(f'--title {shlex.quote(title)}')
-        refresh_cmd = " ".join(cmd_parts)
 
-    lines.append(f"refresh: {refresh_cmd}")
+    cmd_parts = ["zaira report"]
+    if query:
+        cmd_parts.append(f"--query {query}")
+    elif jql and not board and not sprint:
+        cmd_parts.append(f'--jql {shlex.quote(jql)}')
+    if board:
+        cmd_parts.append(f"--board {board}")
+    if sprint:
+        cmd_parts.append(f"--sprint {sprint}")
+    if label:
+        cmd_parts.append(f'--label {shlex.quote(label)}')
+    if group_by:
+        cmd_parts.append(f"--group-by {group_by}")
+    if links:
+        cmd_parts.append("--links")
+    cmd_parts.append(f'--title {shlex.quote(title)}')
+
+    lines.append(f"refresh: {' '.join(cmd_parts)}")
     lines.append("---")
     return "\n".join(lines) + "\n\n"
 
