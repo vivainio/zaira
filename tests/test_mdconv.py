@@ -783,3 +783,75 @@ class TestJiraWikiRoundTrip:
                 f"  Back:     {back!r}\n"
                 f"  Expected: {expected!r}"
             )
+
+
+class TestJiraWikiToMarkdownRoundTrip:
+    """Test that jira_wiki_to_markdown output fed to markdown_to_jira_wiki
+    produces equivalent Jira wiki."""
+
+    CASES = [
+        # (wiki input, expected after round-trip)
+        ("h2. Heading", "h2. Heading"),
+        ("h3. Sub heading", "h3. Sub heading"),
+        ("This is *bold* text", "This is *bold* text"),
+        ("{{inline_code}}", "{{inline_code}}"),
+        ("[click here|https://example.com]", "[click here|https://example.com]"),
+        ("* bullet one\n* bullet two", "* bullet one\n* bullet two"),
+        ("* outer\n** nested", "* outer\n** nested"),
+        ("# first\n# second", "# first\n# second"),
+        ("bq. blockquote text", "bq. blockquote text"),
+        ("-deleted-", "-deleted-"),
+        ("----", "----"),
+        ("{code:language=python}\ncode()\n{code}", "{code:language=python}\ncode()\n{code}"),
+        ("{code}\nplain\n{code}", "{code}\nplain\n{code}"),
+        # Tables: markdown_to_jira_wiki passes markdown tables through,
+        # so the round-trip stabilizes on markdown table format
+        ("||Name||Age||\n|Alice|30|", "| Name | Age |\n|---|---|\n| Alice | 30 |"),
+    ]
+
+    def test_round_trip(self):
+        for wiki_input, expected in self.CASES:
+            md = jira_wiki_to_markdown(wiki_input)
+            back = markdown_to_jira_wiki(md)
+            assert back == expected, (
+                f"Round-trip failed.\n"
+                f"  Input:    {wiki_input!r}\n"
+                f"  Markdown: {md!r}\n"
+                f"  Back:     {back!r}\n"
+                f"  Expected: {expected!r}"
+            )
+
+    def test_real_ticket_description(self):
+        """Round-trip a realistic Jira wiki description like AC-1538."""
+        wiki = (
+            "h2. Summary\n\n"
+            "Update Dynatrace OneAgent version.\n\n"
+            "h2. Version Changes\n\n"
+            "||*Platform*||*Old Version*||*New Version*||\n"
+            "|Linux|1.291.165|1.299.73|\n"
+            "|Windows|1.291.107|1.299.73|\n\n"
+            "h2. Implementation\n\n"
+            "Repository: {{alusta-aws-node-prereq}}\n\n"
+            "*Linux files:*\n\n"
+            "* {{3rd_party_urls_linux.txt}}\n"
+            "* {{Installers/install-dynatrace-agent.sh}}\n\n"
+            "h2. Acceptance Criteria\n\n"
+            "* Agent version is upgraded\n"
+            "* Data is passed to server"
+        )
+        md = jira_wiki_to_markdown(wiki)
+        # Verify key conversions happened
+        assert "## Summary" in md
+        assert "## Version Changes" in md
+        assert "| **Platform** | **Old Version** | **New Version** |" in md
+        assert "|---|---|---|" in md
+        assert "`alusta-aws-node-prereq`" in md
+        assert "`3rd_party_urls_linux.txt`" in md
+        assert "- Agent version is upgraded" in md
+        # Round-trip back
+        back = markdown_to_jira_wiki(md)
+        assert "h2. Summary" in back
+        assert "h2. Version Changes" in back
+        assert "{{alusta-aws-node-prereq}}" in back
+        assert "{{3rd_party_urls_linux.txt}}" in back
+        assert "* Agent version is upgraded" in back
