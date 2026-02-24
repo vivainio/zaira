@@ -580,12 +580,33 @@ def _convert_inline_jira(text: str) -> str:
     text = re.sub(r"!([^!\s][^!\n]*?)!", _jira_img_to_md, text)
     # Links: [text|url] -> [text](url)
     text = re.sub(r"\[([^]|]+)\|([^]]+)\]", r"[\1](\2)", text)
+    # Bare URL links: [http://url] -> http://url
+    text = re.sub(r"\[(https?://[^\]]+)\]", r"\1", text)
+    # User mentions: [~username] or [~accountid:...] -> @username
+    text = re.sub(r"\[~(?:accountid:)?([^\]]+)\]", r"@\1", text)
+    # Attachment links: [^filename] -> filename
+    text = re.sub(r"\[\^([^\]]+)\]", r"\1", text)
     # Bold: *text* -> **text** (single-star Jira bold)
     text = re.sub(r"(?<!\*)\*([^*\n]+)\*(?!\*)", r"**\1**", text)
     # Italic: _text_ -> *text*
     text = re.sub(r"(?<!_)_([^_\n]+)_(?!_)", r"*\1*", text)
+    # Citation: ??text?? -> *text*
+    text = re.sub(r"\?\?([^?\n]+)\?\?", r"*\1*", text)
     # Strikethrough: -text- -> ~~text~~
     text = re.sub(r"(?<![-\w])-([^-\n]+)-(?![-\w])", r"~~\1~~", text)
+    # Inserted/underline: +text+ -> *text* (no markdown underline)
+    text = re.sub(r"(?<!\w)\+([^+\n]+)\+(?!\w)", r"*\1*", text)
+    # Superscript: ^text^ -> <sup>text</sup>
+    text = re.sub(r"\^([^^\n]+)\^", r"<sup>\1</sup>", text)
+    # Subscript: ~text~ -> <sub>text</sub>
+    text = re.sub(r"(?<!~)~([^~\n]+)~(?!~)", r"<sub>\1</sub>", text)
+    # Color: {color:xxx}text{color} -> text (strip color markup)
+    text = re.sub(r"\{color(?::[^}]*)?\}(.*?)\{color\}", r"\1", text)
+    # Forced line break: \\ -> <br> (but not \\\ or inside URLs)
+    text = re.sub(r"(?<!\\)\\\\(?!\\)", "<br>", text)
+    # Em dash: --- -> — and en dash: -- -> – (only standalone, not ---- rule)
+    text = re.sub(r"(?<!-)---(?!-)", "—", text)
+    text = re.sub(r"(?<!-)--(?!-)", "–", text)
 
     # Restore inline code spans
     def _restore_code(m: re.Match) -> str:
@@ -608,6 +629,39 @@ def jira_wiki_to_markdown(text: str) -> str:
 
     while i < len(lines):
         line = lines[i]
+
+        # Quote blocks: {quote}...{quote} -> blockquote
+        if re.match(r"^\{quote\}\s*$", line):
+            quote_lines = []
+            i += 1
+            while i < len(lines) and not re.match(r"^\{quote\}\s*$", lines[i]):
+                quote_lines.append(lines[i])
+                i += 1
+            for ql in quote_lines:
+                result.append(f"> {_convert_inline_jira(ql)}")
+            i += 1  # skip closing {quote}
+            continue
+
+        # Panel blocks: {panel:...}...{panel} -> blockquote with optional title
+        panel_match = re.match(r"^\{panel(?::([^}]*))?\}\s*$", line)
+        if panel_match:
+            params = panel_match.group(1) or ""
+            title = ""
+            if params:
+                title_match = re.search(r"title=([^|}]+)", params)
+                if title_match:
+                    title = title_match.group(1).strip()
+            panel_lines = []
+            i += 1
+            while i < len(lines) and not re.match(r"^\{panel\}\s*$", lines[i]):
+                panel_lines.append(lines[i])
+                i += 1
+            if title:
+                result.append(f"> **{title}**")
+            for pl in panel_lines:
+                result.append(f"> {_convert_inline_jira(pl)}")
+            i += 1  # skip closing {panel}
+            continue
 
         # Noformat blocks: {noformat}...{noformat} -> ```...```
         noformat_match = re.match(r"^\{noformat\}(.*)", line)
@@ -684,23 +738,18 @@ def jira_wiki_to_markdown(text: str) -> str:
             i += 1
             continue
 
-        # Bullet lists: * item, ** nested -> - item, indent - nested
-        bullet_match = re.match(r"^(\*+)\s+(.*)", line)
-        if bullet_match:
-            level = len(bullet_match.group(1))
-            content = _convert_inline_jira(bullet_match.group(2))
+        # Mixed and regular lists: *, #, *#, #*, **, ##, etc.
+        list_match = re.match(r"^([*#]+)\s+(.*)", line)
+        if list_match:
+            markers = list_match.group(1)
+            content = _convert_inline_jira(list_match.group(2))
+            level = len(markers)
             indent = "  " * (level - 1)
-            result.append(f"{indent}- {content}")
-            i += 1
-            continue
-
-        # Numbered lists: # item, ## nested -> 1. item, indent 1. nested
-        num_match = re.match(r"^(#+)\s+(.*)", line)
-        if num_match:
-            level = len(num_match.group(1))
-            content = _convert_inline_jira(num_match.group(2))
-            indent = "  " * (level - 1)
-            result.append(f"{indent}1. {content}")
+            # Last character determines list type
+            if markers[-1] == "#":
+                result.append(f"{indent}1. {content}")
+            else:
+                result.append(f"{indent}- {content}")
             i += 1
             continue
 
@@ -744,12 +793,16 @@ def is_jira_wiki(text: str) -> bool:
         r"^h[1-6]\.\s",           # h2. Header
         r"\{code(:[^}]*)?\}",     # {code} or {code:language=python}
         r"\{noformat\}",           # {noformat} blocks
+        r"\{quote\}",             # {quote} blocks
+        r"\{panel(:[^}]*)?\}",    # {panel} blocks
+        r"\{color(:[^}]*)?\}",    # {color:red}text{color}
         r"^\|\|.+\|\|",           # ||table||headers||
         r"^bq\.\s",               # bq. blockquote
         r"\{\{[^}]+\}\}",         # {{inline code}}
         r"(?<!\*)\*[^*\n]+\*(?!\*)",  # *bold* (single-star)
         r"\[([^]|]+)\|([^]]+)\]", # [text|url] links
         r"!(?!\[)[^!\s][^!\n]*!",  # !image! or !image|params! (not ![alt])
+        r"\?\?[^?\n]+\?\?",       # ??citation??
     ]
     for pattern in patterns:
         if re.search(pattern, text, re.MULTILINE):

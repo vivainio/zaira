@@ -1,5 +1,7 @@
 """Tests for markdown conversion utilities."""
 
+import pytest
+
 from zaira.mdconv import (
     markdown_to_storage,
     markdown_to_jira_wiki,
@@ -9,6 +11,24 @@ from zaira.mdconv import (
     extract_local_images,
     convert_images_to_attachments,
     convert_attachments_to_images,
+)
+from tests.jira_wiki_samples import (
+    ALL_SAMPLES,
+    HEADINGS,
+    TEXT_EFFECTS,
+    COLOR,
+    TEXT_BREAKS,
+    LINKS,
+    IMAGES,
+    BULLET_LISTS,
+    NUMBERED_LISTS,
+    MIXED_LISTS,
+    BLOCKQUOTES,
+    TABLES,
+    CODE_BLOCKS,
+    NOFORMAT,
+    PANELS,
+    FULL_DOCUMENT,
 )
 
 
@@ -855,3 +875,74 @@ class TestJiraWikiToMarkdownRoundTrip:
         assert "{{alusta-aws-node-prereq}}" in back
         assert "{{3rd_party_urls_linux.txt}}" in back
         assert "* Agent version is upgraded" in back
+
+
+class TestAtlassianWikiSamples:
+    """Tests based on Atlassian's official Text Formatting Notation reference.
+
+    Source: https://jira.atlassian.com/secure/WikiRendererHelpAction.jspa
+    """
+
+    @pytest.mark.parametrize("wiki,expected", HEADINGS, ids=[f"h{i+1}" for i in range(len(HEADINGS))])
+    def test_headings(self, wiki, expected):
+        assert jira_wiki_to_markdown(wiki) == expected
+
+    @pytest.mark.parametrize(
+        "wiki,expected",
+        TEXT_EFFECTS,
+        ids=[w[:30].replace(" ", "_") for w, _ in TEXT_EFFECTS],
+    )
+    def test_text_effects(self, wiki, expected):
+        assert jira_wiki_to_markdown(wiki) == expected
+
+    @pytest.mark.parametrize("wiki,expected", COLOR, ids=[w[:30] for w, _ in COLOR])
+    def test_color(self, wiki, expected):
+        assert jira_wiki_to_markdown(wiki) == expected
+
+    @pytest.mark.parametrize("wiki,expected", TEXT_BREAKS, ids=[repr(w)[:30] for w, _ in TEXT_BREAKS])
+    def test_text_breaks(self, wiki, expected):
+        assert jira_wiki_to_markdown(wiki) == expected
+
+    @pytest.mark.parametrize("wiki,expected", LINKS, ids=[w[:40] for w, _ in LINKS])
+    def test_links(self, wiki, expected):
+        assert jira_wiki_to_markdown(wiki) == expected
+
+    @pytest.mark.parametrize("wiki,expected", IMAGES, ids=[w[:40] for w, _ in IMAGES])
+    def test_images(self, wiki, expected):
+        assert jira_wiki_to_markdown(wiki) == expected
+
+    @pytest.mark.parametrize("wiki,expected", BULLET_LISTS, ids=[f"bullet_{i}" for i in range(len(BULLET_LISTS))])
+    def test_bullet_lists(self, wiki, expected):
+        assert jira_wiki_to_markdown(wiki) == expected
+
+    @pytest.mark.parametrize("wiki,expected", NUMBERED_LISTS, ids=[f"numbered_{i}" for i in range(len(NUMBERED_LISTS))])
+    def test_numbered_lists(self, wiki, expected):
+        assert jira_wiki_to_markdown(wiki) == expected
+
+    @pytest.mark.parametrize("wiki,expected", MIXED_LISTS, ids=[f"mixed_{i}" for i in range(len(MIXED_LISTS))])
+    def test_mixed_lists(self, wiki, expected):
+        assert jira_wiki_to_markdown(wiki) == expected
+
+    @pytest.mark.parametrize("wiki,expected", BLOCKQUOTES, ids=[f"bq_{i}" for i in range(len(BLOCKQUOTES))])
+    def test_blockquotes(self, wiki, expected):
+        assert jira_wiki_to_markdown(wiki) == expected
+
+    @pytest.mark.parametrize("wiki,expected", TABLES, ids=[f"table_{i}" for i in range(len(TABLES))])
+    def test_tables(self, wiki, expected):
+        assert jira_wiki_to_markdown(wiki) == expected
+
+    @pytest.mark.parametrize("wiki,expected", CODE_BLOCKS, ids=[f"code_{i}" for i in range(len(CODE_BLOCKS))])
+    def test_code_blocks(self, wiki, expected):
+        assert jira_wiki_to_markdown(wiki) == expected
+
+    @pytest.mark.parametrize("wiki,expected", NOFORMAT, ids=[f"noformat_{i}" for i in range(len(NOFORMAT))])
+    def test_noformat(self, wiki, expected):
+        assert jira_wiki_to_markdown(wiki) == expected
+
+    @pytest.mark.parametrize("wiki,expected", PANELS, ids=[f"panel_{i}" for i in range(len(PANELS))])
+    def test_panels(self, wiki, expected):
+        assert jira_wiki_to_markdown(wiki) == expected
+
+    def test_full_document(self):
+        wiki_input, expected = FULL_DOCUMENT
+        assert jira_wiki_to_markdown(wiki_input) == expected
