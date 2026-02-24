@@ -191,9 +191,6 @@ def generate_front_matter(
         lines.append(f"label: {label}")
     if group_by:
         lines.append(f"group_by: {group_by}")
-    if links:
-        lines.append("links: true")
-
     # Build refresh command — named report keeps it simple
     if report_name:
         refresh_cmd = f"zaira report {report_name}"

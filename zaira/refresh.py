@@ -117,9 +117,6 @@ def _build_command(front_matter: FrontMatter) -> list[str] | None:
         cmd.extend(["--group-by", front_matter["group_by"]])
     if front_matter.get("title"):
         cmd.extend(["--title", front_matter["title"]])
-    if front_matter.get("links") == "true":
-        cmd.append("--links")
-
     if not has_source and not front_matter.get("refresh"):
         return None
 
