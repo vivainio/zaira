@@ -41,6 +41,7 @@ from zaira.report import report_command
 from zaira.refresh import refresh_command
 from zaira.search import search_command
 from zaira.get import get_command
+from zaira.put import put_command
 from zaira.bundle import bundle_install_command, bundle_update_command
 from zaira.rules import check_command
 from zaira.activity_log import read_entries, format_entries
@@ -157,6 +158,11 @@ def main() -> None:
         choices=["md", "json", "csv"],
         default="md",
         help="Output format (default: md)",
+    )
+    report_parser.add_argument(
+        "--links",
+        action="store_true",
+        help="Make ticket keys clickable markdown links",
     )
     report_parser.add_argument(
         "--files",
@@ -374,6 +380,23 @@ def main() -> None:
         help="Include custom fields",
     )
     get_parser.set_defaults(func=get_command)
+
+    # Put command
+    put_parser = subparsers.add_parser(
+        "put",
+        help="Push summary + description from markdown back to Jira",
+    )
+    put_parser.add_argument(
+        "file",
+        help="Path to ticket markdown file (use '-' for stdin)",
+    )
+    put_parser.add_argument(
+        "-n",
+        "--dry-run",
+        action="store_true",
+        help="Show what would change without pushing",
+    )
+    put_parser.set_defaults(func=put_command)
 
     # Check command
     check_parser = subparsers.add_parser(

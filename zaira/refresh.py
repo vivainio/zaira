@@ -92,6 +92,10 @@ def _build_command(front_matter: FrontMatter) -> list[str] | None:
     Reconstructs the command from jql/query/board/sprint fields rather than
     parsing the refresh string, which can break with nested quotes in JQL.
     """
+    # If generated from a named report, use that directly
+    if front_matter.get("report"):
+        return ["zaira", "report", front_matter["report"]]
+
     cmd = ["zaira", "report"]
     has_source = False
 
@@ -113,6 +117,8 @@ def _build_command(front_matter: FrontMatter) -> list[str] | None:
         cmd.extend(["--group-by", front_matter["group_by"]])
     if front_matter.get("title"):
         cmd.extend(["--title", front_matter["title"]])
+    if front_matter.get("links") == "true":
+        cmd.append("--links")
 
     if not has_source and not front_matter.get("refresh"):
         return None

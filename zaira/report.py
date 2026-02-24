@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from zaira.config import REPORTS_DIR
-from zaira.jira_client import get_jira
+from zaira.jira_client import get_jira, get_jira_site
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
 from zaira.dashboard import get_dashboard, get_dashboard_gadgets
 from zaira.types import ReportTicket, get_user_identifier
@@ -168,35 +168,55 @@ def generate_front_matter(
     sprint: int | None = None,
     group_by: str | None = None,
     label: str | None = None,
+    links: bool = False,
+    report_name: str | None = None,
 ) -> str:
     """Generate YAML front matter with refresh info."""
     lines = ["---"]
     lines.append(f"title: {title}")
     lines.append(f"generated: {datetime.now().isoformat(timespec='seconds')}")
 
-    # Refresh command
-    cmd_parts = ["zaira report"]
+    # Store source fields for refresh --full (JQL reconstruction)
+    if report_name:
+        lines.append(f"report: {report_name}")
     if query:
         lines.append(f"query: {query}")
-        cmd_parts.append(f"--query {query}")
     elif jql and not board and not sprint:
         lines.append(f'jql: "{jql}"')
-        cmd_parts.append(f'--jql {shlex.quote(jql)}')
     if board:
         lines.append(f"board: {board}")
-        cmd_parts.append(f"--board {board}")
     if sprint:
         lines.append(f"sprint: {sprint}")
-        cmd_parts.append(f"--sprint {sprint}")
     if label:
         lines.append(f"label: {label}")
-        cmd_parts.append(f'--label {shlex.quote(label)}')
     if group_by:
         lines.append(f"group_by: {group_by}")
-        cmd_parts.append(f"--group-by {group_by}")
+    if links:
+        lines.append("links: true")
 
-    cmd_parts.append(f'--title {shlex.quote(title)}')
-    lines.append(f"refresh: {' '.join(cmd_parts)}")
+    # Build refresh command — named report keeps it simple
+    if report_name:
+        refresh_cmd = f"zaira report {report_name}"
+    else:
+        cmd_parts = ["zaira report"]
+        if query:
+            cmd_parts.append(f"--query {query}")
+        elif jql and not board and not sprint:
+            cmd_parts.append(f'--jql {shlex.quote(jql)}')
+        if board:
+            cmd_parts.append(f"--board {board}")
+        if sprint:
+            cmd_parts.append(f"--sprint {sprint}")
+        if label:
+            cmd_parts.append(f'--label {shlex.quote(label)}')
+        if group_by:
+            cmd_parts.append(f"--group-by {group_by}")
+        if links:
+            cmd_parts.append("--links")
+        cmd_parts.append(f'--title {shlex.quote(title)}')
+        refresh_cmd = " ".join(cmd_parts)
+
+    lines.append(f"refresh: {refresh_cmd}")
     lines.append("---")
     return "\n".join(lines) + "\n\n"
 
@@ -210,9 +230,14 @@ def generate_report(
     board: int | None = None,
     sprint: int | None = None,
     label: str | None = None,
+    links: bool = False,
+    report_name: str | None = None,
 ) -> str:
     """Generate markdown report from tickets."""
-    md = generate_front_matter(title, jql, query, board, sprint, group_by, label)
+    md = generate_front_matter(
+        title, jql, query, board, sprint, group_by, label,
+        links=links, report_name=report_name,
+    )
     md += f"# {title}\n\n"
     md += f"**Total:** {len(tickets)} tickets\n\n"
 
@@ -224,20 +249,25 @@ def generate_report(
         groups = _group_tickets_by(tickets, group_by)
         for group_name, group_tickets in sorted(groups.items()):
             md += f"## {group_name} ({len(group_tickets)})\n\n"
-            md += generate_table(group_tickets, group_by=group_by)
+            md += generate_table(group_tickets, group_by=group_by, links=links)
             md += "\n"
     else:
-        md += generate_table(tickets)
+        md += generate_table(tickets, links=links)
 
     return md
 
 
-def generate_table(tickets: list[ReportTicket], group_by: str | None = None) -> str:
+def generate_table(
+    tickets: list[ReportTicket],
+    group_by: str | None = None,
+    links: bool = False,
+) -> str:
     """Generate markdown table from tickets.
 
     Args:
         tickets: List of ticket data
         group_by: Field used for grouping (will be excluded from table)
+        links: Whether to render ticket keys as markdown links
     """
     if not tickets:
         return "_No tickets_\n"
@@ -257,10 +287,18 @@ def generate_table(tickets: list[ReportTicket], group_by: str | None = None) -> 
     elif group_by == "issuetype":
         columns.remove("Type")
 
+    # Resolve Jira site for links
+    if links:
+        jira_site = get_jira_site()
+
     # Build all rows first to calculate column widths
     rows: list[list[str]] = []
     for t in tickets:
-        key = t.get("key", "?")
+        raw_key = t.get("key", "?")
+        if links:
+            key = f"[{raw_key}](https://{jira_site}/browse/{raw_key})"
+        else:
+            key = raw_key
         issue_type = t.get("issuetype", "?")
         status = t.get("status", "?")
         age = humanize_age(t.get("updated", ""))
@@ -277,7 +315,11 @@ def generate_table(tickets: list[ReportTicket], group_by: str | None = None) -> 
         # Build row based on columns
         row = [key, issue_type, status, age]
         if has_parents and group_by != "parent":
-            row.append(parent["key"] if parent else "-")
+            if parent:
+                pkey = parent["key"]
+                row.append(f"[{pkey}](https://{jira_site}/browse/{pkey})" if links else pkey)
+            else:
+                row.append("-")
         row.append(summary)
 
         # Remove grouped column value
@@ -382,6 +424,7 @@ def generate_dashboard_report(
     dashboard_id: int,
     group_by: str | None = None,
     to_stdout: bool = False,
+    links: bool = False,
 ) -> tuple[str, int]:
     """Generate a combined report from all JQL queries in a dashboard.
 
@@ -454,9 +497,9 @@ def generate_dashboard_report(
                 for group_name, group_tickets in sorted(groups.items()):
                     lines.append(f"### {group_name} ({len(group_tickets)})")
                     lines.append("")
-                    lines.append(generate_table(group_tickets, group_by=group_by))
+                    lines.append(generate_table(group_tickets, group_by=group_by, links=links))
             else:
-                lines.append(generate_table(tickets))
+                lines.append(generate_table(tickets, links=links))
         else:
             lines.append("_No tickets found._")
 
@@ -556,6 +599,8 @@ def report_command(args: argparse.Namespace) -> None:
             args.title = report_def["title"]
         if "full" in report_def:
             args.full = report_def["full"]
+        if not getattr(args, "links", False) and report_def.get("links"):
+            args.links = True
 
     # Handle dashboard report (special case - runs multiple queries)
     if dashboard_arg:
@@ -570,6 +615,7 @@ def report_command(args: argparse.Namespace) -> None:
             dashboard_id,
             group_by=args.group_by,
             to_stdout=to_stdout,
+            links=getattr(args, "links", False),
         )
 
         if not report:
@@ -689,6 +735,8 @@ def report_command(args: argparse.Namespace) -> None:
             board=board_id,
             sprint=args.sprint,
             label=label,
+            links=getattr(args, "links", False),
+            report_name=report_name,
         )
         ext = "md"
 
