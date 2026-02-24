@@ -795,3 +795,54 @@ class TestGetFieldNameAutoFetch:
 
         assert result == "Story Points"
         mock_jira.fields.assert_not_called()
+
+
+class TestFieldCommand:
+    """Tests for field_command (zaira info field)."""
+
+    def _write_editmeta(self, tmp_path, project, issue_type, fields):
+        import yaml as _yaml
+
+        data = {"project": project, "issueType": issue_type, "fields": fields}
+        path = tmp_path / f"editmeta_{project}_{issue_type}.yaml"
+        path.write_text(_yaml.dump(data))
+
+    def test_suggests_similar_field_names(self, capsys, tmp_path):
+        """Shows 'did you mean' suggestions for close matches."""
+        from zaira.info import field_command
+        import argparse
+
+        self._write_editmeta(tmp_path, "PROJ", "Story", {
+            "Story Points": {"id": "customfield_10001", "type": "number"},
+            "Sprint": {"id": "customfield_10002", "type": "string"},
+            "Summary": {"id": "summary", "type": "string"},
+        })
+
+        args = argparse.Namespace(names=["Story Poitns"])  # typo
+
+        with patch("zaira.info.CACHE_DIR", tmp_path), \
+             patch("zaira.info.load_field_descriptions", return_value={}):
+            field_command(args)
+
+        captured = capsys.readouterr()
+        assert "Did you mean" in captured.out
+        assert "Story Points" in captured.out
+
+    def test_no_suggestions_for_completely_different_name(self, capsys, tmp_path):
+        """Falls back to plain 'not found' when nothing is close."""
+        from zaira.info import field_command
+        import argparse
+
+        self._write_editmeta(tmp_path, "PROJ", "Story", {
+            "Summary": {"id": "summary", "type": "string"},
+        })
+
+        args = argparse.Namespace(names=["zzzzzzzzz"])
+
+        with patch("zaira.info.CACHE_DIR", tmp_path), \
+             patch("zaira.info.load_field_descriptions", return_value={}):
+            field_command(args)
+
+        captured = capsys.readouterr()
+        assert "not found in any editmeta cache" in captured.out
+        assert "Did you mean" not in captured.out

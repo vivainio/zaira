@@ -1,6 +1,7 @@
 """Query Jira instance metadata."""
 
 import argparse
+import difflib
 import json
 import sys
 from typing import Callable, TypeVar
@@ -750,7 +751,22 @@ def field_command(args: argparse.Namespace) -> None:
                 merged_fdef["allowedValues"] = existing
 
         if not matches:
-            print(f"{name}: not found in any editmeta cache\n")
+            # Collect all known field names and IDs for suggestions
+            all_names: dict[str, str] = {}  # lowercase -> original
+            for _proj, _it, em in all_editmeta:
+                for fname, fdef in em["fields"].items():
+                    all_names.setdefault(fname.lower(), fname)
+                    fid = fdef.get("id", "")
+                    if fid:
+                        all_names.setdefault(fid.lower(), fid)
+            suggestions = difflib.get_close_matches(
+                name_lower, all_names.keys(), n=5, cutoff=0.6
+            )
+            if suggestions:
+                originals = [all_names[s] for s in suggestions]
+                print(f"{name}: not found. Did you mean: {', '.join(originals)}?\n")
+            else:
+                print(f"{name}: not found in any editmeta cache\n")
             continue
 
         for fid, info in matches.items():
