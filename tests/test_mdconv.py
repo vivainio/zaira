@@ -3,6 +3,8 @@
 from zaira.mdconv import (
     markdown_to_storage,
     markdown_to_jira_wiki,
+    jira_wiki_to_markdown,
+    is_jira_wiki,
     storage_to_markdown,
     extract_local_images,
     convert_images_to_attachments,
@@ -579,3 +581,205 @@ def hello():
         back = storage_to_markdown(storage)
         storage2 = markdown_to_storage(back)
         assert storage == storage2
+
+
+class TestJiraWikiToMarkdown:
+    """Tests for jira_wiki_to_markdown function."""
+
+    def test_headers(self):
+        assert jira_wiki_to_markdown("h2. Section") == "## Section"
+        assert jira_wiki_to_markdown("h3. Sub") == "### Sub"
+        assert jira_wiki_to_markdown("h1. Title") == "# Title"
+
+    def test_bold(self):
+        result = jira_wiki_to_markdown("This is *bold* text")
+        assert result == "This is **bold** text"
+
+    def test_italic(self):
+        result = jira_wiki_to_markdown("This is _italic_ text")
+        assert result == "This is *italic* text"
+
+    def test_strikethrough(self):
+        result = jira_wiki_to_markdown("This is -deleted- text")
+        assert result == "This is ~~deleted~~ text"
+
+    def test_inline_code(self):
+        result = jira_wiki_to_markdown("Use {{print()}} here")
+        assert result == "Use `print()` here"
+
+    def test_link(self):
+        result = jira_wiki_to_markdown("[click here|https://example.com]")
+        assert result == "[click here](https://example.com)"
+
+    def test_image(self):
+        result = jira_wiki_to_markdown("!image.png!")
+        assert result == "![](image.png)"
+
+    def test_code_block_with_language(self):
+        wiki = "{code:language=python}\nprint('hello')\n{code}"
+        result = jira_wiki_to_markdown(wiki)
+        assert result == "```python\nprint('hello')\n```"
+
+    def test_code_block_no_language(self):
+        wiki = "{code}\nplain code\n{code}"
+        result = jira_wiki_to_markdown(wiki)
+        assert result == "```\nplain code\n```"
+
+    def test_code_block_short_language(self):
+        wiki = "{code:python}\ncode\n{code}"
+        result = jira_wiki_to_markdown(wiki)
+        assert result == "```python\ncode\n```"
+
+    def test_bullet_list(self):
+        wiki = "* Item 1\n* Item 2"
+        result = jira_wiki_to_markdown(wiki)
+        assert result == "- Item 1\n- Item 2"
+
+    def test_nested_bullet_list(self):
+        wiki = "* Item 1\n** Nested\n* Item 2"
+        result = jira_wiki_to_markdown(wiki)
+        assert "- Item 1" in result
+        assert "  - Nested" in result
+        assert "- Item 2" in result
+
+    def test_numbered_list(self):
+        wiki = "# First\n# Second"
+        result = jira_wiki_to_markdown(wiki)
+        assert result == "1. First\n1. Second"
+
+    def test_nested_numbered_list(self):
+        wiki = "# First\n## Nested\n# Second"
+        result = jira_wiki_to_markdown(wiki)
+        assert "1. First" in result
+        assert "  1. Nested" in result
+        assert "1. Second" in result
+
+    def test_blockquote(self):
+        result = jira_wiki_to_markdown("bq. This is a quote")
+        assert result == "> This is a quote"
+
+    def test_horizontal_rule(self):
+        assert jira_wiki_to_markdown("----") == "---"
+
+    def test_table(self):
+        wiki = "||Name||Age||\n|Alice|30|\n|Bob|25|"
+        result = jira_wiki_to_markdown(wiki)
+        assert "| Name | Age |" in result
+        assert "|---|---|" in result
+        assert "| Alice | 30 |" in result
+        assert "| Bob | 25 |" in result
+
+    def test_full_document(self):
+        wiki = (
+            "h2. Overview\n\n"
+            "This is *important* and uses [the API|https://api.example.com].\n\n"
+            "* Step 1\n* Step 2\n\n"
+            "{code:language=python}\ncode()\n{code}"
+        )
+        result = jira_wiki_to_markdown(wiki)
+        assert "## Overview" in result
+        assert "**important**" in result
+        assert "[the API](https://api.example.com)" in result
+        assert "- Step 1" in result
+        assert "- Step 2" in result
+        assert "```python" in result
+        assert "code()" in result
+        assert "```" in result
+
+    def test_strikethrough_not_in_words(self):
+        """Hyphens inside words should not be treated as strikethrough."""
+        result = jira_wiki_to_markdown("well-known")
+        assert result == "well-known"
+
+    def test_noformat_block(self):
+        wiki = "{noformat}\nsome preformatted text\n{noformat}"
+        result = jira_wiki_to_markdown(wiki)
+        assert result == "```\nsome preformatted text\n```"
+
+    def test_noformat_inline_start(self):
+        """Noformat starting on same line as content."""
+        wiki = "{noformat}var x = 1;\nvar y = 2;\n{noformat}"
+        result = jira_wiki_to_markdown(wiki)
+        assert "```" in result
+        assert "var x = 1;" in result
+        assert "var y = 2;" in result
+
+    def test_noformat_single_line(self):
+        """Noformat opening and closing on same line."""
+        wiki = "{noformat}some code{noformat}"
+        result = jira_wiki_to_markdown(wiki)
+        assert result == "`some code`"
+
+    def test_plain_text_unchanged(self):
+        result = jira_wiki_to_markdown("Just plain text here.")
+        assert result == "Just plain text here."
+
+
+class TestIsJiraWiki:
+    """Tests for is_jira_wiki detection function."""
+
+    def test_detects_headers(self):
+        assert is_jira_wiki("h2. Section title")
+
+    def test_detects_code_blocks(self):
+        assert is_jira_wiki("{code:language=python}\nprint()\n{code}")
+
+    def test_detects_table_headers(self):
+        assert is_jira_wiki("||Name||Age||")
+
+    def test_detects_blockquote(self):
+        assert is_jira_wiki("bq. Some quote")
+
+    def test_detects_inline_code(self):
+        assert is_jira_wiki("Use {{print()}} here")
+
+    def test_detects_bold(self):
+        assert is_jira_wiki("This is *bold* text")
+
+    def test_detects_noformat(self):
+        assert is_jira_wiki("{noformat}some text{noformat}")
+
+    def test_detects_links(self):
+        assert is_jira_wiki("[click here|https://example.com]")
+
+    def test_plain_text_not_detected(self):
+        assert not is_jira_wiki("Just plain text.")
+
+    def test_markdown_not_detected(self):
+        assert not is_jira_wiki("## Heading\n\n**bold** and [link](url)")
+
+    def test_empty_string(self):
+        assert not is_jira_wiki("")
+
+
+class TestJiraWikiRoundTrip:
+    """Test that markdown_to_jira_wiki output fed to jira_wiki_to_markdown
+    produces equivalent markdown."""
+
+    CASES = [
+        ("## Heading", "## Heading"),
+        ("### Sub heading", "### Sub heading"),
+        ("This is **bold** text", "This is **bold** text"),
+        ("`inline code`", "`inline code`"),
+        ("[click here](https://example.com)", "[click here](https://example.com)"),
+        ("- bullet one\n- bullet two", "- bullet one\n- bullet two"),
+        ("- outer\n  - nested", "- outer\n  - nested"),
+        ("1. first\n2. second", "1. first\n1. second"),
+        ("> blockquote text", "> blockquote text"),
+        ("~~strikethrough~~", "~~strikethrough~~"),
+        ("---", "---"),
+        ("```python\ncode()\n```", "```python\ncode()\n```"),
+        ("```\nplain\n```", "```\nplain\n```"),
+    ]
+
+    def test_round_trip(self):
+        for md_input, expected in self.CASES:
+            jira = markdown_to_jira_wiki(md_input)
+            back = jira_wiki_to_markdown(jira)
+            assert back == expected, (
+                f"Round-trip failed.\n"
+                f"  Input:    {md_input!r}\n"
+                f"  Jira:     {jira!r}\n"
+                f"  Back:     {back!r}\n"
+                f"  Expected: {expected!r}"
+            )

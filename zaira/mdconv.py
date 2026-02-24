@@ -559,6 +559,204 @@ def markdown_to_jira_wiki(text: str) -> str:
     return "\n".join(result)
 
 
+def _convert_inline_jira(text: str) -> str:
+    """Convert inline Jira wiki formatting to markdown."""
+    # Extract inline code spans first to protect them from further conversion
+    code_spans: list[str] = []
+
+    def _save_code(m: re.Match) -> str:
+        code_spans.append(m.group(1))
+        return f"\x00CODE{len(code_spans) - 1}\x00"
+
+    text = re.sub(r"\{\{([^}]+)\}\}", _save_code, text)
+
+    # Images: !url! or !url|params! -> ![](url)  (before links to avoid conflicts)
+    def _jira_img_to_md(m: re.Match) -> str:
+        img = m.group(1)
+        # Strip |params (width, alt, etc.)
+        url = img.split("|")[0]
+        return f"![]({url})"
+
+    text = re.sub(r"!([^!\s][^!\n]*?)!", _jira_img_to_md, text)
+    # Links: [text|url] -> [text](url)
+    text = re.sub(r"\[([^]|]+)\|([^]]+)\]", r"[\1](\2)", text)
+    # Bold: *text* -> **text** (single-star Jira bold)
+    text = re.sub(r"(?<!\*)\*([^*\n]+)\*(?!\*)", r"**\1**", text)
+    # Italic: _text_ -> *text*
+    text = re.sub(r"(?<!_)_([^_\n]+)_(?!_)", r"*\1*", text)
+    # Strikethrough: -text- -> ~~text~~
+    text = re.sub(r"(?<![-\w])-([^-\n]+)-(?![-\w])", r"~~\1~~", text)
+
+    # Restore inline code spans
+    def _restore_code(m: re.Match) -> str:
+        return f"`{code_spans[int(m.group(1))]}`"
+
+    text = re.sub(r"\x00CODE(\d+)\x00", _restore_code, text)
+    return text
+
+
+def jira_wiki_to_markdown(text: str) -> str:
+    """Convert Jira wiki markup to markdown.
+
+    Handles headers, bold, italic, links, images, code blocks,
+    inline code, bullet lists, numbered lists, blockquotes, horizontal rules,
+    and tables.
+    """
+    lines = text.split("\n")
+    result = []
+    i = 0
+
+    while i < len(lines):
+        line = lines[i]
+
+        # Noformat blocks: {noformat}...{noformat} -> ```...```
+        noformat_match = re.match(r"^\{noformat\}(.*)", line)
+        if noformat_match:
+            first_line_content = noformat_match.group(1)
+            # Check if closing {noformat} is on the same line
+            if "{noformat}" in first_line_content:
+                inline = first_line_content.split("{noformat}")[0]
+                result.append(f"`{inline.strip()}`")
+                i += 1
+                continue
+            code_lines = []
+            if first_line_content:
+                code_lines.append(first_line_content)
+            i += 1
+            while i < len(lines):
+                if "{noformat}" in lines[i]:
+                    # Content before closing tag
+                    before = lines[i].split("{noformat}")[0]
+                    if before:
+                        code_lines.append(before)
+                    i += 1
+                    break
+                code_lines.append(lines[i])
+                i += 1
+            result.append("```")
+            result.extend(code_lines)
+            result.append("```")
+            continue
+
+        # Code blocks: {code:language=python}...{code}
+        code_match = re.match(r"^\{code(?::([^}]*))?\}\s*$", line)
+        if code_match:
+            params = code_match.group(1) or ""
+            lang = ""
+            if params:
+                # Parse language=python or just python
+                lang_match = re.search(r"language=(\w+)", params)
+                if lang_match:
+                    lang = lang_match.group(1)
+                elif re.match(r"^\w+$", params):
+                    lang = params
+            lang = LANG_MAP_REVERSE.get(lang.lower(), lang.lower()) if lang else ""
+            code_lines = []
+            i += 1
+            while i < len(lines) and not re.match(r"^\{code\}\s*$", lines[i]):
+                code_lines.append(lines[i])
+                i += 1
+            result.append(f"```{lang}")
+            result.extend(code_lines)
+            result.append("```")
+            i += 1  # skip closing {code}
+            continue
+
+        # Headers: h2. Text -> ## Text
+        header_match = re.match(r"^h([1-6])\.\s+(.*)", line)
+        if header_match:
+            level = int(header_match.group(1))
+            content = _convert_inline_jira(header_match.group(2))
+            result.append("#" * level + " " + content)
+            i += 1
+            continue
+
+        # Horizontal rule: ----
+        if re.match(r"^-{4,}\s*$", line):
+            result.append("---")
+            i += 1
+            continue
+
+        # Blockquotes: bq. text -> > text
+        bq_match = re.match(r"^bq\.\s+(.*)", line)
+        if bq_match:
+            result.append(f"> {_convert_inline_jira(bq_match.group(1))}")
+            i += 1
+            continue
+
+        # Bullet lists: * item, ** nested -> - item, indent - nested
+        bullet_match = re.match(r"^(\*+)\s+(.*)", line)
+        if bullet_match:
+            level = len(bullet_match.group(1))
+            content = _convert_inline_jira(bullet_match.group(2))
+            indent = "  " * (level - 1)
+            result.append(f"{indent}- {content}")
+            i += 1
+            continue
+
+        # Numbered lists: # item, ## nested -> 1. item, indent 1. nested
+        num_match = re.match(r"^(#+)\s+(.*)", line)
+        if num_match:
+            level = len(num_match.group(1))
+            content = _convert_inline_jira(num_match.group(2))
+            indent = "  " * (level - 1)
+            result.append(f"{indent}1. {content}")
+            i += 1
+            continue
+
+        # Table header row: ||header||header||
+        table_header_match = re.match(r"^\|\|(.+)\|\|\s*$", line)
+        if table_header_match:
+            cells = [
+                _convert_inline_jira(c.strip())
+                for c in table_header_match.group(1).split("||")
+            ]
+            result.append("| " + " | ".join(cells) + " |")
+            result.append("|" + "|".join("---" for _ in cells) + "|")
+            i += 1
+            continue
+
+        # Table data row: |cell|cell|
+        table_row_match = re.match(r"^\|(.+)\|\s*$", line)
+        if table_row_match and "||" not in line:
+            cells = [
+                _convert_inline_jira(c.strip())
+                for c in table_row_match.group(1).split("|")
+            ]
+            result.append("| " + " | ".join(cells) + " |")
+            i += 1
+            continue
+
+        # Regular line - apply inline conversions
+        result.append(_convert_inline_jira(line))
+        i += 1
+
+    return "\n".join(result)
+
+
+def is_jira_wiki(text: str) -> bool:
+    """Detect whether text contains Jira wiki markup.
+
+    Looks for patterns unique to Jira wiki that wouldn't appear in plain text
+    or markdown.
+    """
+    patterns = [
+        r"^h[1-6]\.\s",           # h2. Header
+        r"\{code(:[^}]*)?\}",     # {code} or {code:language=python}
+        r"\{noformat\}",           # {noformat} blocks
+        r"^\|\|.+\|\|",           # ||table||headers||
+        r"^bq\.\s",               # bq. blockquote
+        r"\{\{[^}]+\}\}",         # {{inline code}}
+        r"(?<!\*)\*[^*\n]+\*(?!\*)",  # *bold* (single-star)
+        r"\[([^]|]+)\|([^]]+)\]", # [text|url] links
+        r"!(?!\[)[^!\s][^!\n]*!",  # !image! or !image|params! (not ![alt])
+    ]
+    for pattern in patterns:
+        if re.search(pattern, text, re.MULTILINE):
+            return True
+    return False
+
+
 def storage_to_markdown(html_content: str, image_dir: str = "./images") -> str:
     """Convert Confluence storage format to Markdown.
 

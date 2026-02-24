@@ -13,6 +13,7 @@ from zaira.config import TICKETS_DIR
 from zaira.info import get_field_name
 from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
+from zaira.mdconv import is_jira_wiki, jira_wiki_to_markdown
 from zaira.types import Attachment, Comment, Ticket, get_user_identifier, yaml_quote
 
 
@@ -32,7 +33,7 @@ def extract_description(desc: dict | str | list | Any | None) -> str:
     if not desc:
         return "No description"
     if isinstance(desc, str):
-        return desc
+        return jira_wiki_to_markdown(desc) if is_jira_wiki(desc) else desc
 
     def extract_text(node) -> str:
         if isinstance(node, str):
@@ -297,11 +298,14 @@ def get_comments(key: str) -> list[Comment]:
                 body = extract_description(body.raw)
             elif hasattr(body, "__dict__"):
                 body = extract_description(body.__dict__)
+            body_str = body if isinstance(body, str) else str(body)
+            if is_jira_wiki(body_str):
+                body_str = jira_wiki_to_markdown(body_str)
             result.append(
                 Comment(
                     author=c.author.displayName if c.author else "Unknown",
                     created=c.created or "",
-                    body=body if isinstance(body, str) else str(body),
+                    body=body_str,
                 )
             )
         return result
