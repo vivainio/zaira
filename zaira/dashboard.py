@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 from zaira.config import REPORTS_DIR
-from zaira.jira_client import get_jira, get_jira_site
+from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.types import Dashboard, DashboardGadget
 
 
@@ -58,7 +58,7 @@ def get_dashboards(
         dashboards = result.get("values", [])
         return [_dict_to_dashboard(d) for d in dashboards]
     except Exception as e:
-        print(f"Error fetching dashboards: {e}", file=sys.stderr)
+        print(f"Error fetching dashboards: {format_jira_error(e)}", file=sys.stderr)
         return []
 
 
@@ -70,7 +70,7 @@ def get_my_dashboards() -> list[Dashboard]:
         dashboards = result.get("values", [])
         return [_dict_to_dashboard(d) for d in dashboards]
     except Exception as e:
-        print(f"Error fetching dashboards: {e}", file=sys.stderr)
+        print(f"Error fetching dashboards: {format_jira_error(e)}", file=sys.stderr)
         return []
 
 
@@ -88,7 +88,7 @@ def get_dashboard(dashboard_id: int) -> Dashboard | None:
         d = jira._get_json(f"dashboard/{dashboard_id}")
         return _dict_to_dashboard(d)
     except Exception as e:
-        print(f"Error fetching dashboard {dashboard_id}: {e}", file=sys.stderr)
+        print(f"Error fetching dashboard {dashboard_id}: {format_jira_error(e)}", file=sys.stderr)
         return None
 
 
@@ -149,7 +149,7 @@ def get_dashboard_gadgets(
         return gadgets
     except Exception as e:
         print(
-            f"Error fetching gadgets for dashboard {dashboard_id}: {e}", file=sys.stderr
+            f"Error fetching gadgets for dashboard {dashboard_id}: {format_jira_error(e)}", file=sys.stderr
         )
         return []
 

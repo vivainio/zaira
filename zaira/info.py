@@ -9,11 +9,12 @@ from typing import Callable, TypeVar
 import yaml
 
 from zaira.jira_client import (
-    get_jira,
-    get_schema_path,
-    get_project_schema_path,
-    get_editmeta_path,
     CACHE_DIR,
+    format_jira_error,
+    get_editmeta_path,
+    get_jira,
+    get_project_schema_path,
+    get_schema_path,
 )
 from zaira.types import EditmetaSchema, ProjectSchema, ZSchema
 
@@ -267,7 +268,7 @@ def link_types_command(args: argparse.Namespace) -> None:
             "linkTypes", fetch_link_types, getattr(args, "refresh", False)
         )
     except Exception as e:
-        print(f"Error fetching link types: {e}", file=sys.stderr)
+        print(f"Error fetching link types: {format_jira_error(e)}", file=sys.stderr)
         sys.exit(1)
 
     print(f"{'Type':<20} {'Outward':<25} {'Inward':<25}")
@@ -295,7 +296,7 @@ def statuses_command(args: argparse.Namespace) -> None:
             "statuses", fetch_statuses, getattr(args, "refresh", False)
         )
     except Exception as e:
-        print(f"Error fetching statuses: {e}", file=sys.stderr)
+        print(f"Error fetching statuses: {format_jira_error(e)}", file=sys.stderr)
         sys.exit(1)
 
     print(f"{'Status':<30} {'Category':<20}")
@@ -320,7 +321,7 @@ def issue_types_command(args: argparse.Namespace) -> None:
             "issueTypes", fetch_issue_types, getattr(args, "refresh", False)
         )
     except Exception as e:
-        print(f"Error fetching issue types: {e}", file=sys.stderr)
+        print(f"Error fetching issue types: {format_jira_error(e)}", file=sys.stderr)
         sys.exit(1)
 
     print(f"{'Type':<25} {'Subtask':<10}")
@@ -343,7 +344,7 @@ def fields_command(args: argparse.Namespace) -> None:
             fields_dict = _fetch_and_cache_fields()
             fields = [{"id": k, "name": v.get("name", "")} for k, v in fields_dict.items()]
         except Exception as e:
-            print(f"Error fetching fields: {e}", file=sys.stderr)
+            print(f"Error fetching fields: {format_jira_error(e)}", file=sys.stderr)
             sys.exit(1)
 
     # Filter to custom fields only (unless --all)
@@ -653,14 +654,14 @@ def learn_command(args: argparse.Namespace) -> None:
             issue = jira.issue(key, fields="issuetype")
             issue_type = issue.fields.issuetype.name
         except Exception as e:
-            print(f"Error fetching issue {key}: {e}", file=sys.stderr)
+            print(f"Error fetching issue {key}: {format_jira_error(e)}", file=sys.stderr)
             continue
 
         try:
             resp = jira._session.get(f"{server}/rest/api/3/issue/{key}/editmeta")
             resp.raise_for_status()
         except Exception as e:
-            print(f"Error fetching editmeta for {key}: {e}", file=sys.stderr)
+            print(f"Error fetching editmeta for {key}: {format_jira_error(e)}", file=sys.stderr)
             continue
 
         all_fields = _parse_editmeta_response(resp.json())

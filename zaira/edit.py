@@ -7,7 +7,7 @@ from typing import Any
 import yaml
 
 from zaira.info import get_editmeta_field
-from zaira.jira_client import get_jira, get_jira_site
+from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 
 
 # Standard field name mappings
@@ -355,13 +355,13 @@ def _handle_update_error(e: Exception, jira, key: str) -> None:
     import json
 
     if not (hasattr(e, "response") and hasattr(e.response, "text")):
-        print(f"Error updating {key}: {e}", file=sys.stderr)
+        print(f"Error updating {key}: {format_jira_error(e)}", file=sys.stderr)
         return
 
     try:
         error_data = json.loads(e.response.text)
     except (json.JSONDecodeError, ValueError):
-        print(f"Error updating {key}: {e}", file=sys.stderr)
+        print(f"Error updating {key}: {format_jira_error(e)}", file=sys.stderr)
         return
 
     errors = error_data.get("errors", {})
@@ -412,7 +412,7 @@ def edit_command(args: argparse.Namespace) -> None:
         issue = jira.issue(key, fields="issuetype")
         issue_type = issue.fields.issuetype.name
     except Exception as e:
-        print(f"Error: Could not fetch issue {key}: {e}", file=sys.stderr)
+        print(f"Error: Could not fetch issue {key}: {format_jira_error(e)}", file=sys.stderr)
         sys.exit(1)
 
     from zaira.info import ensure_editmeta

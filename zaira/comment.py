@@ -4,7 +4,7 @@ import argparse
 import sys
 
 from zaira.create import detect_markdown
-from zaira.jira_client import get_jira, get_jira_site
+from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 
 
 def read_body(body: str) -> str:
@@ -29,7 +29,7 @@ def add_comment(key: str, body: str) -> bool:
         comment = jira.add_comment(key, body)
         return comment is not None
     except Exception as e:
-        print(f"Error adding comment to {key}: {e}", file=sys.stderr)
+        print(f"Error adding comment to {key}: {format_jira_error(e)}", file=sys.stderr)
         return False
 
 

@@ -4,7 +4,7 @@ import argparse
 import sys
 from datetime import datetime, timedelta
 
-from zaira.jira_client import get_jira
+from zaira.jira_client import format_jira_error, get_jira
 from zaira.project import get_max_hours_per_day
 from zaira.types import get_user_identifier
 
@@ -92,7 +92,7 @@ def query_ticket_hours(
         try:
             worklogs = jira.worklogs(key)
         except Exception as e:
-            print(f"Error getting worklogs for {key}: {e}", file=sys.stderr)
+            print(f"Error getting worklogs for {key}: {format_jira_error(e)}", file=sys.stderr)
             continue
 
         author_hours: dict[str, float] = {}

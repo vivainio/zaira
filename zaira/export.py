@@ -11,7 +11,7 @@ from typing import Any
 
 from zaira.config import TICKETS_DIR
 from zaira.info import get_field_name
-from zaira.jira_client import get_jira, get_jira_site
+from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
 from zaira.types import Attachment, Comment, Ticket, get_user_identifier, yaml_quote
 
@@ -280,7 +280,7 @@ def get_ticket(
 
         return ticket
     except Exception as e:
-        print(f"  Error fetching {key}: {e}")
+        print(f"  Error fetching {key}: {format_jira_error(e)}")
         return None
 
 
@@ -443,7 +443,7 @@ def download_attachment(attachment: Attachment, output_dir: Path) -> bool:
         outfile.write_bytes(resp.content)
         return True
     except Exception as e:
-        print(f"    Error downloading {attachment['filename']}: {e}")
+        print(f"    Error downloading {attachment['filename']}: {format_jira_error(e)}")
         return False
 
 
@@ -497,7 +497,7 @@ def search_tickets(jql: str) -> list[str]:
         issues = jira.search_issues(jql, maxResults=False)
         return [issue.key for issue in issues]
     except Exception as e:
-        print(f"Error searching: {e}")
+        print(f"Error searching: {format_jira_error(e)}")
         return []
 
 

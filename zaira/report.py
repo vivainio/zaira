@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from zaira.config import REPORTS_DIR
-from zaira.jira_client import get_jira, get_jira_site
+from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
 from zaira.dashboard import get_dashboard, get_dashboard_gadgets
 from zaira.types import ReportTicket, get_user_identifier
@@ -156,7 +156,7 @@ def search_tickets(jql: str) -> list[ReportTicket]:
             tickets.append(ticket)
         return tickets
     except Exception as e:
-        print(f"Error searching: {e}")
+        print(f"Error searching: {format_jira_error(e)}")
         return []
 
 

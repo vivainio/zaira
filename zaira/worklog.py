@@ -6,7 +6,7 @@ import sys
 from datetime import datetime, timedelta
 
 from zaira.hours import query_hours
-from zaira.jira_client import get_jira, get_jira_site
+from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.project import get_max_hours_per_day
 from zaira.types import Worklog, get_user_identifier
 
@@ -33,7 +33,7 @@ def list_worklogs(key: str) -> list[Worklog]:
             for entry in entries
         ]
     except Exception as e:
-        print(f"Error getting worklogs for {key}: {e}", file=sys.stderr)
+        print(f"Error getting worklogs for {key}: {format_jira_error(e)}", file=sys.stderr)
         return []
 
 
@@ -64,7 +64,7 @@ def add_worklog(
         worklog = jira.add_worklog(**kwargs)
         return worklog is not None
     except Exception as e:
-        print(f"Error logging work to {key}: {e}", file=sys.stderr)
+        print(f"Error logging work to {key}: {format_jira_error(e)}", file=sys.stderr)
         return False
 
 

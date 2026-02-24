@@ -4,7 +4,7 @@ import argparse
 import sys
 from typing import Any
 
-from zaira.jira_client import get_jira, get_jira_site
+from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 
 
 def get_transitions(key: str) -> list[dict]:
@@ -13,7 +13,7 @@ def get_transitions(key: str) -> list[dict]:
     try:
         return jira.transitions(key)
     except Exception as e:
-        print(f"Error getting transitions for {key}: {e}", file=sys.stderr)
+        print(f"Error getting transitions for {key}: {format_jira_error(e)}", file=sys.stderr)
         return []
 
 
@@ -59,7 +59,7 @@ def transition_ticket(
         jira.transition_issue(key, match["id"], fields=fields or {}, comment=comment)
         return True
     except Exception as e:
-        print(f"Error transitioning {key}: {e}", file=sys.stderr)
+        print(f"Error transitioning {key}: {format_jira_error(e)}", file=sys.stderr)
         return False
 
 

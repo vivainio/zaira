@@ -3,7 +3,7 @@
 import argparse
 import sys
 
-from zaira.jira_client import get_jira, get_jira_site
+from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.types import Board, Sprint
 
 
@@ -28,7 +28,7 @@ def get_boards(project: str | None = None) -> list[Board]:
             for b in boards
         ]
     except Exception as e:
-        print(f"Error fetching boards: {e}")
+        print(f"Error fetching boards: {format_jira_error(e)}")
         return []
 
 
@@ -46,7 +46,7 @@ def get_sprints(board_id: int, state: str | None = None) -> list[Sprint]:
             for s in sprints
         ]
     except Exception as e:
-        print(f"Error fetching sprints: {e}")
+        print(f"Error fetching sprints: {format_jira_error(e)}")
         return []
 
 

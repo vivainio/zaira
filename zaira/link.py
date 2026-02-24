@@ -3,7 +3,7 @@
 import argparse
 import sys
 
-from zaira.jira_client import get_jira, get_jira_site
+from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 
 
 def get_link_types() -> list[str]:
@@ -35,7 +35,7 @@ def create_link(from_key: str, to_key: str, link_type: str) -> bool:
             for name in sorted(get_link_types()):
                 print(f"  {name}", file=sys.stderr)
         else:
-            print(f"Error creating link: {e}", file=sys.stderr)
+            print(f"Error creating link: {format_jira_error(e)}", file=sys.stderr)
         return False
 
 

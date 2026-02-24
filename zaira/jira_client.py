@@ -141,3 +141,24 @@ def get_jira_site() -> str:
     creds = load_credentials()
     site = creds.get("site", "")
     return site.replace("https://", "").replace("http://", "")
+
+
+def format_jira_error(e: Exception) -> str:
+    """Extract a clean error message from a JIRAError, stripping headers/response noise."""
+    from jira.exceptions import JIRAError
+
+    if isinstance(e, JIRAError):
+        if e.response is not None and hasattr(e.response, "json"):
+            try:
+                data = e.response.json()
+                msgs = data.get("errorMessages", [])
+                errs = data.get("errors", {})
+                parts = [m for m in msgs if m]
+                parts += [f"{k}: {v}" for k, v in errs.items()]
+                if parts:
+                    return "; ".join(parts)
+            except Exception:
+                pass
+        if e.text:
+            return e.text
+    return str(e)

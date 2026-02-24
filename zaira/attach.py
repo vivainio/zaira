@@ -4,7 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from zaira.jira_client import get_jira, get_jira_site
+from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 
 
 def attach_file(key: str, filepath: Path) -> bool:
@@ -23,7 +23,7 @@ def attach_file(key: str, filepath: Path) -> bool:
             jira.add_attachment(key, f, filename=filepath.name)
         return True
     except Exception as e:
-        print(f"  Error uploading {filepath.name}: {e}", file=sys.stderr)
+        print(f"  Error uploading {filepath.name}: {format_jira_error(e)}", file=sys.stderr)
         return False
 
 

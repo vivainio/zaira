@@ -9,7 +9,7 @@ import yaml
 
 from zaira.edit import format_field_value
 from zaira.info import get_editmeta_field
-from zaira.jira_client import get_jira
+from zaira.jira_client import format_jira_error, get_jira
 
 
 def detect_markdown(text: str) -> bool:
@@ -167,7 +167,7 @@ def create_ticket(fields: dict, dry_run: bool = False) -> str | None:
         issue = jira.create_issue(fields=fields)
         return issue.key
     except Exception as e:
-        print(f"Error creating ticket: {e}", file=sys.stderr)
+        print(f"Error creating ticket: {format_jira_error(e)}", file=sys.stderr)
         return None
 
 
