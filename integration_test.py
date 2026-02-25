@@ -294,6 +294,57 @@ def test_worklog(key: str):
     assert "30m" in result.stdout or "30" in result.stdout, "Worklog 30m not in listing"
 
 
+def test_put(key: str):
+    """Round-trip: get → edit summary/description → put back."""
+    print("\n=== Put (round-trip) ===")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ticket_file = Path(tmpdir) / "ticket.md"
+
+        # Export ticket
+        result = run(f"get {key}")
+        ticket_file.write_text(result.stdout)
+
+        # Dry run first — should show no changes
+        result = run(f"put {ticket_file} --dry-run")
+        assert "No changes" in result.stdout
+
+        # Modify summary in front matter
+        content = ticket_file.read_text()
+        marker = f"PUT-TEST-{int(time.time())}"
+        content = content.replace("summary:", f"summary: {marker}", 1)
+        ticket_file.write_text(content)
+
+        # Dry run — should show summary change
+        result = run(f"put {ticket_file} --dry-run")
+        assert "summary" in result.stdout
+        assert "Dry run" in result.stdout
+
+        # Actual put
+        result = run(f"put {ticket_file}")
+        assert "Updated" in result.stdout
+        assert "summary" in result.stdout
+
+        # Verify change stuck
+        result = run(f"get {key}")
+        assert marker in result.stdout
+
+
+def test_put_minimal(key: str):
+    """Put with minimal format (just key + body as description)."""
+    print("\n=== Put (minimal format) ===")
+    marker = f"MINIMAL-{int(time.time())}"
+    content = f"---\nkey: {key}\n---\nDescription updated via minimal put: {marker}\n"
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+        f.write(content)
+        ticket_file = f.name
+
+    result = run(f"put {ticket_file}")
+    Path(ticket_file).unlink()
+    assert "Updated" in result.stdout
+    assert "description" in result.stdout
+
+
 def test_edit_multiple(key: str):
     """Test editing multiple fields."""
     print("\n=== Edit multiple fields ===")
@@ -387,6 +438,8 @@ def main():
         test_worklog(key1)
         test_my()
         test_info()
+        test_put(key1)
+        test_put_minimal(key1)
         test_edit_multiple(key1)
         test_edit_yaml(key1)
         test_init()

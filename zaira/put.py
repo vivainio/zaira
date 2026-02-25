@@ -55,8 +55,8 @@ def put_command(args: argparse.Namespace) -> None:
     new_summary = front_matter.get("summary")
     new_description = parse_description(body)
 
-    # Minimal format: front matter has only 'key', body is the description
-    minimal = set(front_matter.keys()) == {"key"}
+    # Minimal format: front matter has only 'key' (or 'key'+'summary'), body is the description
+    minimal = set(front_matter.keys()) <= {"key", "summary"}
     if minimal and new_description is None and body:
         new_description = body
 

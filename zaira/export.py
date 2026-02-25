@@ -534,6 +534,14 @@ def format_custom_field_value(value: Any) -> str:
     return yaml_quote(str(value))
 
 
+def format_ticket_minimal(ticket: dict) -> str:
+    """Format ticket as minimal markdown: key + summary front matter, description body."""
+    key = ticket.get("key", "")
+    summary = ticket.get("summary", "No summary")
+    description = ticket.get("description", "No description") or "No description"
+    return f"---\nkey: {key}\nsummary: {yaml_quote(summary)}\n---\n{description}\n"
+
+
 def format_ticket_markdown(
     ticket: dict, comments: list[Comment], synced: str, jira_site: str
 ) -> str:
@@ -753,13 +761,18 @@ def export_ticket(
 
 
 def export_to_stdout(
-    key: str, fmt: str = "md", with_prs: bool = False, with_tests: bool = False, include_custom: bool = False
+    key: str, fmt: str = "md", with_prs: bool = False, with_tests: bool = False,
+    include_custom: bool = False, minimal: bool = False,
 ) -> bool:
     """Export a single ticket to stdout."""
     ticket = get_ticket(key, full=(fmt == "json"), include_custom=include_custom)
     if not ticket:
         print(f"Error: Could not fetch {key}", file=sys.stderr)
         return False
+
+    if minimal:
+        print(format_ticket_minimal(ticket))
+        return True
 
     if with_prs:
         ticket["pullRequests"] = get_pull_requests(ticket["id"])

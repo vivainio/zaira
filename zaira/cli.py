@@ -379,6 +379,11 @@ def main() -> None:
         action="store_true",
         help="Include custom fields",
     )
+    get_parser.add_argument(
+        "--min",
+        action="store_true",
+        help="Minimal output: key + summary front matter, description as body (symmetric with minimal put)",
+    )
     get_parser.set_defaults(func=get_command)
 
     # Put command

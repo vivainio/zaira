@@ -120,6 +120,34 @@ Feature description here...
 
 Custom field names are mapped to IDs using the cached schema. Run `zaira info fields --refresh` to cache field mappings.
 
+### put
+
+Push summary and description from a markdown file back to Jira:
+
+```bash
+# Round-trip: get → edit → put
+zaira get FOO-123 > ticket.md
+# ... edit ticket.md ...
+zaira put ticket.md
+
+# Preview changes without pushing
+zaira put ticket.md --dry-run
+
+# Read from stdin
+zaira put -
+```
+
+Works with the full export format (extracts description between `## Description` and `## Links`) and a minimal format where the front matter contains only `key` and the body is the description:
+
+```markdown
+---
+key: FOO-123
+---
+New description goes here.
+```
+
+Markdown in the description is auto-converted to Jira wiki syntax.
+
 ### my
 
 Show your open tickets grouped by status:
