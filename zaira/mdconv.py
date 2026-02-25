@@ -578,10 +578,20 @@ def _convert_inline_jira(text: str) -> str:
         return f"![]({url})"
 
     text = re.sub(r"!([^!\s][^!\n]*?)!", _jira_img_to_md, text)
-    # Links: [text|url] -> [text](url)
-    text = re.sub(r"\[([^]|]+)\|([^]]+)\]", r"[\1](\2)", text)
-    # Bare URL links: [http://url] -> http://url
-    text = re.sub(r"\[(https?://[^\]]+)\]", r"\1", text)
+    # Links: [text|url] or [text|url|smart-link] -> [text](url)
+    def _jira_link_to_md(m: re.Match) -> str:
+        label = m.group(1)
+        rest = m.group(2)
+        # Strip Jira rendering hints like |smart-link, |smart-card
+        url = rest.split("|")[0]
+        # When label equals URL, just emit the URL
+        if label == url:
+            return url
+        return f"[{label}]({url})"
+
+    text = re.sub(r"\[([^]|]+)\|([^]]+)\]", _jira_link_to_md, text)
+    # Bare URL links: [http://url] -> http://url (but not [text](url) markdown links)
+    text = re.sub(r"\[(https?://[^\]]+)\](?!\()", r"\1", text)
     # User mentions: [~username] or [~accountid:...] -> @username
     text = re.sub(r"\[~(?:accountid:)?([^\]]+)\]", r"@\1", text)
     # Attachment links: [^filename] -> filename
@@ -803,6 +813,7 @@ def is_jira_wiki(text: str) -> bool:
         r"\[([^]|]+)\|([^]]+)\]", # [text|url] links
         r"!(?!\[)[^!\s][^!\n]*!",  # !image! or !image|params! (not ![alt])
         r"\?\?[^?\n]+\?\?",       # ??citation??
+        r"\[~",                    # [~user] mentions
     ]
     for pattern in patterns:
         if re.search(pattern, text, re.MULTILINE):
