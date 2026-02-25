@@ -15,6 +15,7 @@ def get_command(args: argparse.Namespace) -> None:
     with_prs = getattr(args, "with_prs", False)
     with_tests = getattr(args, "with_tests", False)
     minimal = getattr(args, "min", False)
+    raw = getattr(args, "raw", False)
     output = getattr(args, "output", None)
     to_stdout = not output
 
@@ -45,7 +46,7 @@ def get_command(args: argparse.Namespace) -> None:
 
     if to_stdout:
         for key in keys:
-            export_to_stdout(key, fmt=fmt, with_prs=with_prs, with_tests=with_tests, include_custom=include_custom, minimal=minimal)
+            export_to_stdout(key, fmt=fmt, with_prs=with_prs, with_tests=with_tests, include_custom=include_custom, minimal=minimal, raw=raw)
     else:
         output_dir = Path(output)
         success = 0

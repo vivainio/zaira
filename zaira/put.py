@@ -60,8 +60,9 @@ def put_command(args: argparse.Namespace) -> None:
     if minimal and new_description is None and body:
         new_description = body
 
-    # Convert markdown to Jira wiki if needed
-    if new_description and detect_markdown(new_description):
+    # Convert markdown to Jira wiki if needed (skip with --raw)
+    raw = getattr(args, "raw", False)
+    if not raw and new_description and detect_markdown(new_description):
         from zaira.mdconv import markdown_to_jira_wiki
 
         new_description = markdown_to_jira_wiki(new_description)

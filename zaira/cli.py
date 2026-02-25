@@ -7,6 +7,7 @@ from pathlib import Path
 from zaira import __version__
 from zaira.attach import attach_command
 from zaira.boards import boards_command
+from zaira.changelog import changelog_command
 from zaira.comment import comment_command
 from zaira.create import create_command
 from zaira.dashboard import dashboard_command, dashboards_command
@@ -384,6 +385,11 @@ def main() -> None:
         action="store_true",
         help="Minimal output: key + summary front matter, description as body (symmetric with minimal put)",
     )
+    get_parser.add_argument(
+        "--raw",
+        action="store_true",
+        help="Skip wiki-to-markdown conversion (preserve Jira wiki markup)",
+    )
     get_parser.set_defaults(func=get_command)
 
     # Put command
@@ -400,6 +406,11 @@ def main() -> None:
         "--dry-run",
         action="store_true",
         help="Show what would change without pushing",
+    )
+    put_parser.add_argument(
+        "--raw",
+        action="store_true",
+        help="Skip markdown-to-wiki conversion (input is already Jira wiki)",
     )
     put_parser.set_defaults(func=put_command)
 
@@ -979,6 +990,43 @@ def main() -> None:
         help="Skip confirmation prompt",
     )
     wiki_delete.set_defaults(wiki_func=wiki_delete_command)
+
+    # Changelog command (Jira issue history)
+    changelog_parser = subparsers.add_parser(
+        "changelog",
+        help="Show Jira changelog for a ticket (who changed what, when)",
+    )
+    changelog_parser.add_argument("key", help="Ticket key (e.g., PROJ-123)")
+    changelog_parser.add_argument(
+        "-n",
+        "--tail",
+        type=int,
+        metavar="N",
+        help="Show only the N most recent changes",
+    )
+    changelog_parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Show full old/new values instead of diffs for long text fields",
+    )
+    changelog_parser.add_argument(
+        "-f",
+        "--field",
+        metavar="FIELD",
+        help="Filter to changes on a specific field (e.g., status, description)",
+    )
+    changelog_parser.add_argument(
+        "--revisions",
+        action="store_true",
+        help="List numbered revisions for a field (requires --field)",
+    )
+    changelog_parser.add_argument(
+        "--rev",
+        type=int,
+        metavar="N",
+        help="Print revision N of a field to stdout (requires --field)",
+    )
+    changelog_parser.set_defaults(func=changelog_command)
 
     # History command
     history_parser = subparsers.add_parser(

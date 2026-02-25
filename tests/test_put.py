@@ -55,8 +55,8 @@ class TestParseDescription:
 class TestPutCommand:
     """Tests for put_command function."""
 
-    def _make_args(self, file="-", dry_run=False):
-        return argparse.Namespace(file=file, dry_run=dry_run)
+    def _make_args(self, file="-", dry_run=False, raw=False):
+        return argparse.Namespace(file=file, dry_run=dry_run, raw=raw)
 
     def test_full_format_updates_summary_and_description(self, mock_jira, capsys):
         content = (
@@ -211,3 +211,18 @@ class TestPutCommand:
             put_command(self._make_args())
 
         mock_record.assert_called_once_with("put", "FOO-1", "description")
+
+    def test_raw_skips_markdown_conversion(self, mock_jira, capsys):
+        """--raw sends wiki markup as-is without converting."""
+        content = "---\nkey: FOO-1\n---\nh2. Wiki Heading\n\n*bold* text"
+        mock_issue = MagicMock()
+        mock_issue.fields.summary = "Title"
+        mock_issue.fields.description = "old"
+        mock_jira.issue.return_value = mock_issue
+
+        with patch("sys.stdin", MagicMock(read=lambda: content)), \
+             patch("zaira.put.get_jira_site", return_value="jira.example.com"):
+            put_command(self._make_args(raw=True))
+
+        call_fields = mock_issue.update.call_args[1]["fields"]
+        assert call_fields["description"] == "h2. Wiki Heading\n\n*bold* text"

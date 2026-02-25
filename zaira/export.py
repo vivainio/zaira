@@ -42,11 +42,17 @@ def normalize_title(title: str) -> str:
     return slug
 
 
-def extract_description(desc: dict | str | list | Any | None) -> str:
-    """Extract plain text from Atlassian Document Format."""
+def extract_description(desc: dict | str | list | Any | None, *, raw: bool = False) -> str:
+    """Extract plain text from Atlassian Document Format.
+
+    Args:
+        raw: If True, skip wiki-to-markdown conversion (preserve Jira wiki markup).
+    """
     if not desc:
         return "No description"
     if isinstance(desc, str):
+        if raw:
+            return desc
         return jira_wiki_to_markdown(desc) if is_jira_wiki(desc) else desc
 
     def extract_text(node) -> str:
@@ -162,6 +168,7 @@ def get_ticket(
     full: bool = False,
     include_custom: bool = False,
     include_attachments: bool = False,
+    raw: bool = False,
 ) -> Ticket | None:
     """Fetch ticket details.
 
@@ -170,6 +177,7 @@ def get_ticket(
         full: Include extra fields for JSON export
         include_custom: Include custom fields with schema name lookup
         include_attachments: Include attachment metadata
+        raw: Skip wiki-to-markdown conversion (preserve Jira wiki markup)
     """
     jira = get_jira()
     try:
@@ -193,7 +201,7 @@ def get_ticket(
             "reporter": get_user_identifier(fields.reporter) or "Unknown",
             "created": fields.created or "Unknown",
             "updated": fields.updated or "Unknown",
-            "description": extract_description(desc),
+            "description": extract_description(desc, raw=raw),
             "components": [c.name for c in (fields.components or [])],
             "labels": fields.labels or [],
             "parent": {
@@ -299,7 +307,7 @@ def get_ticket(
         return None
 
 
-def get_comments(key: str) -> list[Comment]:
+def get_comments(key: str, raw: bool = False) -> list[Comment]:
     """Fetch ticket comments."""
     jira = get_jira()
     try:
@@ -309,11 +317,11 @@ def get_comments(key: str) -> list[Comment]:
         for c in comments:
             body = c.body
             if hasattr(body, "raw"):
-                body = extract_description(body.raw)
+                body = extract_description(body.raw, raw=raw)
             elif hasattr(body, "__dict__"):
-                body = extract_description(body.__dict__)
+                body = extract_description(body.__dict__, raw=raw)
             body_str = body if isinstance(body, str) else str(body)
-            if is_jira_wiki(body_str):
+            if not raw and is_jira_wiki(body_str):
                 body_str = jira_wiki_to_markdown(body_str)
             result.append(
                 Comment(
@@ -762,10 +770,10 @@ def export_ticket(
 
 def export_to_stdout(
     key: str, fmt: str = "md", with_prs: bool = False, with_tests: bool = False,
-    include_custom: bool = False, minimal: bool = False,
+    include_custom: bool = False, minimal: bool = False, raw: bool = False,
 ) -> bool:
     """Export a single ticket to stdout."""
-    ticket = get_ticket(key, full=(fmt == "json"), include_custom=include_custom)
+    ticket = get_ticket(key, full=(fmt == "json"), include_custom=include_custom, raw=raw)
     if not ticket:
         print(f"Error: Could not fetch {key}", file=sys.stderr)
         return False
@@ -779,7 +787,7 @@ def export_to_stdout(
     if with_tests:
         ticket["tests"] = get_linked_tests(key)
 
-    comments = get_comments(key)
+    comments = get_comments(key, raw=raw)
     synced = datetime.now().isoformat(timespec="seconds")
     jira_site = get_jira_site()
 
