@@ -618,6 +618,8 @@ bugs = { jql = "project = FOO AND type = Bug", group_by = "priority" }
 sprint = { board = 123, group_by = "status", full = true }
 # Reports can target multiple projects via JQL
 cross-team = { jql = "project IN (FOO, BAR) AND type = Bug", group_by = "project" }
+# Export tickets to a custom directory (default: tickets/)
+reported = { query = "reported-by-me", group_by = "status", tickets_dir = "reported/" }
 ```
 
 ## Output Structure
@@ -631,10 +633,10 @@ project/
       FOO-1234/
         screenshot.png
         design.pdf
-    by-component/        # Symlinks grouped by component (markdown only)
+    by-component/        # Symlinks grouped by component (requires symlinks=true)
       backend/
         FOO-1234-ticket-title.md -> ../../FOO-1234-ticket-title.md
-    by-parent/           # Symlinks grouped by parent ticket
+    by-parent/           # Symlinks grouped by parent ticket (requires symlinks=true)
       FOO-1000-epic-name/
         FOO-1234-ticket-title.md -> ../../FOO-1234-ticket-title.md
   reports/               # Generated reports

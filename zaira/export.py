@@ -581,6 +581,8 @@ status: {yaml_quote(status)}
 priority: {yaml_quote(priority)}
 assignee: {yaml_quote(assignee)}
 reporter: {yaml_quote(reporter)}
+created: {_format_timestamp(ticket.get("created", ""))}
+updated: {_format_timestamp(ticket.get("updated", ""))}
 components: {yaml_quote(components)}
 labels: {yaml_quote(labels)}
 parent: {parent}
@@ -683,6 +685,7 @@ def export_ticket(
     with_tests: bool = False,
     include_custom: bool = False,
     with_attachments: bool = False,
+    symlinks: bool = False,
 ) -> bool:
     """Export a single ticket to markdown or JSON."""
     print(f"Exporting {key}...")
@@ -743,8 +746,8 @@ def export_ticket(
 
     print(f"  Saved to {outfile}")
 
-    # Create symlinks (only for markdown)
-    if fmt == "md":
+    # Create symlinks (only for markdown, disabled by default)
+    if symlinks and fmt == "md":
         # Create symlinks by component
         for comp in ticket.get("components", []):
             if comp:
@@ -846,7 +849,11 @@ def export_command(args: argparse.Namespace) -> None:
                 key, fmt=fmt, with_prs=with_prs, include_custom=include_custom
             )
     else:
-        output_dir = Path(args.output) if args.output else TICKETS_DIR
+        if args.output:
+            output_dir = Path(args.output)
+        else:
+            from zaira.config import get_tickets_dir
+            output_dir = get_tickets_dir()
         success = 0
         for key in tickets:
             if export_ticket(

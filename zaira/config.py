@@ -1,5 +1,6 @@
 """Zaira configuration."""
 
+import tomllib
 from pathlib import Path
 
 
@@ -18,6 +19,20 @@ def get_project_dir(subdir: str) -> Path:
     if root:
         return root / subdir
     return Path.cwd() / subdir
+
+
+def get_tickets_dir() -> Path:
+    """Get tickets directory, respecting tickets_dir in zproject.toml."""
+    root = find_project_root()
+    if root:
+        config_path = root / "zproject.toml"
+        with open(config_path, "rb") as f:
+            config = tomllib.load(f)
+        configured = config.get("tickets_dir")
+        if configured:
+            return root / configured
+        return root / "tickets"
+    return Path.cwd() / "tickets"
 
 
 # Default directories - relative to project root if found, else cwd

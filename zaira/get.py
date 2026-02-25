@@ -17,6 +17,13 @@ def get_command(args: argparse.Namespace) -> None:
     minimal = getattr(args, "min", False)
     raw = getattr(args, "raw", False)
     output = getattr(args, "output", None)
+    if not output:
+        from zaira.project import load_config
+
+        if load_config().get("tickets_dir"):
+            from zaira.config import get_tickets_dir
+
+            output = str(get_tickets_dir())
     to_stdout = not output
 
     keys = list(args.keys or [])

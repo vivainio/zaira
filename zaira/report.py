@@ -553,6 +553,8 @@ def report_command(args: argparse.Namespace) -> None:
                 desc_parts.append(f"group_by={config['group_by']}")
             if "label" in config:
                 desc_parts.append(f"label={config['label']}")
+            if "output" in config:
+                desc_parts.append(f"output={config['output']}")
 
             desc = ", ".join(desc_parts) if desc_parts else "(no config)"
             print(f"  {name}")
@@ -599,6 +601,12 @@ def report_command(args: argparse.Namespace) -> None:
             args.full = report_def["full"]
         if not getattr(args, "links", False) and report_def.get("links"):
             args.links = True
+        if not args.output and "output" in report_def:
+            from zaira.config import find_project_root
+            root = find_project_root() or Path.cwd()
+            args.output = str(root / report_def["output"])
+        if "tickets_dir" in report_def:
+            args.tickets_dir = report_def["tickets_dir"]
 
     # Handle dashboard report (special case - runs multiple queries)
     if dashboard_arg:
@@ -756,8 +764,16 @@ def report_command(args: argparse.Namespace) -> None:
     # Full mode: also export tickets
     if getattr(args, "full", False):
         from zaira.export import export_ticket
-        from zaira.config import TICKETS_DIR
+        from zaira.config import get_tickets_dir
         from zaira.refresh import find_ticket_file, ticket_needs_export
+
+        override = getattr(args, "tickets_dir", None)
+        if override:
+            from zaira.config import find_project_root
+            root = find_project_root() or Path.cwd()
+            tickets_dir = root / override
+        else:
+            tickets_dir = get_tickets_dir()
 
         print("\nExporting tickets...")
         exported = 0
@@ -769,23 +785,23 @@ def report_command(args: argparse.Namespace) -> None:
             if not key:
                 continue
             updated = t.get("updated", "")
-            ticket_file = find_ticket_file(key)
+            ticket_file = find_ticket_file(key, tickets_dir)
 
             if ticket_file:
                 if force:
                     print(f"  {key}: forcing refresh...")
-                    if export_ticket(key, TICKETS_DIR):
+                    if export_ticket(key, tickets_dir):
                         exported += 1
                 elif ticket_needs_export(ticket_file, updated):
                     print(f"  {key}: changed, refreshing...")
-                    if export_ticket(key, TICKETS_DIR):
+                    if export_ticket(key, tickets_dir):
                         exported += 1
                 else:
                     print(f"  {key}: unchanged, skipping")
                     skipped += 1
             else:
                 print(f"  {key}: new, exporting...")
-                if export_ticket(key, TICKETS_DIR):
+                if export_ticket(key, tickets_dir):
                     exported += 1
 
         print(f"Exported {exported} tickets, {skipped} unchanged")

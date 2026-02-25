@@ -44,11 +44,12 @@ def extract_ticket_keys(report_content: str) -> list[str]:
     return list(set(re.findall(pattern, report_content)))
 
 
-def find_ticket_file(key: str) -> Path | None:
+def find_ticket_file(key: str, search_dir: Path | None = None) -> Path | None:
     """Find existing ticket file by key."""
-    if not TICKETS_DIR.exists():
+    d = search_dir or TICKETS_DIR
+    if not d.exists():
         return None
-    for f in TICKETS_DIR.glob(f"{key}-*.md"):
+    for f in d.glob(f"{key}-*.md"):
         return f
     return None
 

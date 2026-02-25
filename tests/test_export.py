@@ -1526,6 +1526,56 @@ class TestExportCommand:
         files = list(tmp_path.glob("TEST-1*.md"))
         assert len(files) == 1
 
+    def test_uses_tickets_dir_from_config(self, mock_jira, tmp_path, monkeypatch):
+        """Uses tickets_dir from zproject.toml when no -o given."""
+        from zaira.export import export_command
+        from unittest.mock import patch
+        import argparse
+
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "zproject.toml").write_text('tickets_dir = "my-tickets"\n')
+
+        mock_issue = MagicMock()
+        mock_issue.id = "12345"
+        mock_issue.key = "TEST-1"
+        mock_issue.fields.summary = "Custom dir"
+        mock_issue.fields.description = None
+        mock_issue.fields.issuetype.name = "Bug"
+        mock_issue.fields.status.name = "Open"
+        mock_issue.fields.status.statusCategory.name = "To Do"
+        mock_issue.fields.priority.name = "High"
+        mock_issue.fields.assignee = None
+        mock_issue.fields.reporter = None
+        mock_issue.fields.created = "2024-01-01"
+        mock_issue.fields.updated = "2024-01-02"
+        mock_issue.fields.components = []
+        mock_issue.fields.labels = []
+        mock_issue.fields.parent = None
+        mock_issue.fields.issuelinks = []
+        mock_issue.fields.attachment = []
+        mock_issue.fields.comment.comments = []
+
+        mock_jira.issue.return_value = mock_issue
+
+        args = argparse.Namespace(
+            tickets=["TEST-1"],
+            jql=None,
+            board=None,
+            sprint=None,
+            output=None,
+            format="md",
+            files=True,
+            with_prs=False,
+            all_fields=False,
+        )
+
+        with patch("zaira.export.get_jira_site", return_value="jira.example.com"):
+            export_command(args)
+
+        custom_dir = tmp_path / "my-tickets"
+        files = list(custom_dir.glob("TEST-1*.md"))
+        assert len(files) == 1
+
     def test_searches_with_jql(self, mock_jira, capsys):
         """Searches for tickets using JQL."""
         from zaira.export import export_command

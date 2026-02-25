@@ -1162,6 +1162,80 @@ class TestReportCommand:
         captured = capsys.readouterr()
         assert "My Report" in captured.out
 
+    def test_uses_output_from_report_def(self, mock_jira, tmp_path, monkeypatch):
+        """Named report output path from zproject.toml is used."""
+        from zaira.report import report_command
+        from unittest.mock import patch
+        import argparse
+
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "zproject.toml").write_text("")
+
+        out_file = tmp_path / "custom" / "report.md"
+        args = argparse.Namespace(
+            name="my-report",
+            query=None,
+            jql=None,
+            board=None,
+            sprint=None,
+            dashboard=None,
+            output=None,
+            group_by=None,
+            title=None,
+            format="md",
+            files=False,
+        )
+
+        report_def = {"jql": "project = TEST", "output": "custom/report.md"}
+        tickets = [{"key": "T-1", "summary": "A", "issuetype": "Task", "status": "Open", "updated": "", "parent": None}]
+
+        with (
+            patch("zaira.project.get_report", return_value=report_def),
+            patch("zaira.report.search_tickets", return_value=tickets),
+        ):
+            report_command(args)
+
+        expected = tmp_path / "custom" / "report.md"
+        assert expected.exists()
+        content = expected.read_text()
+        assert "T-1" in content
+
+    def test_cli_output_overrides_report_def(self, mock_jira, tmp_path, monkeypatch):
+        """CLI -o flag takes precedence over report def output."""
+        from zaira.report import report_command
+        from unittest.mock import patch
+        import argparse
+
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "zproject.toml").write_text("")
+
+        cli_out = tmp_path / "cli-output.md"
+        args = argparse.Namespace(
+            name="my-report",
+            query=None,
+            jql=None,
+            board=None,
+            sprint=None,
+            dashboard=None,
+            output=str(cli_out),
+            group_by=None,
+            title=None,
+            format="md",
+            files=False,
+        )
+
+        report_def = {"jql": "project = TEST", "output": "def-output.md"}
+        tickets = [{"key": "T-1", "summary": "A", "issuetype": "Task", "status": "Open", "updated": "", "parent": None}]
+
+        with (
+            patch("zaira.project.get_report", return_value=report_def),
+            patch("zaira.report.search_tickets", return_value=tickets),
+        ):
+            report_command(args)
+
+        assert cli_out.exists()
+        assert not (tmp_path / "def-output.md").exists()
+
     def test_exits_when_named_report_not_found(self, mock_jira, capsys):
         """Exits when named report not found."""
         from zaira.report import report_command
