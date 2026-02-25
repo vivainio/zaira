@@ -115,11 +115,14 @@ def map_fields(front_matter: dict, description: str, project: str = "", issue_ty
                 fields["reporter"] = {"name": value} if value else None
             elif jira_field == "components":
                 if isinstance(value, list):
-                    fields["components"] = [{"name": c} for c in value]
+                    names = value
                 elif value and value != "None":
-                    fields["components"] = [
-                        {"name": c.strip()} for c in value.split(",")
-                    ]
+                    names = [c.strip() for c in value.split(",")]
+                else:
+                    names = []
+                if names:
+                    from zaira.edit import _resolve_component
+                    fields["components"] = [_resolve_component(n, project) for n in names]
             elif jira_field == "labels":
                 if isinstance(value, list):
                     fields["labels"] = value

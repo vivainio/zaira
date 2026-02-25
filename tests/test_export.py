@@ -1329,7 +1329,7 @@ class TestExportTicket:
         mock_jira.issue.return_value = mock_issue
 
         with patch("zaira.export.get_jira_site", return_value="jira.example.com"):
-            export_ticket("TEST-3", tmp_path)
+            export_ticket("TEST-3", tmp_path, symlinks=True)
 
         symlink_dir = tmp_path / "by-component" / "backend"
         assert symlink_dir.exists()

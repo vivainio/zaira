@@ -202,7 +202,7 @@ def get_ticket(
             "created": fields.created or "Unknown",
             "updated": fields.updated or "Unknown",
             "description": extract_description(desc, raw=raw),
-            "components": [c.name for c in (fields.components or [])],
+            "components": list(dict.fromkeys(c.name for c in (fields.components or []))),
             "labels": fields.labels or [],
             "parent": {
                 "key": fields.parent.key,
