@@ -55,3 +55,4 @@ rules.yaml
 
 # Local specs symlink
 specs
+.githooks/

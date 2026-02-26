@@ -1,0 +1,6 @@
+pre-commit = "ruff format --check ."
+# empty hooks are ignored
+pre-push = ""
+
+[forbidden-strings]
+"basware.jfrog.io" = "uv.lock"
