@@ -3,4 +3,4 @@ pre-commit = "ruff format --check ."
 pre-push = ""
 
 [forbidden-strings]
-"basware.jfrog.io" = "uv.lock"
+"jfrog.io" = "uv.lock"
