@@ -33,10 +33,7 @@ class TestParseDescription:
             "- Relates: BAR-456\n"
         )
         assert parse_description(body) == (
-            "Intro text.\n\n"
-            "## Requirements\n\n"
-            "- Item 1\n"
-            "- Item 2"
+            "Intro text.\n\n## Requirements\n\n- Item 1\n- Item 2"
         )
 
     def test_captures_to_end_when_no_links(self):
@@ -68,8 +65,10 @@ class TestPutCommand:
         mock_issue.fields.description = "Old desc."
         mock_jira.issue.return_value = mock_issue
 
-        with patch("sys.stdin", MagicMock(read=lambda: content)), \
-             patch("zaira.put.get_jira_site", return_value="jira.example.com"):
+        with (
+            patch("sys.stdin", MagicMock(read=lambda: content)),
+            patch("zaira.put.get_jira_site", return_value="jira.example.com"),
+        ):
             put_command(self._make_args())
 
         mock_issue.update.assert_called_once_with(
@@ -85,8 +84,10 @@ class TestPutCommand:
         mock_issue.fields.description = "Old desc."
         mock_jira.issue.return_value = mock_issue
 
-        with patch("sys.stdin", MagicMock(read=lambda: content)), \
-             patch("zaira.put.get_jira_site", return_value="jira.example.com"):
+        with (
+            patch("sys.stdin", MagicMock(read=lambda: content)),
+            patch("zaira.put.get_jira_site", return_value="jira.example.com"),
+        ):
             put_command(self._make_args())
 
         mock_issue.update.assert_called_once_with(
@@ -100,8 +101,10 @@ class TestPutCommand:
         mock_issue.fields.description = "Old desc."
         mock_jira.issue.return_value = mock_issue
 
-        with patch("sys.stdin", MagicMock(read=lambda: content)), \
-             patch("zaira.put.get_jira_site", return_value="jira.example.com"):
+        with (
+            patch("sys.stdin", MagicMock(read=lambda: content)),
+            patch("zaira.put.get_jira_site", return_value="jira.example.com"),
+        ):
             put_command(self._make_args())
 
         mock_issue.update.assert_called_once_with(
@@ -190,8 +193,10 @@ class TestPutCommand:
         mock_issue.fields.description = "old"
         mock_jira.issue.return_value = mock_issue
 
-        with patch("sys.stdin", MagicMock(read=lambda: content)), \
-             patch("zaira.put.get_jira_site", return_value="jira.example.com"):
+        with (
+            patch("sys.stdin", MagicMock(read=lambda: content)),
+            patch("zaira.put.get_jira_site", return_value="jira.example.com"),
+        ):
             put_command(self._make_args())
 
         call_fields = mock_issue.update.call_args[1]["fields"]
@@ -205,9 +210,11 @@ class TestPutCommand:
         mock_issue.fields.description = "Old"
         mock_jira.issue.return_value = mock_issue
 
-        with patch("sys.stdin", MagicMock(read=lambda: content)), \
-             patch("zaira.put.get_jira_site", return_value="jira.example.com"), \
-             patch("zaira.activity_log.record") as mock_record:
+        with (
+            patch("sys.stdin", MagicMock(read=lambda: content)),
+            patch("zaira.put.get_jira_site", return_value="jira.example.com"),
+            patch("zaira.activity_log.record") as mock_record,
+        ):
             put_command(self._make_args())
 
         mock_record.assert_called_once_with("put", "FOO-1", "description")
@@ -220,8 +227,10 @@ class TestPutCommand:
         mock_issue.fields.description = "old"
         mock_jira.issue.return_value = mock_issue
 
-        with patch("sys.stdin", MagicMock(read=lambda: content)), \
-             patch("zaira.put.get_jira_site", return_value="jira.example.com"):
+        with (
+            patch("sys.stdin", MagicMock(read=lambda: content)),
+            patch("zaira.put.get_jira_site", return_value="jira.example.com"),
+        ):
             put_command(self._make_args(raw=True))
 
         call_fields = mock_issue.update.call_args[1]["fields"]

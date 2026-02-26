@@ -398,7 +398,9 @@ Content.
 
         jql = 'status in ("On hold") AND project = TEST'
         report = tmp_path / "report.md"
-        report.write_text(f'---\njql: "{jql}"\ntitle: My Report\nrefresh: broken\n---\n\nContent.\n')
+        report.write_text(
+            f'---\njql: "{jql}"\ntitle: My Report\nrefresh: broken\n---\n\nContent.\n'
+        )
 
         args = argparse.Namespace(report=str(report), full=False, force=False)
 

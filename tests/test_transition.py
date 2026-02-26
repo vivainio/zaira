@@ -48,7 +48,9 @@ class TestTransitionTicket:
         result = transition_ticket("TEST-123", "Start Progress")
 
         assert result is True
-        mock_jira.transition_issue.assert_called_once_with("TEST-123", "1", fields={}, comment=None)
+        mock_jira.transition_issue.assert_called_once_with(
+            "TEST-123", "1", fields={}, comment=None
+        )
 
     def test_transitions_by_target_status(self, mock_jira):
         """Transitions ticket by target status name."""
@@ -59,7 +61,9 @@ class TestTransitionTicket:
         result = transition_ticket("TEST-123", "In Progress")
 
         assert result is True
-        mock_jira.transition_issue.assert_called_once_with("TEST-123", "1", fields={}, comment=None)
+        mock_jira.transition_issue.assert_called_once_with(
+            "TEST-123", "1", fields={}, comment=None
+        )
 
     def test_case_insensitive_match(self, mock_jira):
         """Matches status case-insensitively."""
@@ -166,7 +170,9 @@ class TestTransitionCommand:
             {"id": "1", "name": "Start", "to": {"name": "In Progress"}},
         ]
 
-        args = argparse.Namespace(key="test-123", list=False, status="Invalid", field=None)
+        args = argparse.Namespace(
+            key="test-123", list=False, status="Invalid", field=None
+        )
 
         with patch("zaira.transition.get_jira_site", return_value="jira.example.com"):
             with pytest.raises(SystemExit) as exc_info:
@@ -184,13 +190,17 @@ class TestTransitionCommand:
         mock_jira.issue.return_value = mock_issue
 
         args = argparse.Namespace(
-            key="test-123", list=False, status="Done",
+            key="test-123",
+            list=False,
+            status="Done",
             field=["Resolution=Done"],
         )
 
-        with patch("zaira.transition.get_jira_site", return_value="jira.example.com"), \
-             patch("zaira.info.ensure_editmeta", return_value=None), \
-             patch("zaira.rules.try_load_rules", return_value=None):
+        with (
+            patch("zaira.transition.get_jira_site", return_value="jira.example.com"),
+            patch("zaira.info.ensure_editmeta", return_value=None),
+            patch("zaira.rules.try_load_rules", return_value=None),
+        ):
             transition_command(args)
 
         captured = capsys.readouterr()

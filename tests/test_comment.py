@@ -140,13 +140,15 @@ class TestSpecialCharacters:
         """Handles comments containing various quote characters."""
         mock_jira.add_comment.return_value = MagicMock()
 
-        args = argparse.Namespace(key="TEST-123", body='He said "hello" and \'goodbye\'')
+        args = argparse.Namespace(
+            key="TEST-123", body="He said \"hello\" and 'goodbye'"
+        )
 
         with patch("zaira.comment.get_jira_site", return_value="jira.example.com"):
             comment_command(args)
 
         mock_jira.add_comment.assert_called_once_with(
-            "TEST-123", 'He said "hello" and \'goodbye\''
+            "TEST-123", "He said \"hello\" and 'goodbye'"
         )
         captured = capsys.readouterr()
         assert "Comment added" in captured.out

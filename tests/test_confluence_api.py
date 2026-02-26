@@ -10,6 +10,7 @@ class TestApiOverrides:
 
     def test_set_api_stores_override(self):
         """set_api stores function override."""
+
         def mock_fn():
             return "mocked"
 
@@ -36,8 +37,7 @@ class TestFetchPage:
     def test_uses_override_when_set(self, mock_confluence):
         """Uses override function when set."""
         confluence_api.set_api(
-            "fetch_page",
-            lambda page_id, expand: {"id": page_id, "title": "Mocked"}
+            "fetch_page", lambda page_id, expand: {"id": page_id, "title": "Mocked"}
         )
 
         result = confluence_api.fetch_page("12345", "body.storage")
@@ -57,7 +57,7 @@ class TestCreatePage:
                 "id": "99999",
                 "title": title,
                 "space": {"key": space},
-            }
+            },
         )
 
         result = confluence_api.create_page("TEST", "New Page", "<p>Body</p>")
@@ -78,7 +78,7 @@ class TestUpdatePage:
                 "id": page_id,
                 "title": title,
                 "version": {"number": version + 1},
-            }
+            },
         )
 
         result = confluence_api.update_page("123", "Updated", "<p>New</p>", 5)
@@ -110,7 +110,7 @@ class TestGetChildPages:
             lambda page_id, limit: [
                 {"id": "1", "title": "Child 1"},
                 {"id": "2", "title": "Child 2"},
-            ]
+            ],
         )
 
         result = confluence_api.get_child_pages("parent123")
@@ -129,7 +129,7 @@ class TestSearchPages:
             lambda cql, limit, expand: {
                 "results": [{"id": "1", "title": "Found"}],
                 "size": 1,
-            }
+            },
         )
 
         result = confluence_api.search_pages('text ~ "test"')
@@ -144,8 +144,7 @@ class TestGetPageLabels:
     def test_uses_override_when_set(self, mock_confluence):
         """Uses override function when set."""
         confluence_api.set_api(
-            "get_page_labels",
-            lambda page_id: ["label1", "label2", "label3"]
+            "get_page_labels", lambda page_id: ["label1", "label2", "label3"]
         )
 
         result = confluence_api.get_page_labels("123")
@@ -158,10 +157,7 @@ class TestAddPageLabels:
 
     def test_uses_override_when_set(self, mock_confluence):
         """Uses override function when set."""
-        confluence_api.set_api(
-            "add_page_labels",
-            lambda page_id, labels: True
-        )
+        confluence_api.set_api("add_page_labels", lambda page_id, labels: True)
 
         result = confluence_api.add_page_labels("123", ["new-label"])
 
@@ -180,10 +176,7 @@ class TestSetPageLabels:
 
     def test_uses_override_when_set(self, mock_confluence):
         """Uses override function when set."""
-        confluence_api.set_api(
-            "set_page_labels",
-            lambda page_id, labels: True
-        )
+        confluence_api.set_api("set_page_labels", lambda page_id, labels: True)
 
         result = confluence_api.set_page_labels("123", ["a", "b"])
 
@@ -197,9 +190,7 @@ class TestGetAttachments:
         """Uses override function when set."""
         confluence_api.set_api(
             "get_attachments",
-            lambda page_id, expand: {
-                "results": [{"title": "file.png", "id": "att1"}]
-            }
+            lambda page_id, expand: {"results": [{"title": "file.png", "id": "att1"}]},
         )
 
         result = confluence_api.get_attachments("123")
@@ -221,7 +212,7 @@ class TestUploadAttachment:
             lambda page_id, file_path, filename: {
                 "id": "att123",
                 "title": filename or file_path.name,
-            }
+            },
         )
 
         result = confluence_api.upload_attachment("123", test_file)
@@ -241,7 +232,7 @@ class TestGetPageProperty:
                 "key": key,
                 "value": {"data": "test"},
                 "version": {"number": 1},
-            }
+            },
         )
 
         result = confluence_api.get_page_property("123", "my-prop")
@@ -255,10 +246,7 @@ class TestSetPageProperty:
 
     def test_uses_override_when_set(self, mock_confluence):
         """Uses override function when set."""
-        confluence_api.set_api(
-            "set_page_property",
-            lambda page_id, key, value: True
-        )
+        confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
 
         result = confluence_api.set_page_property("123", "key", {"data": "val"})
 
@@ -270,10 +258,7 @@ class TestRemovePageLabel:
 
     def test_uses_override_when_set(self, mock_confluence):
         """Uses override function when set."""
-        confluence_api.set_api(
-            "remove_page_label",
-            lambda page_id, label: True
-        )
+        confluence_api.set_api("remove_page_label", lambda page_id, label: True)
 
         result = confluence_api.remove_page_label("123", "old-label")
 
@@ -291,7 +276,7 @@ class TestUpdatePageProperties:
                 "id": page_id,
                 "title": title,
                 "version": {"number": version + 1},
-            }
+            },
         )
 
         result = confluence_api.update_page_properties(
@@ -316,7 +301,7 @@ class TestUpdateAttachment:
             lambda page_id, att_id, file_path, filename: {
                 "id": att_id,
                 "title": filename or file_path.name,
-            }
+            },
         )
 
         result = confluence_api.update_attachment("123", "att456", test_file)
@@ -332,14 +317,10 @@ class TestDownloadAttachment:
         """Uses override function when set."""
         dest = tmp_path / "downloaded.txt"
 
-        confluence_api.set_api(
-            "download_attachment",
-            lambda url, dest_path: True
-        )
+        confluence_api.set_api("download_attachment", lambda url, dest_path: True)
 
         result = confluence_api.download_attachment(
-            "https://confluence.example.com/att/123",
-            dest
+            "https://confluence.example.com/att/123", dest
         )
 
         assert result is True
@@ -366,8 +347,14 @@ class TestGetAuth:
         from unittest.mock import patch
 
         with (
-            patch("zaira.confluence_api.load_credentials", return_value={"api_token": "token"}),
-            patch("zaira.confluence_api.get_server_from_config", return_value="https://example.atlassian.net"),
+            patch(
+                "zaira.confluence_api.load_credentials",
+                return_value={"api_token": "token"},
+            ),
+            patch(
+                "zaira.confluence_api.get_server_from_config",
+                return_value="https://example.atlassian.net",
+            ),
             pytest.raises(ValueError) as exc_info,
         ):
             confluence_api._get_auth()
@@ -379,11 +366,14 @@ class TestGetAuth:
         from unittest.mock import patch
 
         with (
-            patch("zaira.confluence_api.load_credentials", return_value={
-                "email": "user@example.com",
-                "api_token": "token123"
-            }),
-            patch("zaira.confluence_api.get_server_from_config", return_value="https://example.atlassian.net"),
+            patch(
+                "zaira.confluence_api.load_credentials",
+                return_value={"email": "user@example.com", "api_token": "token123"},
+            ),
+            patch(
+                "zaira.confluence_api.get_server_from_config",
+                return_value="https://example.atlassian.net",
+            ),
         ):
             base_url, auth = confluence_api._get_auth()
 
@@ -408,7 +398,10 @@ class TestFetchPageWithRequests:
         }
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.get", return_value=mock_response) as mock_get,
         ):
             result = confluence_api.fetch_page("12345", "body.storage")
@@ -425,7 +418,10 @@ class TestFetchPageWithRequests:
         mock_response.ok = False
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.get", return_value=mock_response),
         ):
             result = confluence_api.fetch_page("99999")
@@ -448,7 +444,10 @@ class TestCreatePageWithRequests:
         }
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.post", return_value=mock_response) as mock_post,
         ):
             result = confluence_api.create_page("SPACE", "New Page", "<p>Body</p>")
@@ -465,10 +464,15 @@ class TestCreatePageWithRequests:
         mock_response.json.return_value = {"id": "99999"}
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.post", return_value=mock_response) as mock_post,
         ):
-            result = confluence_api.create_page("SPACE", "Child", "<p>Body</p>", parent_id="12345")
+            result = confluence_api.create_page(
+                "SPACE", "Child", "<p>Body</p>", parent_id="12345"
+            )
 
         # Verify ancestors was included in payload
         call_kwargs = mock_post.call_args[1]
@@ -482,7 +486,10 @@ class TestCreatePageWithRequests:
         mock_response.ok = False
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.post", return_value=mock_response),
         ):
             result = confluence_api.create_page("SPACE", "New", "<p>Body</p>")
@@ -506,7 +513,10 @@ class TestUpdatePageWithRequests:
         }
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.put", return_value=mock_response) as mock_put,
         ):
             result = confluence_api.update_page("12345", "Updated", "<p>New</p>", 5)
@@ -522,7 +532,10 @@ class TestUpdatePageWithRequests:
         mock_response.ok = False
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.put", return_value=mock_response),
         ):
             result = confluence_api.update_page("12345", "Title", "<p>Body</p>", 1)
@@ -541,7 +554,10 @@ class TestDeletePageWithRequests:
         mock_response.ok = True
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.delete", return_value=mock_response),
         ):
             result = confluence_api.delete_page("12345")
@@ -556,7 +572,10 @@ class TestDeletePageWithRequests:
         mock_response.ok = False
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.delete", return_value=mock_response),
         ):
             result = confluence_api.delete_page("99999")
@@ -581,7 +600,10 @@ class TestGetChildPagesWithRequests:
         }
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.get", return_value=mock_response),
         ):
             result = confluence_api.get_child_pages("12345")
@@ -596,7 +618,10 @@ class TestGetChildPagesWithRequests:
         mock_response.ok = False
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.get", return_value=mock_response),
         ):
             result = confluence_api.get_child_pages("99999")
@@ -619,7 +644,10 @@ class TestSearchPagesWithRequests:
         }
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.get", return_value=mock_response),
         ):
             result = confluence_api.search_pages('text ~ "test"')
@@ -637,7 +665,10 @@ class TestSearchPagesWithRequests:
         mock_response.text = "Invalid CQL"
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.get", return_value=mock_response),
         ):
             result = confluence_api.search_pages("invalid cql")
@@ -663,7 +694,10 @@ class TestGetPageLabelsWithRequests:
         }
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.get", return_value=mock_response),
         ):
             result = confluence_api.get_page_labels("12345")
@@ -678,7 +712,10 @@ class TestGetPageLabelsWithRequests:
         mock_response.ok = False
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.get", return_value=mock_response),
         ):
             result = confluence_api.get_page_labels("99999")
@@ -697,7 +734,10 @@ class TestAddPageLabelsWithRequests:
         mock_response.ok = True
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.post", return_value=mock_response),
         ):
             result = confluence_api.add_page_labels("12345", ["new-label"])
@@ -712,7 +752,10 @@ class TestAddPageLabelsWithRequests:
         mock_response.ok = False
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.post", return_value=mock_response),
         ):
             result = confluence_api.add_page_labels("12345", ["label"])
@@ -767,7 +810,10 @@ class TestGetAttachmentsWithRequests:
         }
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.get", return_value=mock_response),
         ):
             result = confluence_api.get_attachments("12345")
@@ -782,7 +828,10 @@ class TestGetAttachmentsWithRequests:
         mock_response.ok = False
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.get", return_value=mock_response),
         ):
             result = confluence_api.get_attachments("99999")
@@ -807,7 +856,10 @@ class TestUploadAttachmentWithRequests:
         }
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.post", return_value=mock_response),
         ):
             result = confluence_api.upload_attachment("12345", test_file)
@@ -825,7 +877,10 @@ class TestUploadAttachmentWithRequests:
         mock_response.ok = False
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.post", return_value=mock_response),
         ):
             result = confluence_api.upload_attachment("12345", test_file)
@@ -849,7 +904,10 @@ class TestGetPagePropertyWithRequests:
         }
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.get", return_value=mock_response),
         ):
             result = confluence_api.get_page_property("12345", "my-prop")
@@ -864,7 +922,10 @@ class TestGetPagePropertyWithRequests:
         mock_response.ok = False
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.get", return_value=mock_response),
         ):
             result = confluence_api.get_page_property("12345", "nonexistent")
@@ -886,11 +947,16 @@ class TestSetPagePropertyWithRequests:
         mock_post_response.ok = True
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.get", return_value=mock_get_response),
             patch("requests.post", return_value=mock_post_response) as mock_post,
         ):
-            result = confluence_api.set_page_property("12345", "new-prop", {"data": "val"})
+            result = confluence_api.set_page_property(
+                "12345", "new-prop", {"data": "val"}
+            )
 
         assert result is True
         mock_post.assert_called_once()
@@ -910,11 +976,16 @@ class TestSetPagePropertyWithRequests:
         mock_put_response.ok = True
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.get", return_value=mock_get_response),
             patch("requests.put", return_value=mock_put_response) as mock_put,
         ):
-            result = confluence_api.set_page_property("12345", "existing-prop", {"data": "new"})
+            result = confluence_api.set_page_property(
+                "12345", "existing-prop", {"data": "new"}
+            )
 
         assert result is True
         mock_put.assert_called_once()
@@ -939,7 +1010,10 @@ class TestUpdatePagePropertiesWithRequests:
         }
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.put", return_value=mock_response) as mock_put,
         ):
             result = confluence_api.update_page_properties(
@@ -960,7 +1034,10 @@ class TestUpdatePagePropertiesWithRequests:
         mock_response.ok = False
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.put", return_value=mock_response),
         ):
             result = confluence_api.update_page_properties("12345", 1, "page", "Title")
@@ -982,12 +1059,14 @@ class TestDownloadAttachmentWithRequests:
         dest = tmp_path / "downloaded.txt"
 
         with (
-            patch("zaira.confluence_api.load_credentials", return_value={"email": "user", "api_token": "token"}),
+            patch(
+                "zaira.confluence_api.load_credentials",
+                return_value={"email": "user", "api_token": "token"},
+            ),
             patch("requests.get", return_value=mock_response),
         ):
             result = confluence_api.download_attachment(
-                "https://confluence.example.com/download/123",
-                dest
+                "https://confluence.example.com/download/123", dest
             )
 
         assert result is True
@@ -1003,10 +1082,15 @@ class TestDownloadAttachmentWithRequests:
         dest = tmp_path / "failed.txt"
 
         with (
-            patch("zaira.confluence_api.load_credentials", return_value={"email": "user", "api_token": "token"}),
+            patch(
+                "zaira.confluence_api.load_credentials",
+                return_value={"email": "user", "api_token": "token"},
+            ),
             patch("requests.get", return_value=mock_response),
         ):
-            result = confluence_api.download_attachment("https://example.com/fail", dest)
+            result = confluence_api.download_attachment(
+                "https://example.com/fail", dest
+            )
 
         assert result is False
 
@@ -1026,7 +1110,10 @@ class TestUpdateAttachmentWithRequests:
         mock_response.json.return_value = {"id": "att456", "title": "updated.txt"}
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.post", return_value=mock_response),
         ):
             result = confluence_api.update_attachment("12345", "att456", test_file)
@@ -1044,7 +1131,10 @@ class TestUpdateAttachmentWithRequests:
         mock_response.ok = False
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.post", return_value=mock_response),
         ):
             result = confluence_api.update_attachment("12345", "att456", test_file)
@@ -1063,7 +1153,10 @@ class TestRemovePageLabelWithRequests:
         mock_response.ok = True
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.delete", return_value=mock_response),
         ):
             result = confluence_api.remove_page_label("12345", "old-label")
@@ -1078,7 +1171,10 @@ class TestRemovePageLabelWithRequests:
         mock_response.ok = False
 
         with (
-            patch("zaira.confluence_api._get_auth", return_value=("https://base", MagicMock())),
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
             patch("requests.delete", return_value=mock_response),
         ):
             result = confluence_api.remove_page_label("12345", "label")

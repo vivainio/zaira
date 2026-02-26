@@ -33,7 +33,9 @@ def list_worklogs(key: str) -> list[Worklog]:
             for entry in entries
         ]
     except Exception as e:
-        print(f"Error getting worklogs for {key}: {format_jira_error(e)}", file=sys.stderr)
+        print(
+            f"Error getting worklogs for {key}: {format_jira_error(e)}", file=sys.stderr
+        )
         return []
 
 
@@ -345,7 +347,8 @@ def log_command(args: argparse.Namespace) -> None:
 
         try:
             entries = spread_hours(
-                args.time, parsed,
+                args.time,
+                parsed,
                 skip_weekends=not include_weekends,
                 existing_hours=existing.totals,
             )
@@ -365,9 +368,7 @@ def log_command(args: argparse.Namespace) -> None:
             hrs = _parse_time_to_hours(dur)
             day_details = existing.details.get(date_str, [])
             if day_details:
-                tickets = ", ".join(
-                    f"{k} {h:.1f}h" for k, h in day_details
-                )
+                tickets = ", ".join(f"{k} {h:.1f}h" for k, h in day_details)
                 note = f"  ({tickets})"
             else:
                 note = ""
@@ -393,6 +394,7 @@ def log_command(args: argparse.Namespace) -> None:
             sys.exit(1)
         print(f"\nDone. View at: https://{jira_site}/browse/{key}")
         from zaira.activity_log import record
+
         record("worklog", key, f"{args.time} spread:{spread}")
         return
 
@@ -413,6 +415,7 @@ def log_command(args: argparse.Namespace) -> None:
         print(f"Logged {args.time} to {key}")
         print(f"View at: https://{jira_site}/browse/{key}")
         from zaira.activity_log import record
+
         record("worklog", key, args.time)
     else:
         sys.exit(1)

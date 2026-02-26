@@ -79,7 +79,9 @@ def _resolve_component(name: str, project: str) -> dict:
     sys.exit(1)
 
 
-def map_field(name: str, value: str, project: str = "", issue_type: str = "") -> tuple[str, Any]:
+def map_field(
+    name: str, value: str, project: str = "", issue_type: str = ""
+) -> tuple[str, Any]:
     """Map a field name to Jira field ID and format value.
 
     Args:
@@ -105,7 +107,11 @@ def map_field(name: str, value: str, project: str = "", issue_type: str = "") ->
                 return field_id, value
             return field_id, [v.strip() for v in value.split(",")]
         if field_id == "components":
-            names = value if isinstance(value, list) else [c.strip() for c in value.split(",")]
+            names = (
+                value
+                if isinstance(value, list)
+                else [c.strip() for c in value.split(",")]
+            )
             return field_id, [_resolve_component(n, project) for n in names]
         return field_id, value
 
@@ -113,7 +119,9 @@ def map_field(name: str, value: str, project: str = "", issue_type: str = "") ->
     em = get_editmeta_field(project, issue_type, name)
     if em:
         field_id, field_def = em
-        formatted = format_field_value(field_id, value, project=project, issue_type=issue_type)
+        formatted = format_field_value(
+            field_id, value, project=project, issue_type=issue_type
+        )
         _validate_field_value(field_id, value, field_def)
         return field_id, formatted
 
@@ -121,7 +129,9 @@ def map_field(name: str, value: str, project: str = "", issue_type: str = "") ->
     return name, format_field_value(name, value, project=project, issue_type=issue_type)
 
 
-def format_field_value(field_id: str, value: Any, project: str = "", issue_type: str = "") -> Any:
+def format_field_value(
+    field_id: str, value: Any, project: str = "", issue_type: str = ""
+) -> Any:
     """Format value based on field type.
 
     Wraps option/select field values in {"value": ...} format.
@@ -140,6 +150,7 @@ def format_field_value(field_id: str, value: Any, project: str = "", issue_type:
     field_type = None
     item_type = None
     from zaira.info import _parse_field_type
+
     em = get_editmeta_field(project, issue_type, field_id)
     if em:
         _, field_def = em
@@ -151,7 +162,13 @@ def format_field_value(field_id: str, value: Any, project: str = "", issue_type:
         if isinstance(value, str):
             return _parse_number(value)
         return value
-    elif field_type in ("resolution", "priority", "version", "issuetype", "securitylevel"):
+    elif field_type in (
+        "resolution",
+        "priority",
+        "version",
+        "issuetype",
+        "securitylevel",
+    ):
         return {"name": value}
     elif field_type == "user":
         return _format_assignee(value)
@@ -206,15 +223,23 @@ def _validate_field_value(field_id: str, value: Any, editmeta_field: dict) -> No
     allowed_lower = {v.lower(): v for v in allowed}
     for v in values:
         if v.lower() not in allowed_lower:
-            print(f"Warning: '{v}' not in allowed values for {field_name}", file=sys.stderr)
+            print(
+                f"Warning: '{v}' not in allowed values for {field_name}",
+                file=sys.stderr,
+            )
             if len(allowed) <= 20:
                 print(f"  Allowed: {', '.join(allowed)}", file=sys.stderr)
             else:
-                print(f"  Allowed ({len(allowed)} values): {', '.join(allowed[:20])}, ...", file=sys.stderr)
+                print(
+                    f"  Allowed ({len(allowed)} values): {', '.join(allowed[:20])}, ...",
+                    file=sys.stderr,
+                )
             break  # One warning per field is enough
 
 
-def parse_field_args(field_args: list[str], project: str = "", issue_type: str = "") -> dict:
+def parse_field_args(
+    field_args: list[str], project: str = "", issue_type: str = ""
+) -> dict:
     """Parse --field arguments into a fields dict.
 
     Args:
@@ -234,7 +259,9 @@ def parse_field_args(field_args: list[str], project: str = "", issue_type: str =
             )
             continue
         name, value = arg.split("=", 1)
-        field_id, formatted_value = map_field(name.strip(), value.strip(), project=project, issue_type=issue_type)
+        field_id, formatted_value = map_field(
+            name.strip(), value.strip(), project=project, issue_type=issue_type
+        )
         fields[field_id] = formatted_value
     return fields
 
@@ -256,12 +283,16 @@ def parse_yaml_fields(content: str, project: str = "", issue_type: str = "") -> 
 
     fields = {}
     for name, value in data.items():
-        field_id, formatted_value = map_field(name, value, project=project, issue_type=issue_type)
+        field_id, formatted_value = map_field(
+            name, value, project=project, issue_type=issue_type
+        )
         fields[field_id] = formatted_value
     return fields
 
 
-def get_allowed_values(jira, key: str, field_ids: list[str], issue_type: str = "") -> dict[str, list[str]]:
+def get_allowed_values(
+    jira, key: str, field_ids: list[str], issue_type: str = ""
+) -> dict[str, list[str]]:
     """Get allowed values for fields.
 
     Checks editmeta cache first, then tries API editmeta, then autocomplete.
@@ -283,7 +314,9 @@ def get_allowed_values(jira, key: str, field_ids: list[str], issue_type: str = "
     editmeta = load_editmeta(project, issue_type) if issue_type else None
     if editmeta and "fields" in editmeta:
         # Build ID -> field_def lookup
-        id_to_field = {fdef["id"]: fdef for fdef in editmeta["fields"].values() if "id" in fdef}
+        id_to_field = {
+            fdef["id"]: fdef for fdef in editmeta["fields"].values() if "id" in fdef
+        }
         for fid in field_ids:
             if fid in id_to_field and fid not in result:
                 allowed = id_to_field[fid].get("allowedValues", [])
@@ -412,10 +445,14 @@ def edit_command(args: argparse.Namespace) -> None:
         issue = jira.issue(key, fields="issuetype")
         issue_type = issue.fields.issuetype.name
     except Exception as e:
-        print(f"Error: Could not fetch issue {key}: {format_jira_error(e)}", file=sys.stderr)
+        print(
+            f"Error: Could not fetch issue {key}: {format_jira_error(e)}",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     from zaira.info import ensure_editmeta
+
     ensure_editmeta(key, issue_type)
 
     fields = {}
@@ -435,13 +472,17 @@ def edit_command(args: argparse.Namespace) -> None:
     # Handle --field arguments
     field_args = getattr(args, "field", None) or []
     if field_args:
-        fields.update(parse_field_args(field_args, project=project, issue_type=issue_type))
+        fields.update(
+            parse_field_args(field_args, project=project, issue_type=issue_type)
+        )
 
     # Handle --from file/stdin
     from_input = getattr(args, "from_file", None)
     if from_input:
         content = read_input(from_input)
-        fields.update(parse_yaml_fields(content, project=project, issue_type=issue_type))
+        fields.update(
+            parse_yaml_fields(content, project=project, issue_type=issue_type)
+        )
 
     if not fields:
         print(
@@ -456,6 +497,7 @@ def edit_command(args: argparse.Namespace) -> None:
         print(f"Updated {key}")
         print(f"View at: https://{jira_site}/browse/{key}")
         from zaira.activity_log import record
+
         user_field_names = []
         if args.title:
             user_field_names.append("title")

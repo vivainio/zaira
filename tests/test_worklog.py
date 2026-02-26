@@ -19,8 +19,12 @@ from zaira.worklog import (
 )
 
 
-def _mock_worklog(author_name="user@example.com", time_spent="2h",
-                  started="2026-02-06T09:00:00.000+0000", comment=None):
+def _mock_worklog(
+    author_name="user@example.com",
+    time_spent="2h",
+    started="2026-02-06T09:00:00.000+0000",
+    comment=None,
+):
     """Create a mock worklog entry."""
     entry = MagicMock()
     entry.author = MagicMock()
@@ -80,9 +84,7 @@ class TestAddWorklog:
         result = add_worklog("TEST-123", "2h")
 
         assert result is True
-        mock_jira.add_worklog.assert_called_once_with(
-            issue="TEST-123", timeSpent="2h"
-        )
+        mock_jira.add_worklog.assert_called_once_with(issue="TEST-123", timeSpent="2h")
 
     def test_adds_worklog_with_comment(self, mock_jira):
         """Passes comment to Jira API."""
@@ -148,8 +150,9 @@ class TestLogCommand:
             _mock_worklog(time_spent="30m"),
         ]
 
-        args = argparse.Namespace(key="test-123", time=None, comment=None,
-                                  date=None, list=True)
+        args = argparse.Namespace(
+            key="test-123", time=None, comment=None, date=None, list=True
+        )
         log_command(args)
 
         captured = capsys.readouterr()
@@ -165,8 +168,9 @@ class TestLogCommand:
             _mock_worklog(time_spent="1h"),
         ]
 
-        args = argparse.Namespace(key="TEST-123", time=None, comment=None,
-                                  date=None, list=True)
+        args = argparse.Namespace(
+            key="TEST-123", time=None, comment=None, date=None, list=True
+        )
         log_command(args)
 
         captured = capsys.readouterr()
@@ -176,8 +180,9 @@ class TestLogCommand:
         """Shows message when no worklogs found."""
         mock_jira.worklogs.return_value = []
 
-        args = argparse.Namespace(key="TEST-123", time=None, comment=None,
-                                  date=None, list=True)
+        args = argparse.Namespace(
+            key="TEST-123", time=None, comment=None, date=None, list=True
+        )
         log_command(args)
 
         captured = capsys.readouterr()
@@ -185,8 +190,9 @@ class TestLogCommand:
 
     def test_exits_when_no_time_and_no_list(self, capsys):
         """Exits with error when neither time nor --list provided."""
-        args = argparse.Namespace(key="test-123", time=None, comment=None,
-                                  date=None, list=False)
+        args = argparse.Namespace(
+            key="test-123", time=None, comment=None, date=None, list=False
+        )
 
         with pytest.raises(SystemExit) as exc_info:
             log_command(args)
@@ -199,8 +205,9 @@ class TestLogCommand:
         """Logs time and shows success message."""
         mock_jira.add_worklog.return_value = MagicMock()
 
-        args = argparse.Namespace(key="test-123", time="2h", comment=None,
-                                  date=None, list=False)
+        args = argparse.Namespace(
+            key="test-123", time="2h", comment=None, date=None, list=False
+        )
 
         with patch("zaira.worklog.get_jira_site", return_value="jira.example.com"):
             log_command(args)
@@ -213,8 +220,9 @@ class TestLogCommand:
         """Passes comment when logging time."""
         mock_jira.add_worklog.return_value = MagicMock()
 
-        args = argparse.Namespace(key="TEST-123", time="1h", comment="Code review",
-                                  date=None, list=False)
+        args = argparse.Namespace(
+            key="TEST-123", time="1h", comment="Code review", date=None, list=False
+        )
 
         with patch("zaira.worklog.get_jira_site", return_value="jira.example.com"):
             log_command(args)
@@ -227,8 +235,9 @@ class TestLogCommand:
         """Parses date and passes started datetime."""
         mock_jira.add_worklog.return_value = MagicMock()
 
-        args = argparse.Namespace(key="TEST-123", time="3h", comment=None,
-                                  date="2026-02-05", list=False)
+        args = argparse.Namespace(
+            key="TEST-123", time="3h", comment=None, date="2026-02-05", list=False
+        )
 
         with patch("zaira.worklog.get_jira_site", return_value="jira.example.com"):
             log_command(args)
@@ -239,8 +248,9 @@ class TestLogCommand:
 
     def test_exits_on_invalid_date(self, capsys):
         """Exits with error on invalid date format."""
-        args = argparse.Namespace(key="TEST-123", time="2h", comment=None,
-                                  date="02/05/2026", list=False)
+        args = argparse.Namespace(
+            key="TEST-123", time="2h", comment=None, date="02/05/2026", list=False
+        )
 
         with pytest.raises(SystemExit) as exc_info:
             log_command(args)
@@ -254,8 +264,9 @@ class TestLogCommand:
         """Exits with error when add_worklog fails."""
         mock_jira.add_worklog.side_effect = Exception("Permission denied")
 
-        args = argparse.Namespace(key="TEST-123", time="1h", comment=None,
-                                  date=None, list=False)
+        args = argparse.Namespace(
+            key="TEST-123", time="1h", comment=None, date=None, list=False
+        )
 
         with patch("zaira.worklog.get_jira_site", return_value="jira.example.com"):
             with pytest.raises(SystemExit) as exc_info:
@@ -267,15 +278,14 @@ class TestLogCommand:
         """Converts ticket key to uppercase."""
         mock_jira.add_worklog.return_value = MagicMock()
 
-        args = argparse.Namespace(key="test-123", time="1h", comment=None,
-                                  date=None, list=False)
+        args = argparse.Namespace(
+            key="test-123", time="1h", comment=None, date=None, list=False
+        )
 
         with patch("zaira.worklog.get_jira_site", return_value="jira.example.com"):
             log_command(args)
 
-        mock_jira.add_worklog.assert_called_once_with(
-            issue="TEST-123", timeSpent="1h"
-        )
+        mock_jira.add_worklog.assert_called_once_with(issue="TEST-123", timeSpent="1h")
 
 
 class TestParseTimeToHours:
@@ -435,6 +445,7 @@ class TestSpreadHours:
         """Durations formatted as 'Xh', 'Xh 30m', or '30m'."""
         result = spread_hours("16h", ("2026-02-02", "2026-02-06"))
         import re
+
         for _, dur in result:
             assert re.match(r"^(\d+h( 30m)?|30m)$", dur), f"Bad format: {dur}"
 
@@ -454,7 +465,9 @@ class TestSpreadHours:
         """Reduces allocation on days with existing worklogs."""
         existing = {"2026-02-03": 6.0}  # Mon already has 6h
         result = spread_hours(
-            "16h", ("2026-02-02", "2026-02-06"), existing_hours=existing,
+            "16h",
+            ("2026-02-02", "2026-02-06"),
+            existing_hours=existing,
         )
         for date_str, dur in result:
             existing_h = existing.get(date_str, 0.0)
@@ -467,7 +480,9 @@ class TestSpreadHours:
         """Day with max hours already logged gets no allocation."""
         existing = {"2026-02-03": 7.5}
         result = spread_hours(
-            "8h", ("2026-02-02", "2026-02-06"), existing_hours=existing,
+            "8h",
+            ("2026-02-02", "2026-02-06"),
+            existing_hours=existing,
         )
         dates = [d for d, _ in result]
         assert "2026-02-03" not in dates
@@ -486,7 +501,9 @@ class TestSpreadHours:
         }
         with pytest.raises(ValueError, match="Cannot fit"):
             spread_hours(
-                "10h", ("2026-02-02", "2026-02-06"), existing_hours=existing,
+                "10h",
+                ("2026-02-02", "2026-02-06"),
+                existing_hours=existing,
             )
 
 
@@ -501,12 +518,20 @@ class TestLogCommandSpread:
     def test_spread_dry_run(self, mock_jira, capsys):
         """Shows preview and tells user to re-run with --yes."""
         args = argparse.Namespace(
-            key="TEST-123", time="8h", comment=None, date=None, list=False,
-            spread="2026-02-02,2026-02-06", yes=False, include_weekends=False,
+            key="TEST-123",
+            time="8h",
+            comment=None,
+            date=None,
+            list=False,
+            spread="2026-02-02,2026-02-06",
+            yes=False,
+            include_weekends=False,
         )
 
-        with patch("zaira.worklog.get_jira_site", return_value="jira.example.com"), \
-             self._patch_fetch:
+        with (
+            patch("zaira.worklog.get_jira_site", return_value="jira.example.com"),
+            self._patch_fetch,
+        ):
             log_command(args)
 
         captured = capsys.readouterr()
@@ -519,12 +544,20 @@ class TestLogCommandSpread:
         """--yes flag skips confirmation."""
         mock_jira.add_worklog.return_value = MagicMock()
         args = argparse.Namespace(
-            key="TEST-123", time="8h", comment=None, date=None, list=False,
-            spread="2026-02-02,2026-02-06", yes=True, include_weekends=False,
+            key="TEST-123",
+            time="8h",
+            comment=None,
+            date=None,
+            list=False,
+            spread="2026-02-02,2026-02-06",
+            yes=True,
+            include_weekends=False,
         )
 
-        with patch("zaira.worklog.get_jira_site", return_value="jira.example.com"), \
-             self._patch_fetch:
+        with (
+            patch("zaira.worklog.get_jira_site", return_value="jira.example.com"),
+            self._patch_fetch,
+        ):
             log_command(args)
 
         assert mock_jira.add_worklog.call_count == 5
@@ -532,8 +565,14 @@ class TestLogCommandSpread:
     def test_spread_invalid_format(self, capsys):
         """Exits on invalid --spread value."""
         args = argparse.Namespace(
-            key="TEST-123", time="8h", comment=None, date=None, list=False,
-            spread="bad", yes=True, include_weekends=False,
+            key="TEST-123",
+            time="8h",
+            comment=None,
+            date=None,
+            list=False,
+            spread="bad",
+            yes=True,
+            include_weekends=False,
         )
 
         with pytest.raises(SystemExit) as exc_info:
@@ -547,12 +586,20 @@ class TestLogCommandSpread:
         """Preview shows day names like Mon, Tue."""
         mock_jira.add_worklog.return_value = MagicMock()
         args = argparse.Namespace(
-            key="TEST-123", time="8h", comment=None, date=None, list=False,
-            spread="2026-02-02,2026-02-06", yes=True, include_weekends=False,
+            key="TEST-123",
+            time="8h",
+            comment=None,
+            date=None,
+            list=False,
+            spread="2026-02-02,2026-02-06",
+            yes=True,
+            include_weekends=False,
         )
 
-        with patch("zaira.worklog.get_jira_site", return_value="jira.example.com"), \
-             self._patch_fetch:
+        with (
+            patch("zaira.worklog.get_jira_site", return_value="jira.example.com"),
+            self._patch_fetch,
+        ):
             log_command(args)
 
         captured = capsys.readouterr()
@@ -563,16 +610,24 @@ class TestLogCommandSpread:
         """Preview shows existing ticket details."""
         mock_jira.add_worklog.return_value = MagicMock()
         args = argparse.Namespace(
-            key="TEST-123", time="8h", comment=None, date=None, list=False,
-            spread="2026-02-02,2026-02-06", yes=True, include_weekends=False,
+            key="TEST-123",
+            time="8h",
+            comment=None,
+            date=None,
+            list=False,
+            spread="2026-02-02,2026-02-06",
+            yes=True,
+            include_weekends=False,
         )
         existing = _ExistingHours(
             {"2026-02-03": 4.0},
             {"2026-02-03": [("FOO-1", 2.5), ("FOO-2", 1.5)]},
         )
 
-        with patch("zaira.worklog.get_jira_site", return_value="jira.example.com"), \
-             patch("zaira.worklog._fetch_existing_hours", return_value=existing):
+        with (
+            patch("zaira.worklog.get_jira_site", return_value="jira.example.com"),
+            patch("zaira.worklog._fetch_existing_hours", return_value=existing),
+        ):
             log_command(args)
 
         captured = capsys.readouterr()

@@ -89,7 +89,7 @@ IMAGES = [
     ("!image.jpg|thumbnail!", "![](image.jpg)"),
     ("!image.gif|align=right, vspace=4!", "![](image.gif)"),
     ("!image.png|width=500!", "![](image.png)"),
-    ("!screenshot.png|width=800,alt=\"My screenshot\"!", "![](screenshot.png)"),
+    ('!screenshot.png|width=800,alt="My screenshot"!', "![](screenshot.png)"),
 ]
 
 # --- Bullet Lists ---
@@ -97,7 +97,10 @@ BULLET_LISTS = [
     # Simple
     ("* item one\n* item two\n* item three", "- item one\n- item two\n- item three"),
     # Nested
-    ("* item\n** nested\n** also nested\n* back", "- item\n  - nested\n  - also nested\n- back"),
+    (
+        "* item\n** nested\n** also nested\n* back",
+        "- item\n  - nested\n  - also nested\n- back",
+    ),
     # Deep nesting
     ("* level 1\n** level 2\n*** level 3", "- level 1\n  - level 2\n    - level 3"),
     # Hyphen alternate style (Jira supports - as well)
@@ -109,7 +112,10 @@ NUMBERED_LISTS = [
     # Simple
     ("# first\n# second\n# third", "1. first\n1. second\n1. third"),
     # Nested
-    ("# first\n## nested\n## also nested\n# second", "1. first\n  1. nested\n  1. also nested\n1. second"),
+    (
+        "# first\n## nested\n## also nested\n# second",
+        "1. first\n  1. nested\n  1. also nested\n1. second",
+    ),
     # Deep nesting
     ("# level 1\n## level 2\n### level 3", "1. level 1\n  1. level 2\n    1. level 3"),
 ]
@@ -150,27 +156,30 @@ TABLES = [
 # --- Code Blocks ---
 CODE_BLOCKS = [
     # With language
-    ("{code:java}\npublic String getFoo() {\n    return foo;\n}\n{code}",
-     "```java\npublic String getFoo() {\n    return foo;\n}\n```"),
+    (
+        "{code:java}\npublic String getFoo() {\n    return foo;\n}\n{code}",
+        "```java\npublic String getFoo() {\n    return foo;\n}\n```",
+    ),
     # Language= form
-    ("{code:language=python}\ndef hello():\n    print('hi')\n{code}",
-     "```python\ndef hello():\n    print('hi')\n```"),
+    (
+        "{code:language=python}\ndef hello():\n    print('hi')\n{code}",
+        "```python\ndef hello():\n    print('hi')\n```",
+    ),
     # Short language form
-    ("{code:sql}\nSELECT * FROM table;\n{code}",
-     "```sql\nSELECT * FROM table;\n```"),
+    ("{code:sql}\nSELECT * FROM table;\n{code}", "```sql\nSELECT * FROM table;\n```"),
     # No language
-    ("{code}\nplain code\n{code}",
-     "```\nplain code\n```"),
+    ("{code}\nplain code\n{code}", "```\nplain code\n```"),
 ]
 
 # --- Noformat ---
 NOFORMAT = [
     # Block
-    ("{noformat}\npreformatted text\nwith *no* formatting\n{noformat}",
-     "```\npreformatted text\nwith *no* formatting\n```"),
+    (
+        "{noformat}\npreformatted text\nwith *no* formatting\n{noformat}",
+        "```\npreformatted text\nwith *no* formatting\n```",
+    ),
     # Inline start
-    ("{noformat}code on same line\n{noformat}",
-     "```\ncode on same line\n```"),
+    ("{noformat}code on same line\n{noformat}", "```\ncode on same line\n```"),
     # Single line
     ("{noformat}inline{noformat}", "`inline`"),
 ]
@@ -178,14 +187,17 @@ NOFORMAT = [
 # --- Panels ---
 PANELS = [
     # Simple panel
-    ("{panel}\nPanel content here.\n{panel}",
-     "> Panel content here."),
+    ("{panel}\nPanel content here.\n{panel}", "> Panel content here."),
     # Panel with title
-    ("{panel:title=My Title}\nContent in panel.\n{panel}",
-     "> **My Title**\n> Content in panel."),
+    (
+        "{panel:title=My Title}\nContent in panel.\n{panel}",
+        "> **My Title**\n> Content in panel.",
+    ),
     # Panel with title and other params
-    ("{panel:title=Warning|bgColor=#FFFFCE|borderColor=#ccc}\nBe careful!\n{panel}",
-     "> **Warning**\n> Be careful!"),
+    (
+        "{panel:title=Warning|bgColor=#FFFFCE|borderColor=#ccc}\nBe careful!\n{panel}",
+        "> **Warning**\n> Be careful!",
+    ),
 ]
 
 # --- Full Document (combining many features) ---
@@ -221,7 +233,6 @@ FULL_DOCUMENT = (
     "----\n"
     "\n"
     "See [~johndoe] for questions.",
-
     "## Project Overview\n"
     "\n"
     "This project is **very important** and uses `microservices`.\n"

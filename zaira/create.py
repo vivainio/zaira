@@ -74,7 +74,9 @@ def parse_ticket_file(path: Path) -> tuple[dict, str]:
     return parse_content(path.read_text())
 
 
-def map_fields(front_matter: dict, description: str, project: str = "", issue_type: str = "") -> dict:
+def map_fields(
+    front_matter: dict, description: str, project: str = "", issue_type: str = ""
+) -> dict:
     """Map front matter fields to Jira API field format.
 
     Args:
@@ -122,7 +124,10 @@ def map_fields(front_matter: dict, description: str, project: str = "", issue_ty
                     names = []
                 if names:
                     from zaira.edit import _resolve_component
-                    fields["components"] = [_resolve_component(n, project) for n in names]
+
+                    fields["components"] = [
+                        _resolve_component(n, project) for n in names
+                    ]
             elif jira_field == "labels":
                 if isinstance(value, list):
                     fields["labels"] = value
@@ -142,7 +147,9 @@ def map_fields(front_matter: dict, description: str, project: str = "", issue_ty
             em = get_editmeta_field(project, issue_type, key)
             if em:
                 field_id = em[0]
-                fields[field_id] = format_field_value(field_id, value, project=project, issue_type=issue_type)
+                fields[field_id] = format_field_value(
+                    field_id, value, project=project, issue_type=issue_type
+                )
             else:
                 print(f"Warning: Unknown field '{key}', skipping", file=sys.stderr)
 
@@ -205,6 +212,7 @@ def create_command(args: argparse.Namespace) -> None:
     # Auto-convert markdown to Jira wiki if needed
     if description and detect_markdown(description):
         from zaira.mdconv import markdown_to_jira_wiki
+
         description = markdown_to_jira_wiki(description)
 
     project = front_matter.get("project", "")
@@ -216,10 +224,12 @@ def create_command(args: argparse.Namespace) -> None:
 
     # Auto-learn editmeta if needed
     from zaira.info import ensure_editmeta_for_type
+
     ensure_editmeta_for_type(project, issue_type)
 
     fields = map_fields(
-        front_matter, description,
+        front_matter,
+        description,
         project=project,
         issue_type=issue_type,
     )
@@ -229,5 +239,6 @@ def create_command(args: argparse.Namespace) -> None:
     if key:
         print(f"Created {key}")
         from zaira.activity_log import record
+
         summary = front_matter.get("summary", "")
         record("create", key, summary if summary else None)

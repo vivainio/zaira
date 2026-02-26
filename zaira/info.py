@@ -37,7 +37,9 @@ def save_field_descriptions(descriptions: dict[str, str]) -> None:
     """Save shared field descriptions."""
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     FIELD_DESCRIPTIONS_FILE.write_text(
-        yaml.dump(descriptions, default_flow_style=False, sort_keys=True, allow_unicode=True)
+        yaml.dump(
+            descriptions, default_flow_style=False, sort_keys=True, allow_unicode=True
+        )
     )
 
 
@@ -173,7 +175,10 @@ def get_field_map() -> dict[str, str]:
     schema = load_schema()
     if not schema or "fields" not in schema:
         return {}
-    return {field_def.get("name", ""): field_id for field_id, field_def in schema["fields"].items()}
+    return {
+        field_def.get("name", ""): field_id
+        for field_id, field_def in schema["fields"].items()
+    }
 
 
 def get_field_type(field_id: str) -> str | None:
@@ -338,11 +343,15 @@ def fields_command(args: argparse.Namespace) -> None:
 
     # fields_command needs special handling: cache stores {id: {...}} but we need list
     if not refresh and schema and "fields" in schema:
-        fields = [{"id": k, "name": v.get("name", "")} for k, v in schema["fields"].items()]
+        fields = [
+            {"id": k, "name": v.get("name", "")} for k, v in schema["fields"].items()
+        ]
     else:
         try:
             fields_dict = _fetch_and_cache_fields()
-            fields = [{"id": k, "name": v.get("name", "")} for k, v in fields_dict.items()]
+            fields = [
+                {"id": k, "name": v.get("name", "")} for k, v in fields_dict.items()
+            ]
         except Exception as e:
             print(f"Error fetching fields: {format_jira_error(e)}", file=sys.stderr)
             sys.exit(1)
@@ -439,7 +448,9 @@ def _fix_component_allowed_values(fields: dict, project: str, jira) -> None:
             pass
 
 
-def _fetch_and_save_editmeta(key: str, project: str, issue_type: str) -> EditmetaSchema | None:
+def _fetch_and_save_editmeta(
+    key: str, project: str, issue_type: str
+) -> EditmetaSchema | None:
     """Fetch editmeta from API for a specific issue and save to cache."""
     jira = get_jira()
     server = jira._options["server"]
@@ -461,7 +472,10 @@ def _fetch_and_save_editmeta(key: str, project: str, issue_type: str) -> Editmet
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     path = get_editmeta_path(project, issue_type)
     path.write_text(yaml.dump(editmeta, default_flow_style=False, sort_keys=False))
-    print(f"Learned {issue_type} editmeta from {key} ({len(all_fields)} fields)", file=sys.stderr)
+    print(
+        f"Learned {issue_type} editmeta from {key} ({len(all_fields)} fields)",
+        file=sys.stderr,
+    )
     return editmeta
 
 
@@ -654,14 +668,19 @@ def learn_command(args: argparse.Namespace) -> None:
             issue = jira.issue(key, fields="issuetype")
             issue_type = issue.fields.issuetype.name
         except Exception as e:
-            print(f"Error fetching issue {key}: {format_jira_error(e)}", file=sys.stderr)
+            print(
+                f"Error fetching issue {key}: {format_jira_error(e)}", file=sys.stderr
+            )
             continue
 
         try:
             resp = jira._session.get(f"{server}/rest/api/3/issue/{key}/editmeta")
             resp.raise_for_status()
         except Exception as e:
-            print(f"Error fetching editmeta for {key}: {format_jira_error(e)}", file=sys.stderr)
+            print(
+                f"Error fetching editmeta for {key}: {format_jira_error(e)}",
+                file=sys.stderr,
+            )
             continue
 
         all_fields = _parse_editmeta_response(resp.json())
@@ -725,7 +744,10 @@ def field_command(args: argparse.Namespace) -> None:
             fields = editmeta["fields"]
             hit = None
             for fname, fdef in fields.items():
-                if fname.lower() == name_lower or fdef.get("id", "").lower() == name_lower:
+                if (
+                    fname.lower() == name_lower
+                    or fdef.get("id", "").lower() == name_lower
+                ):
                     hit = (fname, fdef)
                     break
             if not hit:

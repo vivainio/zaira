@@ -33,7 +33,9 @@ class TestCreateLink:
         result = create_link("TEST-1", "TEST-2", "Blocks")
 
         assert result is True
-        mock_jira.create_issue_link.assert_called_once_with("Blocks", "TEST-1", "TEST-2")
+        mock_jira.create_issue_link.assert_called_once_with(
+            "Blocks", "TEST-1", "TEST-2"
+        )
 
     def test_returns_false_on_error(self, mock_jira, capsys):
         """Returns False on general error."""
@@ -109,4 +111,6 @@ class TestLinkCommand:
         with patch("zaira.link.get_jira_site", return_value="jira.example.com"):
             link_command(args)
 
-        mock_jira.create_issue_link.assert_called_once_with("Relates", "TEST-1", "PROJ-2")
+        mock_jira.create_issue_link.assert_called_once_with(
+            "Relates", "TEST-1", "PROJ-2"
+        )

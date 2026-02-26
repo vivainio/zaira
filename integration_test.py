@@ -225,7 +225,9 @@ def test_attach_and_get_attachment(key: str):
             p.write_text(f"test content for {name}\n")
 
         # Upload all three
-        files = " ".join(f"{tmpdir}/{n}" for n in ["report.txt", "report.pdf", "image.png"])
+        files = " ".join(
+            f"{tmpdir}/{n}" for n in ["report.txt", "report.pdf", "image.png"]
+        )
         result = run(f"attach {key} {files}")
         assert "Uploaded 3/3" in result.stdout
 
@@ -286,7 +288,7 @@ def test_worklog(key: str):
     """Log work and verify with --list."""
     print("\n=== Log work ===")
     run(f'log {key} 1h -c "Integration test work"')
-    run(f'log {key} 30m -d 2026-02-01')
+    run(f"log {key} 30m -d 2026-02-01")
 
     print("\n=== List worklogs ===")
     result = run(f"log {key} --list")

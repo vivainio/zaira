@@ -10,7 +10,9 @@ from zaira.report import humanize_age
 PAGE_SIZE = 50
 
 
-def print_row(key: str, status: str, created: str, summary: str, key_width: int) -> None:
+def print_row(
+    key: str, status: str, created: str, summary: str, key_width: int
+) -> None:
     """Print a single search result row."""
     age = humanize_age(created)
     if len(summary) > 90:

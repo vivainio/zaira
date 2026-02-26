@@ -153,7 +153,10 @@ class TestFormatHours:
     def test_daily_breakdown(self):
         """Shows daily breakdown with totals."""
         daily = {
-            "2026-02-03": [("FOO-1", "Feature", 2.0, "Morning"), ("FOO-2", "Bug", 1.0, None)],
+            "2026-02-03": [
+                ("FOO-1", "Feature", 2.0, "Morning"),
+                ("FOO-2", "Bug", 1.0, None),
+            ],
             "2026-02-04": [("FOO-1", "Feature", 3.0, None)],
         }
         totals = {"FOO-1": 5.0, "FOO-2": 1.0}
@@ -174,7 +177,9 @@ class TestFormatHours:
         }
         totals = {"FOO-1": 2.0}
 
-        result = format_hours(daily, totals, "2026-02-02", "2026-02-06", summary_only=True)
+        result = format_hours(
+            daily, totals, "2026-02-02", "2026-02-06", summary_only=True
+        )
 
         assert "2026-02-03" not in result  # No daily breakdown
         assert "Total: 2.0h" in result
@@ -214,8 +219,11 @@ class TestHoursCommand:
         mock_jira.search_issues.return_value = []
 
         args = argparse.Namespace(
-            tickets=[], date_from="2026-01-20", date_to="2026-01-24", days=None,
-            summary=False
+            tickets=[],
+            date_from="2026-01-20",
+            date_to="2026-01-24",
+            days=None,
+            summary=False,
         )
 
         hours_command(args)
@@ -227,8 +235,7 @@ class TestHoursCommand:
     def test_exits_when_only_from(self, capsys):
         """Exits with error when only --from is provided."""
         args = argparse.Namespace(
-            tickets=[], date_from="2026-01-20", date_to=None, days=None,
-            summary=False
+            tickets=[], date_from="2026-01-20", date_to=None, days=None, summary=False
         )
 
         with pytest.raises(SystemExit) as exc_info:
@@ -241,8 +248,11 @@ class TestHoursCommand:
     def test_exits_on_invalid_date(self, capsys):
         """Exits with error on invalid date format."""
         args = argparse.Namespace(
-            tickets=[], date_from="01/20/2026", date_to="01/24/2026", days=None,
-            summary=False
+            tickets=[],
+            date_from="01/20/2026",
+            date_to="01/24/2026",
+            days=None,
+            summary=False,
         )
 
         with pytest.raises(SystemExit) as exc_info:
@@ -261,8 +271,7 @@ class TestHoursCommand:
         ]
 
         args = argparse.Namespace(
-            tickets=["FOO-1"], date_from=None, date_to=None, days=None,
-            summary=False
+            tickets=["FOO-1"], date_from=None, date_to=None, days=None, summary=False
         )
 
         hours_command(args)
@@ -297,7 +306,9 @@ class TestQueryTicketHours:
             _mock_worklog("alice@test.com", 3600, "2026-02-07T09:00:00"),
         ]
 
-        result = query_ticket_hours(["FOO-1"], date_from="2026-02-02", date_to="2026-02-06")
+        result = query_ticket_hours(
+            ["FOO-1"], date_from="2026-02-02", date_to="2026-02-06"
+        )
 
         assert result["FOO-1"]["alice@test.com"] == pytest.approx(1.0)
 
@@ -447,8 +458,9 @@ class TestFormatHoursMissing:
         }
         totals = {"FOO-1": 9.5}
 
-        result = format_hours(daily, totals, "2026-02-09", "2026-02-13",
-                              show_missing=True)
+        result = format_hours(
+            daily, totals, "2026-02-09", "2026-02-13", show_missing=True
+        )
 
         assert "Missing hours:" in result
         assert "2026-02-10 (Tue)" in result
@@ -457,8 +469,11 @@ class TestFormatHoursMissing:
         assert "7.5h missing" in result
         assert "Total missing:" in result
         # Mon has 7.5h so should NOT appear in missing
-        assert "2026-02-09" not in result.split("Missing hours:")[1].split("Total missing:")[0] or \
-               "0.0h missing" not in result
+        assert (
+            "2026-02-09"
+            not in result.split("Missing hours:")[1].split("Total missing:")[0]
+            or "0.0h missing" not in result
+        )
 
     @patch("zaira.hours.get_max_hours_per_day", return_value=7.5)
     def test_no_missing_when_all_full(self, _mock_max):
@@ -469,16 +484,16 @@ class TestFormatHoursMissing:
         }
         totals = {"FOO-1": 7.5}
 
-        result = format_hours(daily, totals, "2026-02-09", "2026-02-09",
-                              show_missing=True)
+        result = format_hours(
+            daily, totals, "2026-02-09", "2026-02-09", show_missing=True
+        )
 
         assert "Missing hours:" not in result
 
     @patch("zaira.hours.get_max_hours_per_day", return_value=7.5)
     def test_shows_missing_with_no_worklogs(self, _mock_max):
         """Shows missing days even when there are zero worklogs."""
-        result = format_hours({}, {}, "2026-02-09", "2026-02-09",
-                              show_missing=True)
+        result = format_hours({}, {}, "2026-02-09", "2026-02-09", show_missing=True)
 
         assert "Missing hours:" in result
         assert "7.5h missing" in result
@@ -493,8 +508,14 @@ class TestHoursCommandMissing:
         mock_jira.search_issues.return_value = []
 
         args = argparse.Namespace(
-            tickets=[], date_from="2026-02-09", date_to="2026-02-13",
-            days=None, summary=False, missing=True, fill=None, yes=False,
+            tickets=[],
+            date_from="2026-02-09",
+            date_to="2026-02-13",
+            days=None,
+            summary=False,
+            missing=True,
+            fill=None,
+            yes=False,
         )
 
         hours_command(args)
@@ -518,8 +539,14 @@ class TestHoursCommandFill:
         ]
 
         args = argparse.Namespace(
-            tickets=[], date_from="2026-02-09", date_to="2026-02-10",
-            days=None, summary=False, missing=False, fill="FOO-99", yes=False,
+            tickets=[],
+            date_from="2026-02-09",
+            date_to="2026-02-10",
+            days=None,
+            summary=False,
+            missing=False,
+            fill="FOO-99",
+            yes=False,
         )
 
         hours_command(args)
@@ -577,8 +604,12 @@ class TestHoursCommandCsv:
         ]
 
         args = argparse.Namespace(
-            tickets=["FOO-1"], date_from=None, date_to=None, days=None,
-            summary=False, format="csv"
+            tickets=["FOO-1"],
+            date_from=None,
+            date_to=None,
+            days=None,
+            summary=False,
+            format="csv",
         )
 
         hours_command(args)

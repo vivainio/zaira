@@ -36,9 +36,22 @@ class TestFormatFieldValue:
 
     def test_number_field_converts_string(self):
         """Numeric field converts string to number."""
-        with patch("zaira.edit.get_editmeta_field", return_value=_em("customfield_123", "number")):
-            assert format_field_value("customfield_123", "5", project="T", issue_type="Story") == 5
-            assert format_field_value("customfield_123", "3.5", project="T", issue_type="Story") == 3.5
+        with patch(
+            "zaira.edit.get_editmeta_field",
+            return_value=_em("customfield_123", "number"),
+        ):
+            assert (
+                format_field_value(
+                    "customfield_123", "5", project="T", issue_type="Story"
+                )
+                == 5
+            )
+            assert (
+                format_field_value(
+                    "customfield_123", "3.5", project="T", issue_type="Story"
+                )
+                == 3.5
+            )
 
     def test_number_field_preserves_number(self):
         """Numeric field preserves existing number."""
@@ -46,8 +59,13 @@ class TestFormatFieldValue:
 
     def test_option_field_wraps_value(self):
         """Option field wraps value in dict."""
-        with patch("zaira.edit.get_editmeta_field", return_value=_em("customfield_123", "option")):
-            assert format_field_value("customfield_123", "High", project="T", issue_type="Story") == {"value": "High"}
+        with patch(
+            "zaira.edit.get_editmeta_field",
+            return_value=_em("customfield_123", "option"),
+        ):
+            assert format_field_value(
+                "customfield_123", "High", project="T", issue_type="Story"
+            ) == {"value": "High"}
 
     def test_dict_value_unchanged(self):
         """Dict values are not modified."""
@@ -66,7 +84,13 @@ class TestMapFieldsCreate:
     def test_custom_field_uses_format_field_value(self):
         """Custom fields are formatted using format_field_value."""
         with (
-            patch("zaira.create.get_editmeta_field", return_value=("customfield_10551", {"id": "customfield_10551", "type": "number"})),
+            patch(
+                "zaira.create.get_editmeta_field",
+                return_value=(
+                    "customfield_10551",
+                    {"id": "customfield_10551", "type": "number"},
+                ),
+            ),
             patch("zaira.create.format_field_value") as mock_format,
         ):
             mock_format.return_value = 5
@@ -74,13 +98,24 @@ class TestMapFieldsCreate:
             front_matter = {"storypoints": "5"}
             result = map_fields(front_matter, "", project="T", issue_type="Story")
 
-            mock_format.assert_called_once_with("customfield_10551", "5", project="T", issue_type="Story")
+            mock_format.assert_called_once_with(
+                "customfield_10551", "5", project="T", issue_type="Story"
+            )
             assert result["customfield_10551"] == 5
 
     def test_custom_numeric_field_converted(self):
         """Custom numeric field string is converted to number."""
-        with patch("zaira.create.get_editmeta_field", return_value=("customfield_10551", {"id": "customfield_10551", "type": "number"})):
-            with patch("zaira.edit.get_editmeta_field", return_value=_em("customfield_10551", "number")):
+        with patch(
+            "zaira.create.get_editmeta_field",
+            return_value=(
+                "customfield_10551",
+                {"id": "customfield_10551", "type": "number"},
+            ),
+        ):
+            with patch(
+                "zaira.edit.get_editmeta_field",
+                return_value=_em("customfield_10551", "number"),
+            ):
                 front_matter = {"effort": "10"}
                 result = map_fields(front_matter, "", project="T", issue_type="Story")
 
@@ -106,36 +141,73 @@ class TestNumericEdgeCases:
 
     def test_number_field_with_none(self):
         """None value is preserved for number fields."""
-        with patch("zaira.edit.get_editmeta_field", return_value=_em("customfield_123", "number")):
-            result = format_field_value("customfield_123", None, project="T", issue_type="Story")
+        with patch(
+            "zaira.edit.get_editmeta_field",
+            return_value=_em("customfield_123", "number"),
+        ):
+            result = format_field_value(
+                "customfield_123", None, project="T", issue_type="Story"
+            )
             assert result is None
 
     def test_number_field_with_zero(self):
         """Zero is a valid number value."""
         assert format_field_value("customfield_123", 0) == 0
-        with patch("zaira.edit.get_editmeta_field", return_value=_em("customfield_123", "number")):
-            assert format_field_value("customfield_123", "0", project="T", issue_type="Story") == 0
+        with patch(
+            "zaira.edit.get_editmeta_field",
+            return_value=_em("customfield_123", "number"),
+        ):
+            assert (
+                format_field_value(
+                    "customfield_123", "0", project="T", issue_type="Story"
+                )
+                == 0
+            )
         assert format_field_value("customfield_123", 0.0) == 0.0
 
     def test_number_field_with_negative(self):
         """Negative numbers are handled correctly."""
         assert format_field_value("customfield_123", -5) == -5
-        with patch("zaira.edit.get_editmeta_field", return_value=_em("customfield_123", "number")):
-            assert format_field_value("customfield_123", "-10", project="T", issue_type="Story") == -10
+        with patch(
+            "zaira.edit.get_editmeta_field",
+            return_value=_em("customfield_123", "number"),
+        ):
+            assert (
+                format_field_value(
+                    "customfield_123", "-10", project="T", issue_type="Story"
+                )
+                == -10
+            )
         assert format_field_value("customfield_123", -3.14) == -3.14
 
     def test_number_field_with_large_values(self):
         """Large numbers are handled correctly."""
         large_int = 999999999999
         assert format_field_value("customfield_123", large_int) == large_int
-        with patch("zaira.edit.get_editmeta_field", return_value=_em("customfield_123", "number")):
-            assert format_field_value("customfield_123", str(large_int), project="T", issue_type="Story") == large_int
+        with patch(
+            "zaira.edit.get_editmeta_field",
+            return_value=_em("customfield_123", "number"),
+        ):
+            assert (
+                format_field_value(
+                    "customfield_123", str(large_int), project="T", issue_type="Story"
+                )
+                == large_int
+            )
 
     def test_number_field_with_small_float(self):
         """Small float values are handled correctly."""
         assert format_field_value("customfield_123", 0.001) == 0.001
-        with patch("zaira.edit.get_editmeta_field", return_value=_em("customfield_123", "number")):
-            assert format_field_value("customfield_123", "0.001", project="T", issue_type="Story") == 0.001
+        with patch(
+            "zaira.edit.get_editmeta_field",
+            return_value=_em("customfield_123", "number"),
+        ):
+            assert (
+                format_field_value(
+                    "customfield_123", "0.001", project="T", issue_type="Story"
+                )
+                == 0.001
+            )
 
     def test_parse_number_edge_cases(self):
         """Edge cases for _parse_number function."""
@@ -156,14 +228,24 @@ class TestOptionFieldEdgeCases:
 
     def test_option_field_with_none(self):
         """None value is wrapped in dict for option fields."""
-        with patch("zaira.edit.get_editmeta_field", return_value=_em("customfield_123", "option")):
-            result = format_field_value("customfield_123", None, project="T", issue_type="Story")
+        with patch(
+            "zaira.edit.get_editmeta_field",
+            return_value=_em("customfield_123", "option"),
+        ):
+            result = format_field_value(
+                "customfield_123", None, project="T", issue_type="Story"
+            )
             assert result == {"value": None}
 
     def test_option_field_with_empty_string(self):
         """Empty string is wrapped in dict for option fields."""
-        with patch("zaira.edit.get_editmeta_field", return_value=_em("customfield_123", "option")):
-            result = format_field_value("customfield_123", "", project="T", issue_type="Story")
+        with patch(
+            "zaira.edit.get_editmeta_field",
+            return_value=_em("customfield_123", "option"),
+        ):
+            result = format_field_value(
+                "customfield_123", "", project="T", issue_type="Story"
+            )
             assert result == {"value": ""}
 
     def test_option_field_with_empty_dict(self):

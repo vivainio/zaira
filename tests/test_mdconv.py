@@ -822,7 +822,10 @@ class TestJiraWikiToMarkdownRoundTrip:
         ("bq. blockquote text", "bq. blockquote text"),
         ("-deleted-", "-deleted-"),
         ("----", "----"),
-        ("{code:language=python}\ncode()\n{code}", "{code:language=python}\ncode()\n{code}"),
+        (
+            "{code:language=python}\ncode()\n{code}",
+            "{code:language=python}\ncode()\n{code}",
+        ),
         ("{code}\nplain\n{code}", "{code}\nplain\n{code}"),
         # Tables: markdown_to_jira_wiki passes markdown tables through,
         # so the round-trip stabilizes on markdown table format
@@ -883,7 +886,9 @@ class TestAtlassianWikiSamples:
     Source: https://jira.atlassian.com/secure/WikiRendererHelpAction.jspa
     """
 
-    @pytest.mark.parametrize("wiki,expected", HEADINGS, ids=[f"h{i+1}" for i in range(len(HEADINGS))])
+    @pytest.mark.parametrize(
+        "wiki,expected", HEADINGS, ids=[f"h{i + 1}" for i in range(len(HEADINGS))]
+    )
     def test_headings(self, wiki, expected):
         assert jira_wiki_to_markdown(wiki) == expected
 
@@ -899,7 +904,9 @@ class TestAtlassianWikiSamples:
     def test_color(self, wiki, expected):
         assert jira_wiki_to_markdown(wiki) == expected
 
-    @pytest.mark.parametrize("wiki,expected", TEXT_BREAKS, ids=[repr(w)[:30] for w, _ in TEXT_BREAKS])
+    @pytest.mark.parametrize(
+        "wiki,expected", TEXT_BREAKS, ids=[repr(w)[:30] for w, _ in TEXT_BREAKS]
+    )
     def test_text_breaks(self, wiki, expected):
         assert jira_wiki_to_markdown(wiki) == expected
 
@@ -911,35 +918,57 @@ class TestAtlassianWikiSamples:
     def test_images(self, wiki, expected):
         assert jira_wiki_to_markdown(wiki) == expected
 
-    @pytest.mark.parametrize("wiki,expected", BULLET_LISTS, ids=[f"bullet_{i}" for i in range(len(BULLET_LISTS))])
+    @pytest.mark.parametrize(
+        "wiki,expected",
+        BULLET_LISTS,
+        ids=[f"bullet_{i}" for i in range(len(BULLET_LISTS))],
+    )
     def test_bullet_lists(self, wiki, expected):
         assert jira_wiki_to_markdown(wiki) == expected
 
-    @pytest.mark.parametrize("wiki,expected", NUMBERED_LISTS, ids=[f"numbered_{i}" for i in range(len(NUMBERED_LISTS))])
+    @pytest.mark.parametrize(
+        "wiki,expected",
+        NUMBERED_LISTS,
+        ids=[f"numbered_{i}" for i in range(len(NUMBERED_LISTS))],
+    )
     def test_numbered_lists(self, wiki, expected):
         assert jira_wiki_to_markdown(wiki) == expected
 
-    @pytest.mark.parametrize("wiki,expected", MIXED_LISTS, ids=[f"mixed_{i}" for i in range(len(MIXED_LISTS))])
+    @pytest.mark.parametrize(
+        "wiki,expected",
+        MIXED_LISTS,
+        ids=[f"mixed_{i}" for i in range(len(MIXED_LISTS))],
+    )
     def test_mixed_lists(self, wiki, expected):
         assert jira_wiki_to_markdown(wiki) == expected
 
-    @pytest.mark.parametrize("wiki,expected", BLOCKQUOTES, ids=[f"bq_{i}" for i in range(len(BLOCKQUOTES))])
+    @pytest.mark.parametrize(
+        "wiki,expected", BLOCKQUOTES, ids=[f"bq_{i}" for i in range(len(BLOCKQUOTES))]
+    )
     def test_blockquotes(self, wiki, expected):
         assert jira_wiki_to_markdown(wiki) == expected
 
-    @pytest.mark.parametrize("wiki,expected", TABLES, ids=[f"table_{i}" for i in range(len(TABLES))])
+    @pytest.mark.parametrize(
+        "wiki,expected", TABLES, ids=[f"table_{i}" for i in range(len(TABLES))]
+    )
     def test_tables(self, wiki, expected):
         assert jira_wiki_to_markdown(wiki) == expected
 
-    @pytest.mark.parametrize("wiki,expected", CODE_BLOCKS, ids=[f"code_{i}" for i in range(len(CODE_BLOCKS))])
+    @pytest.mark.parametrize(
+        "wiki,expected", CODE_BLOCKS, ids=[f"code_{i}" for i in range(len(CODE_BLOCKS))]
+    )
     def test_code_blocks(self, wiki, expected):
         assert jira_wiki_to_markdown(wiki) == expected
 
-    @pytest.mark.parametrize("wiki,expected", NOFORMAT, ids=[f"noformat_{i}" for i in range(len(NOFORMAT))])
+    @pytest.mark.parametrize(
+        "wiki,expected", NOFORMAT, ids=[f"noformat_{i}" for i in range(len(NOFORMAT))]
+    )
     def test_noformat(self, wiki, expected):
         assert jira_wiki_to_markdown(wiki) == expected
 
-    @pytest.mark.parametrize("wiki,expected", PANELS, ids=[f"panel_{i}" for i in range(len(PANELS))])
+    @pytest.mark.parametrize(
+        "wiki,expected", PANELS, ids=[f"panel_{i}" for i in range(len(PANELS))]
+    )
     def test_panels(self, wiki, expected):
         assert jira_wiki_to_markdown(wiki) == expected
 

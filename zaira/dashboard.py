@@ -88,7 +88,10 @@ def get_dashboard(dashboard_id: int) -> Dashboard | None:
         d = jira._get_json(f"dashboard/{dashboard_id}")
         return _dict_to_dashboard(d)
     except Exception as e:
-        print(f"Error fetching dashboard {dashboard_id}: {format_jira_error(e)}", file=sys.stderr)
+        print(
+            f"Error fetching dashboard {dashboard_id}: {format_jira_error(e)}",
+            file=sys.stderr,
+        )
         return None
 
 
@@ -149,7 +152,8 @@ def get_dashboard_gadgets(
         return gadgets
     except Exception as e:
         print(
-            f"Error fetching gadgets for dashboard {dashboard_id}: {format_jira_error(e)}", file=sys.stderr
+            f"Error fetching gadgets for dashboard {dashboard_id}: {format_jira_error(e)}",
+            file=sys.stderr,
         )
         return []
 

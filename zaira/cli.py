@@ -57,6 +57,7 @@ def _migrate_legacy_dirs() -> None:
         return
     from platformdirs import user_config_dir
     from zaira.jira_client import CONFIG_DIR
+
     old = Path(user_config_dir("zaira"))  # AppData\Local\zaira\zaira
     if not old.exists():
         return
@@ -532,7 +533,8 @@ def main() -> None:
         help="Output format (csv only for ticket mode)",
     )
     hours_parser.add_argument(
-        "-m", "--missing",
+        "-m",
+        "--missing",
         action="store_true",
         help="Show workdays with missing hours",
     )
@@ -542,7 +544,8 @@ def main() -> None:
         help="Fill missing hours on TICKET (preview; add --yes to confirm)",
     )
     hours_parser.add_argument(
-        "-y", "--yes",
+        "-y",
+        "--yes",
         action="store_true",
         help="Confirm filling missing hours (requires --fill)",
     )
@@ -748,7 +751,9 @@ def main() -> None:
     )
     info_fields.set_defaults(info_func=fields_command)
 
-    info_field = info_subparsers.add_parser("field", help="Look up editmeta for a field")
+    info_field = info_subparsers.add_parser(
+        "field", help="Look up editmeta for a field"
+    )
     info_field.add_argument(
         "names",
         nargs="+",
@@ -1064,6 +1069,7 @@ def main() -> None:
 
     def _reset_command(args: argparse.Namespace) -> None:
         from zaira.jira_client import CACHE_DIR
+
         cleared = 0
         for f in CACHE_DIR.iterdir():
             if f.name == "activity.log":
@@ -1083,7 +1089,9 @@ def main() -> None:
             print("Usage: zaira bundle <install|update>")
             sys.exit(1)
 
-    bundle_parser = subparsers.add_parser("bundle", help="Install and update rule bundles")
+    bundle_parser = subparsers.add_parser(
+        "bundle", help="Install and update rule bundles"
+    )
     bundle_parser.set_defaults(func=bundle_command)
     bundle_subparsers = bundle_parser.add_subparsers(dest="bundle_command")
 

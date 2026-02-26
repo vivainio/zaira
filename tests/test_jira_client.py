@@ -33,21 +33,31 @@ class TestGetServerFromConfig:
 
     def test_returns_site_from_credentials(self, tmp_path, monkeypatch):
         """Returns site from credentials file."""
-        with patch.object(jira_client, "load_credentials", return_value={"site": "example.atlassian.net"}):
+        with patch.object(
+            jira_client,
+            "load_credentials",
+            return_value={"site": "example.atlassian.net"},
+        ):
             result = jira_client.get_server_from_config()
 
         assert result == "https://example.atlassian.net"
 
     def test_adds_https_prefix(self, tmp_path, monkeypatch):
         """Adds https:// prefix when missing."""
-        with patch.object(jira_client, "load_credentials", return_value={"site": "jira.example.com"}):
+        with patch.object(
+            jira_client, "load_credentials", return_value={"site": "jira.example.com"}
+        ):
             result = jira_client.get_server_from_config()
 
         assert result == "https://jira.example.com"
 
     def test_preserves_https_prefix(self, tmp_path, monkeypatch):
         """Preserves https:// prefix when present."""
-        with patch.object(jira_client, "load_credentials", return_value={"site": "https://jira.example.com"}):
+        with patch.object(
+            jira_client,
+            "load_credentials",
+            return_value={"site": "https://jira.example.com"},
+        ):
             result = jira_client.get_server_from_config()
 
         assert result == "https://jira.example.com"
@@ -93,25 +103,34 @@ class TestGetJiraSite:
 
     def test_returns_site_without_protocol(self, tmp_path, monkeypatch):
         """Returns site name without https://."""
-        with patch.object(jira_client, "load_credentials", return_value={"site": "https://example.atlassian.net"}):
+        with patch.object(
+            jira_client,
+            "load_credentials",
+            return_value={"site": "https://example.atlassian.net"},
+        ):
             result = jira_client.get_jira_site()
 
         assert result == "example.atlassian.net"
 
     def test_strips_http_protocol(self, tmp_path, monkeypatch):
         """Strips http:// from site."""
-        with patch.object(jira_client, "load_credentials", return_value={"site": "http://jira.example.com"}):
+        with patch.object(
+            jira_client,
+            "load_credentials",
+            return_value={"site": "http://jira.example.com"},
+        ):
             result = jira_client.get_jira_site()
 
         assert result == "jira.example.com"
 
     def test_returns_site_as_is_without_protocol(self, tmp_path, monkeypatch):
         """Returns site as-is when no protocol."""
-        with patch.object(jira_client, "load_credentials", return_value={"site": "jira.example.com"}):
+        with patch.object(
+            jira_client, "load_credentials", return_value={"site": "jira.example.com"}
+        ):
             result = jira_client.get_jira_site()
 
         assert result == "jira.example.com"
-
 
 
 class TestJiraClientInjection:

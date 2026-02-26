@@ -3,7 +3,13 @@
 from pathlib import Path
 from unittest.mock import patch
 
-from zaira.rules import check_ticket, validate_transition, Violation, _find_rules_file, load_rules
+from zaira.rules import (
+    check_ticket,
+    validate_transition,
+    Violation,
+    _find_rules_file,
+    load_rules,
+)
 import zaira.jira_client as jira_client_mod
 
 
@@ -166,7 +172,9 @@ class TestCheckTicket:
         v = check_ticket(_ticket(status="Done", description="no match"), rules)
         assert len(v) == 1
         assert v[0].check == "contains"
-        assert check_ticket(_ticket(status="To Do", description="no match"), rules) == []
+        assert (
+            check_ticket(_ticket(status="To Do", description="no match"), rules) == []
+        )
 
     def test_contains_custom_field(self):
         rules = {"contains": {"Release Notes": "tested"}}
@@ -200,7 +208,9 @@ class TestCheckTicket:
         }
         v = check_ticket(_ticket(status="Done", description="WIP stuff"), rules)
         assert len(v) == 1
-        assert check_ticket(_ticket(status="To Do", description="WIP stuff"), rules) == []
+        assert (
+            check_ticket(_ticket(status="To Do", description="WIP stuff"), rules) == []
+        )
 
 
 class TestStatusOverride:
@@ -467,9 +477,15 @@ class TestIfThen:
         v = check_ticket(_ticket(components=["backend"], priority="Critical"), rules)
         assert len(v) == 1
         # Only list matches
-        assert check_ticket(_ticket(components=["backend"], priority="Medium"), rules) == []
+        assert (
+            check_ticket(_ticket(components=["backend"], priority="Medium"), rules)
+            == []
+        )
         # Only scalar matches
-        assert check_ticket(_ticket(components=["frontend"], priority="Critical"), rules) == []
+        assert (
+            check_ticket(_ticket(components=["frontend"], priority="Critical"), rules)
+            == []
+        )
 
     def test_if_match_empty_list_no_match(self):
         rules = {
@@ -486,9 +502,16 @@ class TestIfThen:
 class TestSubtaskTypes:
     def test_subtask_type_present(self):
         rules = {"subtask_types": ["Deployment Wave"]}
-        ticket = _ticket(subtasks=[
-            {"key": "T-2", "summary": "Deploy", "status": "New", "issuetype": "Deployment Wave"},
-        ])
+        ticket = _ticket(
+            subtasks=[
+                {
+                    "key": "T-2",
+                    "summary": "Deploy",
+                    "status": "New",
+                    "issuetype": "Deployment Wave",
+                },
+            ]
+        )
         assert check_ticket(ticket, rules) == []
 
     def test_subtask_type_missing(self):
@@ -501,17 +524,31 @@ class TestSubtaskTypes:
 
     def test_subtask_type_wrong_type(self):
         rules = {"subtask_types": ["Deployment Wave"]}
-        ticket = _ticket(subtasks=[
-            {"key": "T-2", "summary": "Sub", "status": "New", "issuetype": "Sub-task"},
-        ])
+        ticket = _ticket(
+            subtasks=[
+                {
+                    "key": "T-2",
+                    "summary": "Sub",
+                    "status": "New",
+                    "issuetype": "Sub-task",
+                },
+            ]
+        )
         v = check_ticket(ticket, rules)
         assert len(v) == 1
 
     def test_multiple_subtask_types(self):
         rules = {"subtask_types": ["Deployment Wave", "Test Execution"]}
-        ticket = _ticket(subtasks=[
-            {"key": "T-2", "summary": "Deploy", "status": "New", "issuetype": "Deployment Wave"},
-        ])
+        ticket = _ticket(
+            subtasks=[
+                {
+                    "key": "T-2",
+                    "summary": "Deploy",
+                    "status": "New",
+                    "issuetype": "Deployment Wave",
+                },
+            ]
+        )
         v = check_ticket(ticket, rules)
         assert len(v) == 1
         assert v[0].field == "Test Execution"
@@ -611,7 +648,9 @@ class TestMatches:
         }
         v = check_ticket(_ticket(status="Done", description="no match"), rules)
         assert len(v) == 1
-        assert check_ticket(_ticket(status="To Do", description="no match"), rules) == []
+        assert (
+            check_ticket(_ticket(status="To Do", description="no match"), rules) == []
+        )
 
     def test_matches_in_if_then(self):
         rules = {
@@ -624,7 +663,10 @@ class TestMatches:
         }
         v = check_ticket(_ticket(priority="Critical", description="TODO fix"), rules)
         assert len(v) == 1
-        assert check_ticket(_ticket(priority="Medium", description="TODO fix"), rules) == []
+        assert (
+            check_ticket(_ticket(priority="Medium", description="TODO fix"), rules)
+            == []
+        )
 
 
 class TestOneOf:
@@ -687,7 +729,9 @@ class TestOneOf:
         }
         v = check_ticket(_ticket(components=["backend"], priority="Low"), rules)
         assert len(v) == 1
-        assert check_ticket(_ticket(components=["frontend"], priority="Low"), rules) == []
+        assert (
+            check_ticket(_ticket(components=["frontend"], priority="Low"), rules) == []
+        )
 
 
 class TestNotOneOf:
@@ -800,12 +844,16 @@ class TestContainsList:
 
 class TestCountMatches:
     def test_count_matches_passes(self):
-        rules = {"count_matches": {"description": {"pattern": r"Verifies: AC-\d+", "min": 2}}}
+        rules = {
+            "count_matches": {"description": {"pattern": r"Verifies: AC-\d+", "min": 2}}
+        }
         t = _ticket(description="Verifies: AC-1\nVerifies: AC-2\nVerifies: AC-3")
         assert check_ticket(t, rules) == []
 
     def test_count_matches_fails_below_min(self):
-        rules = {"count_matches": {"description": {"pattern": r"Verifies: AC-\d+", "min": 3}}}
+        rules = {
+            "count_matches": {"description": {"pattern": r"Verifies: AC-\d+", "min": 3}}
+        }
         t = _ticket(description="Verifies: AC-1")
         v = check_ticket(t, rules)
         assert len(v) == 1
@@ -821,7 +869,9 @@ class TestCountMatches:
         assert "<= 2" in v[0].message
 
     def test_count_matches_max_passes(self):
-        rules = {"count_matches": {"description": {"pattern": r"TODO", "min": 1, "max": 3}}}
+        rules = {
+            "count_matches": {"description": {"pattern": r"TODO", "min": 1, "max": 3}}
+        }
         t = _ticket(description="TODO TODO")
         assert check_ticket(t, rules) == []
 
@@ -850,30 +900,48 @@ class TestCountMatches:
     def test_count_matches_in_when(self):
         rules = {
             "when": {
-                "Done": {"count_matches": {"description": {"pattern": r"Verifies:", "min": 2}}},
+                "Done": {
+                    "count_matches": {
+                        "description": {"pattern": r"Verifies:", "min": 2}
+                    }
+                },
             },
         }
         v = check_ticket(_ticket(status="Done", description="Verifies: one"), rules)
         assert len(v) == 1
-        assert check_ticket(_ticket(status="To Do", description="Verifies: one"), rules) == []
+        assert (
+            check_ticket(_ticket(status="To Do", description="Verifies: one"), rules)
+            == []
+        )
 
     def test_count_matches_in_if_then(self):
         rules = {
             "if": [
                 {
                     "match": {"Priority": "Critical"},
-                    "then": {"count_matches": {"description": {"pattern": r"Verifies:", "min": 3}}},
+                    "then": {
+                        "count_matches": {
+                            "description": {"pattern": r"Verifies:", "min": 3}
+                        }
+                    },
                 }
             ],
         }
-        v = check_ticket(_ticket(priority="Critical", description="Verifies: one"), rules)
+        v = check_ticket(
+            _ticket(priority="Critical", description="Verifies: one"), rules
+        )
         assert len(v) == 1
-        assert check_ticket(_ticket(priority="Medium", description="Verifies: one"), rules) == []
+        assert (
+            check_ticket(_ticket(priority="Medium", description="Verifies: one"), rules)
+            == []
+        )
 
 
 class TestSectionsPresent:
     def test_markdown_sections_present(self):
-        rules = {"sections_present": {"description": ["Unit Tests", "Integration Tests"]}}
+        rules = {
+            "sections_present": {"description": ["Unit Tests", "Integration Tests"]}
+        }
         desc = "## Unit Tests\n- test1\n## Integration Tests\n- test2"
         assert check_ticket(_ticket(description=desc), rules) == []
 
@@ -934,20 +1002,28 @@ class TestSectionsPresent:
         }
         v = check_ticket(_ticket(status="Done", description="no sections"), rules)
         assert len(v) == 1
-        assert check_ticket(_ticket(status="To Do", description="no sections"), rules) == []
+        assert (
+            check_ticket(_ticket(status="To Do", description="no sections"), rules)
+            == []
+        )
 
     def test_sections_in_if_then(self):
         rules = {
             "if": [
                 {
                     "match": {"issuetype": "Story"},
-                    "then": {"sections_present": {"description": ["Unit Tests", "E2E Tests"]}},
+                    "then": {
+                        "sections_present": {"description": ["Unit Tests", "E2E Tests"]}
+                    },
                 }
             ],
         }
         v = check_ticket(_ticket(issuetype="Story", description="no sections"), rules)
         assert len(v) == 2
-        assert check_ticket(_ticket(issuetype="Bug", description="no sections"), rules) == []
+        assert (
+            check_ticket(_ticket(issuetype="Bug", description="no sections"), rules)
+            == []
+        )
 
 
 class TestValidTransitions:
@@ -1018,22 +1094,50 @@ class TestNoOpenLinked:
         }
 
     def test_no_violations_when_no_linked_issues(self):
-        rules = {"no_open_linked": [{"type": "Bug", "priority": ["Blocker", "Critical"]}]}
+        rules = {
+            "no_open_linked": [{"type": "Bug", "priority": ["Blocker", "Critical"]}]
+        }
         assert check_ticket(_ticket(issuelinks=[]), rules) == []
 
     def test_no_violations_when_linked_bug_is_done(self):
         rules = {"no_open_linked": [{"type": "Bug", "priority": ["Blocker"]}]}
-        ticket = _ticket(issuelinks=[{"key": "BUG-1", "type": "Blocks", "direction": "outward", "summary": "Bad bug"}])
+        ticket = _ticket(
+            issuelinks=[
+                {
+                    "key": "BUG-1",
+                    "type": "Blocks",
+                    "direction": "outward",
+                    "summary": "Bad bug",
+                }
+            ]
+        )
         with patch("zaira.rules.get_ticket") as mock_get:
-            mock_get.return_value = self._linked_ticket("BUG-1", "Bug", "Blocker", "Done", "Done")
+            mock_get.return_value = self._linked_ticket(
+                "BUG-1", "Bug", "Blocker", "Done", "Done"
+            )
             v = check_ticket(ticket, rules)
         assert v == []
 
     def test_violation_when_open_blocker_bug_linked(self):
-        rules = {"no_open_linked": [{"type": "Bug", "priority": ["Blocker", "Critical", "Major"]}]}
-        ticket = _ticket(issuelinks=[{"key": "BUG-1", "type": "Blocks", "direction": "outward", "summary": "Bad bug"}])
+        rules = {
+            "no_open_linked": [
+                {"type": "Bug", "priority": ["Blocker", "Critical", "Major"]}
+            ]
+        }
+        ticket = _ticket(
+            issuelinks=[
+                {
+                    "key": "BUG-1",
+                    "type": "Blocks",
+                    "direction": "outward",
+                    "summary": "Bad bug",
+                }
+            ]
+        )
         with patch("zaira.rules.get_ticket") as mock_get:
-            mock_get.return_value = self._linked_ticket("BUG-1", "Bug", "Blocker", "In Progress", "In Progress")
+            mock_get.return_value = self._linked_ticket(
+                "BUG-1", "Bug", "Blocker", "In Progress", "In Progress"
+            )
             v = check_ticket(ticket, rules)
         assert len(v) == 1
         assert v[0].check == "no_open_linked"
@@ -1042,30 +1146,70 @@ class TestNoOpenLinked:
 
     def test_no_violation_when_type_does_not_match(self):
         rules = {"no_open_linked": [{"type": "Bug", "priority": ["Blocker"]}]}
-        ticket = _ticket(issuelinks=[{"key": "TASK-1", "type": "relates to", "direction": "outward", "summary": "Task"}])
+        ticket = _ticket(
+            issuelinks=[
+                {
+                    "key": "TASK-1",
+                    "type": "relates to",
+                    "direction": "outward",
+                    "summary": "Task",
+                }
+            ]
+        )
         with patch("zaira.rules.get_ticket") as mock_get:
-            mock_get.return_value = self._linked_ticket("TASK-1", "Task", "Blocker", "In Progress", "In Progress")
+            mock_get.return_value = self._linked_ticket(
+                "TASK-1", "Task", "Blocker", "In Progress", "In Progress"
+            )
             v = check_ticket(ticket, rules)
         assert v == []
 
     def test_no_violation_when_priority_does_not_match(self):
-        rules = {"no_open_linked": [{"type": "Bug", "priority": ["Blocker", "Critical"]}]}
-        ticket = _ticket(issuelinks=[{"key": "BUG-2", "type": "relates to", "direction": "outward", "summary": "Minor bug"}])
+        rules = {
+            "no_open_linked": [{"type": "Bug", "priority": ["Blocker", "Critical"]}]
+        }
+        ticket = _ticket(
+            issuelinks=[
+                {
+                    "key": "BUG-2",
+                    "type": "relates to",
+                    "direction": "outward",
+                    "summary": "Minor bug",
+                }
+            ]
+        )
         with patch("zaira.rules.get_ticket") as mock_get:
-            mock_get.return_value = self._linked_ticket("BUG-2", "Bug", "Minor", "In Progress", "In Progress")
+            mock_get.return_value = self._linked_ticket(
+                "BUG-2", "Bug", "Minor", "In Progress", "In Progress"
+            )
             v = check_ticket(ticket, rules)
         assert v == []
 
     def test_multiple_linked_issues_multiple_violations(self):
-        rules = {"no_open_linked": [{"type": "Bug", "priority": ["Blocker", "Critical"]}]}
-        ticket = _ticket(issuelinks=[
-            {"key": "BUG-1", "type": "Blocks", "direction": "outward", "summary": "Bug 1"},
-            {"key": "BUG-2", "type": "Blocks", "direction": "outward", "summary": "Bug 2"},
-        ])
+        rules = {
+            "no_open_linked": [{"type": "Bug", "priority": ["Blocker", "Critical"]}]
+        }
+        ticket = _ticket(
+            issuelinks=[
+                {
+                    "key": "BUG-1",
+                    "type": "Blocks",
+                    "direction": "outward",
+                    "summary": "Bug 1",
+                },
+                {
+                    "key": "BUG-2",
+                    "type": "Blocks",
+                    "direction": "outward",
+                    "summary": "Bug 2",
+                },
+            ]
+        )
         with patch("zaira.rules.get_ticket") as mock_get:
             mock_get.side_effect = [
                 self._linked_ticket("BUG-1", "Bug", "Blocker", "Open", "To Do"),
-                self._linked_ticket("BUG-2", "Bug", "Critical", "In Progress", "In Progress"),
+                self._linked_ticket(
+                    "BUG-2", "Bug", "Critical", "In Progress", "In Progress"
+                ),
             ]
             v = check_ticket(ticket, rules)
         assert len(v) == 2
@@ -1080,10 +1224,19 @@ class TestNoOpenLinked:
         }
         ticket = _ticket(
             status="Validating",
-            issuelinks=[{"key": "BUG-1", "type": "Blocks", "direction": "outward", "summary": "Bug"}],
+            issuelinks=[
+                {
+                    "key": "BUG-1",
+                    "type": "Blocks",
+                    "direction": "outward",
+                    "summary": "Bug",
+                }
+            ],
         )
         with patch("zaira.rules.get_ticket") as mock_get:
-            mock_get.return_value = self._linked_ticket("BUG-1", "Bug", "Blocker", "Open", "To Do")
+            mock_get.return_value = self._linked_ticket(
+                "BUG-1", "Bug", "Blocker", "Open", "To Do"
+            )
             v = check_ticket(ticket, rules)
         assert len(v) == 1
         assert check_ticket(_ticket(status="Implementing", issuelinks=[]), rules) == []
@@ -1132,47 +1285,73 @@ class TestImport:
         return path
 
     def test_import_merges_base_and_override(self, tmp_path):
-        base = self._write(tmp_path / "base.yaml", """\
+        base = self._write(
+            tmp_path / "base.yaml",
+            """\
 Story:
   required: [summary, assignee]
-""")
-        overlay = self._write(tmp_path / "overlay.yaml", f"""\
+""",
+        )
+        overlay = self._write(
+            tmp_path / "overlay.yaml",
+            f"""\
 import: base.yaml
 Story:
   required: [Extra Field]
-""")
+""",
+        )
         rules = load_rules(str(overlay))
         assert set(rules["Story"]["required"]) == {"summary", "assignee", "Extra Field"}
 
     def test_import_list_union_deduplicates(self, tmp_path):
         self._write(tmp_path / "base.yaml", "Story:\n  required: [summary, assignee]\n")
-        overlay = self._write(tmp_path / "overlay.yaml", "import: base.yaml\nStory:\n  required: [assignee, Extra Field]\n")
+        overlay = self._write(
+            tmp_path / "overlay.yaml",
+            "import: base.yaml\nStory:\n  required: [assignee, Extra Field]\n",
+        )
         rules = load_rules(str(overlay))
         req = rules["Story"]["required"]
         assert req.count("assignee") == 1
         assert "Extra Field" in req
 
     def test_import_dict_key_override_wins(self, tmp_path):
-        self._write(tmp_path / "base.yaml", "Story:\n  one_of:\n    Priority: [Low, Medium]\n    Severity: [Minor]\n")
-        overlay = self._write(tmp_path / "overlay.yaml", "import: base.yaml\nStory:\n  one_of:\n    Priority: [High, Critical]\n")
+        self._write(
+            tmp_path / "base.yaml",
+            "Story:\n  one_of:\n    Priority: [Low, Medium]\n    Severity: [Minor]\n",
+        )
+        overlay = self._write(
+            tmp_path / "overlay.yaml",
+            "import: base.yaml\nStory:\n  one_of:\n    Priority: [High, Critical]\n",
+        )
         rules = load_rules(str(overlay))
         assert rules["Story"]["one_of"]["Priority"] == ["High", "Critical"]
         assert rules["Story"]["one_of"]["Severity"] == ["Minor"]
 
     def test_import_no_open_linked_concatenated(self, tmp_path):
-        self._write(tmp_path / "base.yaml", "Story:\n  no_open_linked:\n    - {type: Bug, priority: Blocker}\n")
-        overlay = self._write(tmp_path / "overlay.yaml", "import: base.yaml\nStory:\n  no_open_linked:\n    - {type: Task, priority: Critical}\n")
+        self._write(
+            tmp_path / "base.yaml",
+            "Story:\n  no_open_linked:\n    - {type: Bug, priority: Blocker}\n",
+        )
+        overlay = self._write(
+            tmp_path / "overlay.yaml",
+            "import: base.yaml\nStory:\n  no_open_linked:\n    - {type: Task, priority: Critical}\n",
+        )
         rules = load_rules(str(overlay))
         assert len(rules["Story"]["no_open_linked"]) == 2
 
     def test_import_when_merges_per_status(self, tmp_path):
-        self._write(tmp_path / "base.yaml", """\
+        self._write(
+            tmp_path / "base.yaml",
+            """\
 Story:
   when:
     Done:
       required: [Resolution]
-""")
-        overlay = self._write(tmp_path / "overlay.yaml", """\
+""",
+        )
+        overlay = self._write(
+            tmp_path / "overlay.yaml",
+            """\
 import: base.yaml
 Story:
   when:
@@ -1180,62 +1359,84 @@ Story:
       required: [Extra Done Field]
     Implementing:
       required: [Story Points]
-""")
+""",
+        )
         rules = load_rules(str(overlay))
         done = rules["Story"]["when"]["Done"]
         assert set(done["required"]) == {"Resolution", "Extra Done Field"}
         assert rules["Story"]["when"]["Implementing"]["required"] == ["Story Points"]
 
     def test_import_if_concatenated(self, tmp_path):
-        self._write(tmp_path / "base.yaml", """\
+        self._write(
+            tmp_path / "base.yaml",
+            """\
 Story:
   if:
     - match: {Priority: Critical}
       then: {required: [Rollback Plan]}
-""")
-        overlay = self._write(tmp_path / "overlay.yaml", """\
+""",
+        )
+        overlay = self._write(
+            tmp_path / "overlay.yaml",
+            """\
 import: base.yaml
 Story:
   if:
     - match: {Priority: Blocker}
       then: {required: [Escalation Owner]}
-""")
+""",
+        )
         rules = load_rules(str(overlay))
         assert len(rules["Story"]["if"]) == 2
 
     def test_import_valid_transitions_override_per_status(self, tmp_path):
-        self._write(tmp_path / "base.yaml", """\
+        self._write(
+            tmp_path / "base.yaml",
+            """\
 Story:
   valid_transitions:
     New: [Analyzing, Backlog]
     Analyzing: [Implementing]
-""")
-        overlay = self._write(tmp_path / "overlay.yaml", """\
+""",
+        )
+        overlay = self._write(
+            tmp_path / "overlay.yaml",
+            """\
 import: base.yaml
 Story:
   valid_transitions:
     New: [Backlog]
-""")
+""",
+        )
         rules = load_rules(str(overlay))
         assert rules["Story"]["valid_transitions"]["New"] == ["Backlog"]
         assert rules["Story"]["valid_transitions"]["Analyzing"] == ["Implementing"]
 
     def test_import_adds_new_issue_type(self, tmp_path):
         self._write(tmp_path / "base.yaml", "Story:\n  required: [summary]\n")
-        overlay = self._write(tmp_path / "overlay.yaml", "import: base.yaml\nBug:\n  required: [assignee]\n")
+        overlay = self._write(
+            tmp_path / "overlay.yaml",
+            "import: base.yaml\nBug:\n  required: [assignee]\n",
+        )
         rules = load_rules(str(overlay))
         assert "Story" in rules
         assert "Bug" in rules
 
     def test_import_chain(self, tmp_path):
         self._write(tmp_path / "base.yaml", "Story:\n  required: [summary]\n")
-        self._write(tmp_path / "mid.yaml", "import: base.yaml\nStory:\n  required: [assignee]\n")
-        overlay = self._write(tmp_path / "overlay.yaml", "import: mid.yaml\nStory:\n  required: [Extra Field]\n")
+        self._write(
+            tmp_path / "mid.yaml", "import: base.yaml\nStory:\n  required: [assignee]\n"
+        )
+        overlay = self._write(
+            tmp_path / "overlay.yaml",
+            "import: mid.yaml\nStory:\n  required: [Extra Field]\n",
+        )
         rules = load_rules(str(overlay))
         assert set(rules["Story"]["required"]) == {"summary", "assignee", "Extra Field"}
 
     def test_import_cycle_raises(self, tmp_path):
         import pytest
+
         a = tmp_path / "a.yaml"
         b = tmp_path / "b.yaml"
         a.write_text("import: b.yaml\nStory:\n  required: [summary]\n")
@@ -1245,7 +1446,11 @@ Story:
 
     def test_import_missing_file_raises(self, tmp_path):
         import pytest
-        overlay = self._write(tmp_path / "overlay.yaml", "import: nonexistent.yaml\nStory:\n  required: [summary]\n")
+
+        overlay = self._write(
+            tmp_path / "overlay.yaml",
+            "import: nonexistent.yaml\nStory:\n  required: [summary]\n",
+        )
         with pytest.raises(FileNotFoundError):
             load_rules(str(overlay))
 
@@ -1253,11 +1458,16 @@ Story:
         subdir = tmp_path / "sub"
         subdir.mkdir()
         self._write(subdir / "base.yaml", "Story:\n  required: [summary]\n")
-        overlay = self._write(tmp_path / "overlay.yaml", "import: sub/base.yaml\nStory:\n  required: [Extra Field]\n")
+        overlay = self._write(
+            tmp_path / "overlay.yaml",
+            "import: sub/base.yaml\nStory:\n  required: [Extra Field]\n",
+        )
         rules = load_rules(str(overlay))
         assert set(rules["Story"]["required"]) == {"summary", "Extra Field"}
 
     def test_no_import_loads_normally(self, tmp_path):
-        rules_file = self._write(tmp_path / "rules.yaml", "Story:\n  required: [summary]\n")
+        rules_file = self._write(
+            tmp_path / "rules.yaml", "Story:\n  required: [summary]\n"
+        )
         rules = load_rules(str(rules_file))
         assert rules == {"Story": {"required": ["summary"]}}

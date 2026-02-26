@@ -55,9 +55,24 @@ class TestPrintTable:
     def test_groups_by_status(self, capsys):
         """Groups tickets by status."""
         tickets = [
-            {"key": "T-1", "status": "Open", "created": "2024-01-01", "summary": "First"},
-            {"key": "T-2", "status": "Open", "created": "2024-01-02", "summary": "Second"},
-            {"key": "T-3", "status": "In Progress", "created": "2024-01-03", "summary": "Third"},
+            {
+                "key": "T-1",
+                "status": "Open",
+                "created": "2024-01-01",
+                "summary": "First",
+            },
+            {
+                "key": "T-2",
+                "status": "Open",
+                "created": "2024-01-02",
+                "summary": "Second",
+            },
+            {
+                "key": "T-3",
+                "status": "In Progress",
+                "created": "2024-01-03",
+                "summary": "Third",
+            },
         ]
 
         print_table(tickets)
@@ -90,9 +105,24 @@ class TestPrintTable:
     def test_sorts_by_created_date(self, capsys):
         """Sorts tickets by created date within groups."""
         tickets = [
-            {"key": "T-3", "status": "Open", "created": "2024-01-03", "summary": "Newest"},
-            {"key": "T-1", "status": "Open", "created": "2024-01-01", "summary": "Oldest"},
-            {"key": "T-2", "status": "Open", "created": "2024-01-02", "summary": "Middle"},
+            {
+                "key": "T-3",
+                "status": "Open",
+                "created": "2024-01-03",
+                "summary": "Newest",
+            },
+            {
+                "key": "T-1",
+                "status": "Open",
+                "created": "2024-01-01",
+                "summary": "Oldest",
+            },
+            {
+                "key": "T-2",
+                "status": "Open",
+                "created": "2024-01-02",
+                "summary": "Middle",
+            },
         ]
 
         print_table(tickets)

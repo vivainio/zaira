@@ -44,6 +44,7 @@ def comment_command(args: argparse.Namespace) -> None:
 
     if detect_markdown(body):
         from zaira.mdconv import markdown_to_jira_wiki
+
         body = markdown_to_jira_wiki(body)
 
     jira_site = get_jira_site()
@@ -53,6 +54,7 @@ def comment_command(args: argparse.Namespace) -> None:
         print(f"Comment added to {key}")
         print(f"View at: https://{jira_site}/browse/{key}")
         from zaira.activity_log import record
+
         record("comment", key)
     else:
         sys.exit(1)

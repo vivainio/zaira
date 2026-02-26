@@ -279,9 +279,17 @@ class TestMapFields:
         """Maps custom field when found in editmeta."""
         front_matter = {"project": "TEST", "Story Points": "5"}
 
-        with patch("zaira.create.get_editmeta_field", return_value=("customfield_123", {"id": "customfield_123", "type": "number"})):
+        with patch(
+            "zaira.create.get_editmeta_field",
+            return_value=(
+                "customfield_123",
+                {"id": "customfield_123", "type": "number"},
+            ),
+        ):
             with patch("zaira.create.format_field_value", return_value=5):
-                fields = map_fields(front_matter, "", project="TEST", issue_type="Story")
+                fields = map_fields(
+                    front_matter, "", project="TEST", issue_type="Story"
+                )
 
         assert fields["customfield_123"] == 5
 

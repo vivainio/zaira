@@ -47,5 +47,3 @@ def schema() -> "ZSchema | None":
     from zaira.info import load_schema
 
     return load_schema()
-
-

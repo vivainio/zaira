@@ -578,6 +578,7 @@ def _convert_inline_jira(text: str) -> str:
         return f"![]({url})"
 
     text = re.sub(r"!([^!\s][^!\n]*?)!", _jira_img_to_md, text)
+
     # Links: [text|url] or [text|url|smart-link] -> [text](url)
     def _jira_link_to_md(m: re.Match) -> str:
         label = m.group(1)
@@ -800,20 +801,20 @@ def is_jira_wiki(text: str) -> bool:
     or markdown.
     """
     patterns = [
-        r"^h[1-6]\.\s",           # h2. Header
-        r"\{code(:[^}]*)?\}",     # {code} or {code:language=python}
-        r"\{noformat\}",           # {noformat} blocks
-        r"\{quote\}",             # {quote} blocks
-        r"\{panel(:[^}]*)?\}",    # {panel} blocks
-        r"\{color(:[^}]*)?\}",    # {color:red}text{color}
-        r"^\|\|.+\|\|",           # ||table||headers||
-        r"^bq\.\s",               # bq. blockquote
-        r"\{\{[^}]+\}\}",         # {{inline code}}
+        r"^h[1-6]\.\s",  # h2. Header
+        r"\{code(:[^}]*)?\}",  # {code} or {code:language=python}
+        r"\{noformat\}",  # {noformat} blocks
+        r"\{quote\}",  # {quote} blocks
+        r"\{panel(:[^}]*)?\}",  # {panel} blocks
+        r"\{color(:[^}]*)?\}",  # {color:red}text{color}
+        r"^\|\|.+\|\|",  # ||table||headers||
+        r"^bq\.\s",  # bq. blockquote
+        r"\{\{[^}]+\}\}",  # {{inline code}}
         r"(?<!\*)\*[^*\n]+\*(?!\*)",  # *bold* (single-star)
-        r"\[([^]|]+)\|([^]]+)\]", # [text|url] links
+        r"\[([^]|]+)\|([^]]+)\]",  # [text|url] links
         r"!(?!\[)[^!\s][^!\n]*!",  # !image! or !image|params! (not ![alt])
-        r"\?\?[^?\n]+\?\?",       # ??citation??
-        r"\[~",                    # [~user] mentions
+        r"\?\?[^?\n]+\?\?",  # ??citation??
+        r"\[~",  # [~user] mentions
     ]
     for pattern in patterns:
         if re.search(pattern, text, re.MULTILINE):

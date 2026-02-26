@@ -201,18 +201,18 @@ def generate_front_matter(
     if query:
         cmd_parts.append(f"--query {query}")
     elif jql and not board and not sprint:
-        cmd_parts.append(f'--jql {shlex.quote(jql)}')
+        cmd_parts.append(f"--jql {shlex.quote(jql)}")
     if board:
         cmd_parts.append(f"--board {board}")
     if sprint:
         cmd_parts.append(f"--sprint {sprint}")
     if label:
-        cmd_parts.append(f'--label {shlex.quote(label)}')
+        cmd_parts.append(f"--label {shlex.quote(label)}")
     if group_by:
         cmd_parts.append(f"--group-by {group_by}")
     if links:
         cmd_parts.append("--links")
-    cmd_parts.append(f'--title {shlex.quote(title)}')
+    cmd_parts.append(f"--title {shlex.quote(title)}")
 
     lines.append(f"refresh: {' '.join(cmd_parts)}")
     lines.append("---")
@@ -233,8 +233,15 @@ def generate_report(
 ) -> str:
     """Generate markdown report from tickets."""
     md = generate_front_matter(
-        title, jql, query, board, sprint, group_by, label,
-        links=links, report_name=report_name,
+        title,
+        jql,
+        query,
+        board,
+        sprint,
+        group_by,
+        label,
+        links=links,
+        report_name=report_name,
     )
     md += f"# {title}\n\n"
     md += f"**Total:** {len(tickets)} tickets\n\n"
@@ -315,7 +322,9 @@ def generate_table(
         if has_parents and group_by != "parent":
             if parent:
                 pkey = parent["key"]
-                row.append(f"[{pkey}](https://{jira_site}/browse/{pkey})" if links else pkey)
+                row.append(
+                    f"[{pkey}](https://{jira_site}/browse/{pkey})" if links else pkey
+                )
             else:
                 row.append("-")
         row.append(summary)
@@ -495,7 +504,9 @@ def generate_dashboard_report(
                 for group_name, group_tickets in sorted(groups.items()):
                     lines.append(f"### {group_name} ({len(group_tickets)})")
                     lines.append("")
-                    lines.append(generate_table(group_tickets, group_by=group_by, links=links))
+                    lines.append(
+                        generate_table(group_tickets, group_by=group_by, links=links)
+                    )
             else:
                 lines.append(generate_table(tickets, links=links))
         else:
@@ -603,6 +614,7 @@ def report_command(args: argparse.Namespace) -> None:
             args.links = True
         if not args.output and "output" in report_def:
             from zaira.config import find_project_root
+
             root = find_project_root() or Path.cwd()
             args.output = str(root / report_def["output"])
         if "tickets_dir" in report_def:
@@ -770,6 +782,7 @@ def report_command(args: argparse.Namespace) -> None:
         override = getattr(args, "tickets_dir", None)
         if override:
             from zaira.config import find_project_root
+
             root = find_project_root() or Path.cwd()
             tickets_dir = root / override
         else:

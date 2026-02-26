@@ -39,7 +39,7 @@ def query_hours(
     """
     jira = get_jira()
     jql = (
-        f'worklogAuthor = currentUser() '
+        f"worklogAuthor = currentUser() "
         f'AND worklogDate >= "{date_from}" '
         f'AND worklogDate <= "{date_to}"'
     )
@@ -92,7 +92,10 @@ def query_ticket_hours(
         try:
             worklogs = jira.worklogs(key)
         except Exception as e:
-            print(f"Error getting worklogs for {key}: {format_jira_error(e)}", file=sys.stderr)
+            print(
+                f"Error getting worklogs for {key}: {format_jira_error(e)}",
+                file=sys.stderr,
+            )
             continue
 
         author_hours: dict[str, float] = {}
@@ -352,9 +355,7 @@ def hours_command(args: argparse.Namespace) -> None:
     elif args.date_from and args.date_to:
         date_from, date_to = args.date_from, args.date_to
     elif args.date_from or args.date_to:
-        print(
-            "Error: --from and --to must be used together", file=sys.stderr
-        )
+        print("Error: --from and --to must be used together", file=sys.stderr)
         sys.exit(1)
     else:
         date_from, date_to = _days_range(7)
@@ -375,11 +376,22 @@ def hours_command(args: argparse.Namespace) -> None:
     show_missing = getattr(args, "missing", False)
     fill_ticket = getattr(args, "fill", None)
 
-    print(format_hours(daily, ticket_totals, date_from, date_to, args.summary,
-                       show_missing=show_missing or bool(fill_ticket)))
+    print(
+        format_hours(
+            daily,
+            ticket_totals,
+            date_from,
+            date_to,
+            args.summary,
+            show_missing=show_missing or bool(fill_ticket),
+        )
+    )
 
     if fill_ticket:
         fill_missing(
-            fill_ticket.upper(), date_from, date_to, daily,
+            fill_ticket.upper(),
+            date_from,
+            date_to,
+            daily,
             yes=getattr(args, "yes", False),
         )

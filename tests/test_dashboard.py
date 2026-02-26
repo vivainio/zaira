@@ -226,7 +226,10 @@ class TestGetFilter:
 
     def test_returns_filter_data(self, mock_jira):
         """Returns filter data."""
-        mock_jira._get_json.return_value = {"name": "My Filter", "jql": "project = TEST"}
+        mock_jira._get_json.return_value = {
+            "name": "My Filter",
+            "jql": "project = TEST",
+        }
 
         result = _get_filter("123")
 

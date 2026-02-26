@@ -24,7 +24,7 @@ def _install_from_zip(data: bytes, source_url: str | None) -> None:
         if len(top_dirs) == 1:
             wrapper = top_dirs.pop() + "/"
             if all(n.startswith(wrapper) for n in names):
-                names = [n[len(wrapper):] for n in names]
+                names = [n[len(wrapper) :] for n in names]
 
         # Determine actual top-level dirs in (possibly stripped) listing
         actual_top = {n.split("/")[0] for n in names if "/" in n and n.split("/")[0]}
@@ -49,7 +49,7 @@ def _install_from_zip(data: bytes, source_url: str | None) -> None:
             if prefix:
                 if not rel.startswith(prefix):
                     continue
-                rel = rel[len(prefix):]
+                rel = rel[len(prefix) :]
             if not rel or rel.endswith("/"):
                 continue  # skip dirs
             dest = CONFIG_DIR / rel
@@ -58,7 +58,12 @@ def _install_from_zip(data: bytes, source_url: str | None) -> None:
 
     if source_url:
         BUNDLE_META.write_text(
-            yaml.dump({"source": source_url, "installed_at": datetime.datetime.utcnow().isoformat()})
+            yaml.dump(
+                {
+                    "source": source_url,
+                    "installed_at": datetime.datetime.utcnow().isoformat(),
+                }
+            )
         )
 
 

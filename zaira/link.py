@@ -52,6 +52,7 @@ def link_command(args: argparse.Namespace) -> None:
         print(f"Link created: {from_key} {link_type} {to_key}")
         print(f"View at: https://{jira_site}/browse/{from_key}")
         from zaira.activity_log import record
+
         record("link", from_key, f"{link_type} → {to_key}")
     else:
         sys.exit(1)

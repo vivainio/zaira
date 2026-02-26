@@ -15,6 +15,7 @@ Violation = namedtuple("Violation", ["field", "check", "message"])
 def _find_rules_file(path="rules.yaml") -> Path | None:
     """Search for rules file: explicit path, then cwd, then the zaira config dir."""
     from zaira.jira_client import CONFIG_DIR
+
     p = Path(path)
     if p.is_absolute() or path != "rules.yaml":
         return p if p.exists() else None
@@ -33,8 +34,16 @@ def _merge_rule_block(base, override):
         if key in ("required", "non_empty", "subtask_types"):
             base_list = result.get(key, [])
             result[key] = list(dict.fromkeys(base_list + val))
-        elif key in ("contains", "not_contains", "matches", "not_matches",
-                     "one_of", "not_one_of", "count_matches", "sections_present"):
+        elif key in (
+            "contains",
+            "not_contains",
+            "matches",
+            "not_matches",
+            "one_of",
+            "not_one_of",
+            "count_matches",
+            "sections_present",
+        ):
             result[key] = {**result.get(key, {}), **val}
         elif key == "no_open_linked":
             result[key] = result.get(key, []) + val
@@ -42,7 +51,9 @@ def _merge_rule_block(base, override):
             base_when = dict(result.get("when", {}))
             for status, status_block in val.items():
                 if status in base_when:
-                    base_when[status] = _merge_rule_block(base_when[status], status_block)
+                    base_when[status] = _merge_rule_block(
+                        base_when[status], status_block
+                    )
                 else:
                     base_when[status] = status_block
             result["when"] = base_when
@@ -79,7 +90,9 @@ def _load_rules_file(path: Path, seen: frozenset) -> dict:
         return data
     import_path = (path.parent / import_str).resolve()
     if not import_path.exists():
-        raise FileNotFoundError(f"Import not found: {import_path} (imported from {path})")
+        raise FileNotFoundError(
+            f"Import not found: {import_path} (imported from {path})"
+        )
     base = _load_rules_file(import_path, seen)
     return _merge_all_rules(base, data)
 
@@ -87,9 +100,13 @@ def _load_rules_file(path: Path, seen: frozenset) -> dict:
 def load_rules(path="rules.yaml"):
     """Load YAML rules file. Returns dict keyed by issue type name."""
     from zaira.jira_client import CONFIG_DIR
+
     p = _find_rules_file(path)
     if not p:
-        print(f"Rules file not found: {path} (also checked {CONFIG_DIR / 'rules' / 'rules.yaml'})", file=sys.stderr)
+        print(
+            f"Rules file not found: {path} (also checked {CONFIG_DIR / 'rules' / 'rules.yaml'})",
+            file=sys.stderr,
+        )
         sys.exit(1)
     return _load_rules_file(p, frozenset())
 
@@ -124,50 +141,71 @@ def _apply_rules(ticket, rule_block):
     for required_type in rule_block.get("subtask_types", []):
         subtasks = ticket.get("subtasks", [])
         if not any(st.get("issuetype") == required_type for st in subtasks):
-            violations.append(Violation(
-                required_type, "subtask_types",
-                f"missing subtask of type \"{required_type}\"",
-            ))
+            violations.append(
+                Violation(
+                    required_type,
+                    "subtask_types",
+                    f'missing subtask of type "{required_type}"',
+                )
+            )
 
     for field in rule_block.get("required", []):
         found, value = _get_field_value(ticket, field)
         if not found or value is None:
-            violations.append(Violation(field, "required", f"{field} is missing or null"))
+            violations.append(
+                Violation(field, "required", f"{field} is missing or null")
+            )
 
     for field in rule_block.get("non_empty", []):
         found, value = _get_field_value(ticket, field)
         if not found or value is None:
-            violations.append(Violation(field, "non_empty", f"{field} is missing or null"))
+            violations.append(
+                Violation(field, "non_empty", f"{field} is missing or null")
+            )
         elif value == "" or value == []:
             violations.append(Violation(field, "non_empty", f"{field} is empty"))
 
     for field, substrings in rule_block.get("contains", {}).items():
         found, value = _get_field_value(ticket, field)
-        for sub in (substrings if isinstance(substrings, list) else [substrings]):
+        for sub in substrings if isinstance(substrings, list) else [substrings]:
             if not found or value is None:
-                violations.append(Violation(field, "contains", f"{field} is missing or null"))
+                violations.append(
+                    Violation(field, "contains", f"{field} is missing or null")
+                )
             elif not isinstance(value, str) or sub not in value:
-                violations.append(Violation(field, "contains", f'{field} must contain "{sub}"'))
+                violations.append(
+                    Violation(field, "contains", f'{field} must contain "{sub}"')
+                )
 
     for field, substrings in rule_block.get("not_contains", {}).items():
         found, value = _get_field_value(ticket, field)
-        for sub in (substrings if isinstance(substrings, list) else [substrings]):
+        for sub in substrings if isinstance(substrings, list) else [substrings]:
             if found and isinstance(value, str) and sub in value:
-                violations.append(Violation(field, "not_contains", f'{field} must not contain "{sub}"'))
+                violations.append(
+                    Violation(
+                        field, "not_contains", f'{field} must not contain "{sub}"'
+                    )
+                )
 
     for field, patterns in rule_block.get("matches", {}).items():
         found, value = _get_field_value(ticket, field)
-        for pat in (patterns if isinstance(patterns, list) else [patterns]):
+        for pat in patterns if isinstance(patterns, list) else [patterns]:
             if not found or value is None:
-                violations.append(Violation(field, "matches", f"{field} is missing or null"))
+                violations.append(
+                    Violation(field, "matches", f"{field} is missing or null")
+                )
             elif not isinstance(value, str) or not re.search(pat, value):
-                violations.append(Violation(field, "matches", f'{field} must match /{pat}/'))
+                violations.append(
+                    Violation(field, "matches", f"{field} must match /{pat}/")
+                )
 
     for field, patterns in rule_block.get("not_matches", {}).items():
         found, value = _get_field_value(ticket, field)
-        for pat in (patterns if isinstance(patterns, list) else [patterns]):
+        for pat in patterns if isinstance(patterns, list) else [patterns]:
             if found and isinstance(value, str) and re.search(pat, value):
-                violations.append(Violation(field, "not_matches", f'{field} must not match /{pat}/'))
+                violations.append(
+                    Violation(field, "not_matches", f"{field} must not match /{pat}/")
+                )
 
     for field, allowed in rule_block.get("one_of", {}).items():
         found, value = _get_field_value(ticket, field)
@@ -176,9 +214,21 @@ def _apply_rules(ticket, rule_block):
         elif isinstance(value, list):
             bad = [str(v) for v in value if str(v) not in [str(a) for a in allowed]]
             if bad:
-                violations.append(Violation(field, "one_of", f'{field} has invalid values: {", ".join(bad)} (allowed: {", ".join(str(a) for a in allowed)})'))
+                violations.append(
+                    Violation(
+                        field,
+                        "one_of",
+                        f"{field} has invalid values: {', '.join(bad)} (allowed: {', '.join(str(a) for a in allowed)})",
+                    )
+                )
         elif str(value) not in [str(a) for a in allowed]:
-            violations.append(Violation(field, "one_of", f'{field} is "{value}" (allowed: {", ".join(str(a) for a in allowed)})'))
+            violations.append(
+                Violation(
+                    field,
+                    "one_of",
+                    f'{field} is "{value}" (allowed: {", ".join(str(a) for a in allowed)})',
+                )
+            )
 
     for field, spec in rule_block.get("count_matches", {}).items():
         found, value = _get_field_value(ticket, field)
@@ -186,15 +236,31 @@ def _apply_rules(ticket, rule_block):
         min_count = spec.get("min", 1)
         max_count = spec.get("max")
         if not found or value is None:
-            violations.append(Violation(field, "count_matches", f"{field} is missing or null"))
+            violations.append(
+                Violation(field, "count_matches", f"{field} is missing or null")
+            )
         elif not isinstance(value, str):
-            violations.append(Violation(field, "count_matches", f"{field} is not a string"))
+            violations.append(
+                Violation(field, "count_matches", f"{field} is not a string")
+            )
         else:
             count = len(re.findall(pattern, value))
             if count < min_count:
-                violations.append(Violation(field, "count_matches", f'{field} has {count} matches for /{pattern}/ (need >= {min_count})'))
+                violations.append(
+                    Violation(
+                        field,
+                        "count_matches",
+                        f"{field} has {count} matches for /{pattern}/ (need >= {min_count})",
+                    )
+                )
             elif max_count is not None and count > max_count:
-                violations.append(Violation(field, "count_matches", f'{field} has {count} matches for /{pattern}/ (need <= {max_count})'))
+                violations.append(
+                    Violation(
+                        field,
+                        "count_matches",
+                        f"{field} has {count} matches for /{pattern}/ (need <= {max_count})",
+                    )
+                )
 
     for spec in rule_block.get("no_open_linked", []):
         linked_type = spec.get("type")
@@ -211,28 +277,44 @@ def _apply_rules(ticket, rule_block):
                 continue
             if linked_type and linked_ticket.get("issuetype") != linked_type:
                 continue
-            if linked_priorities and linked_ticket.get("priority") not in linked_priorities:
+            if (
+                linked_priorities
+                and linked_ticket.get("priority") not in linked_priorities
+            ):
                 continue
             status_cat = linked_ticket.get("statusCategory", "")
             if status_cat != "Done":
-                violations.append(Violation(
-                    "issuelinks", "no_open_linked",
-                    f'linked {linked_ticket.get("issuetype")} {linked_key} ({linked_ticket.get("priority")}) is open: {linked_ticket.get("status")}',
-                ))
+                violations.append(
+                    Violation(
+                        "issuelinks",
+                        "no_open_linked",
+                        f"linked {linked_ticket.get('issuetype')} {linked_key} ({linked_ticket.get('priority')}) is open: {linked_ticket.get('status')}",
+                    )
+                )
 
     for field, sections in rule_block.get("sections_present", {}).items():
         found, value = _get_field_value(ticket, field)
         if not found or value is None:
-            violations.append(Violation(field, "sections_present", f"{field} is missing or null"))
+            violations.append(
+                Violation(field, "sections_present", f"{field} is missing or null")
+            )
         elif not isinstance(value, str):
-            violations.append(Violation(field, "sections_present", f"{field} is not a string"))
+            violations.append(
+                Violation(field, "sections_present", f"{field} is not a string")
+            )
         else:
             for section in sections:
                 # Match markdown (## Section), Jira wiki (h2. Section), or plain heading patterns
                 esc = re.escape(section)
                 pat = rf"(?mi)(^#{{1,6}}\s+{esc}\b|^h[1-6]\.\s+{esc}\b)"
                 if not re.search(pat, value):
-                    violations.append(Violation(field, "sections_present", f'{field} is missing section "{section}"'))
+                    violations.append(
+                        Violation(
+                            field,
+                            "sections_present",
+                            f'{field} is missing section "{section}"',
+                        )
+                    )
 
     for field, forbidden in rule_block.get("not_one_of", {}).items():
         found, value = _get_field_value(ticket, field)
@@ -241,9 +323,17 @@ def _apply_rules(ticket, rule_block):
             if isinstance(value, list):
                 bad = [str(v) for v in value if str(v) in forbidden_strs]
                 if bad:
-                    violations.append(Violation(field, "not_one_of", f'{field} has forbidden values: {", ".join(bad)}'))
+                    violations.append(
+                        Violation(
+                            field,
+                            "not_one_of",
+                            f"{field} has forbidden values: {', '.join(bad)}",
+                        )
+                    )
             elif str(value) in forbidden_strs:
-                violations.append(Violation(field, "not_one_of", f'{field} must not be "{value}"'))
+                violations.append(
+                    Violation(field, "not_one_of", f'{field} must not be "{value}"')
+                )
 
     return violations
 
@@ -322,10 +412,13 @@ def validate_transition(ticket, all_rules, target_status):
     source_status = ticket.get("status", "")
     valid_targets = type_rules.get("valid_transitions", {}).get(source_status)
     if valid_targets is not None and target_status not in valid_targets:
-        violations.append(Violation(
-            "transition", "valid_transitions",
-            f'cannot transition from "{source_status}" to "{target_status}" (allowed: {", ".join(valid_targets)})',
-        ))
+        violations.append(
+            Violation(
+                "transition",
+                "valid_transitions",
+                f'cannot transition from "{source_status}" to "{target_status}" (allowed: {", ".join(valid_targets)})',
+            )
+        )
 
     violations.extend(check_ticket(ticket, type_rules, status=target_status))
     return violations
@@ -359,7 +452,17 @@ def check_command(args):
             any_fail = True
             for v in violations:
                 print(f"  FAIL  {v.check:<11s} {v.field}")
-                if v.check in ("contains", "not_contains", "matches", "not_matches", "subtask_types", "one_of", "not_one_of", "count_matches", "sections_present"):
+                if v.check in (
+                    "contains",
+                    "not_contains",
+                    "matches",
+                    "not_matches",
+                    "subtask_types",
+                    "one_of",
+                    "not_one_of",
+                    "count_matches",
+                    "sections_present",
+                ):
                     print(f"        {v.message}")
         else:
             print("  ok")

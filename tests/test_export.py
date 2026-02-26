@@ -400,7 +400,9 @@ class TestFormatTicketMarkdown:
             Comment(author="Bob", created="2024-01-16", body="Second comment"),
         ]
 
-        result = format_ticket_markdown(ticket, comments, "2024-01-17", "jira.example.com")
+        result = format_ticket_markdown(
+            ticket, comments, "2024-01-17", "jira.example.com"
+        )
 
         assert "### Alice (2024-01-15)" in result
         assert "First comment" in result
@@ -425,8 +427,18 @@ class TestFormatTicketMarkdown:
             "labels": [],
             "parent": None,
             "issuelinks": [
-                {"type": "Blocks", "direction": "outward", "key": "TEST-100", "summary": "Blocked ticket"},
-                {"type": "Relates", "direction": "inward", "key": "TEST-200", "summary": "Related ticket"},
+                {
+                    "type": "Blocks",
+                    "direction": "outward",
+                    "key": "TEST-100",
+                    "summary": "Blocked ticket",
+                },
+                {
+                    "type": "Relates",
+                    "direction": "inward",
+                    "key": "TEST-200",
+                    "summary": "Related ticket",
+                },
             ],
         }
 
@@ -478,7 +490,12 @@ class TestFormatTicketMarkdown:
             "parent": None,
             "issuelinks": [],
             "attachments": [
-                {"filename": "screenshot.png", "size": 102400, "author": "John", "created": "2024-01-15T10:00:00"},
+                {
+                    "filename": "screenshot.png",
+                    "size": 102400,
+                    "author": "John",
+                    "created": "2024-01-15T10:00:00",
+                },
             ],
         }
 
@@ -507,7 +524,11 @@ class TestFormatTicketMarkdown:
             "parent": None,
             "issuelinks": [],
             "pullRequests": [
-                {"name": "Fix bug #123", "url": "https://github.com/org/repo/pull/123", "status": "MERGED"},
+                {
+                    "name": "Fix bug #123",
+                    "url": "https://github.com/org/repo/pull/123",
+                    "status": "MERGED",
+                },
             ],
         }
 
@@ -536,7 +557,9 @@ class TestFormatTicketJson:
             Comment(author="Alice", created="2024-01-15", body="A comment"),
         ]
 
-        result = format_ticket_json(ticket, comments, "2024-01-17T10:00:00", "jira.example.com")
+        result = format_ticket_json(
+            ticket, comments, "2024-01-17T10:00:00", "jira.example.com"
+        )
 
         # Should be valid JSON
         data = json.loads(result)
@@ -961,7 +984,10 @@ class TestGetComments:
         mock_body.raw = {
             "type": "doc",
             "content": [
-                {"type": "paragraph", "content": [{"type": "text", "text": "ADF comment"}]}
+                {
+                    "type": "paragraph",
+                    "content": [{"type": "text", "text": "ADF comment"}],
+                }
             ],
         }
 
@@ -993,8 +1019,16 @@ class TestGetPullRequests:
             "detail": [
                 {
                     "pullRequests": [
-                        {"name": "Fix bug", "url": "https://github.com/org/repo/pull/1", "status": "MERGED"},
-                        {"name": "Add feature", "url": "https://github.com/org/repo/pull/2", "status": "OPEN"},
+                        {
+                            "name": "Fix bug",
+                            "url": "https://github.com/org/repo/pull/1",
+                            "status": "MERGED",
+                        },
+                        {
+                            "name": "Add feature",
+                            "url": "https://github.com/org/repo/pull/2",
+                            "status": "OPEN",
+                        },
                     ]
                 }
             ]
@@ -1044,7 +1078,11 @@ class TestDownloadAttachment:
         """Skips files larger than 10MB."""
         from zaira.export import download_attachment
 
-        attachment = {"id": "att123", "filename": "large.zip", "size": 15 * 1024 * 1024}  # 15 MB
+        attachment = {
+            "id": "att123",
+            "filename": "large.zip",
+            "size": 15 * 1024 * 1024,
+        }  # 15 MB
         output_dir = tmp_path / "attachments"
 
         result = download_attachment(attachment, output_dir)
@@ -1085,11 +1123,13 @@ class TestGetAttachmentCommand:
         """Downloads attachments that match the pattern."""
         from zaira.export import get_attachment_command
 
-        ticket = self._make_ticket([
-            {"id": "1", "filename": "report.pdf", "size": 1024},
-            {"id": "2", "filename": "image.png", "size": 2048},
-            {"id": "3", "filename": "summary.pdf", "size": 512},
-        ])
+        ticket = self._make_ticket(
+            [
+                {"id": "1", "filename": "report.pdf", "size": 1024},
+                {"id": "2", "filename": "image.png", "size": 2048},
+                {"id": "3", "filename": "summary.pdf", "size": 512},
+            ]
+        )
         args = argparse.Namespace(key="test-123", pattern="*.pdf", output=str(tmp_path))
 
         mock_response = MagicMock()
@@ -1112,9 +1152,11 @@ class TestGetAttachmentCommand:
         """Shows available attachments when none match."""
         from zaira.export import get_attachment_command
 
-        ticket = self._make_ticket([
-            {"id": "1", "filename": "data.csv", "size": 1024},
-        ])
+        ticket = self._make_ticket(
+            [
+                {"id": "1", "filename": "data.csv", "size": 1024},
+            ]
+        )
         args = argparse.Namespace(key="test-123", pattern="*.pdf", output=None)
 
         with patch("zaira.export.get_ticket", return_value=ticket):
@@ -1153,9 +1195,11 @@ class TestGetAttachmentCommand:
         """Uses current directory when no output specified."""
         from zaira.export import get_attachment_command
 
-        ticket = self._make_ticket([
-            {"id": "1", "filename": "file.txt", "size": 100},
-        ])
+        ticket = self._make_ticket(
+            [
+                {"id": "1", "filename": "file.txt", "size": 100},
+            ]
+        )
         args = argparse.Namespace(key="test-123", pattern="*", output=None)
 
         mock_response = MagicMock()

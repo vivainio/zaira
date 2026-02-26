@@ -87,8 +87,16 @@ class TestMapField:
 
     def test_custom_field_lookup(self):
         """Looks up custom field by name via editmeta."""
-        with patch("zaira.edit.get_editmeta_field", return_value=("customfield_123", {"id": "customfield_123", "type": "number"})):
-            field_id, value = map_field("Story Points", "5", project="TEST", issue_type="Story")
+        with patch(
+            "zaira.edit.get_editmeta_field",
+            return_value=(
+                "customfield_123",
+                {"id": "customfield_123", "type": "number"},
+            ),
+        ):
+            field_id, value = map_field(
+                "Story Points", "5", project="TEST", issue_type="Story"
+            )
 
         assert field_id == "customfield_123"
 
@@ -105,7 +113,10 @@ class TestParseFieldArgs:
 
     def test_parses_simple_args(self):
         """Parses simple Name=value arguments."""
-        with patch("zaira.edit.map_field", side_effect=lambda n, v, project="", issue_type="": (n.lower(), v)):
+        with patch(
+            "zaira.edit.map_field",
+            side_effect=lambda n, v, project="", issue_type="": (n.lower(), v),
+        ):
             result = parse_field_args(["summary=Test", "priority=High"])
 
         assert result["summary"] == "Test"
@@ -113,14 +124,20 @@ class TestParseFieldArgs:
 
     def test_handles_value_with_equals(self):
         """Handles values containing equals signs."""
-        with patch("zaira.edit.map_field", side_effect=lambda n, v, project="", issue_type="": (n.lower(), v)):
+        with patch(
+            "zaira.edit.map_field",
+            side_effect=lambda n, v, project="", issue_type="": (n.lower(), v),
+        ):
             result = parse_field_args(["description=a=b=c"])
 
         assert result["description"] == "a=b=c"
 
     def test_warns_on_invalid_format(self, capsys):
         """Warns on arguments without equals sign."""
-        with patch("zaira.edit.map_field", side_effect=lambda n, v, project="", issue_type="": (n.lower(), v)):
+        with patch(
+            "zaira.edit.map_field",
+            side_effect=lambda n, v, project="", issue_type="": (n.lower(), v),
+        ):
             result = parse_field_args(["invalid_no_equals", "valid=value"])
 
         captured = capsys.readouterr()
@@ -129,7 +146,10 @@ class TestParseFieldArgs:
 
     def test_strips_whitespace(self):
         """Strips whitespace from name and value."""
-        with patch("zaira.edit.map_field", side_effect=lambda n, v, project="", issue_type="": (n.lower(), v)):
+        with patch(
+            "zaira.edit.map_field",
+            side_effect=lambda n, v, project="", issue_type="": (n.lower(), v),
+        ):
             result = parse_field_args(["  summary  =  Test Value  "])
 
         assert result["summary"] == "Test Value"
@@ -144,7 +164,10 @@ class TestParseYamlFields:
 summary: Test Ticket
 priority: High
 """
-        with patch("zaira.edit.map_field", side_effect=lambda n, v, project="", issue_type="": (n.lower(), v)):
+        with patch(
+            "zaira.edit.map_field",
+            side_effect=lambda n, v, project="", issue_type="": (n.lower(), v),
+        ):
             result = parse_yaml_fields(content)
 
         assert result["summary"] == "Test Ticket"
@@ -157,7 +180,10 @@ labels:
   - bug
   - urgent
 """
-        with patch("zaira.edit.map_field", side_effect=lambda n, v, project="", issue_type="": (n.lower(), v)):
+        with patch(
+            "zaira.edit.map_field",
+            side_effect=lambda n, v, project="", issue_type="": (n.lower(), v),
+        ):
             result = parse_yaml_fields(content)
 
         assert result["labels"] == ["bug", "urgent"]
@@ -278,22 +304,46 @@ class TestFormatFieldValue:
 
     def test_formats_option_field(self):
         """Wraps option field value in dict."""
-        with patch("zaira.edit.get_editmeta_field", return_value=("customfield_123", {"id": "customfield_123", "type": "option"})):
-            result = format_field_value("customfield_123", "High", project="TEST", issue_type="Story")
+        with patch(
+            "zaira.edit.get_editmeta_field",
+            return_value=(
+                "customfield_123",
+                {"id": "customfield_123", "type": "option"},
+            ),
+        ):
+            result = format_field_value(
+                "customfield_123", "High", project="TEST", issue_type="Story"
+            )
 
         assert result == {"value": "High"}
 
     def test_formats_array_field(self):
         """Formats array/multi-select field."""
-        with patch("zaira.edit.get_editmeta_field", return_value=("customfield_456", {"id": "customfield_456", "type": "option list"})):
-            result = format_field_value("customfield_456", "a, b, c", project="TEST", issue_type="Story")
+        with patch(
+            "zaira.edit.get_editmeta_field",
+            return_value=(
+                "customfield_456",
+                {"id": "customfield_456", "type": "option list"},
+            ),
+        ):
+            result = format_field_value(
+                "customfield_456", "a, b, c", project="TEST", issue_type="Story"
+            )
 
         assert result == [{"value": "a"}, {"value": "b"}, {"value": "c"}]
 
     def test_converts_number_field(self):
         """Converts string to number for number field."""
-        with patch("zaira.edit.get_editmeta_field", return_value=("customfield_789", {"id": "customfield_789", "type": "number"})):
-            result = format_field_value("customfield_789", "42", project="TEST", issue_type="Story")
+        with patch(
+            "zaira.edit.get_editmeta_field",
+            return_value=(
+                "customfield_789",
+                {"id": "customfield_789", "type": "number"},
+            ),
+        ):
+            result = format_field_value(
+                "customfield_789", "42", project="TEST", issue_type="Story"
+            )
 
         assert result == 42
 
@@ -367,10 +417,12 @@ class TestHandleUpdateError:
         """Parses and displays Jira error response."""
         error = MagicMock()
         error.response = MagicMock()
-        error.response.text = json.dumps({
-            "errorMessages": ["General error"],
-            "errors": {"customfield_123": "Invalid value"},
-        })
+        error.response.text = json.dumps(
+            {
+                "errorMessages": ["General error"],
+                "errors": {"customfield_123": "Invalid value"},
+            }
+        )
 
         with patch("zaira.edit.get_allowed_values", return_value={}):
             _handle_update_error(error, mock_jira, "TEST-123")
@@ -483,10 +535,13 @@ class TestEditCommand:
         )
 
         with patch("zaira.edit.get_jira_site", return_value="jira.example.com"):
-            with patch("zaira.edit.map_field", side_effect=[
-                ("summary", "Updated"),
-                ("priority", {"name": "High"}),
-            ]):
+            with patch(
+                "zaira.edit.map_field",
+                side_effect=[
+                    ("summary", "Updated"),
+                    ("priority", {"name": "High"}),
+                ],
+            ):
                 edit_command(args)
 
         mock_issue.update.assert_called_once()
@@ -507,10 +562,13 @@ class TestEditCommand:
         )
 
         with patch("zaira.edit.get_jira_site", return_value="jira.example.com"):
-            with patch("zaira.edit.map_field", side_effect=[
-                ("summary", "From YAML"),
-                ("priority", {"name": "Low"}),
-            ]):
+            with patch(
+                "zaira.edit.map_field",
+                side_effect=[
+                    ("summary", "From YAML"),
+                    ("priority", {"name": "Low"}),
+                ],
+            ):
                 edit_command(args)
 
         mock_issue.update.assert_called_once()
@@ -569,4 +627,6 @@ class TestEditCommand:
         with patch("zaira.edit.get_jira_site", return_value="jira.example.com"):
             edit_command(args)
 
-        mock_issue.update.assert_called_once_with(fields={"description": "stdin content"})
+        mock_issue.update.assert_called_once_with(
+            fields={"description": "stdin content"}
+        )

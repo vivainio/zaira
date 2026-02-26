@@ -25,14 +25,19 @@ class TestLoadSchema:
 
     def test_returns_none_when_no_file(self, tmp_path):
         """Returns None when schema file doesn't exist."""
-        with patch("zaira.info.get_schema_path", return_value=tmp_path / "nonexistent.json"):
+        with patch(
+            "zaira.info.get_schema_path", return_value=tmp_path / "nonexistent.json"
+        ):
             result = load_schema()
         assert result is None
 
     def test_loads_schema_from_file(self, tmp_path):
         """Loads schema from JSON file."""
         schema_file = tmp_path / "schema.json"
-        schema_data = {"version": 2, "fields": {"customfield_123": {"name": "Story Points"}}}
+        schema_data = {
+            "version": 2,
+            "fields": {"customfield_123": {"name": "Story Points"}},
+        }
         schema_file.write_text(json.dumps(schema_data))
 
         with patch("zaira.info.get_schema_path", return_value=schema_file):
@@ -47,7 +52,10 @@ class TestSaveSchema:
     def test_saves_schema_to_file(self, tmp_path):
         """Saves schema to JSON file."""
         schema_file = tmp_path / "schema.json"
-        schema_data = {"version": 2, "fields": {"customfield_456": {"name": "Epic Link"}}}
+        schema_data = {
+            "version": 2,
+            "fields": {"customfield_456": {"name": "Epic Link"}},
+        }
 
         with (
             patch("zaira.info.get_schema_path", return_value=schema_file),
@@ -99,7 +107,10 @@ class TestGetFieldId:
     def test_returns_field_id_by_name(self, tmp_path):
         """Returns field ID for given name."""
         schema_file = tmp_path / "schema.json"
-        schema = {"version": 2, "fields": {"customfield_10551": {"name": "Story Points"}}}
+        schema = {
+            "version": 2,
+            "fields": {"customfield_10551": {"name": "Story Points"}},
+        }
         schema_file.write_text(json.dumps(schema))
 
         with patch("zaira.info.get_schema_path", return_value=schema_file):
@@ -130,7 +141,9 @@ class TestGetFieldId:
 
     def test_returns_none_when_no_schema(self, tmp_path):
         """Returns None when no schema exists."""
-        with patch("zaira.info.get_schema_path", return_value=tmp_path / "nonexistent.json"):
+        with patch(
+            "zaira.info.get_schema_path", return_value=tmp_path / "nonexistent.json"
+        ):
             result = get_field_id("Any Field")
 
         assert result is None
@@ -142,7 +155,10 @@ class TestGetFieldName:
     def test_returns_field_name_by_id(self, tmp_path):
         """Returns field name for given ID."""
         schema_file = tmp_path / "schema.json"
-        schema = {"version": 2, "fields": {"customfield_10551": {"name": "Story Points"}}}
+        schema = {
+            "version": 2,
+            "fields": {"customfield_10551": {"name": "Story Points"}},
+        }
         schema_file.write_text(json.dumps(schema))
 
         with patch("zaira.info.get_schema_path", return_value=schema_file):
@@ -173,7 +189,7 @@ class TestGetFieldMap:
             "fields": {
                 "customfield_123": {"name": "Story Points"},
                 "customfield_456": {"name": "Epic Link"},
-            }
+            },
         }
         schema_file.write_text(json.dumps(schema))
 
@@ -187,7 +203,9 @@ class TestGetFieldMap:
 
     def test_returns_empty_dict_when_no_schema(self, tmp_path):
         """Returns empty dict when no schema."""
-        with patch("zaira.info.get_schema_path", return_value=tmp_path / "nonexistent.json"):
+        with patch(
+            "zaira.info.get_schema_path", return_value=tmp_path / "nonexistent.json"
+        ):
             result = get_field_map()
 
         assert result == {}
@@ -199,11 +217,14 @@ class TestGetFieldType:
     def test_returns_field_type(self, tmp_path):
         """Returns field type for given ID."""
         schema_file = tmp_path / "schema.json"
-        schema = {"version": 2, "fields": {
-            "customfield_123": {"name": "Num Field", "type": "number"},
-            "customfield_456": {"name": "Opt Field", "type": "option"},
-            "customfield_789": {"name": "Labels", "type": "string list"},
-        }}
+        schema = {
+            "version": 2,
+            "fields": {
+                "customfield_123": {"name": "Num Field", "type": "number"},
+                "customfield_456": {"name": "Opt Field", "type": "option"},
+                "customfield_789": {"name": "Labels", "type": "string list"},
+            },
+        }
         schema_file.write_text(json.dumps(schema))
 
         with patch("zaira.info.get_schema_path", return_value=schema_file):
@@ -239,7 +260,10 @@ class TestLoadProjectSchema:
 
     def test_returns_none_when_no_file(self, tmp_path):
         """Returns None when file doesn't exist."""
-        with patch("zaira.info.get_project_schema_path", return_value=tmp_path / "nonexistent.json"):
+        with patch(
+            "zaira.info.get_project_schema_path",
+            return_value=tmp_path / "nonexistent.json",
+        ):
             result = load_project_schema("TEST")
 
         assert result is None
@@ -320,8 +344,13 @@ class TestGetFieldNameEdgeCases:
         schema = {"version": 2, "statuses": {}}
         schema_file.write_text(json.dumps(schema))
 
-        with patch("zaira.info.get_schema_path", return_value=schema_file), \
-             patch("zaira.info._fetch_and_cache_fields", side_effect=Exception("no network")):
+        with (
+            patch("zaira.info.get_schema_path", return_value=schema_file),
+            patch(
+                "zaira.info._fetch_and_cache_fields",
+                side_effect=Exception("no network"),
+            ),
+        ):
             result = get_field_name("customfield_123")
 
         assert result is None
@@ -356,7 +385,7 @@ class TestLinkTypesCommand:
             "linkTypes": {
                 "Blocks": {"outward": "blocks", "inward": "is blocked by"},
                 "Relates": {"outward": "relates to", "inward": "relates to"},
-            }
+            },
         }
         schema_file.write_text(json.dumps(schema))
 
@@ -431,7 +460,7 @@ class TestStatusesCommand:
                 "Open": "To Do",
                 "In Progress": "In Progress",
                 "Done": "Done",
-            }
+            },
         }
         schema_file.write_text(json.dumps(schema))
 
@@ -503,7 +532,7 @@ class TestIssueTypesCommand:
                 "Bug": {"subtask": False},
                 "Story": {"subtask": False},
                 "Sub-task": {"subtask": True},
-            }
+            },
         }
         schema_file.write_text(json.dumps(schema))
 
@@ -576,7 +605,7 @@ class TestFieldsCommand:
                 "customfield_10001": {"name": "Story Points"},
                 "customfield_10002": {"name": "Sprint"},
                 "summary": {"name": "Summary"},
-            }
+            },
         }
         schema_file.write_text(json.dumps(schema))
 
@@ -602,7 +631,7 @@ class TestFieldsCommand:
             "fields": {
                 "customfield_10001": {"name": "Story Points"},
                 "summary": {"name": "Summary"},
-            }
+            },
         }
         schema_file.write_text(json.dumps(schema))
 
@@ -627,7 +656,7 @@ class TestFieldsCommand:
                 "customfield_10001": {"name": "Story Points"},
                 "customfield_10002": {"name": "Sprint"},
                 "customfield_10003": {"name": "Epic Link"},
-            }
+            },
         }
         schema_file.write_text(json.dumps(schema))
 
@@ -650,7 +679,12 @@ class TestFieldsCommand:
         schema_file.write_text("{}")
 
         mock_jira.fields.return_value = [
-            {"id": "customfield_10001", "name": "Story Points", "custom": True, "schema": {"type": "number"}},
+            {
+                "id": "customfield_10001",
+                "name": "Story Points",
+                "custom": True,
+                "schema": {"type": "number"},
+            },
         ]
 
         args = argparse.Namespace(refresh=True, all=False, filter=None)
@@ -730,7 +764,11 @@ class TestGetFieldNameAutoFetch:
         schema_file.write_text(json.dumps(schema))
 
         mock_jira.fields.return_value = [
-            {"id": "customfield_10001", "name": "Story Points", "schema": {"type": "number"}},
+            {
+                "id": "customfield_10001",
+                "name": "Story Points",
+                "schema": {"type": "number"},
+            },
         ]
 
         with (
@@ -747,7 +785,11 @@ class TestGetFieldNameAutoFetch:
         schema_file = tmp_path / "nonexistent.json"
 
         mock_jira.fields.return_value = [
-            {"id": "customfield_999", "name": "Epic Link", "schema": {"type": "string"}},
+            {
+                "id": "customfield_999",
+                "name": "Epic Link",
+                "schema": {"type": "string"},
+            },
         ]
 
         with (
@@ -773,7 +815,11 @@ class TestGetFieldNameAutoFetch:
         schema_file = tmp_path / "nonexistent.json"
 
         mock_jira.fields.return_value = [
-            {"id": "customfield_10001", "name": "Story Points", "schema": {"type": "number"}},
+            {
+                "id": "customfield_10001",
+                "name": "Story Points",
+                "schema": {"type": "number"},
+            },
         ]
 
         with (
@@ -787,7 +833,10 @@ class TestGetFieldNameAutoFetch:
     def test_does_not_fetch_when_fields_cached(self, mock_jira, tmp_path):
         """Does not call API when fields are already cached."""
         schema_file = tmp_path / "schema.json"
-        schema = {"version": 2, "fields": {"customfield_10001": {"name": "Story Points"}}}
+        schema = {
+            "version": 2,
+            "fields": {"customfield_10001": {"name": "Story Points"}},
+        }
         schema_file.write_text(json.dumps(schema))
 
         with patch("zaira.info.get_schema_path", return_value=schema_file):
@@ -812,16 +861,23 @@ class TestFieldCommand:
         from zaira.info import field_command
         import argparse
 
-        self._write_editmeta(tmp_path, "PROJ", "Story", {
-            "Story Points": {"id": "customfield_10001", "type": "number"},
-            "Sprint": {"id": "customfield_10002", "type": "string"},
-            "Summary": {"id": "summary", "type": "string"},
-        })
+        self._write_editmeta(
+            tmp_path,
+            "PROJ",
+            "Story",
+            {
+                "Story Points": {"id": "customfield_10001", "type": "number"},
+                "Sprint": {"id": "customfield_10002", "type": "string"},
+                "Summary": {"id": "summary", "type": "string"},
+            },
+        )
 
         args = argparse.Namespace(names=["Story Poitns"])  # typo
 
-        with patch("zaira.info.CACHE_DIR", tmp_path), \
-             patch("zaira.info.load_field_descriptions", return_value={}):
+        with (
+            patch("zaira.info.CACHE_DIR", tmp_path),
+            patch("zaira.info.load_field_descriptions", return_value={}),
+        ):
             field_command(args)
 
         captured = capsys.readouterr()
@@ -833,14 +889,21 @@ class TestFieldCommand:
         from zaira.info import field_command
         import argparse
 
-        self._write_editmeta(tmp_path, "PROJ", "Story", {
-            "Summary": {"id": "summary", "type": "string"},
-        })
+        self._write_editmeta(
+            tmp_path,
+            "PROJ",
+            "Story",
+            {
+                "Summary": {"id": "summary", "type": "string"},
+            },
+        )
 
         args = argparse.Namespace(names=["zzzzzzzzz"])
 
-        with patch("zaira.info.CACHE_DIR", tmp_path), \
-             patch("zaira.info.load_field_descriptions", return_value={}):
+        with (
+            patch("zaira.info.CACHE_DIR", tmp_path),
+            patch("zaira.info.load_field_descriptions", return_value={}),
+        ):
             field_command(args)
 
         captured = capsys.readouterr()

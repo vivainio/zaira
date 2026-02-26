@@ -71,16 +71,20 @@ def fetch_changelog(key: str) -> list[dict]:
                 resolved = get_field_name(field_id)
                 if resolved:
                     field_name = resolved
-            items.append({
-                "field": field_name,
-                "from": _extract_value(getattr(item, "fromString", None)),
-                "to": _extract_value(getattr(item, "toString", None)),
-            })
-        entries.append({
-            "author": author,
-            "created": created,
-            "items": items,
-        })
+            items.append(
+                {
+                    "field": field_name,
+                    "from": _extract_value(getattr(item, "fromString", None)),
+                    "to": _extract_value(getattr(item, "toString", None)),
+                }
+            )
+        entries.append(
+            {
+                "author": author,
+                "created": created,
+                "items": items,
+            }
+        )
     return entries
 
 
@@ -99,30 +103,36 @@ def extract_field_revisions(
     for entry in entries:
         for item in entry["items"]:
             if item["field"].lower() == field.lower():
-                changes.append({
-                    "author": entry["author"],
-                    "created": entry["created"],
-                    "from": item["from"],
-                    "to": item["to"],
-                })
+                changes.append(
+                    {
+                        "author": entry["author"],
+                        "created": entry["created"],
+                        "from": item["from"],
+                        "to": item["to"],
+                    }
+                )
     if not changes:
         return []
 
     revisions: list[dict] = []
     # Rev 1 = the "from" value of the earliest change (state before any change)
-    revisions.append({
-        "rev": 1,
-        "author": "(before first edit)",
-        "created": changes[0]["created"],
-        "value": changes[0]["from"],
-    })
+    revisions.append(
+        {
+            "rev": 1,
+            "author": "(before first edit)",
+            "created": changes[0]["created"],
+            "value": changes[0]["from"],
+        }
+    )
     for i, ch in enumerate(changes):
-        revisions.append({
-            "rev": i + 2,
-            "author": ch["author"],
-            "created": ch["created"],
-            "value": ch["to"],
-        })
+        revisions.append(
+            {
+                "rev": i + 2,
+                "author": ch["author"],
+                "created": ch["created"],
+                "value": ch["to"],
+            }
+        )
     return revisions
 
 

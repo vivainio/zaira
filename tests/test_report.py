@@ -196,11 +196,12 @@ class TestGenerateFrontMatter:
 
     def test_refresh_command(self):
         """Generates correct refresh command."""
-        result = generate_front_matter(
-            "My Report", query="backlog", group_by="status"
-        )
+        result = generate_front_matter("My Report", query="backlog", group_by="status")
 
-        assert "refresh: zaira report --query backlog --group-by status --title 'My Report'" in result
+        assert (
+            "refresh: zaira report --query backlog --group-by status --title 'My Report'"
+            in result
+        )
 
 
 class TestGenerateTable:
@@ -324,8 +325,20 @@ class TestGenerateReport:
     def test_report_with_grouping(self):
         """Generates grouped report."""
         tickets = [
-            {"key": "T-1", "status": "Open", "issuetype": "Bug", "updated": "", "summary": "A"},
-            {"key": "T-2", "status": "Done", "issuetype": "Bug", "updated": "", "summary": "B"},
+            {
+                "key": "T-1",
+                "status": "Open",
+                "issuetype": "Bug",
+                "updated": "",
+                "summary": "A",
+            },
+            {
+                "key": "T-2",
+                "status": "Done",
+                "issuetype": "Bug",
+                "updated": "",
+                "summary": "B",
+            },
         ]
         result = generate_report(tickets, "Grouped", group_by="status")
 
@@ -598,8 +611,20 @@ class TestGenerateDashboardReport:
         mock_gadget.position = 0
 
         tickets = [
-            {"key": "T-1", "status": "Open", "issuetype": "Bug", "updated": "", "summary": "A"},
-            {"key": "T-2", "status": "Done", "issuetype": "Bug", "updated": "", "summary": "B"},
+            {
+                "key": "T-1",
+                "status": "Open",
+                "issuetype": "Bug",
+                "updated": "",
+                "summary": "A",
+            },
+            {
+                "key": "T-2",
+                "status": "Done",
+                "issuetype": "Bug",
+                "updated": "",
+                "summary": "B",
+            },
         ]
 
         with (
@@ -607,7 +632,9 @@ class TestGenerateDashboardReport:
             patch("zaira.report.get_dashboard_gadgets", return_value=[mock_gadget]),
             patch("zaira.report.search_tickets", return_value=tickets),
         ):
-            result, total = generate_dashboard_report(456, group_by="status", to_stdout=True)
+            result, total = generate_dashboard_report(
+                456, group_by="status", to_stdout=True
+            )
 
         assert "### Open" in result
         assert "### Done" in result
@@ -840,7 +867,16 @@ class TestReportCommand:
             files=False,
         )
 
-        tickets = [{"key": "T-1", "summary": "A", "issuetype": "Bug", "status": "Open", "updated": "", "parent": None}]
+        tickets = [
+            {
+                "key": "T-1",
+                "summary": "A",
+                "issuetype": "Bug",
+                "status": "Open",
+                "updated": "",
+                "parent": None,
+            }
+        ]
 
         with (
             patch("zaira.project.get_query", return_value="project = BACKLOG"),
@@ -899,7 +935,16 @@ class TestReportCommand:
             files=False,
         )
 
-        tickets = [{"key": "T-1", "summary": "A", "issuetype": "Task", "status": "Open", "updated": "", "parent": None}]
+        tickets = [
+            {
+                "key": "T-1",
+                "summary": "A",
+                "issuetype": "Task",
+                "status": "Open",
+                "updated": "",
+                "parent": None,
+            }
+        ]
 
         with (
             patch("zaira.report.get_board_issues_jql", return_value="filter = 999"),
@@ -930,7 +975,16 @@ class TestReportCommand:
             files=False,
         )
 
-        tickets = [{"key": "T-1", "summary": "A", "issuetype": "Story", "status": "Done", "updated": "", "parent": None}]
+        tickets = [
+            {
+                "key": "T-1",
+                "summary": "A",
+                "issuetype": "Story",
+                "status": "Done",
+                "updated": "",
+                "parent": None,
+            }
+        ]
 
         with (
             patch("zaira.report.get_sprint_issues_jql", return_value="Sprint = 456"),
@@ -962,7 +1016,16 @@ class TestReportCommand:
             label="urgent",
         )
 
-        tickets = [{"key": "T-1", "summary": "A", "issuetype": "Bug", "status": "Open", "updated": "", "parent": None}]
+        tickets = [
+            {
+                "key": "T-1",
+                "summary": "A",
+                "issuetype": "Bug",
+                "status": "Open",
+                "updated": "",
+                "parent": None,
+            }
+        ]
 
         with patch("zaira.report.search_tickets", return_value=tickets) as mock_search:
             report_command(args)
@@ -992,7 +1055,16 @@ class TestReportCommand:
             files=False,
         )
 
-        tickets = [{"key": "T-1", "summary": "A", "issuetype": "Bug", "status": "Open", "updated": "", "parent": None}]
+        tickets = [
+            {
+                "key": "T-1",
+                "summary": "A",
+                "issuetype": "Bug",
+                "status": "Open",
+                "updated": "",
+                "parent": None,
+            }
+        ]
 
         with patch("zaira.report.search_tickets", return_value=tickets):
             report_command(args)
@@ -1027,7 +1099,10 @@ class TestReportCommand:
         empty_report_def = {"title": "Empty Report"}
 
         with (
-            patch("zaira.project.list_reports", return_value={"empty-report": empty_report_def}),
+            patch(
+                "zaira.project.list_reports",
+                return_value={"empty-report": empty_report_def},
+            ),
             patch("zaira.project.get_report", return_value=empty_report_def),
             pytest.raises(SystemExit) as exc_info,
         ):
@@ -1059,7 +1134,10 @@ class TestReportCommand:
 
         with (
             patch("zaira.project.list_reports", return_value={}),
-            patch("zaira.report.generate_dashboard_report", return_value=("# Dashboard Report\n\nContent", 5)),
+            patch(
+                "zaira.report.generate_dashboard_report",
+                return_value=("# Dashboard Report\n\nContent", 5),
+            ),
             pytest.raises(SystemExit) as exc_info,
         ):
             report_command(args)
@@ -1091,7 +1169,9 @@ class TestReportCommand:
 
         with (
             patch("zaira.project.list_reports", return_value={}),
-            patch("zaira.report.generate_dashboard_report", return_value=("Report", 1)) as mock_gen,
+            patch(
+                "zaira.report.generate_dashboard_report", return_value=("Report", 1)
+            ) as mock_gen,
             pytest.raises(SystemExit) as exc_info,
         ):
             report_command(args)
@@ -1150,7 +1230,16 @@ class TestReportCommand:
         )
 
         report_def = {"jql": "project = MYREPORT", "title": "My Report"}
-        tickets = [{"key": "T-1", "summary": "A", "issuetype": "Task", "status": "Open", "updated": "", "parent": None}]
+        tickets = [
+            {
+                "key": "T-1",
+                "summary": "A",
+                "issuetype": "Task",
+                "status": "Open",
+                "updated": "",
+                "parent": None,
+            }
+        ]
 
         with (
             patch("zaira.project.list_reports", return_value={"my-report": report_def}),
@@ -1187,7 +1276,16 @@ class TestReportCommand:
         )
 
         report_def = {"jql": "project = TEST", "output": "custom/report.md"}
-        tickets = [{"key": "T-1", "summary": "A", "issuetype": "Task", "status": "Open", "updated": "", "parent": None}]
+        tickets = [
+            {
+                "key": "T-1",
+                "summary": "A",
+                "issuetype": "Task",
+                "status": "Open",
+                "updated": "",
+                "parent": None,
+            }
+        ]
 
         with (
             patch("zaira.project.get_report", return_value=report_def),
@@ -1225,7 +1323,16 @@ class TestReportCommand:
         )
 
         report_def = {"jql": "project = TEST", "output": "def-output.md"}
-        tickets = [{"key": "T-1", "summary": "A", "issuetype": "Task", "status": "Open", "updated": "", "parent": None}]
+        tickets = [
+            {
+                "key": "T-1",
+                "summary": "A",
+                "issuetype": "Task",
+                "status": "Open",
+                "updated": "",
+                "parent": None,
+            }
+        ]
 
         with (
             patch("zaira.project.get_report", return_value=report_def),
@@ -1285,7 +1392,16 @@ class TestReportCommand:
             files=False,
         )
 
-        tickets = [{"key": "T-1", "summary": "A", "issuetype": "Task", "status": "Open", "updated": "", "parent": None}]
+        tickets = [
+            {
+                "key": "T-1",
+                "summary": "A",
+                "issuetype": "Task",
+                "status": "Open",
+                "updated": "",
+                "parent": None,
+            }
+        ]
 
         with (
             patch("zaira.project.list_reports", return_value={}),

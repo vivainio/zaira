@@ -66,7 +66,9 @@ class TestFormatDiff:
         assert "+changed" in result
 
 
-def _make_history(items, author="user@test.com", created="2026-01-15T10:30:00.000+0000"):
+def _make_history(
+    items, author="user@test.com", created="2026-01-15T10:30:00.000+0000"
+):
     """Build a mock changelog history entry."""
     history = MagicMock()
     history.author = MagicMock()
@@ -137,67 +139,81 @@ class TestFormatChangelog:
         assert format_changelog([]) == "(no changelog entries)"
 
     def test_simple_change(self):
-        entries = [{
-            "author": "user@test.com",
-            "created": "2026-01-15T10:30:00.000+0000",
-            "items": [{"field": "status", "from": "Open", "to": "Done"}],
-        }]
+        entries = [
+            {
+                "author": "user@test.com",
+                "created": "2026-01-15T10:30:00.000+0000",
+                "items": [{"field": "status", "from": "Open", "to": "Done"}],
+            }
+        ]
         result = format_changelog(entries)
         assert "user@test.com" in result
         assert "status" in result
         assert "Open → Done" in result
 
     def test_field_set_from_empty(self):
-        entries = [{
-            "author": "u@t.com",
-            "created": "2026-01-15T10:30:00.000+0000",
-            "items": [{"field": "assignee", "from": "", "to": "dev@test.com"}],
-        }]
+        entries = [
+            {
+                "author": "u@t.com",
+                "created": "2026-01-15T10:30:00.000+0000",
+                "items": [{"field": "assignee", "from": "", "to": "dev@test.com"}],
+            }
+        ]
         result = format_changelog(entries)
         assert "→ dev@test.com" in result
 
     def test_field_cleared(self):
-        entries = [{
-            "author": "u@t.com",
-            "created": "2026-01-15T10:30:00.000+0000",
-            "items": [{"field": "assignee", "from": "dev@test.com", "to": ""}],
-        }]
+        entries = [
+            {
+                "author": "u@t.com",
+                "created": "2026-01-15T10:30:00.000+0000",
+                "items": [{"field": "assignee", "from": "dev@test.com", "to": ""}],
+            }
+        ]
         result = format_changelog(entries)
         assert "*(cleared)*" in result
 
     def test_field_filter(self):
-        entries = [{
-            "author": "u@t.com",
-            "created": "2026-01-15T10:30:00.000+0000",
-            "items": [
-                {"field": "status", "from": "Open", "to": "Done"},
-                {"field": "priority", "from": "Low", "to": "High"},
-            ],
-        }]
+        entries = [
+            {
+                "author": "u@t.com",
+                "created": "2026-01-15T10:30:00.000+0000",
+                "items": [
+                    {"field": "status", "from": "Open", "to": "Done"},
+                    {"field": "priority", "from": "Low", "to": "High"},
+                ],
+            }
+        ]
         result = format_changelog(entries, field_filter="status")
         assert "status" in result
         assert "priority" not in result
 
     def test_field_filter_no_match(self):
-        entries = [{
-            "author": "u@t.com",
-            "created": "2026-01-15T10:30:00.000+0000",
-            "items": [{"field": "status", "from": "Open", "to": "Done"}],
-        }]
+        entries = [
+            {
+                "author": "u@t.com",
+                "created": "2026-01-15T10:30:00.000+0000",
+                "items": [{"field": "status", "from": "Open", "to": "Done"}],
+            }
+        ]
         result = format_changelog(entries, field_filter="description")
         assert result == "(no matching changes)"
 
     def test_long_text_shows_diff_by_default(self):
         """Long text fields show diffs by default."""
-        entries = [{
-            "author": "u@t.com",
-            "created": "2026-01-15T10:30:00.000+0000",
-            "items": [{
-                "field": "description",
-                "from": "old line 1\nold line 2\nold line 3",
-                "to": "old line 1\nnew line 2\nold line 3",
-            }],
-        }]
+        entries = [
+            {
+                "author": "u@t.com",
+                "created": "2026-01-15T10:30:00.000+0000",
+                "items": [
+                    {
+                        "field": "description",
+                        "from": "old line 1\nold line 2\nold line 3",
+                        "to": "old line 1\nnew line 2\nold line 3",
+                    }
+                ],
+            }
+        ]
         result = format_changelog(entries)
         assert "```diff" in result
         assert "-old line 2" in result
@@ -205,26 +221,32 @@ class TestFormatChangelog:
 
     def test_short_values_no_diff(self):
         """Short values use arrow notation, not diffs."""
-        entries = [{
-            "author": "u@t.com",
-            "created": "2026-01-15T10:30:00.000+0000",
-            "items": [{"field": "status", "from": "Open", "to": "Done"}],
-        }]
+        entries = [
+            {
+                "author": "u@t.com",
+                "created": "2026-01-15T10:30:00.000+0000",
+                "items": [{"field": "status", "from": "Open", "to": "Done"}],
+            }
+        ]
         result = format_changelog(entries)
         assert "```diff" not in result
         assert "Open → Done" in result
 
     def test_full_mode_shows_raw_long_text(self):
         """--full shows complete old/new values instead of diffs."""
-        entries = [{
-            "author": "u@t.com",
-            "created": "2026-01-15T10:30:00.000+0000",
-            "items": [{
-                "field": "description",
-                "from": "old line 1\nold line 2",
-                "to": "new line 1\nnew line 2",
-            }],
-        }]
+        entries = [
+            {
+                "author": "u@t.com",
+                "created": "2026-01-15T10:30:00.000+0000",
+                "items": [
+                    {
+                        "field": "description",
+                        "from": "old line 1\nold line 2",
+                        "to": "new line 1\nnew line 2",
+                    }
+                ],
+            }
+        ]
         result = format_changelog(entries, full=True)
         assert "```diff" not in result
         assert "old line 1\nold line 2" in result
@@ -239,7 +261,9 @@ class TestChangelogCommand:
         ]
         mock_jira.issue.return_value = issue
 
-        args = argparse.Namespace(key="test-1", tail=None, full=False, field=None, revisions=False, rev=None)
+        args = argparse.Namespace(
+            key="test-1", tail=None, full=False, field=None, revisions=False, rev=None
+        )
         changelog_command(args)
 
         captured = capsys.readouterr()
@@ -259,7 +283,9 @@ class TestChangelogCommand:
         ]
         mock_jira.issue.return_value = issue
 
-        args = argparse.Namespace(key="TEST-1", tail=1, full=False, field=None, revisions=False, rev=None)
+        args = argparse.Namespace(
+            key="TEST-1", tail=1, full=False, field=None, revisions=False, rev=None
+        )
         changelog_command(args)
 
         captured = capsys.readouterr()
@@ -271,15 +297,21 @@ class TestChangelogCommand:
         issue.changelog.histories = []
         mock_jira.issue.return_value = issue
 
-        args = argparse.Namespace(key="test-1", tail=None, full=False, field=None, revisions=False, rev=None)
+        args = argparse.Namespace(
+            key="test-1", tail=None, full=False, field=None, revisions=False, rev=None
+        )
         changelog_command(args)
 
         mock_jira.issue.assert_called_once_with("TEST-1", expand="changelog")
 
     def test_revisions_requires_field(self, mock_jira, capsys):
         args = argparse.Namespace(
-            key="TEST-1", tail=None, full=False, field=None,
-            revisions=True, rev=None,
+            key="TEST-1",
+            tail=None,
+            full=False,
+            field=None,
+            revisions=True,
+            rev=None,
         )
         with pytest.raises(SystemExit):
             changelog_command(args)
@@ -287,8 +319,12 @@ class TestChangelogCommand:
 
     def test_rev_requires_field(self, mock_jira, capsys):
         args = argparse.Namespace(
-            key="TEST-1", tail=None, full=False, field=None,
-            revisions=False, rev=3,
+            key="TEST-1",
+            tail=None,
+            full=False,
+            field=None,
+            revisions=False,
+            rev=3,
         )
         with pytest.raises(SystemExit):
             changelog_command(args)
@@ -309,8 +345,12 @@ class TestChangelogCommand:
         mock_jira.issue.return_value = issue
 
         args = argparse.Namespace(
-            key="TEST-1", tail=None, full=False, field="description",
-            revisions=False, rev=1,
+            key="TEST-1",
+            tail=None,
+            full=False,
+            field="description",
+            revisions=False,
+            rev=1,
         )
         changelog_command(args)
         assert capsys.readouterr().out.strip() == "v1 text"
@@ -326,8 +366,12 @@ class TestChangelogCommand:
         mock_jira.issue.return_value = issue
 
         args = argparse.Namespace(
-            key="TEST-1", tail=None, full=False, field="description",
-            revisions=False, rev=2,
+            key="TEST-1",
+            tail=None,
+            full=False,
+            field="description",
+            revisions=False,
+            rev=2,
         )
         changelog_command(args)
         assert capsys.readouterr().out.strip() == "v2"
@@ -340,8 +384,12 @@ class TestChangelogCommand:
         mock_jira.issue.return_value = issue
 
         args = argparse.Namespace(
-            key="TEST-1", tail=None, full=False, field="description",
-            revisions=False, rev=99,
+            key="TEST-1",
+            tail=None,
+            full=False,
+            field="description",
+            revisions=False,
+            rev=99,
         )
         with pytest.raises(SystemExit):
             changelog_command(args)
@@ -364,8 +412,12 @@ class TestChangelogCommand:
         mock_jira.issue.return_value = issue
 
         args = argparse.Namespace(
-            key="TEST-1", tail=None, full=False, field="description",
-            revisions=True, rev=None,
+            key="TEST-1",
+            tail=None,
+            full=False,
+            field="description",
+            revisions=True,
+            rev=None,
         )
         changelog_command(args)
         out = capsys.readouterr().out
@@ -402,18 +454,22 @@ class TestExtractFieldRevisions:
         assert extract_field_revisions([], "description") == []
 
     def test_no_matching_field(self):
-        entries = [{
-            "author": "a@t.com",
-            "created": "2026-01-01T10:00:00.000+0000",
-            "items": [{"field": "status", "from": "Open", "to": "Done"}],
-        }]
+        entries = [
+            {
+                "author": "a@t.com",
+                "created": "2026-01-01T10:00:00.000+0000",
+                "items": [{"field": "status", "from": "Open", "to": "Done"}],
+            }
+        ]
         assert extract_field_revisions(entries, "description") == []
 
     def test_case_insensitive_field_match(self):
-        entries = [{
-            "author": "a@t.com",
-            "created": "2026-01-01T10:00:00.000+0000",
-            "items": [{"field": "Description", "from": "v1", "to": "v2"}],
-        }]
+        entries = [
+            {
+                "author": "a@t.com",
+                "created": "2026-01-01T10:00:00.000+0000",
+                "items": [{"field": "Description", "from": "v1", "to": "v2"}],
+            }
+        ]
         revs = extract_field_revisions(entries, "description")
         assert len(revs) == 2

@@ -101,7 +101,9 @@ def put_command(args: argparse.Namespace) -> None:
         if "summary" in fields:
             print(f"  summary: {live_summary!r} → {fields['summary']!r}")
         if "description" in fields:
-            print(f"  description: ({len(live_description)} chars → {len(fields['description'])} chars)")
+            print(
+                f"  description: ({len(live_description)} chars → {len(fields['description'])} chars)"
+            )
         return
 
     # Push update

@@ -867,7 +867,9 @@ def put_command(args: argparse.Namespace) -> None:
             # For stdin, write to temp file and process
             import tempfile
 
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".md", delete=False, encoding="utf-8"
+            ) as f:
                 f.write(body_content)
                 temp_path = Path(f.name)
 

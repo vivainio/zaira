@@ -13,7 +13,10 @@ def get_transitions(key: str) -> list[dict]:
     try:
         return jira.transitions(key)
     except Exception as e:
-        print(f"Error getting transitions for {key}: {format_jira_error(e)}", file=sys.stderr)
+        print(
+            f"Error getting transitions for {key}: {format_jira_error(e)}",
+            file=sys.stderr,
+        )
         return []
 
 
@@ -91,6 +94,7 @@ def transition_command(args: argparse.Namespace) -> None:
         project = key.split("-")[0]
         from zaira.jira_client import get_jira
         from zaira.info import ensure_editmeta
+
         jira = get_jira()
         issue = jira.issue(key, fields="issuetype")
         issue_type = issue.fields.issuetype.name
@@ -108,10 +112,20 @@ def transition_command(args: argparse.Namespace) -> None:
             if ticket:
                 violations = validate_transition(ticket, all_rules, status)
                 if violations:
-                    print(f"Blocked: {key} fails rules for '{status}':", file=sys.stderr)
+                    print(
+                        f"Blocked: {key} fails rules for '{status}':", file=sys.stderr
+                    )
                     for v in violations:
                         print(f"  FAIL  {v.check:<11s} {v.field}", file=sys.stderr)
-                        if v.check in ("contains", "not_contains", "matches", "not_matches", "subtask_types", "one_of", "not_one_of"):
+                        if v.check in (
+                            "contains",
+                            "not_contains",
+                            "matches",
+                            "not_matches",
+                            "subtask_types",
+                            "one_of",
+                            "not_one_of",
+                        ):
                             print(f"        {v.message}", file=sys.stderr)
                     print("\nUse --no-check to skip validation.", file=sys.stderr)
                     sys.exit(1)
@@ -122,6 +136,7 @@ def transition_command(args: argparse.Namespace) -> None:
         print(f"Transitioned {key}")
         print(f"View at: https://{jira_site}/browse/{key}")
         from zaira.activity_log import record
+
         record("transition", key, f"→ {status}")
     else:
         sys.exit(1)

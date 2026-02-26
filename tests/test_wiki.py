@@ -343,7 +343,7 @@ class TestGetSyncProperty:
 
         confluence_api.set_api(
             "get_page_property",
-            lambda page_id, key: {"value": {"source_hash": "abc123"}}
+            lambda page_id, key: {"value": {"source_hash": "abc123"}},
         )
 
         result = get_sync_property("12345")
@@ -551,10 +551,13 @@ class TestGetPageInfo:
         from zaira.wiki import _get_page_info
         from zaira import confluence_api
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "ancestors": [{"id": "111"}, {"id": "222"}],
-            "space": {"key": "TEST"}
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "ancestors": [{"id": "111"}, {"id": "222"}],
+                "space": {"key": "TEST"},
+            },
+        )
 
         result = _get_page_info("12345")
 
@@ -576,10 +579,10 @@ class TestGetPageInfo:
         from zaira.wiki import _get_page_info
         from zaira import confluence_api
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "ancestors": [],
-            "space": {"key": "TEST"}
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {"ancestors": [], "space": {"key": "TEST"}},
+        )
 
         result = _get_page_info("12345")
 
@@ -611,8 +614,12 @@ class TestSyncImages:
         img_file = tmp_path / "image.png"
         img_file.write_bytes(b"image data")
 
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
-        confluence_api.set_api("upload_attachment", lambda page_id, path, filename: {"id": "att1"})
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "upload_attachment", lambda page_id, path, filename: {"id": "att1"}
+        )
 
         result = sync_images("12345", md_file, content, {})
 
@@ -630,10 +637,13 @@ class TestSyncImages:
         img_file = tmp_path / "image.png"
         img_file.write_bytes(b"new image data")
 
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {
-            "results": [{"title": "image.png", "id": "att1"}]
-        })
-        confluence_api.set_api("update_attachment", lambda page_id, att_id, path, filename: {"id": "att1"})
+        confluence_api.set_api(
+            "get_attachments",
+            lambda page_id, expand: {"results": [{"title": "image.png", "id": "att1"}]},
+        )
+        confluence_api.set_api(
+            "update_attachment", lambda page_id, att_id, path, filename: {"id": "att1"}
+        )
 
         result = sync_images("12345", md_file, content, {"image.png": "old_hash"})
 
@@ -652,7 +662,9 @@ class TestSyncImages:
         img_file.write_bytes(b"image data")
 
         stored_hash = compute_file_hash(img_file)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
 
         result = sync_images("12345", md_file, content, {"image.png": stored_hash})
 
@@ -669,7 +681,9 @@ class TestSyncImages:
         md_file = tmp_path / "test.md"
         content = "![Alt](./missing.png)"
 
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
 
         result = sync_images("12345", md_file, content, {})
 
@@ -687,7 +701,9 @@ class TestDownloadImages:
         from zaira import confluence_api
 
         md_file = tmp_path / "test.md"
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
 
         download_images("12345", md_file)
 
@@ -699,10 +715,18 @@ class TestDownloadImages:
         from zaira import confluence_api
 
         md_file = tmp_path / "test.md"
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {
-            "results": [{"title": "image.png", "_links": {"download": "/download/image.png"}}],
-            "_links": {"base": "https://site.atlassian.net/wiki"}
-        })
+        confluence_api.set_api(
+            "get_attachments",
+            lambda page_id, expand: {
+                "results": [
+                    {
+                        "title": "image.png",
+                        "_links": {"download": "/download/image.png"},
+                    }
+                ],
+                "_links": {"base": "https://site.atlassian.net/wiki"},
+            },
+        )
         confluence_api.set_api("download_attachment", lambda url, path: True)
 
         download_images("12345", md_file)
@@ -717,10 +741,18 @@ class TestDownloadImages:
         from zaira import confluence_api
 
         md_file = tmp_path / "test.md"
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {
-            "results": [{"title": "document.pdf", "_links": {"download": "/download/document.pdf"}}],
-            "_links": {"base": "https://site.atlassian.net"}
-        })
+        confluence_api.set_api(
+            "get_attachments",
+            lambda page_id, expand: {
+                "results": [
+                    {
+                        "title": "document.pdf",
+                        "_links": {"download": "/download/document.pdf"},
+                    }
+                ],
+                "_links": {"base": "https://site.atlassian.net"},
+            },
+        )
 
         download_images("12345", md_file)
 
@@ -736,13 +768,16 @@ class TestPrintPageTree:
         from zaira.wiki import _print_page_tree
         from zaira import confluence_api
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "title": "Test Page",
-            "space": {"key": "TEST"}
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {"title": "Test Page", "space": {"key": "TEST"}},
+        )
         confluence_api.set_api("get_child_pages", lambda page_id, limit: [])
 
-        with patch("zaira.wiki.get_server_from_config", return_value="https://site.atlassian.net"):
+        with patch(
+            "zaira.wiki.get_server_from_config",
+            return_value="https://site.atlassian.net",
+        ):
             count = _print_page_tree("12345")
 
         assert count == 1
@@ -779,7 +814,10 @@ class TestPrintPageTree:
         confluence_api.set_api("fetch_page", mock_fetch)
         confluence_api.set_api("get_child_pages", mock_children)
 
-        with patch("zaira.wiki.get_server_from_config", return_value="https://site.atlassian.net"):
+        with patch(
+            "zaira.wiki.get_server_from_config",
+            return_value="https://site.atlassian.net",
+        ):
             count = _print_page_tree("12345")
 
         assert count == 2
@@ -834,7 +872,9 @@ class TestExportPageToFile:
         }
 
         confluence_api.set_api("get_page_labels", lambda page_id: ["label1"])
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
 
         result = _export_page_to_file(page, tmp_path)
@@ -857,16 +897,19 @@ class TestSearchCommand:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("search_pages", lambda cql, limit, expand: {
-            "results": [
-                {
-                    "id": "12345",
-                    "title": "Found Page",
-                    "space": {"key": "TEST"},
-                    "_links": {"webui": "/spaces/TEST/pages/12345/Found+Page"},
-                }
-            ]
-        })
+        confluence_api.set_api(
+            "search_pages",
+            lambda cql, limit, expand: {
+                "results": [
+                    {
+                        "id": "12345",
+                        "title": "Found Page",
+                        "space": {"key": "TEST"},
+                        "_links": {"webui": "/spaces/TEST/pages/12345/Found+Page"},
+                    }
+                ]
+            },
+        )
 
         args = argparse.Namespace(
             query="test",
@@ -876,7 +919,10 @@ class TestSearchCommand:
             format="default",
         )
 
-        with patch("zaira.wiki.get_server_from_config", return_value="https://site.atlassian.net"):
+        with patch(
+            "zaira.wiki.get_server_from_config",
+            return_value="https://site.atlassian.net",
+        ):
             search_command(args)
 
         captured = capsys.readouterr()
@@ -913,9 +959,12 @@ class TestSearchCommand:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("search_pages", lambda cql, limit, expand: {
-            "results": [{"id": "12345", "title": "Page", "space": {"key": "TEST"}}]
-        })
+        confluence_api.set_api(
+            "search_pages",
+            lambda cql, limit, expand: {
+                "results": [{"id": "12345", "title": "Page", "space": {"key": "TEST"}}]
+            },
+        )
 
         args = argparse.Namespace(
             query="test",
@@ -925,7 +974,10 @@ class TestSearchCommand:
             format="url",
         )
 
-        with patch("zaira.wiki.get_server_from_config", return_value="https://site.atlassian.net"):
+        with patch(
+            "zaira.wiki.get_server_from_config",
+            return_value="https://site.atlassian.net",
+        ):
             search_command(args)
 
         captured = capsys.readouterr()
@@ -937,9 +989,12 @@ class TestSearchCommand:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("search_pages", lambda cql, limit, expand: {
-            "results": [{"id": "12345", "title": "Page", "space": {"key": "TEST"}}]
-        })
+        confluence_api.set_api(
+            "search_pages",
+            lambda cql, limit, expand: {
+                "results": [{"id": "12345", "title": "Page", "space": {"key": "TEST"}}]
+            },
+        )
 
         args = argparse.Namespace(
             query="test",
@@ -949,7 +1004,10 @@ class TestSearchCommand:
             format="id",
         )
 
-        with patch("zaira.wiki.get_server_from_config", return_value="https://site.atlassian.net"):
+        with patch(
+            "zaira.wiki.get_server_from_config",
+            return_value="https://site.atlassian.net",
+        ):
             search_command(args)
 
         captured = capsys.readouterr()
@@ -961,7 +1019,9 @@ class TestSearchCommand:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("search_pages", lambda cql, limit, expand: {"results": []})
+        confluence_api.set_api(
+            "search_pages", lambda cql, limit, expand: {"results": []}
+        )
 
         args = argparse.Namespace(
             query="nonexistent",
@@ -984,10 +1044,13 @@ class TestSearchCommand:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("search_pages", lambda cql, limit, expand: {
-            "error": "401 - Unauthorized",
-            "text": "Invalid credentials",
-        })
+        confluence_api.set_api(
+            "search_pages",
+            lambda cql, limit, expand: {
+                "error": "401 - Unauthorized",
+                "text": "Invalid credentials",
+            },
+        )
 
         args = argparse.Namespace(
             query="test",
@@ -1014,7 +1077,9 @@ class TestSearchCommand:
 
         def mock_search(cql, limit, expand):
             cql_received.append(cql)
-            return {"results": [{"id": "12345", "title": "Page", "space": {"key": "TEST"}}]}
+            return {
+                "results": [{"id": "12345", "title": "Page", "space": {"key": "TEST"}}]
+            }
 
         confluence_api.set_api("search_pages", mock_search)
 
@@ -1026,7 +1091,10 @@ class TestSearchCommand:
             format="default",
         )
 
-        with patch("zaira.wiki.get_server_from_config", return_value="https://site.atlassian.net"):
+        with patch(
+            "zaira.wiki.get_server_from_config",
+            return_value="https://site.atlassian.net",
+        ):
             search_command(args)
 
         assert 'space = "MYSPACE"' in cql_received[0]
@@ -1041,7 +1109,9 @@ class TestSearchCommand:
 
         def mock_search(cql, limit, expand):
             cql_received.append(cql)
-            return {"results": [{"id": "12345", "title": "Page", "space": {"key": "TEST"}}]}
+            return {
+                "results": [{"id": "12345", "title": "Page", "space": {"key": "TEST"}}]
+            }
 
         confluence_api.set_api("search_pages", mock_search)
 
@@ -1053,7 +1123,10 @@ class TestSearchCommand:
             format="default",
         )
 
-        with patch("zaira.wiki.get_server_from_config", return_value="https://site.atlassian.net"):
+        with patch(
+            "zaira.wiki.get_server_from_config",
+            return_value="https://site.atlassian.net",
+        ):
             search_command(args)
 
         assert 'creator.fullname ~ "John Doe"' in cql_received[0]
@@ -1082,10 +1155,13 @@ class TestGetCommand:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "title": "Root Page",
-            "space": {"key": "TEST"},
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "title": "Root Page",
+                "space": {"key": "TEST"},
+            },
+        )
         confluence_api.set_api("get_child_pages", lambda page_id, limit: [])
 
         args = argparse.Namespace(
@@ -1096,7 +1172,10 @@ class TestGetCommand:
             format="markdown",
         )
 
-        with patch("zaira.wiki.get_server_from_config", return_value="https://site.atlassian.net"):
+        with patch(
+            "zaira.wiki.get_server_from_config",
+            return_value="https://site.atlassian.net",
+        ):
             get_command(args)
 
         captured = capsys.readouterr()
@@ -1109,13 +1188,16 @@ class TestGetCommand:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test Page",
-            "version": {"number": 1},
-            "space": {"key": "TEST", "name": "Test Space"},
-            "body": {"storage": {"value": "<p>Hello</p>"}},
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test Page",
+                "version": {"number": 1},
+                "space": {"key": "TEST", "name": "Test Space"},
+                "body": {"storage": {"value": "<p>Hello</p>"}},
+            },
+        )
         confluence_api.set_api("get_page_labels", lambda page_id: [])
 
         args = argparse.Namespace(
@@ -1168,13 +1250,16 @@ class TestGetCommand:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test Page",
-            "version": {"number": 1},
-            "space": {"key": "TEST", "name": "Test Space"},
-            "body": {"storage": {"value": "<p>Hello</p>"}},
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test Page",
+                "version": {"number": 1},
+                "space": {"key": "TEST", "name": "Test Space"},
+                "body": {"storage": {"value": "<p>Hello</p>"}},
+            },
+        )
 
         args = argparse.Namespace(
             pages=["12345"],
@@ -1227,7 +1312,9 @@ class TestGetCommand:
 
         confluence_api.set_api("fetch_page", mock_fetch)
         confluence_api.set_api("get_page_labels", lambda page_id: [])
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
 
         output_dir = tmp_path / "output"
@@ -1270,7 +1357,9 @@ class TestGetCommand:
         confluence_api.set_api("fetch_page", mock_fetch)
         confluence_api.set_api("get_child_pages", mock_children)
         confluence_api.set_api("get_page_labels", lambda page_id: [])
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
 
         args = argparse.Namespace(
@@ -1281,7 +1370,10 @@ class TestGetCommand:
             format="markdown",
         )
 
-        with patch("zaira.wiki.get_server_from_config", return_value="https://site.atlassian.net"):
+        with patch(
+            "zaira.wiki.get_server_from_config",
+            return_value="https://site.atlassian.net",
+        ):
             get_command(args)
 
         captured = capsys.readouterr()
@@ -1318,10 +1410,13 @@ class TestCreateCommand:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("create_page", lambda space, title, body, parent: {
-            "id": "12345",
-            "version": {"number": 1},
-        })
+        confluence_api.set_api(
+            "create_page",
+            lambda space, title, body, parent: {
+                "id": "12345",
+                "version": {"number": 1},
+            },
+        )
 
         args = argparse.Namespace(
             title="New Page",
@@ -1331,7 +1426,10 @@ class TestCreateCommand:
             parent=None,
         )
 
-        with patch("zaira.wiki.get_server_from_config", return_value="https://site.atlassian.net"):
+        with patch(
+            "zaira.wiki.get_server_from_config",
+            return_value="https://site.atlassian.net",
+        ):
             create_command(args)
 
         captured = capsys.readouterr()
@@ -1383,14 +1481,20 @@ class TestCreateCommand:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "ancestors": [],
-            "space": {"key": "INFERRED"},
-        })
-        confluence_api.set_api("create_page", lambda space, title, body, parent: {
-            "id": "12345",
-            "version": {"number": 1},
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "ancestors": [],
+                "space": {"key": "INFERRED"},
+            },
+        )
+        confluence_api.set_api(
+            "create_page",
+            lambda space, title, body, parent: {
+                "id": "12345",
+                "version": {"number": 1},
+            },
+        )
 
         args = argparse.Namespace(
             title="New Page",
@@ -1400,7 +1504,10 @@ class TestCreateCommand:
             parent="99999",
         )
 
-        with patch("zaira.wiki.get_server_from_config", return_value="https://site.atlassian.net"):
+        with patch(
+            "zaira.wiki.get_server_from_config",
+            return_value="https://site.atlassian.net",
+        ):
             create_command(args)
 
         captured = capsys.readouterr()
@@ -1438,10 +1545,13 @@ class TestCreateCommand:
         content_file = tmp_path / "content.txt"
         content_file.write_text("File content here")
 
-        confluence_api.set_api("create_page", lambda space, title, body, parent: {
-            "id": "12345",
-            "version": {"number": 1},
-        })
+        confluence_api.set_api(
+            "create_page",
+            lambda space, title, body, parent: {
+                "id": "12345",
+                "version": {"number": 1},
+            },
+        )
 
         args = argparse.Namespace(
             title="New Page",
@@ -1451,7 +1561,10 @@ class TestCreateCommand:
             parent=None,
         )
 
-        with patch("zaira.wiki.get_server_from_config", return_value="https://site.atlassian.net"):
+        with patch(
+            "zaira.wiki.get_server_from_config",
+            return_value="https://site.atlassian.net",
+        ):
             create_command(args)
 
         captured = capsys.readouterr()
@@ -1471,7 +1584,9 @@ class TestAttachCommand:
         test_file.write_bytes(b"image data")
 
         confluence_api.set_api("get_attachments", lambda page_id: {"results": []})
-        confluence_api.set_api("upload_attachment", lambda page_id, path, filename: {"id": "att1"})
+        confluence_api.set_api(
+            "upload_attachment", lambda page_id, path, filename: {"id": "att1"}
+        )
 
         args = argparse.Namespace(
             page="12345",
@@ -1494,10 +1609,13 @@ class TestAttachCommand:
         test_file = tmp_path / "test.png"
         test_file.write_bytes(b"image data")
 
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {
-            "results": [{"title": "test.png", "id": "att1"}]
-        })
-        confluence_api.set_api("update_attachment", lambda page_id, att_id, path, filename: {"id": "att1"})
+        confluence_api.set_api(
+            "get_attachments",
+            lambda page_id, expand: {"results": [{"title": "test.png", "id": "att1"}]},
+        )
+        confluence_api.set_api(
+            "update_attachment", lambda page_id, att_id, path, filename: {"id": "att1"}
+        )
 
         args = argparse.Namespace(
             page="12345",
@@ -1538,7 +1656,9 @@ class TestAttachCommand:
         test_file.write_bytes(b"image data")
 
         confluence_api.set_api("get_attachments", lambda page_id: {"results": []})
-        confluence_api.set_api("upload_attachment", lambda page_id, path, filename: None)
+        confluence_api.set_api(
+            "upload_attachment", lambda page_id, path, filename: None
+        )
 
         args = argparse.Namespace(
             page="12345",
@@ -1580,10 +1700,13 @@ class TestDeleteCommand:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "title": "Test Page",
-            "space": {"key": "TEST"},
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "title": "Test Page",
+                "space": {"key": "TEST"},
+            },
+        )
         confluence_api.set_api("delete_page", lambda page_id: True)
 
         args = argparse.Namespace(page="12345", yes=True)
@@ -1599,10 +1722,13 @@ class TestDeleteCommand:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "title": "Test Page",
-            "space": {"key": "TEST"},
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "title": "Test Page",
+                "space": {"key": "TEST"},
+            },
+        )
         confluence_api.set_api("delete_page", lambda page_id: False)
 
         args = argparse.Namespace(page="12345", yes=True)
@@ -1614,16 +1740,21 @@ class TestDeleteCommand:
         captured = capsys.readouterr()
         assert "Error deleting page" in captured.err
 
-    def test_delete_page_cancel_confirmation(self, mock_confluence, capsys, monkeypatch):
+    def test_delete_page_cancel_confirmation(
+        self, mock_confluence, capsys, monkeypatch
+    ):
         """Cancels when user doesn't confirm."""
         from zaira.wiki import delete_command
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "title": "Test Page",
-            "space": {"key": "TEST"},
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "title": "Test Page",
+                "space": {"key": "TEST"},
+            },
+        )
 
         monkeypatch.setattr("builtins.input", lambda prompt: "no")
 
@@ -1669,13 +1800,19 @@ class TestEditCommand:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "title": "Old Title",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "ancestors": [],
-        })
-        confluence_api.set_api("update_page_properties", lambda page_id, version, ptype, title, space_key, parent_id: True)
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "title": "Old Title",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "ancestors": [],
+            },
+        )
+        confluence_api.set_api(
+            "update_page_properties",
+            lambda page_id, version, ptype, title, space_key, parent_id: True,
+        )
 
         args = argparse.Namespace(
             page="12345",
@@ -1698,12 +1835,15 @@ class TestEditCommand:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "title": "Test Page",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "ancestors": [],
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "title": "Test Page",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "ancestors": [],
+            },
+        )
         confluence_api.set_api("get_page_labels", lambda page_id: ["old-label"])
         confluence_api.set_api("remove_page_label", lambda page_id, label: True)
         confluence_api.set_api("add_page_labels", lambda page_id, labels: True)
@@ -1729,12 +1869,15 @@ class TestEditCommand:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "title": "Test Page",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "ancestors": [],
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "title": "Test Page",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "ancestors": [],
+            },
+        )
 
         args = argparse.Namespace(
             page="12345",
@@ -1755,13 +1898,19 @@ class TestEditCommand:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "title": "Test Page",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "ancestors": [{"id": "111"}],
-        })
-        confluence_api.set_api("update_page_properties", lambda page_id, version, ptype, title, space_key, parent_id: True)
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "title": "Test Page",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "ancestors": [{"id": "111"}],
+            },
+        )
+        confluence_api.set_api(
+            "update_page_properties",
+            lambda page_id, version, ptype, title, space_key, parent_id: True,
+        )
 
         args = argparse.Namespace(
             page="12345",
@@ -1783,13 +1932,19 @@ class TestEditCommand:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "title": "Test Page",
-            "version": {"number": 1},
-            "space": {"key": "OLD"},
-            "ancestors": [],
-        })
-        confluence_api.set_api("update_page_properties", lambda page_id, version, ptype, title, space_key, parent_id: True)
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "title": "Test Page",
+                "version": {"number": 1},
+                "space": {"key": "OLD"},
+                "ancestors": [],
+            },
+        )
+        confluence_api.set_api(
+            "update_page_properties",
+            lambda page_id, version, ptype, title, space_key, parent_id: True,
+        )
 
         args = argparse.Namespace(
             page="12345",
@@ -1811,13 +1966,19 @@ class TestEditCommand:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "title": "Old Title",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "ancestors": [],
-        })
-        confluence_api.set_api("update_page_properties", lambda page_id, version, ptype, title, space_key, parent_id: None)
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "title": "Old Title",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "ancestors": [],
+            },
+        )
+        confluence_api.set_api(
+            "update_page_properties",
+            lambda page_id, version, ptype, title, space_key, parent_id: None,
+        )
 
         args = argparse.Namespace(
             page="12345",
@@ -1843,8 +2004,7 @@ class TestPutOneFile:
         from zaira.wiki import _put_one_file
 
         result = _put_one_file(
-            tmp_path / "nonexistent.md",
-            None, None, False, False, False, False
+            tmp_path / "nonexistent.md", None, None, False, False, False, False
         )
 
         assert result is False
@@ -1885,21 +2045,27 @@ class TestPutOneFile:
         md_file = tmp_path / "test.md"
         md_file.write_text("---\nconfluence: 12345\n---\n\n# Content")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test",
-            "version": {"number": 2},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Content</p>"}},
-            "type": "page",
-        })
-        confluence_api.set_api("get_page_property", lambda page_id, key: {
-            "value": {
-                "source_hash": "abc123",
-                "uploaded_version": 1,
-                "uploaded_at": "2024-01-01T00:00:00Z",
-            }
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 2},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Content</p>"}},
+                "type": "page",
+            },
+        )
+        confluence_api.set_api(
+            "get_page_property",
+            lambda page_id, key: {
+                "value": {
+                    "source_hash": "abc123",
+                    "uploaded_version": 1,
+                    "uploaded_at": "2024-01-01T00:00:00Z",
+                }
+            },
+        )
 
         result = _put_one_file(md_file, None, None, False, False, True, False)
 
@@ -1916,14 +2082,17 @@ class TestPutOneFile:
         md_file = tmp_path / "test.md"
         md_file.write_text("---\nconfluence: 12345\n---\n\n# New Content")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Old Content</p>"}},
-            "type": "page",
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Old Content</p>"}},
+                "type": "page",
+            },
+        )
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
 
         result = _put_one_file(md_file, None, None, False, False, False, True)
@@ -1940,18 +2109,23 @@ class TestPutOneFile:
         md_file = tmp_path / "test.md"
         md_file.write_text("---\nconfluence: 12345\n---\n\n# Local Content")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Remote Title",
-            "version": {"number": 3},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Remote Content</p>"}},
-            "type": "page",
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Remote Title",
+                "version": {"number": 3},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Remote Content</p>"}},
+                "type": "page",
+            },
+        )
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
         confluence_api.set_api("get_page_labels", lambda page_id: ["remote-label"])
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
 
         result = _put_one_file(md_file, None, None, True, False, False, False)
 
@@ -1970,20 +2144,26 @@ class TestPutOneFile:
         md_file = tmp_path / "test.md"
         md_file.write_text("---\nconfluence: 12345\n---\n\n# Changed local content")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test",
-            "version": {"number": 3},  # Remote is version 3
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Remote changed</p>"}},
-            "type": "page",
-        })
-        confluence_api.set_api("get_page_property", lambda page_id, key: {
-            "value": {
-                "source_hash": "old_hash",  # Local content changed
-                "uploaded_version": 2,  # Last synced at version 2
-            }
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 3},  # Remote is version 3
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Remote changed</p>"}},
+                "type": "page",
+            },
+        )
+        confluence_api.set_api(
+            "get_page_property",
+            lambda page_id, key: {
+                "value": {
+                    "source_hash": "old_hash",  # Local content changed
+                    "uploaded_version": 2,  # Last synced at version 2
+                }
+            },
+        )
 
         result = _put_one_file(md_file, None, None, False, False, False, False)
 
@@ -2003,21 +2183,27 @@ class TestPutOneFile:
         md_file = tmp_path / "test.md"
         md_file.write_text(f"---\nconfluence: 12345\n---\n\n{content}")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Content</p>"}},
-            "type": "page",
-        })
-        confluence_api.set_api("get_page_property", lambda page_id, key: {
-            "value": {
-                "source_hash": local_hash,
-                "uploaded_version": 1,
-                "images": {},
-            }
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Content</p>"}},
+                "type": "page",
+            },
+        )
+        confluence_api.set_api(
+            "get_page_property",
+            lambda page_id, key: {
+                "value": {
+                    "source_hash": local_hash,
+                    "uploaded_version": 1,
+                    "images": {},
+                }
+            },
+        )
 
         result = _put_one_file(md_file, None, None, False, False, False, False)
 
@@ -2031,21 +2217,29 @@ class TestPutOneFile:
         from zaira import confluence_api
 
         md_file = tmp_path / "test.md"
-        md_file.write_text("---\nconfluence: 12345\ntitle: Updated Title\n---\n\n# New Content")
+        md_file.write_text(
+            "---\nconfluence: 12345\ntitle: Updated Title\n---\n\n# New Content"
+        )
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Old Title",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Old</p>"}},
-            "type": "page",
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Old Title",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Old</p>"}},
+                "type": "page",
+            },
+        )
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
-        confluence_api.set_api("update_page", lambda page_id, title, body, version, ptype: {
-            "version": {"number": 2}
-        })
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, ptype: {"version": {"number": 2}},
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
 
         result = _put_one_file(md_file, None, None, False, False, False, False)
@@ -2062,21 +2256,29 @@ class TestPutOneFile:
         from zaira import confluence_api
 
         md_file = tmp_path / "test.md"
-        md_file.write_text("---\nconfluence: 12345\nlabels: [new-label, another]\n---\n\n# Content")
+        md_file.write_text(
+            "---\nconfluence: 12345\nlabels: [new-label, another]\n---\n\n# Content"
+        )
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Old</p>"}},
-            "type": "page",
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Old</p>"}},
+                "type": "page",
+            },
+        )
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
-        confluence_api.set_api("update_page", lambda page_id, title, body, version, ptype: {
-            "version": {"number": 2}
-        })
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, ptype: {"version": {"number": 2}},
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
         confluence_api.set_api("get_page_labels", lambda page_id: ["old-label"])
         confluence_api.set_api("remove_page_label", lambda page_id, label: True)
@@ -2096,17 +2298,24 @@ class TestPutOneFile:
         md_file = tmp_path / "test.md"
         md_file.write_text("---\nconfluence: 12345\n---\n\n# Content")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Old</p>"}},
-            "type": "page",
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Old</p>"}},
+                "type": "page",
+            },
+        )
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
-        confluence_api.set_api("update_page", lambda page_id, title, body, version, ptype: None)
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "update_page", lambda page_id, title, body, version, ptype: None
+        )
 
         result = _put_one_file(md_file, None, None, False, False, False, False)
 
@@ -2138,24 +2347,33 @@ class TestPutOneFile:
         md_file = tmp_path / "test.md"
         md_file.write_text("---\nconfluence: 12345\n---\n\n# Changed local content")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test",
-            "version": {"number": 3},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Remote changed</p>"}},
-            "type": "page",
-        })
-        confluence_api.set_api("get_page_property", lambda page_id, key: {
-            "value": {
-                "source_hash": "old_hash",
-                "uploaded_version": 2,
-            }
-        })
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
-        confluence_api.set_api("update_page", lambda page_id, title, body, version, ptype: {
-            "version": {"number": 4}
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 3},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Remote changed</p>"}},
+                "type": "page",
+            },
+        )
+        confluence_api.set_api(
+            "get_page_property",
+            lambda page_id, key: {
+                "value": {
+                    "source_hash": "old_hash",
+                    "uploaded_version": 2,
+                }
+            },
+        )
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, ptype: {"version": {"number": 4}},
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
 
         result = _put_one_file(md_file, None, None, False, True, False, False)
@@ -2202,19 +2420,25 @@ class TestPutCommand:
         md_file = tmp_path / "test.md"
         md_file.write_text("---\nconfluence: 12345\n---\n\n# Content")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Old</p>"}},
-            "type": "page",
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Old</p>"}},
+                "type": "page",
+            },
+        )
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
-        confluence_api.set_api("update_page", lambda page_id, title, body, version, ptype: {
-            "version": {"number": 2}
-        })
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, ptype: {"version": {"number": 2}},
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
 
         args = argparse.Namespace(
@@ -2259,10 +2483,13 @@ class TestPutCommand:
 
         confluence_api.set_api("fetch_page", mock_fetch)
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
-        confluence_api.set_api("update_page", lambda page_id, title, body, version, ptype: {
-            "version": {"number": 2}
-        })
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, ptype: {"version": {"number": 2}},
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
 
         args = argparse.Namespace(
@@ -2324,25 +2551,34 @@ class TestPutCommand:
         unlinked_file = tmp_path / "new_page.md"
         unlinked_file.write_text("# New Page\n\nContent for new page")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": page_id,
-            "title": "Test",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "ancestors": [{"id": "parent-id"}],
-            "body": {"storage": {"value": "<p>Old</p>"}},
-            "type": "page",
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": page_id,
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "ancestors": [{"id": "parent-id"}],
+                "body": {"storage": {"value": "<p>Old</p>"}},
+                "type": "page",
+            },
+        )
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
-        confluence_api.set_api("update_page", lambda page_id, title, body, version, ptype: {
-            "version": {"number": 2}
-        })
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, ptype: {"version": {"number": 2}},
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
-        confluence_api.set_api("create_page", lambda space, title, body, parent: {
-            "id": "99999",
-            "version": {"number": 1},
-        })
+        confluence_api.set_api(
+            "create_page",
+            lambda space, title, body, parent: {
+                "id": "99999",
+                "version": {"number": 1},
+            },
+        )
 
         args = argparse.Namespace(
             files=[str(linked_file), str(unlinked_file)],
@@ -2374,12 +2610,17 @@ class TestCreatePageForFile:
         md_file = tmp_path / "test.md"
         md_file.write_text("# My Page Title\n\nContent here")
 
-        confluence_api.set_api("create_page", lambda space, title, body, parent: {
-            "id": "12345",
-            "version": {"number": 1},
-        })
+        confluence_api.set_api(
+            "create_page",
+            lambda space, title, body, parent: {
+                "id": "12345",
+                "version": {"number": 1},
+            },
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
 
         result = _create_page_for_file(md_file, "parent-id", "TEST")
 
@@ -2397,12 +2638,17 @@ class TestCreatePageForFile:
         md_file = tmp_path / "my-page-name.md"
         md_file.write_text("Just content, no heading")
 
-        confluence_api.set_api("create_page", lambda space, title, body, parent: {
-            "id": "12345",
-            "version": {"number": 1},
-        })
+        confluence_api.set_api(
+            "create_page",
+            lambda space, title, body, parent: {
+                "id": "12345",
+                "version": {"number": 1},
+            },
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
 
         result = _create_page_for_file(md_file, "parent-id", "TEST")
 
@@ -2436,21 +2682,27 @@ class TestPutOneFileStatusCases:
         md_file = tmp_path / "test.md"
         md_file.write_text("---\nconfluence: 12345\n---\n\n# Changed content")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Content</p>"}},
-            "type": "page",
-        })
-        confluence_api.set_api("get_page_property", lambda page_id, key: {
-            "value": {
-                "source_hash": "old_hash",
-                "uploaded_version": 1,
-                "images": {},
-            }
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Content</p>"}},
+                "type": "page",
+            },
+        )
+        confluence_api.set_api(
+            "get_page_property",
+            lambda page_id, key: {
+                "value": {
+                    "source_hash": "old_hash",
+                    "uploaded_version": 1,
+                    "images": {},
+                }
+            },
+        )
 
         result = _put_one_file(md_file, None, None, False, False, True, False)
 
@@ -2470,21 +2722,27 @@ class TestPutOneFileStatusCases:
         md_file = tmp_path / "test.md"
         md_file.write_text(f"---\nconfluence: 12345\n---\n\n{content}")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test",
-            "version": {"number": 2},  # Remote is newer
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Content</p>"}},
-            "type": "page",
-        })
-        confluence_api.set_api("get_page_property", lambda page_id, key: {
-            "value": {
-                "source_hash": local_hash,  # Local unchanged
-                "uploaded_version": 1,
-                "images": {},
-            }
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 2},  # Remote is newer
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Content</p>"}},
+                "type": "page",
+            },
+        )
+        confluence_api.set_api(
+            "get_page_property",
+            lambda page_id, key: {
+                "value": {
+                    "source_hash": local_hash,  # Local unchanged
+                    "uploaded_version": 1,
+                    "images": {},
+                }
+            },
+        )
 
         result = _put_one_file(md_file, None, None, False, False, True, False)
 
@@ -2504,21 +2762,27 @@ class TestPutOneFileStatusCases:
         md_file = tmp_path / "test.md"
         md_file.write_text(f"---\nconfluence: 12345\n---\n\n{content}")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Content</p>"}},
-            "type": "page",
-        })
-        confluence_api.set_api("get_page_property", lambda page_id, key: {
-            "value": {
-                "source_hash": local_hash,
-                "uploaded_version": 1,
-                "images": {},
-            }
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Content</p>"}},
+                "type": "page",
+            },
+        )
+        confluence_api.set_api(
+            "get_page_property",
+            lambda page_id, key: {
+                "value": {
+                    "source_hash": local_hash,
+                    "uploaded_version": 1,
+                    "images": {},
+                }
+            },
+        )
 
         result = _put_one_file(md_file, None, None, False, False, True, False)
 
@@ -2534,14 +2798,17 @@ class TestPutOneFileStatusCases:
         md_file = tmp_path / "test.md"
         md_file.write_text("---\nconfluence: 12345\n---\n\n# Content")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Content</p>"}},
-            "type": "page",
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Content</p>"}},
+                "type": "page",
+            },
+        )
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
 
         result = _put_one_file(md_file, None, None, False, False, True, False)
@@ -2558,21 +2825,27 @@ class TestPutOneFileStatusCases:
         md_file = tmp_path / "test.md"
         md_file.write_text("---\nconfluence: 12345\n---\n\n# Changed content")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test",
-            "version": {"number": 3},  # Remote changed
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Content</p>"}},
-            "type": "page",
-        })
-        confluence_api.set_api("get_page_property", lambda page_id, key: {
-            "value": {
-                "source_hash": "old_hash",  # Local also changed
-                "uploaded_version": 2,
-                "images": {},
-            }
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 3},  # Remote changed
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Content</p>"}},
+                "type": "page",
+            },
+        )
+        confluence_api.set_api(
+            "get_page_property",
+            lambda page_id, key: {
+                "value": {
+                    "source_hash": "old_hash",  # Local also changed
+                    "uploaded_version": 2,
+                    "images": {},
+                }
+            },
+        )
 
         result = _put_one_file(md_file, None, None, False, False, True, False)
 
@@ -2589,14 +2862,17 @@ class TestPutOneFileStatusCases:
         # Use content that when round-tripped looks similar
         md_file.write_text("---\nconfluence: 12345\n---\n\nSame content")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Same content</p>"}},
-            "type": "page",
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Same content</p>"}},
+                "type": "page",
+            },
+        )
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
 
         result = _put_one_file(md_file, None, None, False, False, False, True)
@@ -2611,20 +2887,29 @@ class TestPutOneFileStatusCases:
         from zaira import confluence_api
 
         md_file = tmp_path / "test.md"
-        md_file.write_text("---\nconfluence: 12345\nlabels: [local-label]\n---\n\n# Content")
+        md_file.write_text(
+            "---\nconfluence: 12345\nlabels: [local-label]\n---\n\n# Content"
+        )
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Remote Content</p>"}},
-            "type": "page",
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Remote Content</p>"}},
+                "type": "page",
+            },
+        )
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
-        confluence_api.set_api("get_page_labels", lambda page_id: [])  # No remote labels
+        confluence_api.set_api(
+            "get_page_labels", lambda page_id: []
+        )  # No remote labels
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
 
         result = _put_one_file(md_file, None, None, True, False, False, False)
 
@@ -2704,19 +2989,25 @@ class TestPutCommandEdgeCases:
         existing_file = tmp_path / "exists.md"
         existing_file.write_text("---\nconfluence: 12345\n---\n\n# Content")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": page_id,
-            "title": "Test",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Old</p>"}},
-            "type": "page",
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": page_id,
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Old</p>"}},
+                "type": "page",
+            },
+        )
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
-        confluence_api.set_api("update_page", lambda page_id, title, body, version, ptype: {
-            "version": {"number": 2}
-        })
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, ptype: {"version": {"number": 2}},
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
 
         args = argparse.Namespace(
@@ -2743,21 +3034,29 @@ class TestPutCommandEdgeCases:
         from zaira import confluence_api
 
         md_file = tmp_path / "test.md"
-        md_file.write_text("---\nconfluence: 12345\nlabels: label1, label2\n---\n\n# Content")
+        md_file.write_text(
+            "---\nconfluence: 12345\nlabels: label1, label2\n---\n\n# Content"
+        )
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Old</p>"}},
-            "type": "page",
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Old</p>"}},
+                "type": "page",
+            },
+        )
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
-        confluence_api.set_api("update_page", lambda page_id, title, body, version, ptype: {
-            "version": {"number": 2}
-        })
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, ptype: {"version": {"number": 2}},
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
         confluence_api.set_api("get_page_labels", lambda page_id: [])
         confluence_api.set_api("add_page_labels", lambda page_id, labels: True)
@@ -2780,8 +3079,12 @@ class TestSyncImagesErrors:
         img_file = tmp_path / "image.png"
         img_file.write_bytes(b"image data")
 
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
-        confluence_api.set_api("upload_attachment", lambda page_id, path, filename: None)
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "upload_attachment", lambda page_id, path, filename: None
+        )
 
         result = sync_images("12345", md_file, content, {})
 
@@ -2812,7 +3115,9 @@ class TestGetCommandEdgeCases:
 
         confluence_api.set_api("fetch_page", mock_fetch)
         confluence_api.set_api("get_page_labels", lambda page_id: [])
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
 
         output_dir = tmp_path / "output"
@@ -2835,13 +3140,16 @@ class TestGetCommandEdgeCases:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test Page",
-            "version": {"number": 1},
-            "space": {"key": "TEST", "name": "Test Space"},
-            "body": {"storage": {"value": "<p>Hello</p>"}},
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test Page",
+                "version": {"number": 1},
+                "space": {"key": "TEST", "name": "Test Space"},
+                "body": {"storage": {"value": "<p>Hello</p>"}},
+            },
+        )
         confluence_api.set_api("get_page_labels", lambda page_id: ["tag1", "tag2"])
 
         args = argparse.Namespace(
@@ -2873,7 +3181,9 @@ class TestAttachCommandEdgeCases:
         (tmp_path / "img2.png").write_bytes(b"image2")
 
         confluence_api.set_api("get_attachments", lambda page_id: {"results": []})
-        confluence_api.set_api("upload_attachment", lambda page_id, path, filename: {"id": "att"})
+        confluence_api.set_api(
+            "upload_attachment", lambda page_id, path, filename: {"id": "att"}
+        )
 
         args = argparse.Namespace(
             page="12345",
@@ -2896,10 +3206,13 @@ class TestCreateCommandEdgeCases:
         from zaira import confluence_api
         import argparse
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "ancestors": [],
-            "space": {},  # Missing key
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "ancestors": [],
+                "space": {},  # Missing key
+            },
+        )
 
         args = argparse.Namespace(
             title="New Page",
@@ -3004,15 +3317,18 @@ class TestPutCommandMoreCases:
         unlinked = tmp_path / "new.md"
         unlinked.write_text("# New Page")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": page_id,
-            "title": "Page",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "ancestors": [],  # At root - no parent
-            "body": {"storage": {"value": "<p>Content</p>"}},
-            "type": "page",
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": page_id,
+                "title": "Page",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "ancestors": [],  # At root - no parent
+                "body": {"storage": {"value": "<p>Content</p>"}},
+                "type": "page",
+            },
+        )
 
         args = argparse.Namespace(
             files=[str(linked), str(unlinked)],
@@ -3034,7 +3350,9 @@ class TestPutCommandMoreCases:
         captured = capsys.readouterr()
         assert "space root" in captured.err
 
-    def test_put_create_no_parents_determinable(self, tmp_path, mock_confluence, capsys):
+    def test_put_create_no_parents_determinable(
+        self, tmp_path, mock_confluence, capsys
+    ):
         """Errors when no parents can be determined from linked files."""
         from zaira.wiki import put_command
         from zaira import confluence_api
@@ -3077,19 +3395,25 @@ class TestPutCommandMoreCases:
         md_file = tmp_path / "test.md"
         md_file.write_text("---\nconfluence: 12345\n---\n\n# Content")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Original Title",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Old</p>"}},
-            "type": "page",
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Original Title",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Old</p>"}},
+                "type": "page",
+            },
+        )
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
-        confluence_api.set_api("update_page", lambda page_id, title, body, version, ptype: {
-            "version": {"number": 2}
-        })
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, ptype: {"version": {"number": 2}},
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
 
         result = _put_one_file(md_file, None, "New Title", False, False, False, False)
@@ -3107,19 +3431,25 @@ class TestPutCommandMoreCases:
         # Labels as a number (invalid)
         md_file.write_text("---\nconfluence: 12345\nlabels: 123\n---\n\n# Content")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Old</p>"}},
-            "type": "page",
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Old</p>"}},
+                "type": "page",
+            },
+        )
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
-        confluence_api.set_api("update_page", lambda page_id, title, body, version, ptype: {
-            "version": {"number": 2}
-        })
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, ptype: {"version": {"number": 2}},
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
         confluence_api.set_api("get_page_labels", lambda page_id: [])
         # Should not call add_page_labels with empty set
@@ -3152,10 +3482,13 @@ class TestPutCommandMoreCases:
 
         confluence_api.set_api("fetch_page", mock_fetch)
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
-        confluence_api.set_api("update_page", lambda page_id, title, body, version, ptype: {
-            "version": {"number": 2}
-        })
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, ptype: {"version": {"number": 2}},
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
 
         args = argparse.Namespace(
@@ -3202,10 +3535,13 @@ class TestPutCommandMoreCases:
 
         confluence_api.set_api("fetch_page", mock_fetch)
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
-        confluence_api.set_api("update_page", lambda page_id, title, body, version, ptype: {
-            "version": {"number": 2}
-        })
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, ptype: {"version": {"number": 2}},
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
 
         args = argparse.Namespace(
@@ -3235,16 +3571,24 @@ class TestPutCommandMoreCases:
         unlinked = tmp_path / "new.md"
         unlinked.write_text("# New Page\n\nContent")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "ancestors": [],
-            "space": {"key": "FROM_PARENT"},
-        })
-        confluence_api.set_api("create_page", lambda space, title, body, parent: {
-            "id": "99999",
-            "version": {"number": 1},
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "ancestors": [],
+                "space": {"key": "FROM_PARENT"},
+            },
+        )
+        confluence_api.set_api(
+            "create_page",
+            lambda space, title, body, parent: {
+                "id": "99999",
+                "version": {"number": 1},
+            },
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
 
         args = argparse.Namespace(
             files=[str(unlinked)],
@@ -3334,19 +3678,25 @@ class TestPutCommandStdinMode:
         stdin_content = "---\nconfluence: 12345\n---\n\n# Content"
         monkeypatch.setattr("sys.stdin", io.StringIO(stdin_content))
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Old</p>"}},
-            "type": "page",
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Old</p>"}},
+                "type": "page",
+            },
+        )
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
-        confluence_api.set_api("update_page", lambda page_id, title, body, version, ptype: {
-            "version": {"number": 2}
-        })
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, ptype: {"version": {"number": 2}},
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
 
         args = argparse.Namespace(
@@ -3401,19 +3751,25 @@ class TestPutCommandStdinMode:
         md_file = tmp_path / "input.md"
         md_file.write_text("---\nconfluence: 12345\n---\n\n# Content")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": "12345",
-            "title": "Test",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "body": {"storage": {"value": "<p>Old</p>"}},
-            "type": "page",
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Old</p>"}},
+                "type": "page",
+            },
+        )
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
-        confluence_api.set_api("update_page", lambda page_id, title, body, version, ptype: {
-            "version": {"number": 2}
-        })
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, ptype: {"version": {"number": 2}},
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
 
         args = argparse.Namespace(
@@ -3447,10 +3803,13 @@ class TestCreateCommandStdinMode:
 
         monkeypatch.setattr("sys.stdin", io.StringIO("# Content from stdin"))
 
-        confluence_api.set_api("create_page", lambda space, title, body, parent: {
-            "id": "12345",
-            "version": {"number": 1},
-        })
+        confluence_api.set_api(
+            "create_page",
+            lambda space, title, body, parent: {
+                "id": "12345",
+                "version": {"number": 1},
+            },
+        )
 
         args = argparse.Namespace(
             title="New Page",
@@ -3460,7 +3819,10 @@ class TestCreateCommandStdinMode:
             parent=None,
         )
 
-        with patch("zaira.wiki.get_server_from_config", return_value="https://site.atlassian.net"):
+        with patch(
+            "zaira.wiki.get_server_from_config",
+            return_value="https://site.atlassian.net",
+        ):
             create_command(args)
 
         captured = capsys.readouterr()
@@ -3518,20 +3880,26 @@ class TestPutCreateModeFailure:
         unlinked = tmp_path / "new.md"
         unlinked.write_text("# New Page\n\nContent")
 
-        confluence_api.set_api("fetch_page", lambda page_id, expand: {
-            "id": page_id,
-            "title": "Test",
-            "version": {"number": 1},
-            "space": {"key": "TEST"},
-            "ancestors": [{"id": "parent-id"}],
-            "body": {"storage": {"value": "<p>Old</p>"}},
-            "type": "page",
-        })
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": page_id,
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "ancestors": [{"id": "parent-id"}],
+                "body": {"storage": {"value": "<p>Old</p>"}},
+                "type": "page",
+            },
+        )
         confluence_api.set_api("get_page_property", lambda page_id, key: None)
-        confluence_api.set_api("get_attachments", lambda page_id, expand: {"results": []})
-        confluence_api.set_api("update_page", lambda page_id, title, body, version, ptype: {
-            "version": {"number": 2}
-        })
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, ptype: {"version": {"number": 2}},
+        )
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
         # Make create_page fail
         confluence_api.set_api("create_page", lambda space, title, body, parent: None)

@@ -42,7 +42,9 @@ def normalize_title(title: str) -> str:
     return slug
 
 
-def extract_description(desc: dict | str | list | Any | None, *, raw: bool = False) -> str:
+def extract_description(
+    desc: dict | str | list | Any | None, *, raw: bool = False
+) -> str:
     """Extract plain text from Atlassian Document Format.
 
     Args:
@@ -202,7 +204,9 @@ def get_ticket(
             "created": fields.created or "Unknown",
             "updated": fields.updated or "Unknown",
             "description": extract_description(desc, raw=raw),
-            "components": list(dict.fromkeys(c.name for c in (fields.components or []))),
+            "components": list(
+                dict.fromkeys(c.name for c in (fields.components or []))
+            ),
             "labels": fields.labels or [],
             "parent": {
                 "key": fields.parent.key,
@@ -268,7 +272,9 @@ def get_ticket(
                     "key": st.key,
                     "summary": st.fields.summary,
                     "status": st.fields.status.name,
-                    "issuetype": st.fields.issuetype.name if st.fields.issuetype else "Unknown",
+                    "issuetype": st.fields.issuetype.name
+                    if st.fields.issuetype
+                    else "Unknown",
                 }
                 for st in (fields.subtasks or [])
             ]
@@ -389,7 +395,10 @@ def get_linked_tests(key: str) -> list[dict]:
                                 "status": linked.fields.status.name,
                             }
                         )
-                    elif lt_name in ("Story", "Bug", "Task", "Epic") and linked.key != key:
+                    elif (
+                        lt_name in ("Story", "Bug", "Task", "Epic")
+                        and linked.key != key
+                    ):
                         if link.type.name == "Tests":
                             also_tests.append(linked.key)
 
@@ -740,9 +749,14 @@ def export_ticket(
                 download_attachment(att, attach_dir)
 
     if fmt == "json":
-        outfile.write_text(format_ticket_json(ticket, comments, synced, jira_site), encoding="utf-8")
+        outfile.write_text(
+            format_ticket_json(ticket, comments, synced, jira_site), encoding="utf-8"
+        )
     else:
-        outfile.write_text(format_ticket_markdown(ticket, comments, synced, jira_site), encoding="utf-8")
+        outfile.write_text(
+            format_ticket_markdown(ticket, comments, synced, jira_site),
+            encoding="utf-8",
+        )
 
     print(f"  Saved to {outfile}")
 
@@ -772,11 +786,18 @@ def export_ticket(
 
 
 def export_to_stdout(
-    key: str, fmt: str = "md", with_prs: bool = False, with_tests: bool = False,
-    include_custom: bool = False, minimal: bool = False, raw: bool = False,
+    key: str,
+    fmt: str = "md",
+    with_prs: bool = False,
+    with_tests: bool = False,
+    include_custom: bool = False,
+    minimal: bool = False,
+    raw: bool = False,
 ) -> bool:
     """Export a single ticket to stdout."""
-    ticket = get_ticket(key, full=(fmt == "json"), include_custom=include_custom, raw=raw)
+    ticket = get_ticket(
+        key, full=(fmt == "json"), include_custom=include_custom, raw=raw
+    )
     if not ticket:
         print(f"Error: Could not fetch {key}", file=sys.stderr)
         return False
@@ -853,6 +874,7 @@ def export_command(args: argparse.Namespace) -> None:
             output_dir = Path(args.output)
         else:
             from zaira.config import get_tickets_dir
+
             output_dir = get_tickets_dir()
         success = 0
         for key in tickets:
