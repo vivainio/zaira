@@ -348,7 +348,13 @@ def search_command(args: argparse.Namespace) -> None:
 
     # Optional space filter
     if args.space:
-        cql_parts.append(f'space = "{args.space}"')
+        space = args.space
+        if space.lower() == "my":
+            space = confluence_api.get_personal_space_key()
+            if not space:
+                print("Error: Could not determine personal space key.", file=sys.stderr)
+                sys.exit(1)
+        cql_parts.append(f'space = "{space}"')
 
     # Optional creator filter
     if args.creator:

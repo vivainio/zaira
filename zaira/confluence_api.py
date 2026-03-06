@@ -526,3 +526,20 @@ def set_page_property(page_id: str, key: str, value: dict) -> bool:
         )
 
     return r.ok
+
+
+def get_personal_space_key() -> str | None:
+    """Return the current user's personal space key, or None if not found."""
+    base_url, auth = _get_auth()
+    server = base_url.replace("/wiki/rest/api", "")
+    try:
+        r = requests.get(
+            f"{server}/wiki/rest/api/user/current",
+            params={"expand": "personalSpace"},
+            auth=auth,
+        )
+        if r.ok:
+            return r.json().get("personalSpace", {}).get("key")
+    except Exception:
+        pass
+    return None
