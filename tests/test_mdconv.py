@@ -975,3 +975,69 @@ class TestAtlassianWikiSamples:
     def test_full_document(self):
         wiki_input, expected = FULL_DOCUMENT
         assert jira_wiki_to_markdown(wiki_input) == expected
+
+
+class TestConfluenceMacros:
+    """Tests for Confluence macro handling."""
+
+    def test_page_tree_macro_markdown_to_storage(self):
+        """Converts page-tree macro syntax to structured macro XML."""
+        md = "Documentation\n\n{page-tree:root=@self}"
+        result = markdown_to_storage(md)
+
+        assert '<ac:structured-macro ac:name="page-tree">' in result
+        assert '<ac:parameter ac:name="root">@self</ac:parameter>' in result
+
+    def test_toc_macro_markdown_to_storage(self):
+        """Converts toc macro without params."""
+        md = "Content\n\n{toc}"
+        result = markdown_to_storage(md)
+
+        assert '<ac:structured-macro ac:name="toc">' in result
+
+    def test_macro_with_multiple_params(self):
+        """Converts macros with multiple parameters."""
+        md = "{info:title=Note|icon=true}"
+        result = markdown_to_storage(md)
+
+        assert '<ac:structured-macro ac:name="info">' in result
+        assert 'ac:name="title"' in result
+        assert 'ac:name="icon"' in result
+
+    def test_macro_in_paragraph(self):
+        """Preserves macro that appears in its own paragraph."""
+        md = "Some text\n\n{page-tree:root=@self}\n\nMore text"
+        result = markdown_to_storage(md)
+
+        assert "<ac:structured-macro" in result
+        assert "<p>Some text</p>" in result
+        assert "<p>More text</p>" in result
+
+    def test_storage_to_markdown_page_tree(self):
+        """Converts storage format back to macro markdown."""
+        storage = (
+            "<p>Documentation</p>"
+            '<ac:structured-macro ac:name="page-tree">'
+            '<ac:parameter ac:name="root">@self</ac:parameter>'
+            "</ac:structured-macro>"
+        )
+        result = storage_to_markdown(storage)
+
+        assert "{page-tree:root=@self}" in result
+        assert "Documentation" in result
+
+    def test_round_trip_page_tree(self):
+        """Round-trip: markdown -> storage -> markdown preserves macro."""
+        original_md = "Page listing\n\n{page-tree:root=@self}"
+
+        # Markdown -> storage
+        storage = markdown_to_storage(original_md)
+        assert '<ac:structured-macro ac:name="page-tree">' in storage
+
+        # Storage -> markdown
+        result_md = storage_to_markdown(storage)
+        assert "{page-tree:root=@self}" in result_md
+
+        # Back to storage
+        storage_again = markdown_to_storage(result_md)
+        assert '<ac:structured-macro ac:name="page-tree">' in storage_again

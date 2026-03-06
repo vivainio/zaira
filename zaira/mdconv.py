@@ -100,6 +100,58 @@ LANG_MAP_REVERSE = {
 }
 
 
+def _parse_confluence_macro(macro_str: str) -> tuple[str, dict]:
+    """Parse Confluence macro syntax {name:param1=value1|param2=value2}.
+
+    Args:
+        macro_str: String like "page-tree:root=@self" or "toc"
+
+    Returns:
+        Tuple of (macro_name, params_dict)
+    """
+    if ":" not in macro_str:
+        return macro_str, {}
+
+    name, params_str = macro_str.split(":", 1)
+    params = {}
+
+    # Parse param1=value1|param2=value2
+    for param_pair in params_str.split("|"):
+        if "=" in param_pair:
+            key, val = param_pair.split("=", 1)
+            params[key.strip()] = val.strip()
+
+    return name, params
+
+
+def _confluence_macro_to_xml(macro_str: str) -> str:
+    """Convert Confluence macro syntax to structured macro XML.
+
+    Args:
+        macro_str: String like "{page-tree:root=@self}"
+
+    Returns:
+        Confluence storage format XML
+    """
+    # Remove the braces
+    if macro_str.startswith("{") and macro_str.endswith("}"):
+        macro_content = macro_str[1:-1]
+    else:
+        macro_content = macro_str
+
+    name, params = _parse_confluence_macro(macro_content)
+
+    # Build the macro XML
+    xml = f'<ac:structured-macro ac:name="{name}">'
+
+    for param_name, param_value in params.items():
+        xml += f'<ac:parameter ac:name="{param_name}">{param_value}</ac:parameter>'
+
+    xml += "</ac:structured-macro>"
+
+    return xml
+
+
 def _code_block_to_macro(match: re.Match) -> str:
     """Convert HTML code block to Confluence code macro."""
     lang = match.group(1) or ""
@@ -183,6 +235,19 @@ def markdown_to_storage(md_content: str, convert_local_images: bool = True) -> s
     Returns:
         HTML suitable for Confluence storage format
     """
+    # Extract Confluence macros {name:params} before markdown processing
+    # Replace with placeholders to preserve them through markdown conversion
+    macro_placeholders = {}
+    macro_pattern = r"\{([a-z\-]+)(?::([^}]*))?\}"
+
+    def preserve_macro(match: re.Match) -> str:
+        macro_str = match.group(0)
+        placeholder = f"<!--MACRO_PLACEHOLDER_{len(macro_placeholders)}-->"
+        macro_placeholders[placeholder] = macro_str
+        return placeholder
+
+    md_content = re.sub(macro_pattern, preserve_macro, md_content, flags=re.IGNORECASE)
+
     # Convert local images to attachment references before processing
     if convert_local_images:
         md_content = convert_images_to_attachments(md_content)
@@ -219,6 +284,13 @@ def markdown_to_storage(md_content: str, convert_local_images: bool = True) -> s
         '<ac:structured-macro ac:name="toc"/>',
         html,
     )
+
+    # Restore and convert Confluence macros
+    for placeholder, macro_str in macro_placeholders.items():
+        macro_xml = _confluence_macro_to_xml(macro_str)
+        # Remove wrapper <p> tags if markdown wrapped the placeholder
+        html = html.replace(f"<p>{placeholder}</p>", macro_xml)
+        html = html.replace(placeholder, macro_xml)
 
     # Convert attachment images to Confluence attachment macro
     # <img alt="..." src="attachment:filename.png" /> -> <ac:image><ri:attachment ri:filename="..."/></ac:image>
@@ -291,8 +363,23 @@ def _elem_to_markdown(
             return f"\n```{lang}\n{code}\n```\n"
         elif macro_name == "toc":
             return "\n[TOC]\n"
-        # Unknown macro - skip
-        return ""
+        else:
+            # Preserve generic macros as {name:param1=value1|param2=value2}
+            params = []
+            for child in elem:
+                child_tag = _get_tag(child)
+                if child_tag == "parameter":
+                    param_name = _get_attr(child, "name", AC_NS) or _get_attr(
+                        child, "name"
+                    )
+                    param_value = child.text or ""
+                    if param_name:
+                        params.append(f"{param_name}={param_value}")
+
+            macro_str = macro_name
+            if params:
+                macro_str += ":" + "|".join(params)
+            return f"\n{{{macro_str}}}\n"
 
     # Confluence image with attachment
     if tag == "image":
