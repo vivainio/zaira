@@ -228,13 +228,30 @@ def _normalize_list_indent(md_content: str) -> str:
 def markdown_to_storage(md_content: str, convert_local_images: bool = True) -> str:
     """Convert Markdown to Confluence storage format.
 
+    Supports mixed Confluence/Jira wiki markup and markdown syntax.
+    Wiki syntax is automatically converted to markdown first.
+
     Args:
-        md_content: Markdown text
+        md_content: Markdown text (may contain Confluence/Jira wiki markup)
         convert_local_images: If True, convert local image paths to attachment refs
 
     Returns:
         HTML suitable for Confluence storage format
     """
+    # Convert Confluence/Jira wiki syntax to markdown first
+    # This allows users to mix wiki and markdown syntax
+    # Only convert if we detect unambiguous wiki patterns (h1., bq., {code}, etc.)
+    # to avoid false positives with markdown (*italic*, etc.)
+    has_unambiguous_wiki = bool(
+        re.search(
+            r"^h[1-6]\.|^bq\.|^\|\||{code|{panel|{quote|{color|{info|{warning|{error|{quote",
+            md_content,
+            re.MULTILINE,
+        )
+    )
+    if has_unambiguous_wiki:
+        md_content = jira_wiki_to_markdown(md_content)
+
     # Extract Confluence macros {name:params} before markdown processing
     # Replace with placeholders to preserve them through markdown conversion
     macro_placeholders = {}

@@ -977,6 +977,40 @@ class TestAtlassianWikiSamples:
         assert jira_wiki_to_markdown(wiki_input) == expected
 
 
+class TestMixedWikiAndMarkdown:
+    """Tests for mixed Confluence wiki markup and markdown syntax."""
+
+    def test_wiki_heading_with_markdown(self):
+        """Wiki h1. heading is converted alongside markdown."""
+        md = "Regular markdown\n\nh1. Wiki Heading\n\nMore *markdown*"
+        result = markdown_to_storage(md)
+
+        assert "<h1>Wiki Heading</h1>" in result
+        assert "<p>Regular markdown</p>" in result
+        # When wiki syntax is detected, *text* is treated as wiki bold (not markdown italic)
+        assert "<strong>markdown</strong>" in result
+
+    def test_wiki_blockquote_with_markdown(self):
+        """Wiki bq. blockquote works with markdown."""
+        md = "Start\n\nbq. Wiki quote\n\nEnd with _italic_"
+        result = markdown_to_storage(md)
+
+        assert "<blockquote>" in result
+        assert "Wiki quote" in result
+        # Wiki markup uses _italic_ for italics
+        assert "<em>italic</em>" in result
+
+    def test_wiki_code_block_with_markdown(self):
+        """Wiki {code} block alongside markdown code."""
+        md = "Markdown code:\n\n```python\ncode1\n```\n\nWiki code:\n\n{code:language=java}\ncode2\n{code}"
+        result = markdown_to_storage(md)
+
+        # Code blocks are converted to code macros
+        assert 'ac:name="code"' in result
+        assert "code1" in result
+        assert "code2" in result
+
+
 class TestConfluenceMacros:
     """Tests for Confluence macro handling."""
 
