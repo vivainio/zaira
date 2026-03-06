@@ -14,6 +14,33 @@ BUNDLE_META = CONFIG_DIR / "bundle.yaml"
 ALLOWED_DIRS = {"rules"}
 
 
+def _install_from_directory(path: Path, source: str) -> None:
+    """Copy rules files from a local directory to config dir."""
+    rules_src = path / "rules"
+    if not rules_src.exists():
+        raise SystemExit(f"Directory does not contain 'rules/': {path}")
+    if not rules_src.is_dir():
+        raise SystemExit(f"Expected directory, got file: {rules_src}")
+
+    # Copy all files from rules/ to CONFIG_DIR/rules/
+    for file in rules_src.rglob("*"):
+        if file.is_file():
+            rel = file.relative_to(rules_src)
+            dest = CONFIG_DIR / "rules" / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(file.read_bytes())
+
+    # Write bundle metadata with source path
+    BUNDLE_META.write_text(
+        yaml.dump(
+            {
+                "source": source,
+                "installed_at": datetime.datetime.utcnow().isoformat(),
+            }
+        )
+    )
+
+
 def _install_from_zip(data: bytes, source_url: str | None) -> None:
     """Validate zip contents, extract to config dir, write bundle.yaml."""
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
@@ -78,23 +105,38 @@ def bundle_install_command(args) -> None:
     else:
         path = Path(source)
         if not path.exists():
-            raise SystemExit(f"File not found: {path}")
-        data = path.read_bytes()
-        _install_from_zip(data, source_url=None)
-        print(f"Bundle installed from {path}")
+            raise SystemExit(f"Path not found: {path}")
+        if path.is_dir():
+            print(f"Installing from directory {path} ...")
+            _install_from_directory(path, source=str(path.resolve()))
+            print(f"Bundle installed from {path}")
+        else:
+            print(f"Installing from zip {path} ...")
+            data = path.read_bytes()
+            _install_from_zip(data, source_url=None)
+            print(f"Bundle installed from {path}")
 
 
 def bundle_update_command(args) -> None:
     if not BUNDLE_META.exists():
-        raise SystemExit("No bundle installed. Run 'zaira bundle install <url>' first.")
+        raise SystemExit(
+            "No bundle installed. Run 'zaira bundle install <source>' first."
+        )
     meta = yaml.safe_load(BUNDLE_META.read_text())
     source = meta.get("source")
     if not source:
-        raise SystemExit(
-            "Installed bundle has no recorded source URL (was installed from a local file)."
-        )
-    print(f"Re-fetching {source} ...")
-    with urllib.request.urlopen(source) as resp:
-        data = resp.read()
-    _install_from_zip(data, source_url=source)
-    print(f"Bundle updated from {source}")
+        raise SystemExit("Installed bundle has no recorded source.")
+
+    if source.startswith("http://") or source.startswith("https://"):
+        print(f"Re-fetching {source} ...")
+        with urllib.request.urlopen(source) as resp:
+            data = resp.read()
+        _install_from_zip(data, source_url=source)
+        print(f"Bundle updated from {source}")
+    else:
+        path = Path(source)
+        if not path.exists():
+            raise SystemExit(f"Source directory not found: {path}")
+        print(f"Re-copying from {path} ...")
+        _install_from_directory(path, source=source)
+        print(f"Bundle updated from {path}")

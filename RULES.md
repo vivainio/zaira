@@ -331,7 +331,15 @@ zaira bundle install https://example.com/rules-bundle.zip
 
 The bundle is downloaded and extracted to the platform config directory. A `bundle.yaml` metadata file tracks the source URL and installation timestamp.
 
-### Install from a local file
+### Install from a local directory
+
+```bash
+zaira bundle install ./rules-directory
+```
+
+Copies all files from the `rules/` subdirectory into the platform config directory. Useful for development and git-based workflows.
+
+### Install from a local zip file
 
 ```bash
 zaira bundle install ./local-rules-bundle.zip
@@ -343,21 +351,34 @@ zaira bundle install ./local-rules-bundle.zip
 zaira bundle update
 ```
 
-Re-fetches the bundle from the recorded source URL. This fails if the bundle was installed from a local file (no URL to re-fetch from).
+Re-fetches from the recorded source:
+- **From URL**: Downloads the latest bundle
+- **From local directory**: Re-copies files (useful after git pull)
+- **From local zip**: Requires re-running `zaira bundle install` with the updated file
 
 ### Bundle structure
 
-A bundle is a `.zip` file containing a `rules/` directory with rule files:
+A bundle is either a directory or a `.zip` file containing a `rules/` directory with rule files:
 
+**Local directory:**
 ```
-rules-bundle.zip
+rules-directory/
   rules/
     rules.yaml                # main rules file
     rules.project-foo.yaml    # optional project-specific rules (imported via rules.yaml)
     rules.project-bar.yaml    # optional project-specific rules
 ```
 
-The bundle can optionally have a single top-level wrapper directory (GitHub releases often wrap zips this way):
+**Zip file:**
+```
+rules-bundle.zip
+  rules/
+    rules.yaml
+    rules.project-foo.yaml
+    rules.project-bar.yaml
+```
+
+The zip can optionally have a single top-level wrapper directory (GitHub releases often wrap zips this way):
 
 ```
 rules-bundle.zip
@@ -368,9 +389,13 @@ rules-bundle.zip
 
 ### How it works
 
-1. Bundle files are extracted to `CONFIG_DIR/rules/` (same location where zaira discovers `rules.yaml`)
-2. Installed files persist across zaira updates
-3. `zaira check` and `zaira transition` automatically use installed rules
-4. To list or manage installed rules, inspect the directory:
+1. Bundle files are extracted/copied to `CONFIG_DIR/rules/` (same location where zaira discovers `rules.yaml`)
+2. A `bundle.yaml` metadata file tracks the source (URL or local path) and installation timestamp
+3. `zaira bundle update` uses the tracked source to fetch the latest version:
+   - URL bundles are re-downloaded
+   - Local directory bundles are re-copied (useful after git pull)
+4. Installed files persist across zaira updates
+5. `zaira check` and `zaira transition` automatically use installed rules
+6. To list or manage installed rules, inspect the directory:
    - Linux/macOS: `~/.config/zaira/rules/`
    - Windows: `%APPDATA%\zaira\rules\`
