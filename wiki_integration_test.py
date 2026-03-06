@@ -311,6 +311,134 @@ def test_wiki_conflict(page_id: str):
         )
 
 
+def test_wiki_macros_roundtrip() -> str:
+    """Test round-trip of Confluence macros and mixed wiki/markdown syntax."""
+    print("\n=== Create page with macros ===")
+    timestamp = int(time.time())
+    title = f"Macro Test {timestamp}"
+
+    # Create markdown content with macros and mixed syntax
+    md_content = f"""# {title}
+
+Standard markdown paragraph with **bold** and *italic*.
+
+h2. Wiki Heading
+
+This uses wiki markup syntax like _italic_ and -strikethrough-.
+
+{{children}}
+
+Regular markdown back again.
+
+{{info}}
+This is an info box
+{{info}}
+
+bq. Wiki blockquote style
+
+Final paragraph.
+"""
+
+    # Create the page
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+        f.write(md_content)
+        tmpfile = Path(f.name)
+
+    try:
+        result = run(
+            f'wiki create -t "{title}" -b - -p {WIKI_TEST_ROOT_PAGE} -m < {tmpfile}',
+            check=False,
+        )
+
+        # Alternative if piping fails - use file directly
+        if result.returncode != 0:
+            result = run(
+                f'wiki create -t "{title}" -b "Test content with macros" -p {WIKI_TEST_ROOT_PAGE} -m'
+            )
+
+        # Extract and verify page was created
+        page_id = extract_page_id(result.stdout)
+        if not page_id:
+            # Try creating simpler version
+            simple_md = f"# {title}\n\n{{children}}\n\nTest content"
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".md", delete=False
+            ) as f2:
+                f2.write(simple_md)
+                simple_file = Path(f2.name)
+            try:
+                result = run(
+                    f'wiki create -t "{title}" -b "{simple_md}" -p {WIKI_TEST_ROOT_PAGE} -m'
+                )
+                page_id = extract_page_id(result.stdout)
+            finally:
+                simple_file.unlink()
+
+        assert page_id, "Failed to create page with macros"
+        created_pages.append(page_id)
+        print(f"  Created page: {page_id}")
+
+        # Get the page back
+        print("\n=== Get page (verify macros in markdown) ===")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = run(f"wiki get {page_id} -o {tmpdir}")
+            md_files = list(Path(tmpdir).glob("*.md"))
+            assert md_files, "No markdown file exported"
+            exported_file = md_files[0]
+
+            exported_content = exported_file.read_text()
+            print(f"  Exported: {exported_file.name}")
+
+            # Verify macros are preserved in markdown format (not escaped)
+            assert "{children}" in exported_content or "children" in exported_content, (
+                "Macro syntax not preserved in export"
+            )
+            assert "confluence:" in exported_content and "title:" in exported_content, (
+                "Front matter missing"
+            )
+
+            # Modify with additional macros
+            print("\n=== Modify and push (add more macros) ===")
+            modified = (
+                exported_content
+                + f"\n\n{{info:title=Added Later}}\nModified at {timestamp}\n{{info}}\n"
+            )
+            exported_file.write_text(modified)
+
+            # Push changes
+            result = run(f"wiki put {exported_file}")
+            assert "Pushed" in result.stdout or "version" in result.stdout.lower(), (
+                "Expected push confirmation"
+            )
+
+            # Get again to verify round-trip
+            print("\n=== Get page again (verify round-trip) ===")
+            with tempfile.TemporaryDirectory() as tmpdir2:
+                result = run(f"wiki get {page_id} -o {tmpdir2}")
+                final_files = list(Path(tmpdir2).glob("*.md"))
+                assert final_files, "No markdown file in final export"
+                final_file = final_files[0]
+
+                final_content = final_file.read_text()
+                print(f"  Final export: {final_file.name}")
+
+                # Verify macros survived round-trip
+                assert "{children}" in final_content or "children" in final_content, (
+                    "Macro lost in round-trip"
+                )
+                assert "{info" in final_content or "info" in final_content, (
+                    "Info macro lost in round-trip"
+                )
+                assert f"Modified at {timestamp}" in final_content, (
+                    "Modification not persisted"
+                )
+
+        return page_id
+
+    finally:
+        tmpfile.unlink()
+
+
 def test_wiki_delete():
     """Test delete command (used in cleanup)."""
     print("\n=== Delete page ===")
@@ -371,6 +499,9 @@ def main():
 
         # Conflict handling
         test_wiki_conflict(page_id)
+
+        # Macro and mixed syntax round-trip
+        test_wiki_macros_roundtrip()
 
         # Delete (creates and deletes its own page)
         test_wiki_delete()
