@@ -1114,10 +1114,20 @@ def main() -> None:
         "install", help="Install a bundle from a URL or local zip"
     )
     bundle_install_p.add_argument("source", help="URL or local path to a .zip bundle")
+    bundle_install_p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be installed without making changes",
+    )
     bundle_install_p.set_defaults(bundle_func=bundle_install_command)
 
     bundle_update_p = bundle_subparsers.add_parser(
         "update", help="Re-fetch bundle from recorded source URL"
+    )
+    bundle_update_p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be updated without making changes",
     )
     bundle_update_p.set_defaults(bundle_func=bundle_update_command)
 
