@@ -1081,10 +1081,37 @@ def main() -> None:
         "reset",
         help="Clear all cached data (editmeta, schema, field descriptions)",
     )
+    reset_parser.add_argument(
+        "--rules",
+        action="store_true",
+        help="Disable installed rules bundle (renames rules/ to rules-disabled/)",
+    )
 
     def _reset_command(args: argparse.Namespace) -> None:
-        from zaira.jira_client import CACHE_DIR
+        from zaira.jira_client import CACHE_DIR, CONFIG_DIR
 
+        # Handle --rules flag to disable bundle
+        if getattr(args, "rules", False):
+            rules_dir = CONFIG_DIR / "rules"
+            rules_disabled = CONFIG_DIR / "rules-disabled"
+
+            if not rules_dir.exists():
+                print(f"No rules directory found at {rules_dir}")
+                return
+
+            # Remove existing rules-disabled if present
+            if rules_disabled.exists():
+                __import__("shutil").rmtree(rules_disabled)
+                print(f"Removed existing {rules_disabled}")
+
+            # Rename rules to rules-disabled
+            rules_dir.rename(rules_disabled)
+            print(f"Rules disabled (renamed to rules-disabled)")
+            print(f"\nRules location: {rules_disabled}")
+            print(f"To restore: mv {rules_disabled} {rules_dir}")
+            return
+
+        # Normal cache clearing
         cleared = 0
         for f in CACHE_DIR.iterdir():
             if f.name == "activity.log":
