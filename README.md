@@ -295,67 +295,7 @@ zaira check FOO-123 FOO-456 FOO-789
 zaira check FOO-123 --rules path/to/rules.yaml
 ```
 
-**Rules file discovery:** `rules.yaml` is looked up in order:
-1. Current working directory
-2. Platform config directory (`~/.config/zaira/rules/rules.yaml` on Linux, `%APPDATA%\zaira\rules\rules.yaml` on Windows)
-
-Rules are scoped by issue type. Available checks:
-
-- `required` — field must exist and be non-null
-- `non_empty` — field must exist and not be empty string/empty list
-- `contains` — string field must contain a substring
-- `not_contains` — string field must not contain a substring
-- `matches` — string field must match a regex (`re.search`; use `(?i)` for case-insensitive)
-- `not_matches` — string field must not match a regex
-- `one_of` — field value must be one of the allowed values; for list fields, all values must be in the allowed set
-- `not_one_of` — field value must not be any of the forbidden values
-- `subtask_types` — must have at least one subtask of each listed issue type
-- `valid_transitions` — map of source status → list of allowed target statuses; `zaira transition` blocks moves not in the list
-- `no_open_linked` — list of specs; fails if any linked issue matches `type`/`priority` and is not in the Done status category
-- `when.<status>` — additional rules that apply only when the ticket is in that status
-- `if` — conditional rules that match on any field value
-
-```yaml
-Story:
-  required: [Story Points, assignee]
-  non_empty: [Description]
-  contains:
-    Description: "acceptance criteria"
-  matches:
-    Description: "\\bhttp\\S+"       # must contain a link
-  not_matches:
-    summary: "(?i)\\bwip\\b"        # summary must not contain WIP
-  one_of:
-    Priority: [Critical, High, Medium]
-  valid_transitions:
-    New: [Analyzing, Backlog, On Hold]
-    Analyzing: [Implementing, Ready for Implementation, Backlog, On Hold]
-    Implementing: [Ready for Validation, Backlog, On Hold]
-  when:
-    Done:
-      required: [Resolution]
-      subtask_types: [Deployment Wave]
-      not_contains:
-        Description: "TODO"
-    Validating:
-      no_open_linked:
-        - type: Bug
-          priority: [Blocker, Critical, Major]
-  if:
-    - match: { Priority: Critical }
-      then:
-        required: [Rollback Plan, Deployment Owner]
-    - match: { components: backend }
-      then:
-        required: [API Review]
-    - match: { labels: security, Priority: Critical }
-      then:
-        required: [Security Review]
-```
-
-`when` is sugar for the common status case. `if` is a list of `{match, then}` blocks — all fields in `match` must match (AND logic), and `then` contains any of the standard check types including `subtask_types`. For list fields like `components` and `labels`, `match` checks membership (value is in the list). For scalar fields, it checks exact equality. `if` blocks also respect the status override during transition validation.
-
-Field names work for both standard fields (`summary`, `status`, `assignee`) and custom fields (`Release Date`, `Story Points`). Standard field lookup is case-insensitive.
+See [RULES.md](RULES.md) for complete documentation on rules file format, discovery, and all available checks.
 
 **Transition validation:** When `rules.yaml` exists, `zaira transition` automatically checks the target status rules before transitioning. If the ticket fails validation, the transition is blocked:
 
