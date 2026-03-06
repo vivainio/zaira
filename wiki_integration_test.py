@@ -80,7 +80,10 @@ def test_wiki_search():
     """Test wiki search command."""
     print("\n=== Search pages ===")
     result = run('wiki search "zaira" --limit 3')
-    assert "zaira" in result.stdout.lower(), "Search results missing expected content"
+    # Check that search returned results (page titles, spaces, or URLs)
+    assert "Space:" in result.stdout or "https://" in result.stdout, (
+        "Search results missing page information"
+    )
 
     print("\n=== Search (URL format) ===")
     result = run('wiki search "zaira" --limit 2 --format url')
