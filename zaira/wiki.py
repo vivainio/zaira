@@ -494,6 +494,11 @@ def create_command(args: argparse.Namespace) -> None:
 
     # Determine space: from --space flag, or infer from parent
     space_key = args.space
+    if space_key and space_key.lower() == "my":
+        space_key = confluence_api.get_personal_space_key()
+        if not space_key:
+            print("Error: Could not determine personal space key.", file=sys.stderr)
+            sys.exit(1)
     if not space_key:
         if not parent_id:
             print("Error: Either --space or --parent is required", file=sys.stderr)
