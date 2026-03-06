@@ -64,10 +64,37 @@ def search_command(args: argparse.Namespace) -> None:
         print("No tickets found.")
 
 
+def _looks_like_jql(text: str) -> bool:
+    """Detect if text looks like JQL (heuristic check)."""
+    if not text:
+        return False
+    text_upper = text.upper()
+    # Check for JQL keywords and operators
+    jql_indicators = [
+        "=",
+        " AND ",
+        " OR ",
+        " NOT ",
+        "ORDER BY",
+        "PROJECT",
+        "TYPE",
+        "STATUS",
+        "ASSIGNEE",
+        "PRIORITY",
+        "LABEL",
+        "COMPONENT",
+    ]
+    return any(indicator in text_upper for indicator in jql_indicators)
+
+
 def build_jql(args: argparse.Namespace) -> str:
     """Build JQL from search arguments."""
     if args.jql:
         return args.jql
+
+    # Auto-detect if text argument looks like JQL
+    if args.text and _looks_like_jql(args.text):
+        return args.text
 
     clauses = []
     if args.text:
