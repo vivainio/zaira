@@ -400,10 +400,23 @@ def _handle_update_error(e: Exception, jira, key: str) -> None:
     errors = error_data.get("errors", {})
     error_messages = error_data.get("errorMessages", [])
 
+    # Check if any error mentions "not on the appropriate screen"
+    has_screen_error = any(
+        "appropriate screen" in str(msg).lower() for msg in error_messages
+    ) or any("appropriate screen" in str(msg).lower() for msg in errors.values())
+
     for msg in error_messages:
         print(f"Error from Jira server: {msg}", file=sys.stderr)
     for msg in errors.values():
         print(f"Error from Jira server: {msg}", file=sys.stderr)
+
+    # Suggest cache reset for "appropriate screen" errors
+    if has_screen_error:
+        print(
+            "\nTroubleshooting: If the server-side workflow was recently changed,",
+            file=sys.stderr,
+        )
+        print("try 'zaira reset' to clear the cached schema.", file=sys.stderr)
 
     failed_fields = list(errors.keys())
     if failed_fields:
