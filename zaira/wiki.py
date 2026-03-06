@@ -1292,7 +1292,7 @@ def delete_command(args: argparse.Namespace) -> None:
         print(f"About to delete: {title}")
         print(f"  Space: {space_key}")
         print(f"  Page ID: {page_id}")
-        confirm = input("Type 'yes' to confirm deletion: ")
+        confirm = input("Type 'yes' to confirm deletion (or use --yes to skip): ")
         if confirm.lower() != "yes":
             print("Deletion cancelled.")
             sys.exit(0)
