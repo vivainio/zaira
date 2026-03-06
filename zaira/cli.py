@@ -624,6 +624,11 @@ def main() -> None:
         action="store_true",
         help="Skip allowed_fields.txt validation",
     )
+    edit_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview changes without updating",
+    )
     edit_parser.set_defaults(func=edit_command)
 
     # Create command
@@ -701,6 +706,11 @@ def main() -> None:
         "--no-check",
         action="store_true",
         help="Skip rules.yaml validation before transitioning",
+    )
+    transition_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview transition without executing",
     )
     transition_parser.set_defaults(func=transition_command)
 

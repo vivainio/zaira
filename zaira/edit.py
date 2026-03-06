@@ -530,6 +530,13 @@ def edit_command(args: argparse.Namespace) -> None:
 
     jira_site = get_jira_site()
 
+    # Handle dry-run
+    if getattr(args, "dry_run", False):
+        print(f"Would update {key}:")
+        for field_id, value in fields.items():
+            print(f"  {field_id} = {value}")
+        return
+
     if edit_ticket(key, fields):
         print(f"Updated {key}")
         print(f"View at: https://{jira_site}/browse/{key}")

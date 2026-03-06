@@ -163,6 +163,17 @@ def transition_command(args: argparse.Namespace) -> None:
 
     comment = getattr(args, "comment", None)
 
+    # Handle dry-run
+    if getattr(args, "dry_run", False):
+        print(f"Would transition {key} to '{status}'")
+        if fields:
+            print("  With fields:")
+            for field_id, value in fields.items():
+                print(f"    {field_id} = {value}")
+        if comment:
+            print(f"  With comment: {comment}")
+        return
+
     if transition_ticket(key, status, fields=fields, comment=comment):
         print(f"Transitioned {key}")
         print(f"View at: https://{jira_site}/browse/{key}")
