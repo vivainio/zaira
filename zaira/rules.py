@@ -516,6 +516,29 @@ def check_command(args):
 
         if violations:
             any_fail = True
+
+            # For required/non_empty fields, try to fetch allowed values from editmeta
+            fields_needing_values = [
+                v.field for v in violations if v.check in ("required", "non_empty")
+            ]
+
+            allowed_values_map = {}
+            if fields_needing_values:
+                from zaira.info import load_editmeta, get_editmeta_field
+
+                try:
+                    editmeta = load_editmeta(project, issue_type)
+                    if editmeta and "fields" in editmeta:
+                        for field_name in fields_needing_values:
+                            em = get_editmeta_field(project, issue_type, field_name)
+                            if em:
+                                _, field_def = em
+                                allowed = field_def.get("allowedValues", [])
+                                if allowed:
+                                    allowed_values_map[field_name] = allowed
+                except Exception:
+                    pass  # If we can't fetch, just skip showing values
+
             for v in violations:
                 print(f"  FAIL  {v.check:<11s} {v.field}")
                 if v.check in (
@@ -531,6 +554,19 @@ def check_command(args):
                     "allowed_fields",
                 ):
                     print(f"        {v.message}")
+
+                # Show allowed values for required/non_empty fields
+                if (
+                    v.check in ("required", "non_empty")
+                    and v.field in allowed_values_map
+                ):
+                    allowed = allowed_values_map[v.field]
+                    if isinstance(allowed, list) and allowed:
+                        print(f"        Allowed values:")
+                        for val in allowed[:10]:
+                            print(f"          - {val}")
+                        if len(allowed) > 10:
+                            print(f"          ... and {len(allowed) - 10} more")
         else:
             if type_rules or allowed_fields:
                 print("  ok")
