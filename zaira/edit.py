@@ -482,6 +482,51 @@ def edit_command(args: argparse.Namespace) -> None:
             desc = markdown_to_jira_wiki(desc)
         fields["description"] = desc
 
+    # Check allowed_fields whitelist for raw field names (unless --no-check is set)
+    # This must happen BEFORE mapping field names to IDs
+    if not getattr(args, "no_check", False):
+        from zaira.rules import check_field_allowed, load_allowed_fields
+
+        allowed = load_allowed_fields(project=project)
+        if allowed:
+            field_errors = []
+            # Extract field names from arguments
+            field_args_names = []
+            field_args = getattr(args, "field", None) or []
+            for arg in field_args:
+                if "=" in arg:
+                    name = arg.split("=", 1)[0].strip()
+                    field_args_names.append(name)
+
+            # Extract field names from --from file/stdin
+            from_input = getattr(args, "from_file", None)
+            yaml_field_names = []
+            if from_input:
+                content = read_input(from_input)
+                data = yaml.safe_load(content)
+                if isinstance(data, dict):
+                    yaml_field_names = list(data.keys())
+
+            # Check all field names against allowed list
+            all_field_names = field_args_names + yaml_field_names
+            for field_name in all_field_names:
+                error = check_field_allowed(field_name, allowed)
+                if error:
+                    field_errors.append(error)
+
+            if field_errors:
+                print("Error: The following fields are not allowed:", file=sys.stderr)
+                for err in field_errors:
+                    field_name = err["field"]
+                    suggestions = err["suggestions"]
+                    print(f"  - {field_name}", file=sys.stderr)
+                    if suggestions:
+                        print("    Did you mean:", file=sys.stderr)
+                        for s in suggestions:
+                            print(f"      {s}", file=sys.stderr)
+                print("\nUse --no-check to skip validation.", file=sys.stderr)
+                sys.exit(1)
+
     # Handle --field arguments
     field_args = getattr(args, "field", None) or []
     if field_args:
@@ -503,30 +548,6 @@ def edit_command(args: argparse.Namespace) -> None:
             file=sys.stderr,
         )
         sys.exit(1)
-
-    # Check allowed_fields whitelist (unless --no-check is set)
-    if not getattr(args, "no_check", False):
-        from zaira.rules import check_field_allowed, load_allowed_fields
-
-        allowed = load_allowed_fields(project=project)
-        field_errors = []
-        for field_id in fields.keys():
-            error = check_field_allowed(field_id, allowed)
-            if error:
-                field_errors.append(error)
-
-        if field_errors:
-            print("Error: The following fields are not allowed:", file=sys.stderr)
-            for err in field_errors:
-                field_name = err["field"]
-                suggestions = err["suggestions"]
-                print(f"  - {field_name}", file=sys.stderr)
-                if suggestions:
-                    print("    Did you mean:", file=sys.stderr)
-                    for s in suggestions:
-                        print(f"      {s}", file=sys.stderr)
-            print("\nUse --no-check to skip validation.", file=sys.stderr)
-            sys.exit(1)
 
     jira_site = get_jira_site()
 

@@ -399,3 +399,99 @@ rules-bundle.zip
 6. To list or manage installed rules, inspect the directory:
    - Linux/macOS: `~/.config/zaira/rules/`
    - Windows: `%APPDATA%\zaira\rules\`
+
+---
+
+## Field whitelisting (`allowed_fields.txt`)
+
+You can restrict which fields are allowed to be updated via `zaira edit` and `zaira transition` using a field whitelist. This is useful for enforcing data governance policies and preventing accidental updates to sensitive or system fields.
+
+### Setup
+
+Create an `allowed_fields.txt` file in the platform config directory (same location where `rules.yaml` is discovered):
+
+- Linux/macOS: `~/.config/zaira/rules/allowed_fields.txt`
+- Windows: `%APPDATA%\zaira\rules\allowed_fields.txt`
+
+### File format
+
+Each line is a field name, one per line. Empty lines and lines starting with `#` are ignored.
+
+```
+# Core fields
+Summary
+Description
+Priority
+Status
+
+# Custom fields
+Story Points
+Components
+Acceptance Criteria
+Deployment Cadence
+```
+
+Field names must exactly match the human-readable names as they appear in Jira (including custom fields).
+
+### How it works
+
+When `zaira edit` or `zaira transition` attempts to update a field:
+
+1. If no `allowed_fields.txt` is configured, all fields are allowed (no restriction)
+2. If `allowed_fields.txt` exists, only listed fields can be updated
+3. Unallowed fields are rejected with an error message
+4. Fuzzy matching suggests similar field names if you misspell one
+
+Example error:
+
+```
+Error: The following fields are not allowed:
+  - Stroy Points
+    Did you mean:
+      Story Points
+```
+
+### Project-specific overrides
+
+For team-specific or project-specific fields, create a project-specific whitelist:
+
+```
+allowed_fields_{PROJECT}.txt
+```
+
+For example, if working with project `AC`:
+
+```
+~/.config/zaira/rules/allowed_fields_AC.txt
+```
+
+This file is **merged** with the global `allowed_fields.txt`. The project-specific file extends the global whitelist (union logic):
+
+```bash
+zaira edit AC-123 --set "Story Points: 5, Custom Approval: approved"
+# Both global and AC-specific fields are allowed
+```
+
+### Skipping validation
+
+Pass `--no-check` to `zaira edit` or `zaira transition` to skip field validation:
+
+```bash
+zaira edit FOO-123 --set "Restricted Field: value" --no-check
+zaira transition BAR-456 Ready for Release --no-check
+```
+
+### Usage with bundles
+
+Include `allowed_fields.txt` in your rule bundle to distribute field policies across your organization:
+
+```
+rules-bundle.zip
+  rules/
+    rules.yaml
+    allowed_fields.txt
+    allowed_fields_PROJECT-A.txt
+    allowed_fields_PROJECT-B.txt
+```
+
+When you run `zaira bundle install`, all field whitelist files are installed alongside your rules files.

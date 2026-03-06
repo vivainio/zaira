@@ -203,6 +203,58 @@ code here
 {code}
 ```
 
+### Typical Confluence Macros Reference
+
+| Macro | Purpose | Example |
+|-------|---------|---------|
+| `{info}` | Information box | `{info:title=Note}Important info{info}` |
+| `{warning}` | Warning box | `{warning}Be careful{warning}` |
+| `{error}` | Error/alert box | `{error}Something failed{error}` |
+| `{success}` | Success message | `{success}Operation complete{success}` |
+| `{note}` | Note box | `{note}Remember this{note}` |
+| `{children}` | List child pages | `{children}` |
+| `{expand}` | Collapsible section | `{expand:title=Details}Content{expand}` |
+| `{code}` | Code block | `{code:language=python}code{code}` |
+| `{status}` | Status label | `{status:green\|done}` |
+| `{color}` | Colored text | `{color:red}Text{color}` |
+| `{anchor}` | Anchor link | `{anchor:my-section}` |
+| `{toc}` | Table of contents | `{toc}` |
+| `{excerpt}` | Include page excerpt | `{excerpt:page=PageName}` |
+| `{include}` | Include another page | `{include:page=PageName}` |
+| `{page-tree}` | Hierarchical tree | `{page-tree:root=@self}` |
+| `{jira}` | JIRA issue link | `{jira:key=PROJ-123}` |
+| `{user}` | User mention | `{user:username}` |
+| `{date}` | Current date | `{date}` |
+
+### Macro Parameter Examples
+
+**Status Macro (colors):**
+```
+{status:green|done}
+{status:yellow|in progress}
+{status:red|blocked}
+{status:blue|to do}
+```
+
+**Expand with options:**
+```
+{expand:title=Details|icon=false}
+Content here
+{expand}
+```
+
+**JIRA query:**
+```
+{jira:project=PROJ|type=Bug|limit=20}
+```
+
+**Anchor and cross-link:**
+```
+{anchor:section-1}
+
+[Jump to section 1|#section-1]
+```
+
 ## Mixed Markdown and Wiki Syntax
 
 You can use both syntaxes in the same file:

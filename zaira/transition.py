@@ -85,13 +85,41 @@ def transition_command(args: argparse.Namespace) -> None:
 
     status = args.status
 
+    # Check allowed_fields whitelist for raw field names BEFORE parsing (unless --no-check is set)
+    # This must happen BEFORE mapping field names to IDs
+    field_args = getattr(args, "field", None) or []
+    project = key.split("-")[0]
+    if field_args and not getattr(args, "no_check", False):
+        from zaira.rules import check_field_allowed, load_allowed_fields
+
+        allowed_fields = load_allowed_fields(project=project)
+        if allowed_fields:
+            field_errors = []
+            # Extract field names from arguments
+            for arg in field_args:
+                if "=" in arg:
+                    name = arg.split("=", 1)[0].strip()
+                    error = check_field_allowed(name, allowed_fields)
+                    if error:
+                        field_errors.append(error)
+
+            if field_errors:
+                print("Error: The following fields are not allowed:", file=sys.stderr)
+                for err in field_errors:
+                    field_name = err["field"]
+                    suggestions = err["suggestions"]
+                    print(f"  - {field_name}", file=sys.stderr)
+                    if suggestions:
+                        print("    Did you mean:", file=sys.stderr)
+                        for s in suggestions:
+                            print(f"      {s}", file=sys.stderr)
+                print("\nUse --no-check to skip validation.", file=sys.stderr)
+                sys.exit(1)
+
     # Parse --field arguments
     fields = {}
-    field_args = getattr(args, "field", None) or []
     if field_args:
         from zaira.edit import parse_field_args
-
-        project = key.split("-")[0]
         from zaira.jira_client import get_jira
         from zaira.info import ensure_editmeta
 
@@ -101,16 +129,13 @@ def transition_command(args: argparse.Namespace) -> None:
         ensure_editmeta(key, issue_type)
         fields = parse_field_args(field_args, project=project, issue_type=issue_type)
 
-    # Validate against rules.yaml and allowed_fields.txt before transitioning
+    # Validate against rules.yaml before transitioning
     if not getattr(args, "no_check", False):
         from zaira.rules import (
             try_load_rules,
             validate_transition,
-            load_allowed_fields,
-            check_field_allowed,
         )
         from zaira.export import get_ticket
-        from collections import namedtuple
 
         all_rules = try_load_rules()
         violations = []
@@ -120,46 +145,28 @@ def transition_command(args: argparse.Namespace) -> None:
             if ticket:
                 violations.extend(validate_transition(ticket, all_rules, status))
 
-        # Check allowed_fields for any fields being set during transition
-        if fields:
-            from zaira.rules import check_field_allowed, load_allowed_fields
+        if violations:
             from collections import namedtuple
 
-            project = key.split("-")[0]
-            allowed_fields = load_allowed_fields(project=project)
-            if allowed_fields:
-                Violation = namedtuple("Violation", ["field", "check", "message"])
-                for field_id in fields.keys():
-                    error = check_field_allowed(field_id, allowed_fields)
-                    if error:
-                        violations.append(
-                            Violation(
-                                error["field"],
-                                "allowed_fields",
-                                f"Field not in allowed_fields.txt. Did you mean: {', '.join(error['suggestions']) if error['suggestions'] else 'N/A'}",
-                            )
-                        )
-
-                if violations:
-                    print(
-                        f"Blocked: {key} fails rules for '{status}':",
-                        file=sys.stderr,
-                    )
-                    for v in violations:
-                        print(f"  FAIL  {v.check:<11s} {v.field}", file=sys.stderr)
-                        if v.check in (
-                            "contains",
-                            "not_contains",
-                            "matches",
-                            "not_matches",
-                            "subtask_types",
-                            "one_of",
-                            "not_one_of",
-                            "allowed_fields",
-                        ):
-                            print(f"        {v.message}", file=sys.stderr)
-                    print("\nUse --no-check to skip validation.", file=sys.stderr)
-                    sys.exit(1)
+            print(
+                f"Blocked: {key} fails rules for '{status}':",
+                file=sys.stderr,
+            )
+            for v in violations:
+                print(f"  FAIL  {v.check:<11s} {v.field}", file=sys.stderr)
+                if v.check in (
+                    "contains",
+                    "not_contains",
+                    "matches",
+                    "not_matches",
+                    "subtask_types",
+                    "one_of",
+                    "not_one_of",
+                    "allowed_fields",
+                ):
+                    print(f"        {v.message}", file=sys.stderr)
+            print("\nUse --no-check to skip validation.", file=sys.stderr)
+            sys.exit(1)
 
     comment = getattr(args, "comment", None)
 
