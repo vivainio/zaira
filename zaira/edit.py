@@ -401,9 +401,9 @@ def _handle_update_error(e: Exception, jira, key: str) -> None:
     error_messages = error_data.get("errorMessages", [])
 
     for msg in error_messages:
-        print(f"Error: {msg}", file=sys.stderr)
+        print(f"Error from Jira server: {msg}", file=sys.stderr)
     for msg in errors.values():
-        print(f"Error: {msg}", file=sys.stderr)
+        print(f"Error from Jira server: {msg}", file=sys.stderr)
 
     failed_fields = list(errors.keys())
     if failed_fields:
