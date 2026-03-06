@@ -120,28 +120,25 @@ def transition_command(args: argparse.Namespace) -> None:
             if ticket:
                 violations.extend(validate_transition(ticket, all_rules, status))
 
-        # Check allowed fields (load project-specific overrides)
-        project = key.split("-")[0]
-        allowed_fields = load_allowed_fields(project=project)
-        if allowed_fields:
-            ticket = (
-                get_ticket(key, full=True, include_custom=True)
-                if not violations
-                else ticket
-            )
-            if ticket:
+        # Check allowed_fields for any fields being set during transition
+        if fields:
+            from zaira.rules import check_field_allowed, load_allowed_fields
+            from collections import namedtuple
+
+            project = key.split("-")[0]
+            allowed_fields = load_allowed_fields(project=project)
+            if allowed_fields:
                 Violation = namedtuple("Violation", ["field", "check", "message"])
-                for field_key in ticket.keys():
-                    if field_key not in ("custom_fields", "subtasks", "issuelinks"):
-                        error = check_field_allowed(field_key, allowed_fields)
-                        if error:
-                            violations.append(
-                                Violation(
-                                    error["field"],
-                                    "allowed_fields",
-                                    f"Field not in allowed_fields.txt. Did you mean: {', '.join(error['suggestions']) if error['suggestions'] else 'N/A'}",
-                                )
+                for field_id in fields.keys():
+                    error = check_field_allowed(field_id, allowed_fields)
+                    if error:
+                        violations.append(
+                            Violation(
+                                error["field"],
+                                "allowed_fields",
+                                f"Field not in allowed_fields.txt. Did you mean: {', '.join(error['suggestions']) if error['suggestions'] else 'N/A'}",
                             )
+                        )
 
                 if violations:
                     print(

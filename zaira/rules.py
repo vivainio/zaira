@@ -514,20 +514,6 @@ def check_command(args):
         if type_rules:
             violations = check_ticket(ticket, type_rules)
 
-        # Check allowed fields (all ticket fields that have values)
-        if allowed_fields:
-            for field_key in ticket.keys():
-                if field_key not in ("custom_fields", "subtasks", "issuelinks"):
-                    error = check_field_allowed(field_key, allowed_fields)
-                    if error:
-                        violations.append(
-                            Violation(
-                                error["field"],
-                                "allowed_fields",
-                                f"Field not in allowed_fields.txt. Did you mean: {', '.join(error['suggestions']) if error['suggestions'] else 'N/A'}",
-                            )
-                        )
-
         if violations:
             any_fail = True
             for v in violations:
