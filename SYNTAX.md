@@ -249,6 +249,23 @@ Use HTML entities for special characters:
 - `&gt;` for `>`
 - `&quot;` for `"`
 
+## Raw XML Passthrough
+
+You can include raw Confluence storage format XML directly in markdown files. This is useful for advanced macros or custom structures:
+
+```markdown
+Some content here.
+
+<ac:structured-macro ac:name="status">
+  <ac:parameter ac:name="colour">green</ac:parameter>
+  <ac:parameter ac:name="title">Done</ac:parameter>
+</ac:structured-macro>
+
+Back to markdown.
+```
+
+**Note:** Raw XML on its own line works best. Inline XML in paragraphs may be wrapped in `<p>` tags.
+
 ## Limitations
 
 ### Not Supported
@@ -268,6 +285,12 @@ For unsupported features, use raw Confluence macros or storage format XML:
 {card:title=Card Title}
 Card content
 {card}
+
+OR raw XML:
+
+<ac:structured-macro ac:name="status">
+  <ac:parameter ac:name="colour">green</ac:parameter>
+</ac:structured-macro>
 ```
 
 ## Examples

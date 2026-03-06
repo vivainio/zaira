@@ -1011,6 +1011,40 @@ class TestMixedWikiAndMarkdown:
         assert "code2" in result
 
 
+class TestRawXMLPassthrough:
+    """Tests for raw Confluence storage XML passthrough."""
+
+    def test_raw_macro_xml_passthrough(self):
+        """Raw structured macro XML is preserved."""
+        md = """Content
+
+<ac:structured-macro ac:name="status">
+  <ac:parameter ac:name="colour">green</ac:parameter>
+</ac:structured-macro>
+
+More content"""
+        result = markdown_to_storage(md)
+
+        assert 'ac:name="status"' in result
+        assert "colour" in result
+
+    def test_raw_html_elements_passthrough(self):
+        """Raw HTML elements are passed through."""
+        md = "Text\n\n<blockquote><p>Raw quote</p></blockquote>\n\nMore"
+        result = markdown_to_storage(md)
+
+        assert "<blockquote>" in result
+        assert "Raw quote" in result
+
+    def test_raw_image_macro_passthrough(self):
+        """Raw image macro XML is preserved."""
+        md = '<ac:image><ri:attachment ri:filename="test.png"/></ac:image>'
+        result = markdown_to_storage(md)
+
+        assert "ac:image" in result
+        assert "test.png" in result
+
+
 class TestConfluenceMacros:
     """Tests for Confluence macro handling."""
 
