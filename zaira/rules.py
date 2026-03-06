@@ -8,8 +8,11 @@ from pathlib import Path
 import yaml
 
 from zaira.export import get_ticket
+from zaira.jira_client import CONFIG_DIR
 
 Violation = namedtuple("Violation", ["field", "check", "message"])
+
+ALLOWED_FIELDS_FILE = CONFIG_DIR / "rules" / "allowed_fields.txt"
 
 
 def _find_rules_file(path="rules.yaml") -> Path | None:
@@ -394,6 +397,50 @@ def try_load_rules(path="rules.yaml"):
     if not p:
         return None
     return _load_rules_file(p, frozenset())
+
+
+def load_allowed_fields() -> set[str] | None:
+    """Load allowed fields from allowed_fields.txt, or None if not configured."""
+    if not ALLOWED_FIELDS_FILE.exists():
+        return None
+
+    allowed = set()
+    with open(ALLOWED_FIELDS_FILE) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                allowed.add(line)
+
+    return allowed if allowed else None
+
+
+def check_field_allowed(
+    field_name: str, allowed_fields: set[str] | None
+) -> dict | None:
+    """Check if field is allowed to update.
+
+    Returns:
+        None if allowed, or dict with error info if blocked:
+        {"error": str, "suggestions": [list of field names]}
+    """
+    if allowed_fields is None:
+        return None  # No whitelist configured
+
+    allowed_lower = {f.lower(): f for f in allowed_fields}
+    if field_name.lower() not in allowed_lower:
+        from zaira.util import fuzzy_match
+
+        # Find similar field names using fuzzy matching
+        similar = fuzzy_match(field_name.lower(), [f.lower() for f in allowed_fields])
+        # Map back to original casing
+        similar_orig = [allowed_lower[s] for s in similar]
+
+        return {
+            "field": field_name,
+            "suggestions": similar_orig,
+        }
+
+    return None
 
 
 def validate_transition(ticket, all_rules, target_status):

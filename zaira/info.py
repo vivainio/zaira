@@ -1,7 +1,6 @@
 """Query Jira instance metadata."""
 
 import argparse
-import difflib
 import json
 import sys
 from typing import Callable, TypeVar
@@ -17,6 +16,7 @@ from zaira.jira_client import (
     get_schema_path,
 )
 from zaira.types import EditmetaSchema, ProjectSchema, ZSchema
+from zaira.util import fuzzy_match
 
 T = TypeVar("T")
 
@@ -782,9 +782,7 @@ def field_command(args: argparse.Namespace) -> None:
                     fid = fdef.get("id", "")
                     if fid:
                         all_names.setdefault(fid.lower(), fid)
-            suggestions = difflib.get_close_matches(
-                name_lower, all_names.keys(), n=5, cutoff=0.6
-            )
+            suggestions = fuzzy_match(name_lower, list(all_names.keys()), n=5)
             if suggestions:
                 originals = [all_names[s] for s in suggestions]
                 print(f"{name}: not found. Did you mean: {', '.join(originals)}?\n")
