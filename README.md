@@ -297,7 +297,7 @@ zaira check FOO-123 --rules path/to/rules.yaml
 
 **Rules file discovery:** `rules.yaml` is looked up in order:
 1. Current working directory
-2. Platform config directory (`~/.config/zaira/rules.yaml` on Linux, `%APPDATA%\zaira\rules.yaml` on Windows)
+2. Platform config directory (`~/.config/zaira/rules/rules.yaml` on Linux, `%APPDATA%\zaira\rules\rules.yaml` on Windows)
 
 Rules are scoped by issue type. Available checks:
 
