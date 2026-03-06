@@ -316,3 +316,61 @@ Bug:
     Done:
       subtask_types: [Deployment Wave]
 ```
+
+---
+
+## Installing rule bundles
+
+Rules can be distributed as `.zip` bundles and installed to the platform config directory using the `zaira bundle` command. This is useful for organizations that want to share standardized rules across teams.
+
+### Install from a URL
+
+```bash
+zaira bundle install https://example.com/rules-bundle.zip
+```
+
+The bundle is downloaded and extracted to the platform config directory. A `bundle.yaml` metadata file tracks the source URL and installation timestamp.
+
+### Install from a local file
+
+```bash
+zaira bundle install ./local-rules-bundle.zip
+```
+
+### Update an installed bundle
+
+```bash
+zaira bundle update
+```
+
+Re-fetches the bundle from the recorded source URL. This fails if the bundle was installed from a local file (no URL to re-fetch from).
+
+### Bundle structure
+
+A bundle is a `.zip` file containing a `rules/` directory with rule files:
+
+```
+rules-bundle.zip
+  rules/
+    rules.yaml                # main rules file
+    rules.project-foo.yaml    # optional project-specific rules (imported via rules.yaml)
+    rules.project-bar.yaml    # optional project-specific rules
+```
+
+The bundle can optionally have a single top-level wrapper directory (GitHub releases often wrap zips this way):
+
+```
+rules-bundle.zip
+  my-rules/
+    rules/
+      rules.yaml
+```
+
+### How it works
+
+1. Bundle files are extracted to `CONFIG_DIR/rules/` (same location where zaira discovers `rules.yaml`)
+2. Installed files persist across zaira updates
+3. `zaira check` and `zaira transition` automatically use installed rules
+4. To list or manage installed rules, inspect the directory:
+   - Linux/macOS: `~/.config/zaira/rules/`
+   - Windows: `%APPDATA%\zaira\rules\`
