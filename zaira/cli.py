@@ -619,6 +619,11 @@ def main() -> None:
         metavar="FILE",
         help="Read fields from YAML file (use '-' for stdin)",
     )
+    edit_parser.add_argument(
+        "--no-check",
+        action="store_true",
+        help="Skip allowed_fields.txt validation",
+    )
     edit_parser.set_defaults(func=edit_command)
 
     # Create command

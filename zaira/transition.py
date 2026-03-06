@@ -101,19 +101,52 @@ def transition_command(args: argparse.Namespace) -> None:
         ensure_editmeta(key, issue_type)
         fields = parse_field_args(field_args, project=project, issue_type=issue_type)
 
-    # Validate against rules.yaml before transitioning
+    # Validate against rules.yaml and allowed_fields.txt before transitioning
     if not getattr(args, "no_check", False):
-        from zaira.rules import try_load_rules, validate_transition
+        from zaira.rules import (
+            try_load_rules,
+            validate_transition,
+            load_allowed_fields,
+            check_field_allowed,
+        )
         from zaira.export import get_ticket
+        from collections import namedtuple
 
         all_rules = try_load_rules()
+        violations = []
+
         if all_rules:
             ticket = get_ticket(key, full=True, include_custom=True)
             if ticket:
-                violations = validate_transition(ticket, all_rules, status)
+                violations.extend(validate_transition(ticket, all_rules, status))
+
+        # Check allowed fields (load project-specific overrides)
+        project = key.split("-")[0]
+        allowed_fields = load_allowed_fields(project=project)
+        if allowed_fields:
+            ticket = (
+                get_ticket(key, full=True, include_custom=True)
+                if not violations
+                else ticket
+            )
+            if ticket:
+                Violation = namedtuple("Violation", ["field", "check", "message"])
+                for field_key in ticket.keys():
+                    if field_key not in ("custom_fields", "subtasks", "issuelinks"):
+                        error = check_field_allowed(field_key, allowed_fields)
+                        if error:
+                            violations.append(
+                                Violation(
+                                    error["field"],
+                                    "allowed_fields",
+                                    f"Field not in allowed_fields.txt. Did you mean: {', '.join(error['suggestions']) if error['suggestions'] else 'N/A'}",
+                                )
+                            )
+
                 if violations:
                     print(
-                        f"Blocked: {key} fails rules for '{status}':", file=sys.stderr
+                        f"Blocked: {key} fails rules for '{status}':",
+                        file=sys.stderr,
                     )
                     for v in violations:
                         print(f"  FAIL  {v.check:<11s} {v.field}", file=sys.stderr)
@@ -125,6 +158,7 @@ def transition_command(args: argparse.Namespace) -> None:
                             "subtask_types",
                             "one_of",
                             "not_one_of",
+                            "allowed_fields",
                         ):
                             print(f"        {v.message}", file=sys.stderr)
                     print("\nUse --no-check to skip validation.", file=sys.stderr)

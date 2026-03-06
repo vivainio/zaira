@@ -504,27 +504,29 @@ def edit_command(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
-    # Check allowed_fields whitelist
-    from zaira.rules import check_field_allowed, load_allowed_fields
+    # Check allowed_fields whitelist (unless --no-check is set)
+    if not getattr(args, "no_check", False):
+        from zaira.rules import check_field_allowed, load_allowed_fields
 
-    allowed = load_allowed_fields()
-    field_errors = []
-    for field_id in fields.keys():
-        error = check_field_allowed(field_id, allowed)
-        if error:
-            field_errors.append(error)
+        allowed = load_allowed_fields(project=project)
+        field_errors = []
+        for field_id in fields.keys():
+            error = check_field_allowed(field_id, allowed)
+            if error:
+                field_errors.append(error)
 
-    if field_errors:
-        print("Error: The following fields are not allowed:", file=sys.stderr)
-        for err in field_errors:
-            field_name = err["field"]
-            suggestions = err["suggestions"]
-            print(f"  - {field_name}", file=sys.stderr)
-            if suggestions:
-                print("    Did you mean:", file=sys.stderr)
-                for s in suggestions:
-                    print(f"      {s}", file=sys.stderr)
-        sys.exit(1)
+        if field_errors:
+            print("Error: The following fields are not allowed:", file=sys.stderr)
+            for err in field_errors:
+                field_name = err["field"]
+                suggestions = err["suggestions"]
+                print(f"  - {field_name}", file=sys.stderr)
+                if suggestions:
+                    print("    Did you mean:", file=sys.stderr)
+                    for s in suggestions:
+                        print(f"      {s}", file=sys.stderr)
+            print("\nUse --no-check to skip validation.", file=sys.stderr)
+            sys.exit(1)
 
     jira_site = get_jira_site()
 

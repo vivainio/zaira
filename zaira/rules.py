@@ -399,17 +399,34 @@ def try_load_rules(path="rules.yaml"):
     return _load_rules_file(p, frozenset())
 
 
-def load_allowed_fields() -> set[str] | None:
-    """Load allowed fields from allowed_fields.txt, or None if not configured."""
-    if not ALLOWED_FIELDS_FILE.exists():
-        return None
+def load_allowed_fields(project: str = "") -> set[str] | None:
+    """Load allowed fields from allowed_fields.txt and project-specific overrides.
 
+    Args:
+        project: Project key (e.g., 'AC'). If provided, also loads allowed_fields_AC.txt
+
+    Returns:
+        Union of global and project-specific allowed fields, or None if not configured
+    """
     allowed = set()
-    with open(ALLOWED_FIELDS_FILE) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#"):
-                allowed.add(line)
+
+    # Load global allowed fields
+    if ALLOWED_FIELDS_FILE.exists():
+        with open(ALLOWED_FIELDS_FILE) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    allowed.add(line)
+
+    # Load project-specific allowed fields (union with global)
+    if project:
+        project_file = CONFIG_DIR / "rules" / f"allowed_fields_{project}.txt"
+        if project_file.exists():
+            with open(project_file) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        allowed.add(line)
 
     return allowed if allowed else None
 
@@ -485,16 +502,32 @@ def check_command(args):
             any_fail = True
             continue
 
+        project = key.split("-")[0]
+        allowed_fields = load_allowed_fields(project=project)
         issue_type = ticket.get("issuetype", "Unknown")
         status = ticket.get("status", "Unknown")
         type_rules = all_rules.get(issue_type)
 
         print(f"{key} ({issue_type} / {status})")
-        if not type_rules:
-            print("  ok (no rules for this type)")
-            continue
 
-        violations = check_ticket(ticket, type_rules)
+        violations = []
+        if type_rules:
+            violations = check_ticket(ticket, type_rules)
+
+        # Check allowed fields (all ticket fields that have values)
+        if allowed_fields:
+            for field_key in ticket.keys():
+                if field_key not in ("custom_fields", "subtasks", "issuelinks"):
+                    error = check_field_allowed(field_key, allowed_fields)
+                    if error:
+                        violations.append(
+                            Violation(
+                                error["field"],
+                                "allowed_fields",
+                                f"Field not in allowed_fields.txt. Did you mean: {', '.join(error['suggestions']) if error['suggestions'] else 'N/A'}",
+                            )
+                        )
+
         if violations:
             any_fail = True
             for v in violations:
@@ -509,10 +542,14 @@ def check_command(args):
                     "not_one_of",
                     "count_matches",
                     "sections_present",
+                    "allowed_fields",
                 ):
                     print(f"        {v.message}")
         else:
-            print("  ok")
+            if type_rules or allowed_fields:
+                print("  ok")
+            else:
+                print("  ok (no rules configured)")
 
     if any_fail:
         sys.exit(1)
