@@ -11,6 +11,7 @@ from pathlib import Path
 
 from zaira import confluence_api
 from zaira.jira_client import get_server_from_config
+from zaira.types import PageInfo
 from zaira.mdconv import (
     markdown_to_storage,
     storage_to_markdown,
@@ -504,13 +505,13 @@ def create_command(args: argparse.Namespace) -> None:
             print("Error: Either --space or --parent is required", file=sys.stderr)
             sys.exit(1)
         info = _get_page_info(parent_id)
-        if not info or not info.get("space_key"):
+        if not info or not info.space_key:
             print(
                 f"Error: Could not get space from parent page {parent_id}",
                 file=sys.stderr,
             )
             sys.exit(1)
-        space_key = info["space_key"]
+        space_key = info.space_key
 
     result = confluence_api.create_page(space_key, args.title, body_content, parent_id)
 
@@ -524,7 +525,7 @@ def create_command(args: argparse.Namespace) -> None:
     print(f"Created page {page_id}: {url}")
 
 
-def _get_page_info(page_id: str) -> dict | None:
+def _get_page_info(page_id: str) -> PageInfo | None:
     """Get page info including parent and space.
 
     Returns:
@@ -538,7 +539,7 @@ def _get_page_info(page_id: str) -> dict | None:
     parent_id = ancestors[-1]["id"] if ancestors else None
     space_key = page.get("space", {}).get("key")
 
-    return {"parent_id": parent_id, "space_key": space_key}
+    return PageInfo(parent_id=parent_id, space_key=space_key)
 
 
 def _create_page_for_file(
@@ -950,7 +951,7 @@ def put_command(args: argparse.Namespace) -> None:
                 parent_id = parse_page_id(args.parent)
                 info = _get_page_info(parent_id)
                 if info:
-                    space_key = info["space_key"]
+                    space_key = info.space_key
                 else:
                     print(
                         f"Error: Could not get info for parent page {parent_id}",
@@ -963,7 +964,7 @@ def put_command(args: argparse.Namespace) -> None:
                 for _, page_id in linked_files:
                     info = _get_page_info(page_id)
                     if info:
-                        parents_seen[info["parent_id"]] = info["space_key"]
+                        parents_seen[info.parent_id] = info.space_key
 
                 if len(parents_seen) == 0:
                     print(

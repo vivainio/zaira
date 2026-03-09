@@ -300,6 +300,31 @@ class ProjectSchema(TypedDict, total=False):
     labels: list[str]
 
 
+@dataclass
+class BundleChanges:
+    """Files changed during a bundle install or update."""
+
+    added: list[str]
+    modified: list[str]
+    removed: list[str]
+
+
+@dataclass
+class FieldError:
+    """Validation error from check_field_allowed."""
+
+    field: str
+    suggestions: list[str]
+
+
+@dataclass
+class PageInfo:
+    """Basic page metadata returned by _get_page_info."""
+
+    parent_id: str | None
+    space_key: str | None
+
+
 # === Utility functions ===
 
 

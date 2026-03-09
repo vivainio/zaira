@@ -561,7 +561,9 @@ class TestGetPageInfo:
 
         result = _get_page_info("12345")
 
-        assert result == {"parent_id": "222", "space_key": "TEST"}
+        from zaira.types import PageInfo
+
+        assert result == PageInfo(parent_id="222", space_key="TEST")
 
     def test_returns_none_on_error(self, mock_confluence):
         """Returns None when page not found."""
@@ -586,7 +588,9 @@ class TestGetPageInfo:
 
         result = _get_page_info("12345")
 
-        assert result == {"parent_id": None, "space_key": "TEST"}
+        from zaira.types import PageInfo
+
+        assert result == PageInfo(parent_id=None, space_key="TEST")
 
 
 class TestSyncImages:

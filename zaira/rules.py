@@ -9,6 +9,7 @@ import yaml
 
 from zaira.export import get_ticket
 from zaira.jira_client import CONFIG_DIR
+from zaira.types import FieldError
 
 Violation = namedtuple("Violation", ["field", "check", "message"])
 
@@ -18,6 +19,7 @@ ALLOWED_FIELDS_FILE = CONFIG_DIR / "rules" / "allowed_fields.txt"
 def _find_rules_file(path="rules.yaml") -> Path | None:
     """Search for rules file: explicit path, then cwd, then the zaira config dir."""
     from zaira.jira_client import CONFIG_DIR
+    from zaira.types import FieldError
 
     p = Path(path)
     if p.is_absolute() or path != "rules.yaml":
@@ -433,7 +435,7 @@ def load_allowed_fields(project: str = "") -> set[str] | None:
 
 def check_field_allowed(
     field_name: str, allowed_fields: set[str] | None
-) -> dict | None:
+) -> FieldError | None:
     """Check if field is allowed to update.
 
     Returns:
@@ -452,10 +454,7 @@ def check_field_allowed(
         # Map back to original casing
         similar_orig = [allowed_lower[s] for s in similar]
 
-        return {
-            "field": field_name,
-            "suggestions": similar_orig,
-        }
+        return FieldError(field=field_name, suggestions=similar_orig)
 
     return None
 

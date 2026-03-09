@@ -9,12 +9,15 @@ from pathlib import Path
 import yaml
 
 from zaira.jira_client import CONFIG_DIR
+from zaira.types import BundleChanges
 
 BUNDLE_META = CONFIG_DIR / "bundle.yaml"
 ALLOWED_DIRS = {"rules"}
 
 
-def _install_from_directory(path: Path, source: str, dry_run: bool = False) -> dict:
+def _install_from_directory(
+    path: Path, source: str, dry_run: bool = False
+) -> BundleChanges:
     """Copy rules files from a local directory to config dir.
 
     Returns:
@@ -26,7 +29,7 @@ def _install_from_directory(path: Path, source: str, dry_run: bool = False) -> d
     if not rules_src.is_dir():
         raise SystemExit(f"Expected directory, got file: {rules_src}")
 
-    changes = {"added": [], "modified": [], "removed": []}
+    changes = BundleChanges(added=[], modified=[], removed=[])
 
     # Track which files we're installing
     installed_files = set()
@@ -40,10 +43,10 @@ def _install_from_directory(path: Path, source: str, dry_run: bool = False) -> d
 
             # Check if file is new or modified
             if not dest.exists():
-                changes["added"].append(str(rel))
+                changes.added.append(str(rel))
             else:
                 if dest.read_bytes() != file.read_bytes():
-                    changes["modified"].append(str(rel))
+                    changes.modified.append(str(rel))
 
             if not dry_run:
                 dest.parent.mkdir(parents=True, exist_ok=True)
@@ -60,7 +63,7 @@ def _install_from_directory(path: Path, source: str, dry_run: bool = False) -> d
                     "rules.yaml",
                     "allowed_fields.txt",
                 ) or rel.name.startswith("allowed_fields_"):
-                    changes["removed"].append(str(rel))
+                    changes.removed.append(str(rel))
 
     if not dry_run:
         # Write bundle metadata with source path
@@ -78,13 +81,13 @@ def _install_from_directory(path: Path, source: str, dry_run: bool = False) -> d
 
 def _install_from_zip(
     data: bytes, source_url: str | None, dry_run: bool = False
-) -> dict:
+) -> BundleChanges:
     """Validate zip contents, extract to config dir, write bundle.yaml.
 
     Returns:
         Dict with 'added', 'modified', 'removed' file lists
     """
-    changes = {"added": [], "modified": [], "removed": []}
+    changes = BundleChanges(added=[], modified=[], removed=[])
 
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
         names = zf.namelist()
@@ -130,10 +133,10 @@ def _install_from_zip(
 
             # Check if file is new or modified
             if not dest.exists():
-                changes["added"].append(rel)
+                changes.added.append(rel)
             else:
                 if dest.read_bytes() != member_data:
-                    changes["modified"].append(rel)
+                    changes.modified.append(rel)
 
             if not dry_run:
                 dest.parent.mkdir(parents=True, exist_ok=True)
@@ -149,7 +152,7 @@ def _install_from_zip(
                     "rules.yaml",
                     "allowed_fields.txt",
                 ) or rel.name.startswith("allowed_fields_"):
-                    changes["removed"].append(str(rel))
+                    changes.removed.append(str(rel))
 
     if not dry_run and source_url:
         BUNDLE_META.write_text(
@@ -166,17 +169,17 @@ def _install_from_zip(
 
 def _print_changes(changes: dict) -> None:
     """Print file changes in a readable format."""
-    if changes["added"]:
-        for f in sorted(changes["added"]):
+    if changes.added:
+        for f in sorted(changes.added):
             print(f"  + {f}")
-    if changes["modified"]:
-        for f in sorted(changes["modified"]):
+    if changes.modified:
+        for f in sorted(changes.modified):
             print(f"  ~ {f}")
-    if changes["removed"]:
-        for f in sorted(changes["removed"]):
+    if changes.removed:
+        for f in sorted(changes.removed):
             print(f"  - {f}")
 
-    total = len(changes["added"]) + len(changes["modified"]) + len(changes["removed"])
+    total = len(changes.added) + len(changes.modified) + len(changes.removed)
     if total == 0:
         print("  (no changes)")
 
@@ -212,7 +215,7 @@ def bundle_install_command(args) -> None:
             if not dry_run:
                 print(f"Bundle installed from {path}")
 
-    if changes["added"] or changes["modified"] or changes["removed"]:
+    if changes.added or changes.modified or changes.removed:
         _print_changes(changes)
     if dry_run:
         print("\nUse without --dry-run to install.")
@@ -248,7 +251,7 @@ def bundle_update_command(args) -> None:
         if not dry_run:
             print(f"Bundle updated from {path}")
 
-    if changes["added"] or changes["modified"] or changes["removed"]:
+    if changes.added or changes.modified or changes.removed:
         _print_changes(changes)
     if dry_run:
         print("\nUse without --dry-run to update.")

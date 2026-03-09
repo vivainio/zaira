@@ -106,8 +106,8 @@ def transition_command(args: argparse.Namespace) -> None:
             if field_errors:
                 print("Error: The following fields are not allowed:", file=sys.stderr)
                 for err in field_errors:
-                    field_name = err["field"]
-                    suggestions = err["suggestions"]
+                    field_name = err.field
+                    suggestions = err.suggestions
                     print(f"  - {field_name}", file=sys.stderr)
                     if suggestions:
                         print("    Did you mean:", file=sys.stderr)
