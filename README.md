@@ -51,31 +51,39 @@ This discovers each project's components, labels, and boards, then generates `zp
 
 ## Commands
 
-### export
+### get
 
-Export individual tickets to stdout (default) or files:
+Get individual tickets to stdout (default) or files:
 
 ```bash
 # Output to stdout (default)
-zaira export FOO-1234
+zaira get FOO-1234
 
-# Save to tickets/ directory
-zaira export FOO-1234 --files
-zaira export FOO-1234 -o tickets/
+# Save to a directory
+zaira get FOO-1234 -o tickets/
 
-# Bulk export with JQL, board, or sprint
-zaira export --jql "project = FOO AND status = 'In Progress'" --files
-zaira export --board 123 --files
-zaira export --sprint 456 --files
+# Bulk get with JQL, board, or sprint
+zaira get --jql "project = FOO AND status = 'In Progress'" -o tickets/
+zaira get --board 123 -o tickets/
+zaira get --sprint 456 -o tickets/
 
-# Export as JSON
-zaira export FOO-1234 --format json
+# Output as JSON
+zaira get FOO-1234 --format json
 
 # Include linked pull requests (GitHub only)
-zaira export FOO-1234 --with-prs
+zaira get FOO-1234 --with-prs
+
+# Include linked Xray tests
+zaira get FOO-1234 --with-tests
 
 # Include custom fields (uses cached schema for name lookup)
-zaira export FOO-1234 --all-fields
+zaira get FOO-1234 --all-fields
+
+# Minimal output (key + summary front matter, description as body)
+zaira get FOO-1234 --min
+
+# Skip wiki-to-markdown conversion (preserve Jira wiki markup)
+zaira get FOO-1234 --raw
 ```
 
 ### create
@@ -133,6 +141,9 @@ zaira put ticket.md
 # Preview changes without pushing
 zaira put ticket.md --dry-run
 
+# Skip markdown-to-wiki conversion (input is already Jira wiki syntax)
+zaira put ticket.md --raw
+
 # Read from stdin
 zaira put -
 ```
@@ -147,6 +158,27 @@ New description goes here.
 ```
 
 Markdown in the description is auto-converted to Jira wiki syntax.
+
+### search
+
+Search Jira tickets with text, filters, or raw JQL:
+
+```bash
+# Full-text search
+zaira search "login bug"
+
+# Pass JQL directly (auto-detected)
+zaira search "project = FOO AND status = 'In Progress'"
+
+# Explicit JQL
+zaira search --jql "project = FOO AND type = Bug"
+
+# Filter options
+zaira search "login" --project FOO
+zaira search "login" --status "In Progress"
+zaira search "login" --assignee me
+zaira search "login" --limit 20
+```
 
 ### my
 
@@ -255,6 +287,12 @@ h2. Overview
 
 This is a *bold* statement with _italic_ text.
 EOF
+
+# Preview changes without updating
+zaira edit FOO-1234 -F "Priority=High" --dry-run
+
+# Skip allowed_fields validation
+zaira edit FOO-1234 -F "CustomField=value" --no-check
 ```
 
 Custom field names are mapped to IDs using the cached schema. Descriptions support [Jira wiki syntax](https://jira.atlassian.com/secure/WikiRendererHelpAction.jspa?section=all).
@@ -283,6 +321,15 @@ Transition a ticket to a new status:
 ```bash
 zaira transition FOO-1234 "In Progress"
 zaira transition FOO-1234 Done
+
+# Preview without executing
+zaira transition FOO-1234 Done --dry-run
+
+# Add a comment with the transition
+zaira transition FOO-1234 Done --comment "Deployed to prod"
+
+# Skip rules.yaml validation
+zaira transition FOO-1234 Done --no-check
 ```
 
 ### check (experimental)
@@ -423,6 +470,7 @@ zaira wiki get 123 --list
 # Search pages
 zaira wiki search "search terms"
 zaira wiki search "docs" --space TEAM     # Filter by space
+zaira wiki search "docs" --space my       # Personal space (auto-detected)
 zaira wiki search --creator "John Doe"    # Filter by creator
 zaira wiki search "api" --limit 50        # Limit results (default: 25)
 zaira wiki search "api" --format url      # Output just URLs
@@ -430,6 +478,7 @@ zaira wiki search "api" --format json     # Full JSON response
 
 # Create page from markdown
 zaira wiki create -s SPACE -t "Page Title" -m -b page.md
+zaira wiki create -s my -t "Title" -m -b page.md         # Personal space (auto-detected)
 zaira wiki create -s SPACE -t "Title" -m -b -   # From stdin
 zaira wiki create -t "Child Page" -p 123 -m -b page.md  # Under parent (space inferred)
 
@@ -506,6 +555,73 @@ Error: Conflict detected!
 Use --diff to see changes, --force to overwrite remote, or --pull to discard local changes
 ```
 
+### changelog
+
+Show the change history for a ticket (who changed what, when):
+
+```bash
+zaira changelog FOO-123
+
+# Show only last N changes
+zaira changelog FOO-123 --tail 10
+
+# Filter to a specific field
+zaira changelog FOO-123 --field status
+
+# List numbered revisions for a field
+zaira changelog FOO-123 --field description --revisions
+
+# Print a specific revision to stdout
+zaira changelog FOO-123 --field description --rev 3
+
+# Show full old/new values instead of diffs
+zaira changelog FOO-123 --full
+```
+
+### history
+
+Show recent write activity from the local activity log:
+
+```bash
+zaira history                   # Last 20 entries
+zaira history --tail 50         # More entries
+zaira history --key FOO-123     # Filter by ticket
+```
+
+### learn
+
+Cache the editable fields for a project or issue (used by `allowed_fields` validation):
+
+```bash
+zaira learn FOO-123             # Learn from a specific issue
+zaira learn FOO                 # Learn one issue per issue type in project FOO
+zaira learn fields.yaml         # Import field mappings from a YAML file
+```
+
+### reset
+
+Clear cached data or disable rules:
+
+```bash
+zaira reset                     # Clear all cached schema/editmeta data
+zaira reset --rules             # Disable installed rules bundle (renames rules/ to rules-disabled/)
+```
+
+### bundle
+
+Install and update rule bundles:
+
+```bash
+zaira bundle install https://example.com/rules.zip
+zaira bundle install /path/to/local/rules.zip
+zaira bundle install https://example.com/rules.zip --dry-run
+
+zaira bundle update             # Re-fetch bundle from recorded source
+zaira bundle update --dry-run
+```
+
+See [RULES.md](RULES.md) for documentation on rule bundle format.
+
 ### info
 
 Query Jira instance metadata. Results are cached locally and served from cache by default:
@@ -558,7 +674,7 @@ bugs = { jql = "project = FOO AND type = Bug", group_by = "priority" }
 sprint = { board = 123, group_by = "status", full = true }
 # Reports can target multiple projects via JQL
 cross-team = { jql = "project IN (FOO, BAR) AND type = Bug", group_by = "project" }
-# Export tickets to a custom directory (default: tickets/)
+# Save tickets to a custom directory (default: tickets/)
 reported = { query = "reported-by-me", group_by = "status", tickets_dir = "reported/" }
 ```
 
@@ -567,7 +683,7 @@ reported = { query = "reported-by-me", group_by = "status", tickets_dir = "repor
 ```
 project/
   zproject.toml          # Project configuration
-  tickets/               # Exported tickets
+  tickets/               # Tickets from `zaira get`
     FOO-1234-ticket-title.md
     attachments/         # Downloaded attachments (up to 10 MB each)
       FOO-1234/
@@ -587,7 +703,7 @@ project/
 
 ## Ticket Format
 
-Exported tickets include YAML front matter:
+Tickets from `zaira get` include YAML front matter:
 
 ```markdown
 ---
