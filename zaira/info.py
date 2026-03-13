@@ -729,17 +729,31 @@ def _iter_editmeta() -> list[tuple[str, str, EditmetaSchema]]:
 def field_command(args: argparse.Namespace) -> None:
     """Look up editmeta for named fields across all cached issue types."""
     names = args.names
+    project_filter = getattr(args, "project", None)
+    if project_filter:
+        project_filter = project_filter.upper()
+
     all_editmeta = _iter_editmeta()
     if not all_editmeta:
         print("No editmeta cached. Run 'zaira learn <KEY>' first.", file=sys.stderr)
         sys.exit(1)
 
+    if project_filter:
+        filtered = [(p, it, em) for p, it, em in all_editmeta if p == project_filter]
+        if not filtered:
+            print(
+                f"No editmeta cached for project {project_filter}. Run 'zaira learn {project_filter}' first.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        all_editmeta = filtered
+
     descriptions = load_field_descriptions()
 
     for name in names:
         name_lower = name.lower()
-        # Collect matches: group by field ID, merge allowed values and locations
-        matches: dict[str, dict] = {}  # field_id -> merged info
+        # Collect matches: group by field ID, track per-project allowed values
+        matches: dict[str, dict] = {}  # field_id -> info
         for project, issue_type, editmeta in all_editmeta:
             fields = editmeta["fields"]
             hit = None
@@ -759,19 +773,15 @@ def field_command(args: argparse.Namespace) -> None:
                     "name": fname,
                     "fdef": dict(fdef),
                     "locations": [],
+                    "values_by_project": {},  # project -> list of values
                 }
-            merged_fdef = matches[fid]["fdef"]
             matches[fid]["locations"].append(f"{project}/{issue_type}")
-            # Merge allowed values (union, preserving order)
-            new_vals = fdef.get("allowedValues", [])
-            existing = merged_fdef.get("allowedValues", [])
-            if new_vals:
-                seen = set(existing)
-                for v in new_vals:
-                    if v not in seen:
-                        existing.append(v)
-                        seen.add(v)
-                merged_fdef["allowedValues"] = existing
+            vals = fdef.get("allowedValues", [])
+            if vals:
+                matches[fid]["values_by_project"].setdefault(project, [])
+                for v in vals:
+                    if v not in matches[fid]["values_by_project"][project]:
+                        matches[fid]["values_by_project"][project].append(v)
 
         if not matches:
             # Collect all known field names and IDs for suggestions
@@ -799,9 +809,18 @@ def field_command(args: argparse.Namespace) -> None:
             print(f"  type:       {fdef.get('type', '')}")
             if fdef.get("required"):
                 print(f"  required:   True")
-            allowed = fdef.get("allowedValues", [])
-            if allowed:
-                print(f"  values:     {', '.join(str(v) for v in allowed)}")
+            values_by_project = info["values_by_project"]
+            if values_by_project:
+                # If all projects have identical values, show flat; otherwise group by project
+                all_value_sets = [tuple(v) for v in values_by_project.values()]
+                if len(set(all_value_sets)) == 1:
+                    print(
+                        f"  values:     {', '.join(str(v) for v in next(iter(values_by_project.values())))}"
+                    )
+                else:
+                    print(f"  values:")
+                    for proj, vals in values_by_project.items():
+                        print(f"    {proj}:  {', '.join(str(v) for v in vals)}")
             desc = descriptions.get(fname)
             if desc:
                 print(f"  description: {desc}")

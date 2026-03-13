@@ -48,6 +48,15 @@ from zaira.rules import check_command
 from zaira.activity_log import read_entries, format_entries
 
 
+class _SingleValueAction(argparse.Action):
+    """Argparse action that errors if the flag is given more than once."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if getattr(namespace, self.dest) is not None:
+            parser.error(f"{option_string} can only be specified once")
+        setattr(namespace, self.dest, values)
+
+
 def _migrate_legacy_dirs() -> None:
     """Migrate from old double-nested Windows paths (zaira\\zaira) to new single-level paths.
 
@@ -778,6 +787,13 @@ def main() -> None:
         "names",
         nargs="+",
         help="Field name(s) or ID(s) to look up",
+    )
+    info_field.add_argument(
+        "-p",
+        "--project",
+        metavar="PROJECT",
+        action=_SingleValueAction,
+        help="Filter to a specific project (shows project-scoped allowed values)",
     )
     info_field.set_defaults(info_func=field_command)
 
