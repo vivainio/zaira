@@ -766,6 +766,10 @@ ps["labels"]      # ['bug', 'feature', ...]
 
 The client uses credentials from the platform config directory (`~/Library/Application Support/zaira/credentials.toml` on macOS, `~/.config/zaira/credentials.toml` on Linux). Schema functions return cached data populated by `zaira init-project` or `zaira info --save`.
 
+## Claude Code Agent Skill
+
+A [zaira agent skill](https://github.com/vivainio/agent-skills/tree/main/skills/zaira) is available for Claude Code, enabling AI agents to use zaira commands directly from the assistant.
+
 ## License
 
 MIT
