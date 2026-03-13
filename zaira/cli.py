@@ -62,8 +62,13 @@ def _migrate_legacy_dirs() -> None:
     if not old.exists():
         return
     for item in old.iterdir():
-        item.rename(CONFIG_DIR / item.name)
-    old.rmdir()
+        dest = CONFIG_DIR / item.name
+        if not dest.exists():
+            item.rename(dest)
+    try:
+        old.rmdir()
+    except OSError:
+        pass  # Directory not empty if some items were skipped
     print(f"Migrated zaira data from {old} to {CONFIG_DIR}", file=sys.stderr)
 
 
