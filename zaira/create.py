@@ -8,8 +8,9 @@ from pathlib import Path
 import yaml
 
 from zaira.edit import format_field_value
-from zaira.info import get_editmeta_field
+from zaira.info import get_editmeta_field, load_editmeta
 from zaira.jira_client import format_jira_error, get_jira
+from zaira.util import fuzzy_match
 
 
 def detect_markdown(text: str) -> bool:
@@ -72,6 +73,18 @@ def parse_content(content: str) -> tuple[dict, str]:
 def parse_ticket_file(path: Path) -> tuple[dict, str]:
     """Parse a ticket file with YAML front matter."""
     return parse_content(path.read_text())
+
+
+def _suggest_fields(project: str, issue_type: str, name: str, n: int = 3) -> list[str]:
+    """Suggest similar field names from editmeta."""
+    editmeta = load_editmeta(project, issue_type)
+    if not editmeta or "fields" not in editmeta:
+        return []
+    lower_to_original = {fn.lower(): fn for fn in editmeta["fields"]}
+    matches = fuzzy_match(
+        name.lower().replace("_", " "), list(lower_to_original.keys()), n=n
+    )
+    return [lower_to_original[m] for m in matches]
 
 
 def map_fields(
@@ -151,7 +164,11 @@ def map_fields(
                     field_id, value, project=project, issue_type=issue_type
                 )
             else:
-                print(f"Warning: Unknown field '{key}', skipping", file=sys.stderr)
+                msg = f"Warning: Unknown field '{key}', skipping"
+                suggestions = _suggest_fields(project, issue_type, key)
+                if suggestions:
+                    msg += f". Did you mean: {', '.join(suggestions)}?"
+                print(msg, file=sys.stderr)
 
     return fields
 
