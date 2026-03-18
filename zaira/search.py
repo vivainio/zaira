@@ -135,6 +135,60 @@ def search_command(args: argparse.Namespace) -> None:
     limit = args.limit
     jira = get_jira()
 
+    output_format = getattr(args, "format", "default")
+
+    if output_format in ("json", "toon"):
+        # Resolve extra fields for structured output
+        extra_field_specs = []
+        field_args = getattr(args, "fields", None)
+        if field_args:
+            for name in field_args.split(","):
+                name = name.strip()
+                if not name:
+                    continue
+                display, key = _resolve_extra_field(name)
+                if key is None:
+                    print(f"Warning: unknown field '{name}', skipping", file=sys.stderr)
+                    continue
+                extra_field_specs.append((display, key))
+
+        max_results = limit if limit else False
+        issues = jira.search_issues(jql, startAt=0, maxResults=max_results)
+        data = []
+        for issue in issues:
+            f = issue.fields
+            item = {
+                "key": issue.key,
+                "summary": f.summary or "",
+                "status": f.status.name if f.status else "?",
+                "type": f.issuetype.name if f.issuetype else "",
+                "priority": f.priority.name if f.priority else "",
+                "assignee": str(f.assignee) if f.assignee else "",
+                "created": f.created or "",
+            }
+            for display, fkey in extra_field_specs:
+                item[display] = _extract_field_value(issue, fkey)
+            data.append(item)
+            if limit and len(data) >= limit:
+                break
+        if output_format == "json":
+            import json
+
+            print(json.dumps(data, indent=2, default=str))
+        else:
+            try:
+                import toon_format
+            except ImportError:
+                print(
+                    "Error: toon-format package not installed. Run: pip install toon-format",
+                    file=sys.stderr,
+                )
+                import sys
+
+                sys.exit(1)
+            print(toon_format.encode(data))
+        return
+
     # Resolve extra fields
     extra_fields = []  # list of (display_name, field_key)
     field_args = getattr(args, "fields", None)

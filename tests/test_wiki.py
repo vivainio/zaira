@@ -918,6 +918,7 @@ class TestSearchCommand:
         args = argparse.Namespace(
             query="test",
             space=None,
+            cql=None,
             creator=None,
             limit=25,
             format="default",
@@ -946,6 +947,7 @@ class TestSearchCommand:
         args = argparse.Namespace(
             query="test",
             space=None,
+            cql=None,
             creator=None,
             limit=25,
             format="json",
@@ -973,6 +975,7 @@ class TestSearchCommand:
         args = argparse.Namespace(
             query="test",
             space=None,
+            cql=None,
             creator=None,
             limit=25,
             format="url",
@@ -1003,6 +1006,7 @@ class TestSearchCommand:
         args = argparse.Namespace(
             query="test",
             space=None,
+            cql=None,
             creator=None,
             limit=25,
             format="id",
@@ -1030,6 +1034,7 @@ class TestSearchCommand:
         args = argparse.Namespace(
             query="nonexistent",
             space=None,
+            cql=None,
             creator=None,
             limit=25,
             format="default",
@@ -1059,6 +1064,7 @@ class TestSearchCommand:
         args = argparse.Namespace(
             query="test",
             space=None,
+            cql=None,
             creator=None,
             limit=25,
             format="default",
@@ -1090,6 +1096,7 @@ class TestSearchCommand:
         args = argparse.Namespace(
             query="test",
             space="MYSPACE",
+            cql=None,
             creator=None,
             limit=25,
             format="default",
@@ -1121,6 +1128,7 @@ class TestSearchCommand:
 
         args = argparse.Namespace(
             query="test",
+            cql=None,
             space=None,
             creator="John Doe",
             limit=25,

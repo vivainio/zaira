@@ -430,31 +430,37 @@ def get_command(args: argparse.Namespace) -> None:
 def search_command(args: argparse.Namespace) -> None:
     """Search Confluence pages using CQL."""
     # Build CQL query
-    cql_parts = []
+    if args.cql:
+        cql = args.cql
+    else:
+        cql_parts = []
 
-    # Text search - search in title and body (optional if creator specified)
-    query = args.query
-    if query:
-        cql_parts.append(f'text ~ "{query}"')
+        # Text search - search in title and body (optional if creator specified)
+        query = args.query
+        if query:
+            cql_parts.append(f'text ~ "{query}"')
 
-    # Optional space filter
-    if args.space:
-        space = args.space
-        if space.lower() == "my":
-            space = confluence_api.get_personal_space_key()
-            if not space:
-                print("Error: Could not determine personal space key.", file=sys.stderr)
-                sys.exit(1)
-        cql_parts.append(f'space = "{space}"')
+        # Optional space filter
+        if args.space:
+            space = args.space
+            if space.lower() == "my":
+                space = confluence_api.get_personal_space_key()
+                if not space:
+                    print(
+                        "Error: Could not determine personal space key.",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+            cql_parts.append(f'space = "{space}"')
 
-    # Optional creator filter
-    if args.creator:
-        cql_parts.append(f'creator.fullname ~ "{args.creator}"')
+        # Optional creator filter
+        if args.creator:
+            cql_parts.append(f'creator.fullname ~ "{args.creator}"')
 
-    # Only search pages (not attachments, comments, etc.)
-    cql_parts.append("type = page")
+        # Only search pages (not attachments, comments, etc.)
+        cql_parts.append("type = page")
 
-    cql = " AND ".join(cql_parts)
+        cql = " AND ".join(cql_parts)
 
     data = confluence_api.search_pages(cql, limit=args.limit, expand="space,version")
 
@@ -467,6 +473,18 @@ def search_command(args: argparse.Namespace) -> None:
 
     if args.format == "json":
         print(json.dumps(data, indent=2))
+        return
+
+    if args.format == "toon":
+        try:
+            import toon_format
+        except ImportError:
+            print(
+                "Error: toon-format package not installed. Run: pip install toon-format",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        print(toon_format.encode(data))
         return
 
     if not results:

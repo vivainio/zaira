@@ -182,6 +182,10 @@ zaira search "login" --limit 20
 # Extra columns
 zaira search --jql "project = FOO" -f "fixVersions,assignee,priority"
 zaira search "login" -p FOO -f "duedate,components,Developer"
+
+# Output formats
+zaira search "login" --format json        # JSON output
+zaira search "login" --format toon        # TOON format (requires: pip install toon-format)
 ```
 
 The `-f`/`--fields` flag adds extra columns to the output. Accepts standard fields (`assignee`, `priority`, `fixVersions`, `duedate`, `components`, `labels`, `resolution`), aliases (`Fix Versions`, `due date`, `type`), and custom fields by human name. Prints a header row and auto-sizes columns.
@@ -489,6 +493,8 @@ zaira wiki search --creator "John Doe"    # Filter by creator
 zaira wiki search "api" --limit 50        # Limit results (default: 25)
 zaira wiki search "api" --format url      # Output just URLs
 zaira wiki search "api" --format json     # Full JSON response
+zaira wiki search --cql 'space = "ENG" AND label = "api"'  # Raw CQL
+zaira wiki search "api" --format toon     # TOON format (requires: pip install toon-format)
 
 # Create page from markdown
 zaira wiki create -s SPACE -t "Page Title" -m -b page.md

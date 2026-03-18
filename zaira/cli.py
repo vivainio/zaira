@@ -348,6 +348,12 @@ def main() -> None:
         "--fields",
         help="Extra columns to display (comma-separated). E.g. 'fixVersions,assignee,priority'",
     )
+    search_parser.add_argument(
+        "--format",
+        choices=["default", "json", "toon"],
+        default="default",
+        help="Output format (default: tabular)",
+    )
     search_parser.set_defaults(func=search_command)
 
     # Get command
@@ -855,6 +861,10 @@ def main() -> None:
         help="Search query text (optional if --creator specified)",
     )
     wiki_search.add_argument(
+        "--cql",
+        help="Raw CQL query (bypasses other filters)",
+    )
+    wiki_search.add_argument(
         "--space",
         help="Limit search to a specific space key",
     )
@@ -870,7 +880,7 @@ def main() -> None:
     )
     wiki_search.add_argument(
         "--format",
-        choices=["default", "url", "id", "json"],
+        choices=["default", "url", "id", "json", "toon"],
         default="default",
         help="Output format (default: title/space/url)",
     )
