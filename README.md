@@ -458,6 +458,14 @@ zaira dashboard 16148 -o dashboard.md
 Access Confluence pages using the same credentials:
 
 ```bash
+# List space contents
+zaira wiki ls ENG                           # List root pages and folders
+zaira wiki ls ENG -d 2                      # Tree with depth 2
+zaira wiki ls ENG -d -1                     # Full tree (unlimited depth)
+zaira wiki ls ENG -d 0                      # Root level only
+zaira wiki ls "https://acme.atlassian.net/wiki/spaces/ENG/overview"  # From URL
+zaira wiki ls my                            # List your personal space
+
 # Get page by ID or URL (outputs markdown with front matter)
 zaira wiki get 123456
 zaira wiki get "https://site.atlassian.net/wiki/spaces/SPACE/pages/123456/Title"
@@ -531,24 +539,29 @@ zaira wiki put -m page.md --force
 # Create new pages for files without front matter
 zaira wiki put -m docs/*.md --create              # Parent auto-detected from siblings
 zaira wiki put -m docs/*.md --create --parent 123  # Explicit parent
+zaira wiki put -m docs/*.md --create --space ENG   # Space from flag (or front matter)
 
 # Explicit page ID (single file, overrides front matter)
 zaira wiki put -m page.md -p 123456
 ```
 
-**Creating new pages:** With `--create`, files without `confluence:` front matter become new pages. The parent is auto-detected from sibling files (must all share the same parent), or specify with `--parent`. After creation, front matter is added to the file.
+**Creating new pages:** With `--create`, files without `confluence:` front matter become new pages. The parent is determined by (in order): `--parent` flag, `space:`/`folder:` front matter, or auto-detection from sibling files. After creation, front matter is added to the file.
 
-**Front matter:** Files link to Confluence pages via YAML front matter. Title and labels sync automatically on push/pull:
+**Front matter:** Files link to Confluence pages via YAML front matter. Title, labels, space, and folder sync automatically on push/pull:
 
 ```markdown
 ---
 confluence: 123456
 title: My Document
+space: ENG
+folder: guides/api
 labels: [docs, api]
 ---
 
 Content here with ![images](./images/diagram.png)
 ```
+
+The `space:` and `folder:` fields are populated automatically on get/pull. When creating new pages with `--create`, they determine where the page is placed — missing folders are created automatically. Title priority: front matter `title:` > first `# Heading` > filename.
 
 **Image handling:** Local images (`![alt](./images/foo.png)`) are automatically uploaded as Confluence attachments on push, and downloaded to `images/` on pull. Only changed images are re-uploaded.
 
