@@ -128,6 +128,11 @@ def _get_field_value(ticket, field_name):
     if lower in standard_map:
         return True, ticket[standard_map[lower]]
 
+    # Try without spaces (e.g. "Fix Versions" -> "fixversions")
+    collapsed = lower.replace(" ", "")
+    if collapsed in standard_map:
+        return True, ticket[standard_map[collapsed]]
+
     custom = ticket.get("custom_fields", {})
     if field_name in custom:
         return True, custom[field_name]

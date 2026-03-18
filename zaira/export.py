@@ -241,8 +241,12 @@ def get_ticket(
             custom_fields = {}
             for field_id, value in raw_fields.items():
                 if field_id.startswith("customfield_") and value is not None:
+                    # Option fields (dicts with 'value'/'id') are explicit selections — skip placeholder check
+                    is_option = isinstance(value, dict) and (
+                        "value" in value or "id" in value
+                    )
                     extracted = extract_custom_field_value(value)
-                    if not is_placeholder_value(extracted):
+                    if is_option or not is_placeholder_value(extracted):
                         field_name = get_field_name(field_id)
                         if field_name and not _is_bogus_field_name(field_name):
                             custom_fields[field_name] = extracted

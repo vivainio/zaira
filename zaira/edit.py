@@ -181,6 +181,14 @@ def format_field_value(
                 return values
             if item_type == "user":
                 return [_format_assignee(v) for v in values]
+            if item_type in (
+                "version",
+                "resolution",
+                "priority",
+                "issuetype",
+                "securitylevel",
+            ):
+                return [{"name": v} for v in values]
             return [{"value": v} for v in values]
         return value
 
