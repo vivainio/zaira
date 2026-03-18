@@ -342,6 +342,11 @@ def main() -> None:
         default=0,
         help="Maximum results (default: unlimited)",
     )
+    search_parser.add_argument(
+        "-f",
+        "--fields",
+        help="Extra columns to display (comma-separated). E.g. 'fixVersions,assignee,priority'",
+    )
     search_parser.set_defaults(func=search_command)
 
     # Get command
