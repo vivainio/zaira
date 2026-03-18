@@ -528,6 +528,198 @@ def set_page_property(page_id: str, key: str, value: dict) -> bool:
     return r.ok
 
 
+def get_space_root_pages(space_key: str, limit: int = 100) -> list[dict]:
+    """Get top-level pages in a space.
+
+    Args:
+        space_key: Space key (e.g. "ENG")
+        limit: Maximum number of pages to return
+
+    Returns:
+        List of page dicts
+    """
+    if "get_space_root_pages" in _api_overrides:
+        return _api_overrides["get_space_root_pages"](space_key, limit)
+
+    base_url, auth = _get_auth()
+    r = requests.get(
+        f"{base_url}/content",
+        params={
+            "spaceKey": space_key,
+            "depth": "root",
+            "limit": limit,
+            "expand": "version",
+        },
+        auth=auth,
+    )
+    if not r.ok:
+        return []
+    return r.json().get("results", [])
+
+
+def get_space_root_folders(space_key: str, limit: int = 100) -> list[dict]:
+    """Get top-level folders in a space via CQL.
+
+    Args:
+        space_key: Space key
+        limit: Maximum number of folders to return
+
+    Returns:
+        List of folder dicts (only root-level, i.e. those whose only ancestor is the homepage)
+    """
+    if "get_space_root_folders" in _api_overrides:
+        return _api_overrides["get_space_root_folders"](space_key, limit)
+
+    base_url, auth = _get_auth()
+    r = requests.get(
+        f"{base_url}/content/search",
+        params={
+            "cql": f'space="{space_key}" AND type=folder',
+            "limit": limit,
+            "expand": "ancestors",
+        },
+        auth=auth,
+    )
+    if not r.ok:
+        return []
+
+    results = r.json().get("results", [])
+    # Filter to root folders: those with only the homepage as ancestor
+    root_folders = [f for f in results if len(f.get("ancestors", [])) <= 1]
+    return root_folders
+
+
+def get_child_folders(content_id: str, limit: int = 100) -> list[dict]:
+    """Get child folders of a page or folder.
+
+    Args:
+        content_id: Parent content ID
+        limit: Maximum number of children to return
+
+    Returns:
+        List of folder dicts
+    """
+    if "get_child_folders" in _api_overrides:
+        return _api_overrides["get_child_folders"](content_id, limit)
+
+    base_url, auth = _get_auth()
+    r = requests.get(
+        f"{base_url}/content/{content_id}/child/folder",
+        params={"limit": limit},
+        auth=auth,
+    )
+    if not r.ok:
+        return []
+    return r.json().get("results", [])
+
+
+def create_folder(
+    space_key: str,
+    title: str,
+    parent_id: str | None = None,
+) -> dict | None:
+    """Create a new Confluence folder.
+
+    Args:
+        space_key: Space key
+        title: Folder title
+        parent_id: Optional parent folder/page ID
+
+    Returns:
+        Created folder dict or None on error
+    """
+    if "create_folder" in _api_overrides:
+        return _api_overrides["create_folder"](space_key, title, parent_id)
+
+    base_url, auth = _get_auth()
+    payload: dict[str, Any] = {
+        "type": "folder",
+        "title": title,
+        "space": {"key": space_key},
+    }
+    if parent_id:
+        payload["ancestors"] = [{"id": parent_id}]
+
+    r = requests.post(f"{base_url}/content", json=payload, auth=auth)
+    if not r.ok:
+        return None
+    return r.json()
+
+
+def resolve_folder_path(
+    space_key: str,
+    folder_path: str,
+    create_missing: bool = False,
+) -> str | None:
+    """Resolve a folder path like 'dochub/docs' to a folder ID.
+
+    Walks segments left-to-right, matching by title at each level.
+
+    Args:
+        space_key: Space key
+        folder_path: Slash-separated folder path
+        create_missing: Create folders that don't exist
+
+    Returns:
+        Folder ID of the final segment, or None if not found
+    """
+    if "resolve_folder_path" in _api_overrides:
+        return _api_overrides["resolve_folder_path"](
+            space_key, folder_path, create_missing
+        )
+
+    segments = [s.strip() for s in folder_path.strip("/").split("/") if s.strip()]
+    if not segments:
+        return None
+
+    # Start with root-level folders
+    current_folders = get_space_root_folders(space_key)
+    parent_id = None
+
+    for segment in segments:
+        # Find matching folder by title
+        match = None
+        for f in current_folders:
+            if f["title"] == segment:
+                match = f
+                break
+
+        if not match:
+            if create_missing:
+                match = create_folder(space_key, segment, parent_id)
+                if not match:
+                    return None
+            else:
+                return None
+
+        parent_id = match["id"]
+        # Get children for next level
+        current_folders = get_child_folders(parent_id)
+
+    return parent_id
+
+
+def parse_space_key(ref: str) -> str:
+    """Extract space key from a space overview URL or return as-is.
+
+    Handles URLs like:
+        https://site.atlassian.net/wiki/spaces/SPACE/overview
+        https://site.atlassian.net/wiki/spaces/SPACE/pages/...
+
+    Args:
+        ref: Space key or Confluence URL
+
+    Returns:
+        Space key string
+    """
+    import re
+
+    match = re.search(r"/wiki/spaces/([^/]+)", ref)
+    if match:
+        return match.group(1)
+    return ref
+
+
 def get_personal_space_key() -> str | None:
     """Return the current user's personal space key, or None if not found."""
     base_url, auth = _get_auth()

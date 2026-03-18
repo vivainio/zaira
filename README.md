@@ -178,7 +178,13 @@ zaira search "login" --project FOO
 zaira search "login" --status "In Progress"
 zaira search "login" --assignee me
 zaira search "login" --limit 20
+
+# Extra columns
+zaira search --jql "project = FOO" -f "fixVersions,assignee,priority"
+zaira search "login" -p FOO -f "duedate,components,Developer"
 ```
+
+The `-f`/`--fields` flag adds extra columns to the output. Accepts standard fields (`assignee`, `priority`, `fixVersions`, `duedate`, `components`, `labels`, `resolution`), aliases (`Fix Versions`, `due date`, `type`), and custom fields by human name. Prints a header row and auto-sizes columns.
 
 ### my
 

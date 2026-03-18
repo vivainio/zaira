@@ -197,6 +197,81 @@ def _fetch_labels(page_id: str) -> list[str]:
     return confluence_api.get_page_labels(page_id)
 
 
+def _any_file_has_folder_front_matter(files: list[Path]) -> bool:
+    """Check if any file has space: or folder: in front matter."""
+    for f in files:
+        if not f.exists():
+            continue
+        content = f.read_text(encoding="utf-8")
+        fm, _ = parse_front_matter(content)
+        if fm.get("space") or fm.get("folder"):
+            return True
+    return False
+
+
+def _resolve_parent_from_front_matter(
+    filepath: Path,
+    default_space: str | None = None,
+) -> tuple[str | None, str | None]:
+    """Resolve parent folder ID and space key from a file's front matter.
+
+    Args:
+        filepath: Path to markdown file
+        default_space: Fallback space key (from --space flag)
+
+    Returns:
+        Tuple of (parent_id, space_key). parent_id is None for space root.
+    """
+    content = filepath.read_text(encoding="utf-8")
+    fm, _ = parse_front_matter(content)
+
+    file_space = fm.get("space") or default_space
+    folder_path = fm.get("folder")
+
+    if not file_space:
+        print(
+            f"Error: {filepath} has no 'space:' in front matter and no --space flag",
+            file=sys.stderr,
+        )
+        return None, None
+
+    if not folder_path:
+        # Create at space root — need the homepage ID as parent
+        return None, file_space
+
+    parent_id = confluence_api.resolve_folder_path(
+        file_space, folder_path, create_missing=True
+    )
+    if not parent_id:
+        print(
+            f"Error: Could not resolve folder path '{folder_path}' in space '{file_space}'",
+            file=sys.stderr,
+        )
+        return None, None
+
+    return parent_id, file_space
+
+
+def _build_folder_path(ancestors: list[dict]) -> str | None:
+    """Build a folder path from a page's ancestors.
+
+    Skips the first ancestor (space homepage) and filters to folder-type
+    ancestors only, joining their titles with '/'.
+
+    Returns:
+        Folder path like 'dochub/docs', or None if no folder ancestors
+    """
+    if not ancestors:
+        return None
+
+    # Skip homepage (first ancestor), keep only folders
+    folder_ancestors = [a for a in ancestors[1:] if a.get("type") == "folder"]
+    if not folder_ancestors:
+        return None
+
+    return "/".join(a["title"] for a in folder_ancestors)
+
+
 def _export_page_to_file(
     page: dict,
     output_dir: Path,
@@ -210,6 +285,8 @@ def _export_page_to_file(
     title = page["title"]
     version = page["version"]["number"]
     body_html = page["body"]["storage"]["value"]
+    space_key = page.get("space", {}).get("key")
+    ancestors = page.get("ancestors", [])
 
     # Convert to markdown
     md_body = storage_to_markdown(body_html)
@@ -217,6 +294,11 @@ def _export_page_to_file(
         "confluence": int(page_id),
         "title": title,
     }
+    if space_key:
+        front_matter["space"] = space_key
+    folder_path = _build_folder_path(ancestors)
+    if folder_path:
+        front_matter["folder"] = folder_path
 
     # Add labels if any
     labels = _fetch_labels(page_id)
@@ -225,9 +307,13 @@ def _export_page_to_file(
 
     content = write_front_matter(front_matter, md_body)
 
-    # Write file
+    # Write file (create subdirs from folder path)
+    file_dir = output_dir
+    if folder_path:
+        file_dir = output_dir / folder_path
+        file_dir.mkdir(parents=True, exist_ok=True)
     filename = f"{slugify(title)}.md"
-    filepath = output_dir / filename
+    filepath = file_dir / filename
     filepath.write_text(content, encoding="utf-8")
 
     # Download images
@@ -308,7 +394,11 @@ def get_command(args: argparse.Namespace) -> None:
             front_matter = {
                 "confluence": int(page_id),
                 "title": title,
+                "space": space_key,
             }
+            folder_path = _build_folder_path(page.get("ancestors", []))
+            if folder_path:
+                front_matter["folder"] = folder_path
             # Add labels if any
             labels = _fetch_labels(page_id)
             if labels:
@@ -544,7 +634,7 @@ def _get_page_info(page_id: str) -> PageInfo | None:
 
 def _create_page_for_file(
     filepath: Path,
-    parent_id: str,
+    parent_id: str | None,
     space_key: str,
 ) -> bool:
     """Create a new Confluence page for a markdown file.
@@ -555,13 +645,14 @@ def _create_page_for_file(
     body_content = filepath.read_text(encoding="utf-8")
     front_matter, body_only = parse_front_matter(body_content)
 
-    # Use first heading as title, or filename
-    title = None
-    for line in body_only.split("\n"):
-        line = line.strip()
-        if line.startswith("# "):
-            title = line[2:].strip()
-            break
+    # Title priority: front matter > first heading > filename
+    title = front_matter.get("title")
+    if not title:
+        for line in body_only.split("\n"):
+            line = line.strip()
+            if line.startswith("# "):
+                title = line[2:].strip()
+                break
     if not title:
         title = filepath.stem.replace("-", " ").replace("_", " ").title()
 
@@ -724,6 +815,12 @@ def _put_one_file(
         # Sync properties from remote
         front_matter["confluence"] = int(page_id)
         front_matter["title"] = current_title
+        front_matter["space"] = page["space"]["key"]
+        folder_path = _build_folder_path(page.get("ancestors", []))
+        if folder_path:
+            front_matter["folder"] = folder_path
+        elif "folder" in front_matter:
+            del front_matter["folder"]
 
         # Get labels from remote
         labels = confluence_api.get_page_labels(page_id)
@@ -932,6 +1029,8 @@ def put_command(args: argparse.Namespace) -> None:
     create_mode = getattr(args, "create", False)
     parent_id = None
     space_key = None
+    # Whether each unlinked file resolves its own parent from front matter
+    per_file_resolve = False
 
     skipped_count = 0
     if unlinked_files:
@@ -946,7 +1045,7 @@ def put_command(args: argparse.Namespace) -> None:
                     file=sys.stderr,
                 )
         else:
-            # Determine parent: from --parent flag or from siblings
+            # Determine parent: --parent flag > front matter > siblings
             if args.parent:
                 parent_id = parse_page_id(args.parent)
                 info = _get_page_info(parent_id)
@@ -958,6 +1057,10 @@ def put_command(args: argparse.Namespace) -> None:
                         file=sys.stderr,
                     )
                     sys.exit(1)
+            elif _any_file_has_folder_front_matter(unlinked_files):
+                # Files have space:/folder: in front matter — resolve per-file
+                per_file_resolve = True
+                space_key = getattr(args, "space", None)
             elif linked_files:
                 # Get parent from linked files - verify they all have same parent
                 parents_seen: dict[str | None, str] = {}  # parent_id -> space_key
@@ -991,7 +1094,7 @@ def put_command(args: argparse.Namespace) -> None:
                         sys.exit(1)
             else:
                 print(
-                    "Error: No linked files to determine parent from. Use --parent to specify.",
+                    "Error: No linked files to determine parent from. Use --parent, --space, or add space:/folder: to front matter.",
                     file=sys.stderr,
                 )
                 sys.exit(1)
@@ -1018,7 +1121,16 @@ def put_command(args: argparse.Namespace) -> None:
 
     # Create pages for unlinked files
     for filepath in unlinked_files:
-        success = _create_page_for_file(filepath, parent_id, space_key)
+        if per_file_resolve:
+            file_parent_id, file_space = _resolve_parent_from_front_matter(
+                filepath, default_space=space_key
+            )
+            if file_space is None:
+                fail_count += 1
+                continue
+            success = _create_page_for_file(filepath, file_parent_id, file_space)
+        else:
+            success = _create_page_for_file(filepath, parent_id, space_key)
         if success:
             success_count += 1
         else:
@@ -1306,11 +1418,105 @@ def delete_command(args: argparse.Namespace) -> None:
     print(f"Deleted page {page_id}: {title}")
 
 
+def ls_command(args: argparse.Namespace) -> None:
+    """List pages and folders in a Confluence space."""
+    space_key = confluence_api.parse_space_key(args.space)
+
+    if space_key.lower() == "my":
+        space_key = confluence_api.get_personal_space_key()
+        if not space_key:
+            print("Error: Could not determine personal space key.", file=sys.stderr)
+            sys.exit(1)
+
+    server = get_server_from_config()
+    depth = args.depth
+
+    # Get root pages and folders
+    root_pages = confluence_api.get_space_root_pages(space_key)
+    root_folders = confluence_api.get_space_root_folders(space_key)
+
+    if not root_pages and not root_folders:
+        print(
+            f"No content in space '{space_key}' (or space does not exist).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # Collect root folder IDs to avoid duplicating them under the homepage
+    root_folder_ids = {f["id"] for f in root_folders}
+
+    total = 0
+    for folder in root_folders:
+        total += _print_content_tree(
+            folder, space_key, server, 0, depth, root_folder_ids
+        )
+    for page in root_pages:
+        total += _print_content_tree(page, space_key, server, 0, depth, root_folder_ids)
+
+    print(f"\n{total} item(s) in {space_key}")
+
+
+def _print_content_tree(
+    item: dict,
+    space_key: str,
+    server: str,
+    indent: int,
+    max_depth: int,
+    skip_folder_ids: set[str] | None = None,
+) -> int:
+    """Print a page or folder and its children as a tree.
+
+    Args:
+        skip_folder_ids: Folder IDs to skip (avoids duplicating root folders
+            that also appear as children of the homepage)
+
+    Returns:
+        Count of items printed
+    """
+    item_id = item["id"]
+    title = item["title"]
+    item_type = item.get("type", "page")
+    is_folder = item_type == "folder"
+
+    if is_folder:
+        prefix = "[folder] "
+        url = f"{server}/wiki/spaces/{space_key}/folder/{item_id}"
+    else:
+        prefix = ""
+        url = f"{server}/wiki/spaces/{space_key}/pages/{item_id}"
+
+    print(f"{'  ' * indent}{prefix}{title} ({item_id})")
+    print(f"{'  ' * indent}  {url}")
+
+    count = 1
+
+    if max_depth != 0:
+        next_depth = max_depth - 1 if max_depth > 0 else -1
+
+        # Get child folders and pages
+        child_folders = confluence_api.get_child_folders(item_id)
+        child_pages = confluence_api.get_child_pages(item_id)
+
+        for child in child_folders:
+            if skip_folder_ids and child["id"] in skip_folder_ids:
+                continue
+            child["type"] = "folder"
+            count += _print_content_tree(
+                child, space_key, server, indent + 1, next_depth
+            )
+        for child in child_pages:
+            count += _print_content_tree(
+                child, space_key, server, indent + 1, next_depth
+            )
+
+    return count
+
+
 def wiki_command(args: argparse.Namespace) -> None:
     """Handle wiki subcommand."""
     if hasattr(args, "wiki_func"):
         args.wiki_func(args)
     else:
         print("Usage: zaira wiki <subcommand>")
-        print("Subcommands: get, search, create, put, attach, edit, delete")
+        print("Subcommands: ls, get, search, create, put, attach, edit, delete")
         sys.exit(1)

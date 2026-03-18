@@ -3919,9 +3919,505 @@ class TestPutCreateModeFailure:
             diff=False,
             create=True,
             parent=None,
+            space=None,
         )
 
         put_command(args)
 
         captured = capsys.readouterr()
         assert "1 failed" in captured.out
+
+
+class TestBuildFolderPath:
+    """Tests for _build_folder_path function."""
+
+    def test_no_ancestors(self):
+        """Returns None for empty ancestors."""
+        from zaira.wiki import _build_folder_path
+
+        assert _build_folder_path([]) is None
+
+    def test_only_homepage(self):
+        """Returns None when only homepage ancestor (no folders)."""
+        from zaira.wiki import _build_folder_path
+
+        ancestors = [{"id": "1", "title": "Home", "type": "page"}]
+        assert _build_folder_path(ancestors) is None
+
+    def test_single_folder(self):
+        """Returns single folder name."""
+        from zaira.wiki import _build_folder_path
+
+        ancestors = [
+            {"id": "1", "title": "Home", "type": "page"},
+            {"id": "2", "title": "dochub", "type": "folder"},
+        ]
+        assert _build_folder_path(ancestors) == "dochub"
+
+    def test_nested_folders(self):
+        """Returns slash-separated path for nested folders."""
+        from zaira.wiki import _build_folder_path
+
+        ancestors = [
+            {"id": "1", "title": "Home", "type": "page"},
+            {"id": "2", "title": "dochub", "type": "folder"},
+            {"id": "3", "title": "docs", "type": "folder"},
+        ]
+        assert _build_folder_path(ancestors) == "dochub/docs"
+
+    def test_skips_page_ancestors(self):
+        """Only includes folder-type ancestors in path."""
+        from zaira.wiki import _build_folder_path
+
+        ancestors = [
+            {"id": "1", "title": "Home", "type": "page"},
+            {"id": "2", "title": "Some Page", "type": "page"},
+            {"id": "3", "title": "my-folder", "type": "folder"},
+        ]
+        assert _build_folder_path(ancestors) == "my-folder"
+
+
+class TestExportPageToFileWithFolders:
+    """Tests for space/folder front matter in _export_page_to_file."""
+
+    def test_exports_with_space_and_folder(self, tmp_path, mock_confluence):
+        """Exports page with space: and folder: in front matter."""
+        from zaira.wiki import _export_page_to_file
+        from zaira import confluence_api
+
+        page = {
+            "id": "12345",
+            "title": "Test Page",
+            "version": {"number": 1},
+            "body": {"storage": {"value": "<p>Content</p>"}},
+            "space": {"key": "ENG"},
+            "ancestors": [
+                {"id": "1", "title": "Home", "type": "page"},
+                {"id": "2", "title": "dochub", "type": "folder"},
+                {"id": "3", "title": "docs", "type": "folder"},
+            ],
+        }
+
+        confluence_api.set_api("get_page_labels", lambda page_id: [])
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
+
+        result = _export_page_to_file(page, tmp_path)
+
+        assert result is not None
+        assert result.exists()
+        # File should be in subdirectory
+        assert result.parent == tmp_path / "dochub" / "docs"
+        content = result.read_text()
+        assert "space: ENG" in content
+        assert "folder: dochub/docs" in content
+
+    def test_exports_without_folder_at_root(self, tmp_path, mock_confluence):
+        """Exports root page without folder: in front matter."""
+        from zaira.wiki import _export_page_to_file
+        from zaira import confluence_api
+
+        page = {
+            "id": "12345",
+            "title": "Root Page",
+            "version": {"number": 1},
+            "body": {"storage": {"value": "<p>Content</p>"}},
+            "space": {"key": "ENG"},
+            "ancestors": [
+                {"id": "1", "title": "Home", "type": "page"},
+            ],
+        }
+
+        confluence_api.set_api("get_page_labels", lambda page_id: [])
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
+
+        result = _export_page_to_file(page, tmp_path)
+
+        assert result is not None
+        assert result.parent == tmp_path
+        content = result.read_text()
+        assert "space: ENG" in content
+        assert "folder:" not in content
+
+
+class TestCreatePageFromFrontMatterFolder:
+    """Tests for put --create with space:/folder: front matter."""
+
+    def test_creates_page_with_folder_front_matter(
+        self, tmp_path, mock_confluence, capsys
+    ):
+        """Creates page using space: and folder: from front matter."""
+        from zaira.wiki import put_command
+        from zaira import confluence_api
+        import argparse
+
+        md_file = tmp_path / "new-page.md"
+        md_file.write_text(
+            "---\ntitle: My New Page\nspace: TEST\nfolder: dochub/docs\n---\n\nContent here"
+        )
+
+        created_pages = []
+        confluence_api.set_api(
+            "get_space_root_folders",
+            lambda space_key, limit=100: [
+                {"id": "100", "title": "dochub", "type": "folder"}
+            ],
+        )
+        confluence_api.set_api(
+            "get_child_folders",
+            lambda content_id, limit=100: (
+                [{"id": "200", "title": "docs", "type": "folder"}]
+                if content_id == "100"
+                else []
+            ),
+        )
+        confluence_api.set_api(
+            "create_page",
+            lambda space, title, body, parent: (
+                created_pages.append({"space": space, "title": title, "parent": parent})
+                or {"id": "999", "version": {"number": 1}}
+            ),
+        )
+        confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+
+        args = argparse.Namespace(
+            files=[str(md_file)],
+            body=None,
+            page=None,
+            title=None,
+            pull=False,
+            force=False,
+            status=False,
+            diff=False,
+            create=True,
+            parent=None,
+            space=None,
+        )
+
+        put_command(args)
+
+        assert len(created_pages) == 1
+        assert created_pages[0]["space"] == "TEST"
+        assert created_pages[0]["title"] == "My New Page"
+        assert created_pages[0]["parent"] == "200"
+
+    def test_creates_missing_folders(self, tmp_path, mock_confluence, capsys):
+        """Creates folders that don't exist when resolving path."""
+        from zaira.wiki import put_command
+        from zaira import confluence_api
+        import argparse
+
+        md_file = tmp_path / "deep-page.md"
+        md_file.write_text(
+            "---\ntitle: Deep Page\nspace: TEST\nfolder: new-folder\n---\n\nContent"
+        )
+
+        created_folders = []
+        created_pages = []
+        confluence_api.set_api(
+            "get_space_root_folders",
+            lambda space_key, limit=100: [],
+        )
+        confluence_api.set_api(
+            "create_folder",
+            lambda space, title, parent: (
+                created_folders.append({"title": title})
+                or {"id": "300", "title": title}
+            ),
+        )
+        confluence_api.set_api(
+            "get_child_folders",
+            lambda content_id, limit=100: [],
+        )
+        confluence_api.set_api(
+            "create_page",
+            lambda space, title, body, parent: (
+                created_pages.append({"parent": parent})
+                or {"id": "999", "version": {"number": 1}}
+            ),
+        )
+        confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+
+        args = argparse.Namespace(
+            files=[str(md_file)],
+            body=None,
+            page=None,
+            title=None,
+            pull=False,
+            force=False,
+            status=False,
+            diff=False,
+            create=True,
+            parent=None,
+            space=None,
+        )
+
+        put_command(args)
+
+        assert len(created_folders) == 1
+        assert created_folders[0]["title"] == "new-folder"
+        assert len(created_pages) == 1
+        assert created_pages[0]["parent"] == "300"
+
+    def test_error_without_space(self, tmp_path, mock_confluence, capsys):
+        """Reports error when folder: is present but space: is missing."""
+        from zaira.wiki import put_command
+        import argparse
+
+        md_file = tmp_path / "no-space.md"
+        md_file.write_text("---\ntitle: No Space\nfolder: some-folder\n---\n\nContent")
+
+        args = argparse.Namespace(
+            files=[str(md_file)],
+            body=None,
+            page=None,
+            title=None,
+            pull=False,
+            force=False,
+            status=False,
+            diff=False,
+            create=True,
+            parent=None,
+            space=None,
+        )
+
+        put_command(args)
+
+        captured = capsys.readouterr()
+        assert "no 'space:'" in captured.err
+
+    def test_title_from_front_matter(self, tmp_path, mock_confluence, capsys):
+        """Uses title from front matter over heading and filename."""
+        from zaira.wiki import _create_page_for_file
+        from zaira import confluence_api
+
+        md_file = tmp_path / "ugly-filename.md"
+        md_file.write_text("---\ntitle: Nice Title\n---\n\n# Heading Title\n\nContent")
+
+        created_titles = []
+        confluence_api.set_api(
+            "create_page",
+            lambda space, title, body, parent: (
+                created_titles.append(title) or {"id": "999", "version": {"number": 1}}
+            ),
+        )
+        confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+
+        _create_page_for_file(md_file, "parent-id", "TEST")
+
+        assert created_titles[0] == "Nice Title"
+
+
+class TestGetCommandFolderFrontMatter:
+    """Tests for space:/folder: in get command output."""
+
+    def test_get_single_page_includes_space_and_folder(self, mock_confluence, capsys):
+        """Single page stdout includes space: and folder: in front matter."""
+        from zaira.wiki import get_command
+        from zaira import confluence_api
+        import argparse
+
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": page_id,
+                "title": "Nested Page",
+                "version": {"number": 1},
+                "space": {"key": "ENG", "name": "Engineering"},
+                "ancestors": [
+                    {"id": "1", "title": "Home", "type": "page"},
+                    {"id": "2", "title": "projects", "type": "folder"},
+                ],
+                "body": {"storage": {"value": "<p>Hello</p>"}},
+            },
+        )
+        confluence_api.set_api("get_page_labels", lambda page_id: [])
+
+        args = argparse.Namespace(
+            pages=["12345"],
+            output=None,
+            children=False,
+            list=False,
+            format="md",
+        )
+
+        get_command(args)
+
+        captured = capsys.readouterr()
+        assert "space: ENG" in captured.out
+        assert "folder: projects" in captured.out
+
+    def test_get_root_page_no_folder(self, mock_confluence, capsys):
+        """Root page has space: but no folder: in front matter."""
+        from zaira.wiki import get_command
+        from zaira import confluence_api
+        import argparse
+
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": page_id,
+                "title": "Root Page",
+                "version": {"number": 1},
+                "space": {"key": "ENG", "name": "Engineering"},
+                "ancestors": [
+                    {"id": "1", "title": "Home", "type": "page"},
+                ],
+                "body": {"storage": {"value": "<p>Hello</p>"}},
+            },
+        )
+        confluence_api.set_api("get_page_labels", lambda page_id: [])
+
+        args = argparse.Namespace(
+            pages=["12345"],
+            output=None,
+            children=False,
+            list=False,
+            format="md",
+        )
+
+        get_command(args)
+
+        captured = capsys.readouterr()
+        assert "space: ENG" in captured.out
+        assert "folder:" not in captured.out
+
+
+class TestPullWithFolderFrontMatter:
+    """Tests for --pull populating space:/folder: in front matter."""
+
+    def test_pull_adds_space_and_folder(self, tmp_path, mock_confluence, capsys):
+        """Pull updates front matter with space: and folder:."""
+        from zaira.wiki import _put_one_file
+        from zaira import confluence_api
+
+        md_file = tmp_path / "page.md"
+        md_file.write_text("---\nconfluence: 12345\ntitle: Old\n---\n\nOld content")
+
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": page_id,
+                "title": "Updated Title",
+                "version": {"number": 3},
+                "space": {"key": "ENG"},
+                "ancestors": [
+                    {"id": "1", "title": "Home", "type": "page"},
+                    {"id": "2", "title": "engineering", "type": "folder"},
+                    {"id": "3", "title": "specs", "type": "folder"},
+                ],
+                "body": {"storage": {"value": "<p>New content</p>"}},
+            },
+        )
+        confluence_api.set_api("get_page_labels", lambda page_id: [])
+        confluence_api.set_api("get_page_property", lambda page_id, key: None)
+        confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+
+        _put_one_file(md_file, None, None, pull=True, force=False, status=False)
+
+        content = md_file.read_text()
+        assert "space: ENG" in content
+        assert "folder: engineering/specs" in content
+        assert "title: Updated Title" in content
+
+
+class TestLsCommand:
+    """Tests for wiki ls command."""
+
+    def test_ls_shows_folders_and_pages(self, mock_confluence, capsys):
+        """Lists folders and pages in a space."""
+        from zaira.wiki import ls_command
+        from zaira import confluence_api
+        import argparse
+
+        confluence_api.set_api(
+            "get_space_root_pages",
+            lambda space_key, limit=100: [
+                {"id": "1", "title": "Homepage", "type": "page"},
+            ],
+        )
+        confluence_api.set_api(
+            "get_space_root_folders",
+            lambda space_key, limit=100: [
+                {"id": "10", "title": "docs", "type": "folder"},
+            ],
+        )
+        confluence_api.set_api("get_child_folders", lambda cid, limit=100: [])
+        confluence_api.set_api("get_child_pages", lambda cid, limit=100: [])
+
+        args = argparse.Namespace(space="TEST", depth=0)
+
+        with patch(
+            "zaira.wiki.get_server_from_config",
+            return_value="https://example.atlassian.net",
+        ):
+            ls_command(args)
+
+        captured = capsys.readouterr()
+        assert "[folder] docs" in captured.out
+        assert "Homepage" in captured.out
+
+    def test_ls_parses_url(self, mock_confluence, capsys):
+        """Parses space key from URL."""
+        from zaira.wiki import ls_command
+        from zaira import confluence_api
+        import argparse
+
+        confluence_api.set_api(
+            "get_space_root_pages",
+            lambda space_key, limit=100: [
+                {"id": "1", "title": "Home", "type": "page"},
+            ],
+        )
+        confluence_api.set_api(
+            "get_space_root_folders", lambda space_key, limit=100: []
+        )
+        confluence_api.set_api("get_child_folders", lambda cid, limit=100: [])
+        confluence_api.set_api("get_child_pages", lambda cid, limit=100: [])
+
+        args = argparse.Namespace(
+            space="https://example.atlassian.net/wiki/spaces/ENG/overview",
+            depth=0,
+        )
+
+        with patch(
+            "zaira.wiki.get_server_from_config",
+            return_value="https://example.atlassian.net",
+        ):
+            ls_command(args)
+
+        captured = capsys.readouterr()
+        assert "Home" in captured.out
+
+    def test_ls_empty_space(self, mock_confluence, capsys):
+        """Exits with error for empty space."""
+        from zaira.wiki import ls_command
+        from zaira import confluence_api
+        import argparse
+
+        confluence_api.set_api("get_space_root_pages", lambda space_key, limit=100: [])
+        confluence_api.set_api(
+            "get_space_root_folders", lambda space_key, limit=100: []
+        )
+
+        args = argparse.Namespace(space="EMPTY", depth=1)
+
+        with pytest.raises(SystemExit):
+            ls_command(args)

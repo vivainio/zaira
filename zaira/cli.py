@@ -26,6 +26,7 @@ from zaira.wiki import (
     attach_command as wiki_attach_command,
     edit_command as wiki_edit_command,
     delete_command as wiki_delete_command,
+    ls_command as wiki_ls_command,
 )
 from zaira.info import (
     info_command,
@@ -968,6 +969,10 @@ def main() -> None:
         "--parent",
         help="Parent page for new pages (auto-detected from siblings if not specified)",
     )
+    wiki_put.add_argument(
+        "--space",
+        help="Space key for new pages (can also be set via space: in front matter)",
+    )
     wiki_put.set_defaults(wiki_func=wiki_put_command)
 
     wiki_attach = wiki_subparsers.add_parser(
@@ -1036,6 +1041,23 @@ def main() -> None:
         help="Skip confirmation prompt",
     )
     wiki_delete.set_defaults(wiki_func=wiki_delete_command)
+
+    wiki_ls = wiki_subparsers.add_parser(
+        "ls",
+        help="List pages in a Confluence space",
+    )
+    wiki_ls.add_argument(
+        "space",
+        help="Space key or Confluence space URL (e.g. 'ENG' or full URL)",
+    )
+    wiki_ls.add_argument(
+        "-d",
+        "--depth",
+        type=int,
+        default=1,
+        help="Tree depth (-1 for unlimited, 0 for root only, default: 1)",
+    )
+    wiki_ls.set_defaults(wiki_func=wiki_ls_command)
 
     # Changelog command (Jira issue history)
     changelog_parser = subparsers.add_parser(

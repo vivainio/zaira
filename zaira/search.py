@@ -149,7 +149,6 @@ def search_command(args: argparse.Namespace) -> None:
                 continue
             extra_fields.append((display, key))
 
-    start = 0
     total_printed = 0
     key_width = 10  # reasonable default, adjusts if needed
 
@@ -157,49 +156,40 @@ def search_command(args: argparse.Namespace) -> None:
     if extra_fields:
         all_rows = []
 
-    while True:
-        page_size = min(PAGE_SIZE, limit - total_printed) if limit else PAGE_SIZE
-        issues = jira.search_issues(jql, startAt=start, maxResults=page_size)
+    # Let the library handle pagination (uses token-based pagination on Cloud)
+    max_results = limit if limit else False
+    issues = jira.search_issues(jql, startAt=0, maxResults=max_results)
 
-        if not issues:
-            break
+    for issue in issues:
+        fields = issue.fields
+        key = issue.key
+        if len(key) > key_width:
+            key_width = len(key)
 
-        for issue in issues:
-            fields = issue.fields
-            key = issue.key
-            if len(key) > key_width:
-                key_width = len(key)
-
-            if extra_fields:
-                extra_values = [
-                    _extract_field_value(issue, fkey) for _, fkey in extra_fields
-                ]
-                all_rows.append(
-                    (
-                        key,
-                        fields.status.name if fields.status else "?",
-                        fields.created or "",
-                        fields.summary or "",
-                        extra_values,
-                    )
-                )
-            else:
-                print_row(
+        if extra_fields:
+            extra_values = [
+                _extract_field_value(issue, fkey) for _, fkey in extra_fields
+            ]
+            all_rows.append(
+                (
                     key,
                     fields.status.name if fields.status else "?",
                     fields.created or "",
                     fields.summary or "",
-                    key_width,
+                    extra_values,
                 )
-            total_printed += 1
-            if limit and total_printed >= limit:
-                break
-
+            )
+        else:
+            print_row(
+                key,
+                fields.status.name if fields.status else "?",
+                fields.created or "",
+                fields.summary or "",
+                key_width,
+            )
+        total_printed += 1
         if limit and total_printed >= limit:
             break
-        if len(issues) < page_size:
-            break
-        start += len(issues)
 
     # Print rows with extra fields (need all rows to calculate column widths)
     if extra_fields and all_rows:
