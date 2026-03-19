@@ -83,9 +83,10 @@ def _migrate_legacy_dirs() -> None:
 
 
 def main() -> None:
-    # Reconfigure stdout to handle Unicode on Windows (cp1252 etc.)
+    # Force UTF-8 stdout on Windows to avoid encode/decode errors
+    # when Jira content contains characters outside cp1252
     if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
-        sys.stdout.reconfigure(errors="replace")
+        sys.stdout.reconfigure(encoding="utf-8")
 
     _migrate_legacy_dirs()
 
