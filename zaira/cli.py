@@ -993,6 +993,10 @@ def main() -> None:
         action="store_true",
         help="Mirror directory structure to Confluence folders (implies --create)",
     )
+    wiki_put.add_argument(
+        "--render",
+        help="Render diagram blocks to PNG and attach (comma-separated: mermaid,dot,plantuml,d2,ditaa)",
+    )
     wiki_put.set_defaults(wiki_func=wiki_put_command)
 
     wiki_attach = wiki_subparsers.add_parser(

@@ -442,6 +442,72 @@ Final paragraph.
         tmpfile.unlink()
 
 
+def test_wiki_put_with_mermaid() -> str:
+    """Test creating a page with mermaid diagrams rendered to PNG."""
+    import shutil
+
+    print("\n=== Put with mermaid rendering ===")
+    if not shutil.which("mmdc"):
+        print("  SKIP: mmdc not installed")
+        return ""
+
+    timestamp = int(time.time())
+    md_content = f"""# Mermaid Test {timestamp}
+
+Here is a flowchart:
+
+```mermaid
+graph TD
+    A[User Request] --> B{{Auth Check}}
+    B -->|Valid| C[Process]
+    B -->|Invalid| D[Reject]
+    C --> E[Response]
+```
+
+And a sequence diagram:
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Server
+    Client->>Server: POST /api/data
+    Server-->>Client: 200 OK
+```
+
+End of document.
+"""
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+        f.write(md_content)
+        tmpfile = Path(f.name)
+
+    try:
+        # Create page with mermaid rendering
+        result = run(
+            f"wiki put {tmpfile} --create --parent {WIKI_TEST_ROOT_PAGE} --render mermaid"
+        )
+
+        match = re.search(r"Created page (\d+)", result.stdout)
+        assert match, f"Failed to create page with mermaid: {result.stderr}"
+        page_id = match.group(1)
+        created_pages.append(page_id)
+        print(f"  Created page: {page_id}")
+
+        # Verify attachments were uploaded
+        assert "Uploaded image:" in result.stdout or "mermaid-" in result.stdout, (
+            "Expected mermaid images to be uploaded"
+        )
+
+        # Get page back and verify content
+        result = run(f"wiki get {page_id}")
+        assert "mermaid" in result.stdout, "Mermaid content not in page"
+        assert f"Mermaid Test {timestamp}" in result.stdout, "Title not found"
+
+        return page_id
+    finally:
+        tmpfile.unlink()
+
+
 def test_wiki_delete():
     """Test delete command (used in cleanup)."""
     print("\n=== Delete page ===")
@@ -502,6 +568,9 @@ def main():
 
         # Conflict handling
         test_wiki_conflict(page_id)
+
+        # Mermaid diagram rendering
+        test_wiki_put_with_mermaid()
 
         # Macro and mixed syntax round-trip
         test_wiki_macros_roundtrip()

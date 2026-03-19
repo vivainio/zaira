@@ -2264,6 +2264,73 @@ class TestPutOneFile:
         assert "version 1 -> 2" in captured.out
         assert "title:" in captured.out
 
+    def test_put_with_mermaid_rendering(self, tmp_path, mock_confluence, capsys):
+        """Pushes content with mermaid blocks rendered to PNG attachments."""
+        import shutil
+
+        if not shutil.which("mmdc"):
+            pytest.skip("mmdc not installed")
+
+        from zaira.wiki import _put_one_file
+        from zaira import confluence_api
+
+        md_file = tmp_path / "test.md"
+        md_file.write_text(
+            "---\nconfluence: 12345\n---\n\n# Architecture\n\n"
+            "```mermaid\ngraph TD\n    A[Client] --> B[Server]\n```\n\nSome text.\n"
+        )
+
+        uploaded_attachments = []
+        pushed_body = {}
+
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Architecture",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Old</p>"}},
+                "type": "page",
+            },
+        )
+        confluence_api.set_api("get_page_property", lambda page_id, key: None)
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+
+        def capture_upload(page_id, filepath, filename=None):
+            uploaded_attachments.append(filepath.name)
+            return {"id": "att-1", "title": filepath.name}
+
+        confluence_api.set_api("upload_attachment", capture_upload)
+
+        def capture_update(page_id, title, body, version, ptype):
+            pushed_body["html"] = body
+            return {"version": {"number": 2}}
+
+        confluence_api.set_api("update_page", capture_update)
+        confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
+
+        result = _put_one_file(
+            md_file, None, None, False, False, False, False, renderers=["mermaid"]
+        )
+
+        assert result is True
+
+        # Verify a mermaid PNG was uploaded as attachment
+        assert len(uploaded_attachments) == 1
+        assert uploaded_attachments[0].startswith("mermaid-")
+        assert uploaded_attachments[0].endswith(".png")
+
+        # Verify the pushed HTML contains both code block and image
+        html = pushed_body["html"]
+        assert '<ac:parameter ac:name="language">mermaid</ac:parameter>' in html
+        assert '<ri:attachment ri:filename="mermaid-' in html
+
+        captured = capsys.readouterr()
+        assert "Pushed" in captured.out
+
     def test_put_with_labels(self, tmp_path, mock_confluence, capsys):
         """Pushes content with labels."""
         from zaira.wiki import _put_one_file

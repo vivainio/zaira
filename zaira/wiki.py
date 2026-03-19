@@ -13,7 +13,9 @@ from zaira import confluence_api
 from zaira.jira_client import get_server_from_config
 from zaira.types import PageInfo
 from zaira.mdconv import (
+    cleanup_render_temps,
     markdown_to_storage,
+    render_diagram_blocks,
     storage_to_markdown,
     extract_local_images,
 )
@@ -654,6 +656,7 @@ def _create_page_for_file(
     filepath: Path,
     parent_id: str | None,
     space_key: str,
+    renderers: list[str] | None = None,
 ) -> bool:
     """Create a new Confluence page for a markdown file.
 
@@ -674,6 +677,9 @@ def _create_page_for_file(
     if not title:
         title = filepath.stem.replace("-", " ").replace("_", " ").title()
 
+    # Render diagram blocks to PNG (if requested and tools available)
+    body_only, render_temps = render_diagram_blocks(body_only, renderers)
+
     # Convert to storage format
     storage_content = markdown_to_storage(body_only)
 
@@ -681,6 +687,7 @@ def _create_page_for_file(
     result = confluence_api.create_page(space_key, title, storage_content, parent_id)
 
     if not result:
+        cleanup_render_temps(render_temps)
         print(f"Error creating page for {filepath}", file=sys.stderr)
         return False
 
@@ -705,9 +712,10 @@ def _create_page_for_file(
         },
     )
 
-    # Upload images if any
+    # Upload images if any (including rendered diagram PNGs)
     stored_image_hashes: dict[str, str] = {}
     sync_images(new_page_id, filepath, body_only, stored_image_hashes)
+    cleanup_render_temps(render_temps)
 
     print(f"Created page {new_page_id} for {filepath}")
     return True
@@ -721,6 +729,7 @@ def _put_one_file(
     force: bool,
     status: bool,
     diff: bool = False,
+    renderers: list[str] | None = None,
 ) -> bool:
     """Process a single markdown file for wiki put.
 
@@ -879,8 +888,12 @@ def _put_one_file(
         print(f"{filepath}: already in sync")
         return True
 
-    # Upload images
+    # Render diagram blocks to PNG (if requested and tools available)
+    body_only, render_temps = render_diagram_blocks(body_only, renderers)
+
+    # Upload images (including rendered diagram PNGs)
     image_hashes = sync_images(page_id, filepath, body_only, stored_image_hashes)
+    cleanup_render_temps(render_temps)
 
     # Convert and push
     storage_content = markdown_to_storage(body_only)
@@ -984,10 +997,18 @@ def _put_one_file(
     return True
 
 
+def _parse_renderers(value: str | None) -> list[str] | None:
+    """Parse --render flag value into a list of renderer names."""
+    if not value:
+        return None
+    return [r.strip() for r in value.split(",") if r.strip()]
+
+
 def put_command(args: argparse.Namespace) -> None:
     """Update Confluence page(s) from markdown files."""
     import glob as glob_module
 
+    renderers = _parse_renderers(getattr(args, "render", None))
     mirror_mode = getattr(args, "mirror", False)
 
     # Collect files to process
@@ -1050,6 +1071,7 @@ def put_command(args: argparse.Namespace) -> None:
                     getattr(args, "force", False),
                     getattr(args, "status", False),
                     getattr(args, "diff", False),
+                    renderers,
                 )
                 sys.exit(0 if success else 1)
             finally:
@@ -1243,6 +1265,7 @@ def put_command(args: argparse.Namespace) -> None:
             getattr(args, "force", False),
             getattr(args, "status", False),
             getattr(args, "diff", False),
+            renderers,
         )
         if success:
             success_count += 1
@@ -1258,9 +1281,11 @@ def put_command(args: argparse.Namespace) -> None:
             if file_space is None:
                 fail_count += 1
                 continue
-            success = _create_page_for_file(filepath, file_parent_id, file_space)
+            success = _create_page_for_file(
+                filepath, file_parent_id, file_space, renderers
+            )
         else:
-            success = _create_page_for_file(filepath, parent_id, space_key)
+            success = _create_page_for_file(filepath, parent_id, space_key, renderers)
         if success:
             success_count += 1
         else:

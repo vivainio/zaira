@@ -1,12 +1,19 @@
 """Tests for markdown conversion utilities."""
 
+from pathlib import Path
+from unittest.mock import patch
+
 import pytest
 
 from zaira.mdconv import (
+    RENDERERS,
+    DiagramRenderer,
+    cleanup_render_temps,
     markdown_to_storage,
     markdown_to_jira_wiki,
     jira_wiki_to_markdown,
     is_jira_wiki,
+    render_diagram_blocks,
     storage_to_markdown,
     extract_local_images,
     convert_images_to_attachments,
@@ -1109,3 +1116,196 @@ class TestConfluenceMacros:
         # Back to storage
         storage_again = markdown_to_storage(result_md)
         assert '<ac:structured-macro ac:name="page-tree">' in storage_again
+
+
+class TestDiagramRendering:
+    """Tests for render_diagram_blocks and renderer registry."""
+
+    def _fake_run(self, cmd, capture_output, timeout):
+        """Helper: simulate a successful render by creating the output PNG."""
+        # Find the output path — it's the arg after -o, or the last arg for d2/ditaa
+        if "-o" in cmd:
+            out_path = cmd[cmd.index("-o") + 1]
+        else:
+            out_path = cmd[-1]
+        Path(out_path).write_bytes(b"fake png data")
+
+        class FakeResult:
+            returncode = 0
+            stderr = b""
+
+        return FakeResult()
+
+    def _fake_run_fail(self, cmd, capture_output, timeout):
+        class FakeResult:
+            returncode = 1
+            stderr = b"Parse error"
+
+        return FakeResult()
+
+    def test_no_renderers_returns_unchanged(self):
+        """When renderers is None, content is returned unchanged."""
+        md = "```mermaid\ngraph TD\n  A-->B\n```"
+        result, temps = render_diagram_blocks(md, None)
+        assert result == md
+        assert temps == []
+
+    def test_empty_renderers_returns_unchanged(self):
+        """When renderers is empty list, content is returned unchanged."""
+        md = "```mermaid\ngraph TD\n  A-->B\n```"
+        result, temps = render_diagram_blocks(md, [])
+        assert result == md
+        assert temps == []
+
+    def test_unavailable_renderer_skipped(self):
+        """When the CLI tool is not installed, renderer is skipped."""
+        md = "```mermaid\ngraph TD\n  A-->B\n```"
+        with patch("zaira.mdconv.shutil.which", return_value=None):
+            result, temps = render_diagram_blocks(md, ["mermaid"])
+        assert result == md
+        assert temps == []
+
+    def test_no_matching_blocks_returns_unchanged(self):
+        """Content without matching blocks is returned unchanged."""
+        md = "# Hello\n\n```python\nprint('hi')\n```"
+        with patch("zaira.mdconv.shutil.which", return_value="/usr/bin/mmdc"):
+            result, temps = render_diagram_blocks(md, ["mermaid"])
+        assert result == md
+        assert temps == []
+
+    def test_renders_mermaid_block(self):
+        """Mermaid block gets image appended after it."""
+        md = "Before\n\n```mermaid\ngraph TD\n  A-->B\n```\n\nAfter"
+
+        with (
+            patch("zaira.mdconv.shutil.which", return_value="/usr/bin/mmdc"),
+            patch("zaira.mdconv.subprocess.run", side_effect=self._fake_run),
+        ):
+            result, temps = render_diagram_blocks(md, ["mermaid"])
+
+        assert len(temps) == 1
+        assert "```mermaid" in result
+        assert "![mermaid diagram](" in result
+        assert "Before" in result
+        assert "After" in result
+        cleanup_render_temps(temps)
+
+    def test_renders_dot_block(self):
+        """Dot/graphviz block gets image appended after it."""
+        md = "```dot\ndigraph { A -> B }\n```"
+
+        with (
+            patch("zaira.mdconv.shutil.which", return_value="/usr/bin/dot"),
+            patch("zaira.mdconv.subprocess.run", side_effect=self._fake_run),
+        ):
+            result, temps = render_diagram_blocks(md, ["dot"])
+
+        assert len(temps) == 1
+        assert "```dot" in result
+        assert "![dot diagram](" in result
+        cleanup_render_temps(temps)
+
+    def test_multiple_renderers(self):
+        """Multiple renderer types can be active at once."""
+        md = "```mermaid\ngraph TD\n  A-->B\n```\n\n```dot\ndigraph { X -> Y }\n```"
+
+        with (
+            patch("zaira.mdconv.shutil.which", return_value="/usr/bin/fake"),
+            patch("zaira.mdconv.subprocess.run", side_effect=self._fake_run),
+        ):
+            result, temps = render_diagram_blocks(md, ["mermaid", "dot"])
+
+        assert len(temps) == 2
+        assert "![mermaid diagram](" in result
+        assert "![dot diagram](" in result
+        cleanup_render_temps(temps)
+
+    def test_multiple_blocks_same_type(self):
+        """Multiple blocks of the same type are all rendered."""
+        md = "```mermaid\ngraph TD\n  A-->B\n```\n\n```mermaid\ngraph LR\n  X-->Y\n```"
+
+        with (
+            patch("zaira.mdconv.shutil.which", return_value="/usr/bin/mmdc"),
+            patch("zaira.mdconv.subprocess.run", side_effect=self._fake_run),
+        ):
+            result, temps = render_diagram_blocks(md, ["mermaid"])
+
+        assert len(temps) == 2
+        assert result.count("![mermaid diagram](") == 2
+        cleanup_render_temps(temps)
+
+    def test_failed_render_leaves_block(self):
+        """When render fails, the block is left as-is."""
+        md = "```mermaid\ninvalid\n```"
+
+        with (
+            patch("zaira.mdconv.shutil.which", return_value="/usr/bin/mmdc"),
+            patch("zaira.mdconv.subprocess.run", side_effect=self._fake_run_fail),
+        ):
+            result, temps = render_diagram_blocks(md, ["mermaid"])
+
+        assert result == md
+        assert temps == []
+
+    def test_deterministic_filename_from_content(self):
+        """Same content produces the same filename across runs."""
+        md = "```mermaid\ngraph TD\n  A-->B\n```"
+
+        filenames = []
+        original_fake = self._fake_run
+
+        def tracking_run(cmd, capture_output, timeout):
+            if "-o" in cmd:
+                out_path = cmd[cmd.index("-o") + 1]
+            else:
+                out_path = cmd[-1]
+            filenames.append(Path(out_path).name)
+            return original_fake(cmd, capture_output, timeout)
+
+        for _ in range(2):
+            with (
+                patch("zaira.mdconv.shutil.which", return_value="/usr/bin/mmdc"),
+                patch("zaira.mdconv.subprocess.run", side_effect=tracking_run),
+            ):
+                _, temps = render_diagram_blocks(md, ["mermaid"])
+            cleanup_render_temps(temps)
+
+        assert filenames[0] == filenames[1]
+
+    def test_only_requested_renderers_activate(self):
+        """Blocks for unrequested renderers are not processed."""
+        md = "```mermaid\ngraph TD\n  A-->B\n```\n\n```dot\ndigraph { X -> Y }\n```"
+
+        with (
+            patch("zaira.mdconv.shutil.which", return_value="/usr/bin/mmdc"),
+            patch("zaira.mdconv.subprocess.run", side_effect=self._fake_run),
+        ):
+            result, temps = render_diagram_blocks(md, ["mermaid"])
+
+        assert len(temps) == 1
+        assert "![mermaid diagram](" in result
+        assert "![dot diagram](" not in result
+        cleanup_render_temps(temps)
+
+    def test_registry_has_expected_renderers(self):
+        """Registry contains all documented renderers."""
+        assert "mermaid" in RENDERERS
+        assert "plantuml" in RENDERERS
+        assert "dot" in RENDERERS
+        assert "graphviz" in RENDERERS
+        assert "d2" in RENDERERS
+        assert "ditaa" in RENDERERS
+
+    def test_renderer_build_command(self):
+        """DiagramRenderer.build_command resolves placeholders."""
+        r = RENDERERS["mermaid"]
+        cmd = r.build_command(Path("/tmp/in.mmd"), Path("/tmp/out.png"))
+        assert cmd == ["mmdc", "-i", "/tmp/in.mmd", "-o", "/tmp/out.png"]
+
+    def test_graphviz_aliases_to_dot(self):
+        """'graphviz' renderer uses 'dot' command."""
+        assert RENDERERS["graphviz"].cmd == "dot"
+
+    def test_cleanup_render_temps_noop_on_empty(self):
+        """cleanup_render_temps does nothing with empty list."""
+        cleanup_render_temps([])  # should not raise

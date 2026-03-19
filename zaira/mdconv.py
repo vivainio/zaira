@@ -1,7 +1,11 @@
 """Markdown conversion utilities."""
 
+import hashlib
 import html
 import re
+import shutil
+import subprocess
+import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -70,6 +74,164 @@ def convert_attachments_to_images(md_content: str, image_dir: str = "./images") 
         return match.group(0)
 
     return re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", replace_attachment, md_content)
+
+
+class DiagramRenderer:
+    """Definition for a fenced-block diagram renderer."""
+
+    def __init__(
+        self,
+        name: str,
+        cmd: str,
+        args: list[str],
+        src_ext: str = ".txt",
+    ):
+        self.name = name
+        self.cmd = cmd
+        self.args = args
+        self.src_ext = src_ext
+
+    def build_command(self, in_path: Path, out_path: Path) -> list[str]:
+        """Build the CLI command with placeholders resolved."""
+        result = [self.cmd]
+        for arg in self.args:
+            result.append(
+                arg.replace("{in}", str(in_path))
+                .replace("{out}", str(out_path))
+                .replace("{outdir}", str(out_path.parent))
+            )
+        return result
+
+    def is_available(self) -> bool:
+        return shutil.which(self.cmd) is not None
+
+
+# Registry of supported diagram renderers
+RENDERERS: dict[str, DiagramRenderer] = {
+    "mermaid": DiagramRenderer(
+        name="mermaid",
+        cmd="mmdc",
+        args=["-i", "{in}", "-o", "{out}"],
+        src_ext=".mmd",
+    ),
+    "plantuml": DiagramRenderer(
+        name="plantuml",
+        cmd="plantuml",
+        args=["-tpng", "-o", "{outdir}", "{in}"],
+        src_ext=".puml",
+    ),
+    "dot": DiagramRenderer(
+        name="dot",
+        cmd="dot",
+        args=["-Tpng", "-o", "{out}", "{in}"],
+        src_ext=".dot",
+    ),
+    "graphviz": DiagramRenderer(
+        name="graphviz",
+        cmd="dot",
+        args=["-Tpng", "-o", "{out}", "{in}"],
+        src_ext=".dot",
+    ),
+    "d2": DiagramRenderer(
+        name="d2",
+        cmd="d2",
+        args=["{in}", "{out}"],
+        src_ext=".d2",
+    ),
+    "ditaa": DiagramRenderer(
+        name="ditaa",
+        cmd="ditaa",
+        args=["{in}", "{out}"],
+        src_ext=".ditaa",
+    ),
+}
+
+
+def render_diagram_blocks(
+    md_content: str,
+    renderers: list[str] | None = None,
+) -> tuple[str, list[Path]]:
+    """Render fenced diagram blocks to PNG images.
+
+    Finds fenced code blocks matching requested renderers, renders each to a
+    PNG in a temp directory, and appends the rendered image after the block.
+    The source is kept as a code block for documentation. Renderers whose CLI
+    tool is not installed are silently skipped.
+
+    Args:
+        md_content: Markdown content
+        renderers: List of renderer names to activate (e.g. ["mermaid", "dot"]).
+            If None, no rendering is done.
+
+    Returns:
+        Tuple of (modified_content, list_of_temp_png_paths).
+        Caller is responsible for cleaning up temp files via cleanup_render_temps().
+    """
+    if not renderers:
+        return md_content, []
+
+    # Resolve requested renderers to available ones
+    active: list[tuple[str, DiagramRenderer]] = []
+    for name in renderers:
+        renderer = RENDERERS.get(name)
+        if renderer and renderer.is_available():
+            active.append((name, renderer))
+
+    if not active:
+        return md_content, []
+
+    # Build a combined pattern matching any active renderer's fence tag
+    tags = "|".join(re.escape(name) for name, _ in active)
+    pattern = re.compile(rf"```({tags})\s*\n(.*?)```", re.DOTALL)
+    blocks = list(pattern.finditer(md_content))
+    if not blocks:
+        return md_content, []
+
+    tmpdir = Path(tempfile.mkdtemp(prefix="zaira-render-"))
+    temp_files: list[Path] = []
+    renderer_map = dict(active)
+
+    # Process in reverse order to preserve string positions
+    for match in reversed(blocks):
+        tag = match.group(1)
+        source = match.group(2)
+        renderer = renderer_map[tag]
+
+        content_hash = hashlib.sha256(source.encode()).hexdigest()[:12]
+        filename = f"{tag}-{content_hash}.png"
+        png_file = tmpdir / filename
+        src_file = tmpdir / f"{tag}-{content_hash}{renderer.src_ext}"
+
+        src_file.write_text(source, encoding="utf-8")
+        cmd = renderer.build_command(src_file, png_file)
+
+        result = subprocess.run(cmd, capture_output=True, timeout=30)
+
+        if result.returncode == 0 and png_file.exists():
+            original_block = match.group(0)
+            replacement = f"{original_block}\n\n![{tag} diagram]({png_file})"
+            md_content = (
+                md_content[: match.start()] + replacement + md_content[match.end() :]
+            )
+            temp_files.append(png_file)
+        else:
+            import sys
+
+            print(
+                f"  Warning: {tag} render failed: {result.stderr.decode(errors='replace').strip()}",
+                file=sys.stderr,
+            )
+
+    return md_content, temp_files
+
+
+def cleanup_render_temps(temp_files: list[Path]) -> None:
+    """Remove temporary rendered PNG files and their parent directory."""
+    if not temp_files:
+        return
+    tmpdir = temp_files[0].parent
+    # Remove the entire temp directory
+    shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 # Map markdown language names to Confluence code macro languages
