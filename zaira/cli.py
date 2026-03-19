@@ -83,6 +83,10 @@ def _migrate_legacy_dirs() -> None:
 
 
 def main() -> None:
+    # Reconfigure stdout to handle Unicode on Windows (cp1252 etc.)
+    if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+        sys.stdout.reconfigure(errors="replace")
+
     _migrate_legacy_dirs()
 
     parser = argparse.ArgumentParser(
