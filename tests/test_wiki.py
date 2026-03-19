@@ -1,5 +1,6 @@
 """Tests for wiki module."""
 
+import argparse
 from pathlib import Path
 from unittest.mock import patch
 
@@ -9,6 +10,7 @@ from zaira.wiki import (
     parse_front_matter,
     write_front_matter,
     parse_page_id,
+    put_command,
     slugify,
     compute_file_hash,
     get_sync_property,
@@ -4429,3 +4431,547 @@ class TestLsCommand:
 
         with pytest.raises(SystemExit):
             ls_command(args)
+
+
+class TestPutMovesFolder:
+    """Tests for wiki put moving pages when folder: changes."""
+
+    def test_put_moves_page_to_new_folder(self, tmp_path, mock_confluence, capsys):
+        """Moves page when local folder: differs from remote ancestors."""
+        from zaira.wiki import _put_one_file
+        from zaira import confluence_api
+
+        md_file = tmp_path / "test.md"
+        md_file.write_text(
+            "---\nconfluence: 12345\nspace: TEST\nfolder: new-folder\n---\n\nContent"
+        )
+
+        move_calls = []
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Content</p>"}},
+                "type": "page",
+                "ancestors": [
+                    {"id": "1", "title": "Home", "type": "page"},
+                    {"id": "2", "title": "old-folder", "type": "folder"},
+                ],
+            },
+        )
+        confluence_api.set_api("get_page_property", lambda page_id, key: None)
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "resolve_folder_path",
+            lambda space_key, folder_path, create_missing: "300",
+        )
+        confluence_api.set_api(
+            "update_page_properties",
+            lambda page_id, version, ptype, title, space_key=None, parent_id=None: (
+                move_calls.append({"parent_id": parent_id})
+                or {"version": {"number": 2}}
+            ),
+        )
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, ptype: {"version": {"number": 3}},
+        )
+        confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
+
+        result = _put_one_file(md_file, None, None, False, False, False, False)
+
+        assert result is True
+        assert len(move_calls) == 1
+        assert move_calls[0]["parent_id"] == "300"
+
+    def test_put_no_move_when_folder_unchanged(self, tmp_path, mock_confluence, capsys):
+        """Does not move page when folder: matches remote."""
+        from zaira.wiki import _put_one_file
+        from zaira import confluence_api
+
+        md_file = tmp_path / "test.md"
+        md_file.write_text(
+            "---\nconfluence: 12345\nspace: TEST\nfolder: my-folder\n---\n\nContent"
+        )
+
+        move_calls = []
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Content</p>"}},
+                "type": "page",
+                "ancestors": [
+                    {"id": "1", "title": "Home", "type": "page"},
+                    {"id": "2", "title": "my-folder", "type": "folder"},
+                ],
+            },
+        )
+        confluence_api.set_api("get_page_property", lambda page_id, key: None)
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "update_page_properties",
+            lambda page_id, version, ptype, title, space_key=None, parent_id=None: (
+                move_calls.append(True) or {"version": {"number": 2}}
+            ),
+        )
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, ptype: {"version": {"number": 2}},
+        )
+        confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
+
+        result = _put_one_file(md_file, None, None, False, False, False, False)
+
+        assert result is True
+        assert len(move_calls) == 0
+
+    def test_put_moves_page_to_root(self, tmp_path, mock_confluence, capsys):
+        """Moves page to space root when folder: is removed."""
+        from zaira.wiki import _put_one_file
+        from zaira import confluence_api
+
+        md_file = tmp_path / "test.md"
+        md_file.write_text("---\nconfluence: 12345\nspace: TEST\n---\n\nContent")
+
+        move_calls = []
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+                "body": {"storage": {"value": "<p>Content</p>"}},
+                "type": "page",
+                "ancestors": [
+                    {"id": "1", "title": "Home", "type": "page"},
+                    {"id": "2", "title": "old-folder", "type": "folder"},
+                ],
+            },
+        )
+        confluence_api.set_api("get_page_property", lambda page_id, key: None)
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+        confluence_api.set_api(
+            "update_page_properties",
+            lambda page_id, version, ptype, title, space_key=None, parent_id=None: (
+                move_calls.append({"parent_id": parent_id})
+                or {"version": {"number": 2}}
+            ),
+        )
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, ptype: {"version": {"number": 3}},
+        )
+        confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
+
+        result = _put_one_file(md_file, None, None, False, False, False, False)
+
+        assert result is True
+        assert len(move_calls) == 1
+        assert move_calls[0]["parent_id"] is None
+
+
+class TestEditParentFolderPath:
+    """Tests for wiki edit --parent with folder paths."""
+
+    def test_edit_parent_with_folder_path(self, mock_confluence, capsys):
+        """Resolves folder path for --parent."""
+        from zaira.wiki import edit_command
+        from zaira import confluence_api
+        import argparse
+
+        update_calls = []
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "title": "Test Page",
+                "version": {"number": 1},
+                "space": {"key": "ENG"},
+                "ancestors": [{"id": "1", "title": "Home", "type": "page"}],
+            },
+        )
+        confluence_api.set_api(
+            "resolve_folder_path",
+            lambda space_key, folder_path, create_missing: "500",
+        )
+        confluence_api.set_api(
+            "update_page_properties",
+            lambda page_id, version, ptype, title, space_key=None, parent_id=None: (
+                update_calls.append({"parent_id": parent_id}) or True
+            ),
+        )
+
+        args = argparse.Namespace(
+            page="12345",
+            title=None,
+            parent="guides/api",
+            space=None,
+            labels=None,
+        )
+
+        edit_command(args)
+
+        assert len(update_calls) == 1
+        assert update_calls[0]["parent_id"] == "500"
+
+    def test_edit_parent_folder_path_not_found(self, mock_confluence, capsys):
+        """Errors when folder path cannot be resolved."""
+        from zaira.wiki import edit_command
+        from zaira import confluence_api
+        import argparse
+
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "title": "Test Page",
+                "version": {"number": 1},
+                "space": {"key": "ENG"},
+                "ancestors": [{"id": "1", "title": "Home", "type": "page"}],
+            },
+        )
+        confluence_api.set_api(
+            "resolve_folder_path",
+            lambda space_key, folder_path, create_missing: None,
+        )
+
+        args = argparse.Namespace(
+            page="12345",
+            title=None,
+            parent="nonexistent/path",
+            space=None,
+            labels=None,
+        )
+
+        with pytest.raises(SystemExit):
+            edit_command(args)
+
+        captured = capsys.readouterr()
+        assert "Could not resolve folder path" in captured.err
+
+    def test_edit_parent_folder_uses_target_space(self, mock_confluence, capsys):
+        """Uses --space for folder resolution when provided."""
+        from zaira.wiki import edit_command
+        from zaira import confluence_api
+        import argparse
+
+        resolve_calls = []
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "title": "Test Page",
+                "version": {"number": 1},
+                "space": {"key": "OLD"},
+                "ancestors": [{"id": "1", "title": "Home", "type": "page"}],
+            },
+        )
+        confluence_api.set_api(
+            "resolve_folder_path",
+            lambda space_key, folder_path, create_missing: (
+                resolve_calls.append(space_key) or "600"
+            ),
+        )
+        confluence_api.set_api(
+            "update_page_properties",
+            lambda page_id, version, ptype, title, space_key=None, parent_id=None: True,
+        )
+
+        args = argparse.Namespace(
+            page="12345",
+            title=None,
+            parent="docs/api",
+            space="NEW",
+            labels=None,
+        )
+
+        edit_command(args)
+
+        assert resolve_calls[0] == "NEW"
+
+
+class TestMirrorPreprocessing:
+    """Tests for --mirror flag preprocessing in put_command."""
+
+    def test_mirror_derives_folder_from_relative_path(self, tmp_path):
+        """Mirror sets folder: based on file's relative path to input directory."""
+        # Create nested structure
+        sub = tmp_path / "team" / "backend"
+        sub.mkdir(parents=True)
+        f = sub / "design.md"
+        f.write_text("---\ntitle: Design\n---\n\n# Design doc\n")
+
+        args = argparse.Namespace(
+            files=[str(tmp_path)],
+            body=None,
+            page=None,
+            title=None,
+            pull=False,
+            force=False,
+            status=False,
+            diff=False,
+            create=False,
+            parent=None,
+            space="ENG",
+            mirror=True,
+        )
+
+        # Run put_command — it will preprocess then fail on API calls, so we
+        # mock the rest and just check the file was rewritten.
+        with (
+            patch("zaira.wiki._put_one_file"),
+            patch("zaira.wiki._create_page_for_file"),
+            patch("zaira.wiki._get_page_info"),
+            patch(
+                "zaira.wiki._resolve_parent_from_front_matter",
+                return_value=("parent_id", "ENG"),
+            ),
+        ):
+            try:
+                put_command(args)
+            except SystemExit:
+                pass
+
+        content = f.read_text()
+        fm, _ = parse_front_matter(content)
+        assert fm["space"] == "ENG"
+        assert fm["folder"] == "team/backend"
+
+    def test_mirror_with_parent_prefixes_folder(self, tmp_path):
+        """Mirror with --parent prefixes the folder path."""
+        sub = tmp_path / "api"
+        sub.mkdir()
+        f = sub / "endpoints.md"
+        f.write_text("---\ntitle: Endpoints\n---\n\n# Endpoints\n")
+
+        args = argparse.Namespace(
+            files=[str(tmp_path)],
+            body=None,
+            page=None,
+            title=None,
+            pull=False,
+            force=False,
+            status=False,
+            diff=False,
+            create=False,
+            parent="team-docs",
+            space="ENG",
+            mirror=True,
+        )
+
+        with (
+            patch("zaira.wiki._put_one_file"),
+            patch("zaira.wiki._create_page_for_file"),
+            patch("zaira.wiki._get_page_info"),
+            patch(
+                "zaira.wiki._resolve_parent_from_front_matter",
+                return_value=("pid", "ENG"),
+            ),
+        ):
+            try:
+                put_command(args)
+            except SystemExit:
+                pass
+
+        content = f.read_text()
+        fm, _ = parse_front_matter(content)
+        assert fm["folder"] == "team-docs/api"
+
+    def test_mirror_root_files_get_no_folder(self, tmp_path):
+        """Files at root of input dir get no folder: set."""
+        f = tmp_path / "readme.md"
+        f.write_text("---\ntitle: Readme\n---\n\n# Readme\n")
+
+        args = argparse.Namespace(
+            files=[str(tmp_path)],
+            body=None,
+            page=None,
+            title=None,
+            pull=False,
+            force=False,
+            status=False,
+            diff=False,
+            create=False,
+            parent=None,
+            space="ENG",
+            mirror=True,
+        )
+
+        with (
+            patch("zaira.wiki._put_one_file"),
+            patch("zaira.wiki._create_page_for_file"),
+            patch("zaira.wiki._get_page_info"),
+            patch(
+                "zaira.wiki._resolve_parent_from_front_matter",
+                return_value=("pid", "ENG"),
+            ),
+        ):
+            try:
+                put_command(args)
+            except SystemExit:
+                pass
+
+        content = f.read_text()
+        fm, _ = parse_front_matter(content)
+        assert fm["space"] == "ENG"
+        assert "folder" not in fm
+
+    def test_mirror_linked_files_get_updated_folder(self, tmp_path):
+        """Already-linked files get folder: updated (triggers move on push)."""
+        sub = tmp_path / "new-location"
+        sub.mkdir()
+        f = sub / "page.md"
+        f.write_text("---\ntitle: Page\nconfluence: 99999\n---\n\n# Page\n")
+
+        args = argparse.Namespace(
+            files=[str(tmp_path)],
+            body=None,
+            page=None,
+            title=None,
+            pull=False,
+            force=False,
+            status=False,
+            diff=False,
+            create=False,
+            parent=None,
+            space="ENG",
+            mirror=True,
+        )
+
+        with (
+            patch("zaira.wiki._put_one_file", return_value=True) as mock_put,
+            patch("zaira.wiki._create_page_for_file"),
+            patch("zaira.wiki._get_page_info"),
+            patch(
+                "zaira.wiki._resolve_parent_from_front_matter",
+                return_value=("pid", "ENG"),
+            ),
+        ):
+            try:
+                put_command(args)
+            except SystemExit:
+                pass
+
+        content = f.read_text()
+        fm, _ = parse_front_matter(content)
+        assert fm["folder"] == "new-location"
+        assert fm["space"] == "ENG"
+
+    def test_mirror_without_space_errors(self, tmp_path):
+        """--mirror without --space errors when files lack space:."""
+        f = tmp_path / "page.md"
+        f.write_text("---\ntitle: Page\n---\n\n# Page\n")
+
+        args = argparse.Namespace(
+            files=[str(tmp_path)],
+            body=None,
+            page=None,
+            title=None,
+            pull=False,
+            force=False,
+            status=False,
+            diff=False,
+            create=False,
+            parent=None,
+            space=None,
+            mirror=True,
+        )
+
+        with pytest.raises(SystemExit):
+            put_command(args)
+
+    def test_mirror_recursive_glob(self, tmp_path):
+        """Mirror picks up nested files via rglob."""
+        (tmp_path / "a").mkdir()
+        (tmp_path / "a" / "b").mkdir()
+        (tmp_path / "top.md").write_text("---\ntitle: Top\n---\n\nTop\n")
+        (tmp_path / "a" / "mid.md").write_text("---\ntitle: Mid\n---\n\nMid\n")
+        (tmp_path / "a" / "b" / "deep.md").write_text("---\ntitle: Deep\n---\n\nDeep\n")
+
+        args = argparse.Namespace(
+            files=[str(tmp_path)],
+            body=None,
+            page=None,
+            title=None,
+            pull=False,
+            force=False,
+            status=False,
+            diff=False,
+            create=False,
+            parent=None,
+            space="ENG",
+            mirror=True,
+        )
+
+        with (
+            patch("zaira.wiki._put_one_file"),
+            patch("zaira.wiki._create_page_for_file"),
+            patch("zaira.wiki._get_page_info"),
+            patch(
+                "zaira.wiki._resolve_parent_from_front_matter",
+                return_value=("pid", "ENG"),
+            ),
+        ):
+            try:
+                put_command(args)
+            except SystemExit:
+                pass
+
+        # Check all three files were found and processed
+        top_fm, _ = parse_front_matter((tmp_path / "top.md").read_text())
+        mid_fm, _ = parse_front_matter((tmp_path / "a" / "mid.md").read_text())
+        deep_fm, _ = parse_front_matter((tmp_path / "a" / "b" / "deep.md").read_text())
+
+        assert top_fm["space"] == "ENG"
+        assert "folder" not in top_fm
+        assert mid_fm["folder"] == "a"
+        assert deep_fm["folder"] == "a/b"
+
+    def test_mirror_root_with_parent_only(self, tmp_path):
+        """Root files with --parent get folder set to parent value."""
+        f = tmp_path / "page.md"
+        f.write_text("---\ntitle: Page\n---\n\n# Page\n")
+
+        args = argparse.Namespace(
+            files=[str(tmp_path)],
+            body=None,
+            page=None,
+            title=None,
+            pull=False,
+            force=False,
+            status=False,
+            diff=False,
+            create=False,
+            parent="team-docs",
+            space="ENG",
+            mirror=True,
+        )
+
+        with (
+            patch("zaira.wiki._put_one_file"),
+            patch("zaira.wiki._create_page_for_file"),
+            patch("zaira.wiki._get_page_info"),
+            patch(
+                "zaira.wiki._resolve_parent_from_front_matter",
+                return_value=("pid", "ENG"),
+            ),
+        ):
+            try:
+                put_command(args)
+            except SystemExit:
+                pass
+
+        content = f.read_text()
+        fm, _ = parse_front_matter(content)
+        assert fm["folder"] == "team-docs"

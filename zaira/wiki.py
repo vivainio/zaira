@@ -897,7 +897,41 @@ def _put_one_file(
     if new_title != current_title:
         property_changes.append(f"title: '{new_title}'")
 
-    # Note: parent and space are editable via wiki edit only, not synced from front matter
+    # Check if folder changed — move page if needed
+    local_folder = front_matter.get("folder")
+    local_space = front_matter.get("space") or page["space"]["key"]
+    remote_folder = _build_folder_path(page.get("ancestors", []))
+
+    if local_folder != remote_folder and (local_folder or remote_folder):
+        if local_folder:
+            target_parent = confluence_api.resolve_folder_path(
+                local_space, local_folder, create_missing=True
+            )
+            if not target_parent:
+                print(
+                    f"Error: Could not resolve folder path '{local_folder}' in space '{local_space}'",
+                    file=sys.stderr,
+                )
+                return False
+        else:
+            # Moving to space root — no parent
+            target_parent = None
+
+        move_result = confluence_api.update_page_properties(
+            page_id,
+            remote_version,
+            page["type"],
+            title=new_title,
+            parent_id=target_parent,
+        )
+        if not move_result:
+            print(
+                f"Error moving {filepath} to folder '{local_folder}'", file=sys.stderr
+            )
+            return False
+        remote_version = move_result["version"]["number"]
+        property_changes.append(f"folder: '{remote_folder}' -> '{local_folder}'")
+
     result = confluence_api.update_page(
         page_id, new_title, storage_content, remote_version, page["type"]
     )
@@ -954,15 +988,22 @@ def put_command(args: argparse.Namespace) -> None:
     """Update Confluence page(s) from markdown files."""
     import glob as glob_module
 
+    mirror_mode = getattr(args, "mirror", False)
+
     # Collect files to process
     files_to_process: list[Path] = []
+    mirror_roots: list[Path] = []
 
     # Handle positional files argument
     if args.files:
         for pattern in args.files:
             path = Path(pattern)
             if path.is_dir():
-                files_to_process.extend(path.glob("*.md"))
+                if mirror_mode:
+                    files_to_process.extend(path.rglob("*.md"))
+                    mirror_roots.append(path.resolve())
+                else:
+                    files_to_process.extend(path.glob("*.md"))
             elif "*" in pattern or "?" in pattern:
                 files_to_process.extend(Path(p) for p in glob_module.glob(pattern))
             else:
@@ -1027,6 +1068,77 @@ def put_command(args: argparse.Namespace) -> None:
     if not files_to_process:
         print("No markdown files found", file=sys.stderr)
         sys.exit(1)
+
+    # Mirror preprocessing: inject space:/folder: into front matter based on path
+    if mirror_mode:
+        args.create = True  # --mirror implies --create
+
+        mirror_space = getattr(args, "space", None)
+        mirror_parent_prefix = getattr(args, "parent", None) or ""
+
+        for filepath in files_to_process:
+            if not filepath.exists():
+                continue
+
+            # Find matching mirror root
+            resolved = filepath.resolve()
+            root = None
+            for mr in mirror_roots:
+                try:
+                    resolved.relative_to(mr)
+                    root = mr
+                    break
+                except ValueError:
+                    continue
+
+            if root is None:
+                # File was specified directly (not from a directory), skip mirror logic
+                continue
+
+            rel_folder = str(resolved.relative_to(root).parent)
+            if rel_folder == ".":
+                rel_folder = ""
+
+            # Prefix with --parent value if set
+            if mirror_parent_prefix and rel_folder:
+                folder_path = f"{mirror_parent_prefix}/{rel_folder}"
+            elif mirror_parent_prefix:
+                folder_path = mirror_parent_prefix
+            else:
+                folder_path = rel_folder
+
+            content = filepath.read_text(encoding="utf-8")
+            fm, body = parse_front_matter(content)
+
+            changed = False
+
+            if mirror_space and fm.get("space") != mirror_space:
+                fm["space"] = mirror_space
+                changed = True
+
+            if folder_path and fm.get("folder") != folder_path:
+                fm["folder"] = folder_path
+                changed = True
+            elif not folder_path and "folder" in fm:
+                del fm["folder"]
+                changed = True
+
+            if changed:
+                filepath.write_text(write_front_matter(fm, body), encoding="utf-8")
+
+        # Validate that all files have a space
+        if not mirror_space:
+            for filepath in files_to_process:
+                if not filepath.exists():
+                    continue
+                content = filepath.read_text(encoding="utf-8")
+                fm, _ = parse_front_matter(content)
+                if not fm.get("space") and not fm.get("confluence"):
+                    print(
+                        "Error: --mirror requires --space (or space: in every file's front matter)",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
 
     # Separate files into linked (have confluence: front matter) and unlinked
     linked_files: list[tuple[Path, str]] = []  # (filepath, page_id)
@@ -1351,7 +1463,22 @@ def edit_command(args: argparse.Namespace) -> None:
         changes.append(f"title: '{current_title}' -> '{args.title}'")
 
     if args.parent:
-        new_parent = parse_page_id(args.parent)
+        parent_arg = args.parent
+        if "/" in parent_arg:
+            # Folder path — resolve to ID
+            space_for_resolve = args.space if args.space else current_space
+            resolved = confluence_api.resolve_folder_path(
+                space_for_resolve, parent_arg, create_missing=False
+            )
+            if not resolved:
+                print(
+                    f"Error: Could not resolve folder path '{parent_arg}' in space '{space_for_resolve}'",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            new_parent = resolved
+        else:
+            new_parent = parse_page_id(parent_arg)
         if new_parent != current_parent:
             changes.append(f"parent: {current_parent} -> {new_parent}")
 

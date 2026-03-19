@@ -983,6 +983,11 @@ def main() -> None:
         "--space",
         help="Space key for new pages (can also be set via space: in front matter)",
     )
+    wiki_put.add_argument(
+        "--mirror",
+        action="store_true",
+        help="Mirror directory structure to Confluence folders (implies --create)",
+    )
     wiki_put.set_defaults(wiki_func=wiki_put_command)
 
     wiki_attach = wiki_subparsers.add_parser(

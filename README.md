@@ -513,7 +513,8 @@ zaira wiki delete 123456 --yes        # Skip confirmation
 
 # Edit page properties
 zaira wiki edit 123456 --title "New Title"
-zaira wiki edit 123456 --parent 789            # Move under different parent
+zaira wiki edit 123456 --parent 789            # Move under different parent (by ID)
+zaira wiki edit 123456 --parent guides/api    # Move to folder path
 zaira wiki edit 123456 --labels "docs,api,v2"  # Set labels (replaces existing)
 zaira wiki edit 123456 --space NEWSPACE        # Move to different space
 ```
@@ -547,11 +548,17 @@ zaira wiki put -m docs/*.md --create              # Parent auto-detected from si
 zaira wiki put -m docs/*.md --create --parent 123  # Explicit parent
 zaira wiki put -m docs/*.md --create --space ENG   # Space from flag (or front matter)
 
+# Mirror a local directory tree to Confluence folders
+zaira wiki put docs/ --space ENG --mirror
+zaira wiki put docs/ --space ENG --mirror --parent team-docs
+
 # Explicit page ID (single file, overrides front matter)
 zaira wiki put -m page.md -p 123456
 ```
 
 **Creating new pages:** With `--create`, files without `confluence:` front matter become new pages. The parent is determined by (in order): `--parent` flag, `space:`/`folder:` front matter, or auto-detection from sibling files. After creation, front matter is added to the file.
+
+**Mirroring directories:** `--mirror` maps a local directory tree to Confluence folders. It recursively finds `.md` files, derives `folder:` from each file's relative path, and writes `space:` and `folder:` into front matter. Then the normal create/push pipeline handles the rest — missing folders are created, and existing pages are moved if their folder changed. Requires `--space` (unless every file already has `space:` in front matter). Implies `--create`. Use `--parent` to nest everything under a prefix (e.g. `--parent team-docs` turns `api/design.md` into `folder: team-docs/api`).
 
 **Front matter:** Files link to Confluence pages via YAML front matter. Title, labels, space, and folder sync automatically on push/pull:
 
@@ -567,7 +574,7 @@ labels: [docs, api]
 Content here with ![images](./images/diagram.png)
 ```
 
-The `space:` and `folder:` fields are populated automatically on get/pull. When creating new pages with `--create`, they determine where the page is placed — missing folders are created automatically. Title priority: front matter `title:` > first `# Heading` > filename.
+The `space:` and `folder:` fields are populated automatically on get/pull. When creating new pages with `--create`, they determine where the page is placed — missing folders are created automatically. Changing `folder:` and pushing moves the page to the new location. Title priority: front matter `title:` > first `# Heading` > filename.
 
 **Image handling:** Local images (`![alt](./images/foo.png)`) are automatically uploaded as Confluence attachments on push, and downloaded to `images/` on pull. Only changed images are re-uploaded.
 
