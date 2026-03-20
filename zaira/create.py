@@ -62,7 +62,15 @@ def parse_content(content: str) -> tuple[dict, str]:
     # Match YAML front matter between --- markers
     match = re.match(r"^---\n(.+?)\n---\n?(.*)", content, re.DOTALL)
     if not match:
-        raise ValueError("No YAML front matter found (expected --- markers)")
+        raise ValueError(
+            "No YAML front matter found. Expected format:\n"
+            "---\n"
+            "project: PROJ\n"
+            "type: Story\n"
+            "summary: Title here\n"
+            "---\n"
+            "Description body here"
+        )
 
     front_matter = yaml.safe_load(match.group(1))
     body = match.group(2).strip()
@@ -219,11 +227,25 @@ def create_command(args: argparse.Namespace) -> None:
             sys.exit(1)
 
     # Check required fields
+    missing = []
     if "project" not in front_matter:
-        print("Error: 'project' field is required", file=sys.stderr)
-        sys.exit(1)
+        missing.append("project")
     if "summary" not in front_matter:
-        print("Error: 'summary' field is required", file=sys.stderr)
+        missing.append("summary")
+    issue_type = front_matter.get("type") or front_matter.get("issuetype") or ""
+    if not issue_type:
+        missing.append("type")
+    if missing:
+        print(
+            f"Error: missing required field(s): {', '.join(missing)}\n"
+            "YAML front matter must include at least:\n"
+            "---\n"
+            "project: PROJ\n"
+            "type: Story\n"
+            "summary: Title here\n"
+            "---",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     # Auto-convert markdown to Jira wiki if needed
@@ -233,11 +255,6 @@ def create_command(args: argparse.Namespace) -> None:
         description = markdown_to_jira_wiki(description)
 
     project = front_matter.get("project", "")
-    issue_type = front_matter.get("type") or front_matter.get("issuetype") or ""
-
-    if not issue_type:
-        print("Error: 'type' (issue type) is required", file=sys.stderr)
-        sys.exit(1)
 
     # Auto-learn editmeta if needed
     from zaira.info import ensure_editmeta_for_type

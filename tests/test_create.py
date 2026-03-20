@@ -367,7 +367,8 @@ Description.
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
-        assert "'project' field is required" in captured.err
+        assert "missing required field(s)" in captured.err
+        assert "project" in captured.err
 
     def test_exits_when_no_summary(self, tmp_path, capsys):
         """Exits with error when summary is missing."""
@@ -385,7 +386,8 @@ Description.
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
-        assert "'summary' field is required" in captured.err
+        assert "missing required field(s)" in captured.err
+        assert "summary" in captured.err
 
     def test_converts_markdown_in_description(self, tmp_path, capsys, mock_jira):
         """Auto-converts markdown to Jira wiki when description contains markdown."""
