@@ -84,6 +84,9 @@ def get_command(args: argparse.Namespace) -> None:
         )
 
         if parallel:
+            from zaira.info import ensure_fields_cached
+
+            ensure_fields_cached()
             success = 0
             with ThreadPoolExecutor() as pool:
                 futures = {

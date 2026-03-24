@@ -139,6 +139,16 @@ def _fetch_and_cache_fields() -> dict:
     return fields
 
 
+def ensure_fields_cached() -> None:
+    """Ensure the fields schema is cached locally.
+
+    Call before spawning threads to avoid concurrent fetches.
+    """
+    schema = load_schema()
+    if not schema or "fields" not in schema or not schema["fields"]:
+        _fetch_and_cache_fields()
+
+
 def get_field_name(field_id: str) -> str | None:
     """Look up field name by ID.
 
@@ -151,7 +161,7 @@ def get_field_name(field_id: str) -> str | None:
         Human-readable name (e.g., "Epic Link") or None if not found.
     """
     schema = load_schema()
-    if not schema or "fields" not in schema:
+    if not schema or "fields" not in schema or not schema["fields"]:
         try:
             fields = _fetch_and_cache_fields()
         except Exception:

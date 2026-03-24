@@ -857,6 +857,9 @@ def report_command(args: argparse.Namespace) -> None:
                 to_export.append(key)
 
         if use_parallel and to_export:
+            from zaira.info import ensure_fields_cached
+
+            ensure_fields_cached()
             with ThreadPoolExecutor() as pool:
                 futures = {
                     pool.submit(export_ticket, key, tickets_dir): key
