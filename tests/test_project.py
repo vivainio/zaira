@@ -1,7 +1,5 @@
 """Tests for project configuration module."""
 
-
-
 from zaira import project
 
 

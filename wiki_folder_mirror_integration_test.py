@@ -9,7 +9,9 @@ Example:
     zaira wiki put example/ --space basspec --mirror --parent <folder-id> --prefix "Demo - "
 """
 
+import argparse
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -22,6 +24,9 @@ WIKI_SPACE = "~anttiste"  # Space key (personal space)
 
 # Track created pages/folders for cleanup
 created_items: list[str] = []
+
+# Global flag for auto-delete mode
+auto_delete: bool = False
 
 
 def run(cmd: str, check: bool = True) -> subprocess.CompletedProcess:
@@ -166,6 +171,26 @@ Boolean toggle component.
         encoding="utf-8",
     )
 
+    # File with mermaid diagram
+    (base_dir / "architecture.md").write_text(
+        """# System Architecture
+
+Overview of the system components:
+
+```mermaid
+graph TD
+    A[Client] --> B[API Gateway]
+    B --> C[Auth Service]
+    B --> D[Data Service]
+    C --> E[Database]
+    D --> E
+```
+
+This diagram shows the main data flow.
+""",
+        encoding="utf-8",
+    )
+
 
 def verify_confluence_structure(
     prefix: str,
@@ -208,10 +233,12 @@ def test_mirror_with_prefix():
             rel = f.relative_to(base_dir)
             print(f"  {rel}")
 
-        print(f"\n--- Mirroring to Confluence with prefix '{prefix}' ---")
+        print(
+            f"\n--- Mirroring to Confluence with prefix '{prefix}' and mermaid rendering ---"
+        )
         result = run(
             f'wiki put "{base_dir}" --space {WIKI_SPACE} --mirror '
-            f'--parent {WIKI_TEST_ROOT_FOLDER} --prefix "{prefix}"'
+            f'--parent {WIKI_TEST_ROOT_FOLDER} --prefix "{prefix}" --render mermaid'
         )
 
         # Track created items for cleanup
@@ -220,8 +247,8 @@ def test_mirror_with_prefix():
         print(f"\n  Created {len(ids)} items")
 
         # Verify correct number of items created
-        # Expected: 6 pages + 4 folders = 10 items
-        expected_count = 10
+        # Expected: 7 pages + 4 folders = 11 items
+        expected_count = 11
         assert len(ids) >= expected_count, (
             f"Expected at least {expected_count} items, got {len(ids)}"
         )
@@ -243,6 +270,18 @@ def test_mirror_with_prefix():
                 print(f"  OK: {rel_path} has confluence ID")
 
         assert all_have_ids, "Some files missing confluence ID in front matter"
+
+        # Verify mermaid diagram was rendered
+        print("\n--- Verifying mermaid rendering ---")
+        has_mermaid_output = (
+            "Uploaded image:" in result.stdout
+            or "mermaid-" in result.stdout
+            or "attachment" in result.stdout.lower()
+        )
+        assert has_mermaid_output, (
+            "Expected mermaid diagram to be rendered and uploaded"
+        )
+        print("  OK: Mermaid diagram was rendered")
 
         # --- Test update scenario: modify a file and sync again ---
         print("\n--- Testing update scenario ---")
@@ -344,6 +383,13 @@ def main():
     print(f"Space: {WIKI_SPACE}")
     print(f"Parent folder: {WIKI_TEST_ROOT_FOLDER}")
 
+    # Require mmdc for mermaid rendering test
+    if not shutil.which("mmdc"):
+        print("\nERROR: mmdc (mermaid-cli) is required but not installed.")
+        print("Install with: npm install -g @mermaid-js/mermaid-cli")
+        sys.exit(1)
+    print("mmdc: OK")
+
     try:
         test_mirror_with_prefix()
 
@@ -357,15 +403,29 @@ def main():
     except KeyboardInterrupt:
         print("\nInterrupted")
     finally:
-        # Ask before cleanup
+        # Ask before cleanup (unless auto-delete is enabled)
         if created_items:
             print(f"\nCreated {len(created_items)} items during test.")
-            response = input("Clean up created items? [y/N] ").strip().lower()
-            if response == "y":
+            if auto_delete:
+                print("Auto-delete enabled, cleaning up...")
                 cleanup()
             else:
-                print("Skipping cleanup. Items left in Confluence.")
+                response = input("Clean up created items? [y/N] ").strip().lower()
+                if response == "y":
+                    cleanup()
+                else:
+                    print("Skipping cleanup. Items left in Confluence.")
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Integration tests for zaira wiki put --mirror with folder structure."
+    )
+    parser.add_argument(
+        "--auto-delete",
+        action="store_true",
+        help="Automatically delete created items without prompting",
+    )
+    args = parser.parse_args()
+    auto_delete = args.auto_delete
     main()

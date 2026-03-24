@@ -1,7 +1,5 @@
 """Tests for dashboard module."""
 
-
-
 from zaira.dashboard import (
     _get_owner_name,
     _dict_to_dashboard,

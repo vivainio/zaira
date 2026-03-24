@@ -146,7 +146,6 @@ def transition_command(args: argparse.Namespace) -> None:
                 violations.extend(validate_transition(ticket, all_rules, status))
 
         if violations:
-
             print(
                 f"Blocked: {key} fails rules for '{status}':",
                 file=sys.stderr,
