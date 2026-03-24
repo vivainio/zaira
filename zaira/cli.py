@@ -1012,6 +1012,10 @@ def main() -> None:
         help="Mirror directory structure to Confluence folders (implies --create)",
     )
     wiki_put.add_argument(
+        "--prefix",
+        help="Prefix for folder and page names (e.g., 'Demo - ' for uniqueness in space)",
+    )
+    wiki_put.add_argument(
         "--render",
         help="Render diagram blocks to PNG and attach (comma-separated: mermaid,dot,plantuml,d2,ditaa)",
     )

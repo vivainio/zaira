@@ -214,12 +214,16 @@ def _any_file_has_folder_front_matter(files: list[Path]) -> bool:
 def _resolve_parent_from_front_matter(
     filepath: Path,
     default_space: str | None = None,
+    mirror_parent_id: str | None = None,
+    name_prefix: str = "",
 ) -> tuple[str | None, str | None]:
     """Resolve parent folder ID and space key from a file's front matter.
 
     Args:
         filepath: Path to markdown file
         default_space: Fallback space key (from --space flag)
+        mirror_parent_id: Base parent folder ID (from --parent in mirror mode)
+        name_prefix: Prefix to apply to folder names (from --prefix)
 
     Returns:
         Tuple of (parent_id, space_key). parent_id is None for space root.
@@ -238,12 +242,25 @@ def _resolve_parent_from_front_matter(
         return None, None
 
     if not folder_path:
-        # Create at space root — need the homepage ID as parent
-        return None, file_space
+        # No subfolder — use the mirror parent directly or space root
+        return mirror_parent_id, file_space
 
-    parent_id = confluence_api.resolve_folder_path(
-        file_space, folder_path, create_missing=True
-    )
+    # Apply prefix to each folder segment
+    if name_prefix:
+        segments = [s.strip() for s in folder_path.strip("/").split("/") if s.strip()]
+        prefixed_segments = [f"{name_prefix}{seg}" for seg in segments]
+        folder_path = "/".join(prefixed_segments)
+
+    # Resolve folder path from mirror parent or space root
+    if mirror_parent_id:
+        parent_id = confluence_api.resolve_folder_path_from_parent(
+            file_space, mirror_parent_id, folder_path, create_missing=True
+        )
+    else:
+        parent_id = confluence_api.resolve_folder_path(
+            file_space, folder_path, create_missing=True
+        )
+
     if not parent_id:
         print(
             f"Error: Could not resolve folder path '{folder_path}' in space '{file_space}'",
@@ -657,8 +674,16 @@ def _create_page_for_file(
     parent_id: str | None,
     space_key: str,
     renderers: list[str] | None = None,
+    title_prefix: str = "",
 ) -> bool:
     """Create a new Confluence page for a markdown file.
+
+    Args:
+        filepath: Path to markdown file
+        parent_id: Parent page/folder ID
+        space_key: Space key
+        renderers: Optional list of diagram renderers
+        title_prefix: Prefix to add to page title (for --prefix flag)
 
     Returns:
         True if successful, False otherwise
@@ -676,6 +701,10 @@ def _create_page_for_file(
                 break
     if not title:
         title = filepath.stem.replace("-", " ").replace("_", " ").title()
+
+    # Apply prefix to title
+    if title_prefix:
+        title = f"{title_prefix}{title}"
 
     # Render diagram blocks to PNG (if requested and tools available)
     body_only, render_temps = render_diagram_blocks(body_only, renderers)
@@ -1091,12 +1120,17 @@ def put_command(args: argparse.Namespace) -> None:
         print("No markdown files found", file=sys.stderr)
         sys.exit(1)
 
+    # Mirror mode variables (used later for folder resolution and page creation)
+    mirror_parent_id: str | None = None
+    mirror_prefix: str = ""
+
     # Mirror preprocessing: inject space:/folder: into front matter based on path
     if mirror_mode:
         args.create = True  # --mirror implies --create
 
         mirror_space = getattr(args, "space", None)
-        mirror_parent_prefix = getattr(args, "parent", None) or ""
+        mirror_parent_id = getattr(args, "parent", None)  # This is a folder ID
+        mirror_prefix = getattr(args, "prefix", None) or ""
 
         for filepath in files_to_process:
             if not filepath.exists():
@@ -1117,17 +1151,11 @@ def put_command(args: argparse.Namespace) -> None:
                 # File was specified directly (not from a directory), skip mirror logic
                 continue
 
-            rel_folder = str(resolved.relative_to(root).parent)
+            # Compute relative folder path (just the subdirectory structure)
+            # Use as_posix() to ensure forward slashes on all platforms
+            rel_folder = resolved.relative_to(root).parent.as_posix()
             if rel_folder == ".":
                 rel_folder = ""
-
-            # Prefix with --parent value if set
-            if mirror_parent_prefix and rel_folder:
-                folder_path = f"{mirror_parent_prefix}/{rel_folder}"
-            elif mirror_parent_prefix:
-                folder_path = mirror_parent_prefix
-            else:
-                folder_path = rel_folder
 
             content = filepath.read_text(encoding="utf-8")
             fm, body = parse_front_matter(content)
@@ -1138,10 +1166,11 @@ def put_command(args: argparse.Namespace) -> None:
                 fm["space"] = mirror_space
                 changed = True
 
-            if folder_path and fm.get("folder") != folder_path:
-                fm["folder"] = folder_path
+            # Store just the relative folder path (prefix applied during resolution)
+            if rel_folder and fm.get("folder") != rel_folder:
+                fm["folder"] = rel_folder
                 changed = True
-            elif not folder_path and "folder" in fm:
+            elif not rel_folder and "folder" in fm:
                 del fm["folder"]
                 changed = True
 
@@ -1197,8 +1226,12 @@ def put_command(args: argparse.Namespace) -> None:
                     file=sys.stderr,
                 )
         else:
-            # Determine parent: --parent flag > front matter > siblings
-            if args.parent:
+            # Determine parent: mirror mode > --parent flag > front matter > siblings
+            if mirror_mode:
+                # In mirror mode, use per-file resolution with the mirror parent
+                per_file_resolve = True
+                space_key = getattr(args, "space", None)
+            elif args.parent:
                 parent_id = parse_page_id(args.parent)
                 info = _get_page_info(parent_id)
                 if info:
@@ -1278,13 +1311,20 @@ def put_command(args: argparse.Namespace) -> None:
     for filepath in unlinked_files:
         if per_file_resolve:
             file_parent_id, file_space = _resolve_parent_from_front_matter(
-                filepath, default_space=space_key
+                filepath,
+                default_space=space_key,
+                mirror_parent_id=mirror_parent_id,
+                name_prefix=mirror_prefix,
             )
             if file_space is None:
                 fail_count += 1
                 continue
             success = _create_page_for_file(
-                filepath, file_parent_id, file_space, renderers
+                filepath,
+                file_parent_id,
+                file_space,
+                renderers,
+                title_prefix=mirror_prefix,
             )
         else:
             assert space_key is not None, (
