@@ -1,5 +1,6 @@
 """Tests for search module."""
 
+import importlib.util
 import json
 
 import pytest
@@ -84,6 +85,10 @@ class TestFormatResults:
         parsed = json.loads(out)
         assert parsed[0]["summary"] == "Default"
 
+    @pytest.mark.skipif(
+        not importlib.util.find_spec("toon_format"),
+        reason="toon-format not installed",
+    )
     def test_toon_format_output(self):
         """Toon format produces non-empty string."""
         pytest.importorskip("toon_format")
