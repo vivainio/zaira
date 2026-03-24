@@ -1194,3 +1194,112 @@ class TestRemovePageLabelWithRequests:
             result = confluence_api.remove_page_label("12345", "label")
 
         assert result is False
+
+
+class TestResolveFolderPathFromParent:
+    """Tests for resolve_folder_path_from_parent function."""
+
+    def test_uses_override_when_set(self, mock_confluence):
+        """Uses override function when set."""
+        confluence_api.set_api(
+            "resolve_folder_path_from_parent",
+            lambda space, parent, path, create: "resolved-folder-id",
+        )
+
+        result = confluence_api.resolve_folder_path_from_parent(
+            "SPACE", "parent-123", "sub/folder", create_missing=True
+        )
+
+        assert result == "resolved-folder-id"
+
+    def test_returns_parent_id_for_empty_path(self, mock_confluence):
+        """Returns parent_id when folder_path is empty."""
+        confluence_api.set_api("get_child_folders", lambda pid, limit=100: [])
+
+        result = confluence_api.resolve_folder_path_from_parent(
+            "SPACE", "parent-123", "", create_missing=False
+        )
+
+        assert result == "parent-123"
+
+    def test_returns_parent_id_for_whitespace_only_path(self, mock_confluence):
+        """Returns parent_id when folder_path has only whitespace."""
+        confluence_api.set_api("get_child_folders", lambda pid, limit=100: [])
+
+        result = confluence_api.resolve_folder_path_from_parent(
+            "SPACE", "parent-123", "   /   /   ", create_missing=False
+        )
+
+        assert result == "parent-123"
+
+    def test_finds_existing_folder(self, mock_confluence):
+        """Finds existing folder by title."""
+        confluence_api.set_api(
+            "get_child_folders",
+            lambda pid, limit=100: [{"id": "sub-id", "title": "subfolder"}],
+        )
+
+        result = confluence_api.resolve_folder_path_from_parent(
+            "SPACE", "parent-123", "subfolder", create_missing=False
+        )
+
+        assert result == "sub-id"
+
+    def test_traverses_multi_level_path(self, mock_confluence):
+        """Traverses multiple folder levels."""
+        folder_children = {
+            "parent-123": [{"id": "level1-id", "title": "level1"}],
+            "level1-id": [{"id": "level2-id", "title": "level2"}],
+            "level2-id": [],
+        }
+        confluence_api.set_api(
+            "get_child_folders", lambda pid, limit=100: folder_children.get(pid, [])
+        )
+
+        result = confluence_api.resolve_folder_path_from_parent(
+            "SPACE", "parent-123", "level1/level2", create_missing=False
+        )
+
+        assert result == "level2-id"
+
+    def test_returns_none_when_folder_not_found(self, mock_confluence):
+        """Returns None when folder doesn't exist and create_missing is False."""
+        confluence_api.set_api("get_child_folders", lambda pid, limit=100: [])
+
+        result = confluence_api.resolve_folder_path_from_parent(
+            "SPACE", "parent-123", "nonexistent", create_missing=False
+        )
+
+        assert result is None
+
+    def test_creates_missing_folders(self, mock_confluence, capsys):
+        """Creates folders when create_missing is True."""
+        created_folders = []
+
+        def mock_create_folder(space, title, parent):
+            folder_id = f"created-{title}"
+            created_folders.append((space, title, parent))
+            return {"id": folder_id, "title": title}
+
+        confluence_api.set_api("get_child_folders", lambda pid, limit=100: [])
+        confluence_api.set_api("create_folder", mock_create_folder)
+
+        result = confluence_api.resolve_folder_path_from_parent(
+            "SPACE", "parent-123", "new/nested", create_missing=True
+        )
+
+        assert result == "created-nested"
+        assert len(created_folders) == 2
+        assert created_folders[0] == ("SPACE", "new", "parent-123")
+        assert created_folders[1] == ("SPACE", "nested", "created-new")
+
+    def test_returns_none_when_create_fails(self, mock_confluence):
+        """Returns None when folder creation fails."""
+        confluence_api.set_api("get_child_folders", lambda pid, limit=100: [])
+        confluence_api.set_api("create_folder", lambda s, t, p: None)
+
+        result = confluence_api.resolve_folder_path_from_parent(
+            "SPACE", "parent-123", "folder", create_missing=True
+        )
+
+        assert result is None

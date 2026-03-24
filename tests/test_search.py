@@ -86,6 +86,7 @@ class TestFormatResults:
 
     def test_toon_format_output(self):
         """Toon format produces non-empty string."""
+        pytest.importorskip("toon_format")
         results: list[SearchResult] = [
             SearchResult(
                 key="Z-1",
