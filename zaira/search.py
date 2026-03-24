@@ -7,6 +7,7 @@ from zaira.export import extract_custom_field_value
 from zaira.info import get_field_id
 from zaira.jira_client import get_jira
 from zaira.report import humanize_age
+from zaira.types import SearchResult
 
 
 PAGE_SIZE = 50
@@ -129,6 +130,29 @@ def print_row_with_fields(
     print("  ".join(parts))
 
 
+def format_results(results: list[SearchResult], output_format: str = "json") -> str:
+    """Format search results as JSON or toon string.
+
+    Args:
+        results: List of SearchResult dicts.
+        output_format: "json" or "toon".
+
+    Returns:
+        Formatted string.
+    """
+    if output_format == "toon":
+        try:
+            import toon_format
+        except ImportError:
+            raise ImportError(
+                "toon-format package not installed. Run: pip install toon-format"
+            )
+        return toon_format.encode(results)
+    import json
+
+    return json.dumps(results, indent=2, default=str)
+
+
 def search_command(args: argparse.Namespace) -> None:
     """Handle search subcommand."""
     jql = build_jql(args)
@@ -183,8 +207,6 @@ def search_command(args: argparse.Namespace) -> None:
                     "Error: toon-format package not installed. Run: pip install toon-format",
                     file=sys.stderr,
                 )
-                import sys
-
                 sys.exit(1)
             print(toon_format.encode(data))
         return

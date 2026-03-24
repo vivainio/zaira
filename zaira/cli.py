@@ -1,8 +1,10 @@
 """Zaira CLI - Main entry point."""
 
 import argparse
+import io
 import sys
 from pathlib import Path
+from typing import Any
 
 from zaira import __version__
 from zaira.attach import attach_command
@@ -86,7 +88,10 @@ def main() -> None:
     # Force UTF-8 stdout on Windows to avoid encode/decode errors
     # when Jira content contains characters outside cp1252
     if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
-        sys.stdout.reconfigure(encoding="utf-8")
+        if hasattr(sys.stdout, "reconfigure"):
+            stdout = sys.stdout
+            assert isinstance(stdout, io.TextIOWrapper)
+            stdout.reconfigure(encoding="utf-8")
 
     _migrate_legacy_dirs()
 
@@ -190,6 +195,11 @@ def main() -> None:
         "--files",
         action="store_true",
         help="Force file output to reports/ (even without zproject.toml)",
+    )
+    report_parser.add_argument(
+        "--parallel",
+        action="store_true",
+        help="Fetch tickets in parallel threads (for --full and --dashboard)",
     )
     report_parser.set_defaults(func=report_command)
 
@@ -421,6 +431,11 @@ def main() -> None:
         "--raw",
         action="store_true",
         help="Skip wiki-to-markdown conversion (preserve Jira wiki markup)",
+    )
+    get_parser.add_argument(
+        "--parallel",
+        action="store_true",
+        help="Export tickets and download attachments in parallel threads",
     )
     get_parser.set_defaults(func=get_command)
 
@@ -766,7 +781,10 @@ def main() -> None:
     info_subparsers = info_parser.add_subparsers(dest="info_command")
 
     # Common --refresh argument for all info subcommands
-    refresh_args = {"action": "store_true", "help": "Fetch live from Jira API"}
+    refresh_args: dict[str, Any] = {
+        "action": "store_true",
+        "help": "Fetch live from Jira API",
+    }
 
     info_link_types = info_subparsers.add_parser("link-types", help="List link types")
     info_link_types.add_argument("-r", "--refresh", **refresh_args)
@@ -793,7 +811,7 @@ def main() -> None:
         "-a",
         "--all",
         action="store_true",
-        help="Show all fields, not just custom fields",
+        help="Show all fields (ignore custom-only and allowed_fields filters)",
     )
     info_fields.set_defaults(info_func=fields_command)
 

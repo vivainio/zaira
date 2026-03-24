@@ -146,6 +146,12 @@ class Ticket(TypedDict, total=False):
     # Attachments (if --with-attachments)
     attachments: list[Attachment]
 
+    # Custom fields (if --all-fields)
+    custom_fields: dict[str, object]
+
+    # Pull requests (if --with-prs)
+    pullRequests: list[dict[str, str]]
+
 
 class ReportTicket(TypedDict, total=False):
     """Ticket data for reports (lighter than full Ticket)."""
@@ -180,6 +186,18 @@ class MyTicket(TypedDict):
     summary: str
 
 
+class SearchResult(TypedDict):
+    """Single search result row."""
+
+    key: str
+    summary: str
+    status: str
+    type: str
+    priority: str
+    assignee: str
+    created: str
+
+
 class FrontMatter(TypedDict, total=False):
     """YAML front matter from reports."""
 
@@ -192,6 +210,7 @@ class FrontMatter(TypedDict, total=False):
     label: str
     group_by: str
     refresh: str
+    report: str
 
 
 class Credentials(TypedDict, total=False):

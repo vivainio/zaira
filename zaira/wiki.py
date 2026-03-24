@@ -495,7 +495,7 @@ def search_command(args: argparse.Namespace) -> None:
 
     # Get base wiki URL for building links
     server = get_server_from_config()
-    wiki_base = server + "/wiki"
+    wiki_base = (server or "") + "/wiki"
 
     for page in results:
         page_id = page["id"]
@@ -1215,7 +1215,9 @@ def put_command(args: argparse.Namespace) -> None:
                 space_key = getattr(args, "space", None)
             elif linked_files:
                 # Get parent from linked files - verify they all have same parent
-                parents_seen: dict[str | None, str] = {}  # parent_id -> space_key
+                parents_seen: dict[
+                    str | None, str | None
+                ] = {}  # parent_id -> space_key
                 for _, page_id in linked_files:
                     info = _get_page_info(page_id)
                     if info:
@@ -1285,6 +1287,9 @@ def put_command(args: argparse.Namespace) -> None:
                 filepath, file_parent_id, file_space, renderers
             )
         else:
+            assert space_key is not None, (
+                "space_key must be set for non-per-file-resolve path"
+            )
             success = _create_page_for_file(filepath, parent_id, space_key, renderers)
         if success:
             success_count += 1
@@ -1598,7 +1603,7 @@ def ls_command(args: argparse.Namespace) -> None:
             print("Error: Could not determine personal space key.", file=sys.stderr)
             sys.exit(1)
 
-    server = get_server_from_config()
+    server = get_server_from_config() or ""
     depth = args.depth
 
     # Get root pages and folders

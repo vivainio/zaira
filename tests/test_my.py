@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from zaira.my import search_my_tickets, print_table
+from zaira.types import MyTicket
 
 
 class TestSearchMyTickets:
@@ -54,25 +55,25 @@ class TestPrintTable:
 
     def test_groups_by_status(self, capsys):
         """Groups tickets by status."""
-        tickets = [
-            {
-                "key": "T-1",
-                "status": "Open",
-                "created": "2024-01-01",
-                "summary": "First",
-            },
-            {
-                "key": "T-2",
-                "status": "Open",
-                "created": "2024-01-02",
-                "summary": "Second",
-            },
-            {
-                "key": "T-3",
-                "status": "In Progress",
-                "created": "2024-01-03",
-                "summary": "Third",
-            },
+        tickets: list[MyTicket] = [
+            MyTicket(
+                key="T-1",
+                status="Open",
+                created="2024-01-01",
+                summary="First",
+            ),
+            MyTicket(
+                key="T-2",
+                status="Open",
+                created="2024-01-02",
+                summary="Second",
+            ),
+            MyTicket(
+                key="T-3",
+                status="In Progress",
+                created="2024-01-03",
+                summary="Third",
+            ),
         ]
 
         print_table(tickets)
@@ -86,13 +87,13 @@ class TestPrintTable:
 
     def test_truncates_long_summaries(self, capsys):
         """Truncates summaries over 100 characters."""
-        tickets = [
-            {
-                "key": "T-1",
-                "status": "Open",
-                "created": "2024-01-01",
-                "summary": "A" * 150,
-            }
+        tickets: list[MyTicket] = [
+            MyTicket(
+                key="T-1",
+                status="Open",
+                created="2024-01-01",
+                summary="A" * 150,
+            )
         ]
 
         print_table(tickets)
@@ -104,25 +105,25 @@ class TestPrintTable:
 
     def test_sorts_by_created_date(self, capsys):
         """Sorts tickets by created date within groups."""
-        tickets = [
-            {
-                "key": "T-3",
-                "status": "Open",
-                "created": "2024-01-03",
-                "summary": "Newest",
-            },
-            {
-                "key": "T-1",
-                "status": "Open",
-                "created": "2024-01-01",
-                "summary": "Oldest",
-            },
-            {
-                "key": "T-2",
-                "status": "Open",
-                "created": "2024-01-02",
-                "summary": "Middle",
-            },
+        tickets: list[MyTicket] = [
+            MyTicket(
+                key="T-3",
+                status="Open",
+                created="2024-01-03",
+                summary="Newest",
+            ),
+            MyTicket(
+                key="T-1",
+                status="Open",
+                created="2024-01-01",
+                summary="Oldest",
+            ),
+            MyTicket(
+                key="T-2",
+                status="Open",
+                created="2024-01-02",
+                summary="Middle",
+            ),
         ]
 
         print_table(tickets)

@@ -15,6 +15,7 @@ from zaira.export import (
     _is_bogus_field_name,
     format_custom_field_value,
 )
+from zaira.types import Attachment
 
 
 class TestNormalizeTitle:
@@ -741,6 +742,7 @@ class TestGetTicket:
 
         result = get_ticket("TEST-1")
 
+        assert result is not None
         assert result["key"] == "TEST-1"
         assert result["summary"] == "Test ticket"
         assert result["status"] == "Open"
@@ -788,8 +790,11 @@ class TestGetTicket:
 
         result = get_ticket("TEST-1")
 
-        assert result["parent"]["key"] == "EPIC-1"
-        assert result["parent"]["summary"] == "Epic ticket"
+        assert result is not None
+        parent = result["parent"]
+        assert parent is not None
+        assert parent["key"] == "EPIC-1"
+        assert parent["summary"] == "Epic ticket"
 
     def test_includes_issue_links(self, mock_jira):
         """Includes issue link information."""
@@ -826,6 +831,7 @@ class TestGetTicket:
 
         result = get_ticket("TEST-1")
 
+        assert result is not None
         assert len(result["issuelinks"]) == 1
         assert result["issuelinks"][0]["type"] == "Blocks"
         assert result["issuelinks"][0]["key"] == "TEST-2"
@@ -860,6 +866,7 @@ class TestGetTicket:
         with patch("zaira.export.get_field_name", return_value="Story Points"):
             result = get_ticket("TEST-1", include_custom=True)
 
+        assert result is not None
         assert "custom_fields" in result
         assert result["custom_fields"]["Story Points"] == 5
 
@@ -898,6 +905,7 @@ class TestGetTicket:
 
         result = get_ticket("TEST-1", full=True)
 
+        assert result is not None
         assert result["project"] == "TEST"
         assert result["resolution"] == "Fixed"
         assert result["votes"] == 5
@@ -938,6 +946,7 @@ class TestGetTicket:
 
         result = get_ticket("TEST-1", include_attachments=True)
 
+        assert result is not None
         assert "attachments" in result
         assert len(result["attachments"]) == 1
         assert result["attachments"][0]["filename"] == "screenshot.png"
@@ -1065,7 +1074,14 @@ class TestDownloadAttachment:
         mock_jira._session.get.return_value = mock_response
         mock_jira._options = {"server": "https://jira.example.com"}
 
-        attachment = {"id": "att123", "filename": "test.txt", "size": 12}
+        attachment = Attachment(
+            id="att123",
+            filename="test.txt",
+            size=12,
+            mimeType="text/plain",
+            author="user",
+            created="2024-01-15",
+        )
         output_dir = tmp_path / "attachments"
 
         result = download_attachment(attachment, output_dir)
@@ -1078,11 +1094,14 @@ class TestDownloadAttachment:
         """Skips files larger than 10MB."""
         from zaira.export import download_attachment
 
-        attachment = {
-            "id": "att123",
-            "filename": "large.zip",
-            "size": 15 * 1024 * 1024,
-        }  # 15 MB
+        attachment = Attachment(
+            id="att123",
+            filename="large.zip",
+            size=15 * 1024 * 1024,
+            mimeType="application/zip",
+            author="user",
+            created="2024-01-15",
+        )
         output_dir = tmp_path / "attachments"
 
         result = download_attachment(attachment, output_dir)
@@ -1099,7 +1118,14 @@ class TestDownloadAttachment:
         mock_jira._session.get.side_effect = Exception("Download failed")
         mock_jira._options = {"server": "https://jira.example.com"}
 
-        attachment = {"id": "att123", "filename": "test.txt", "size": 100}
+        attachment = Attachment(
+            id="att123",
+            filename="test.txt",
+            size=100,
+            mimeType="text/plain",
+            author="user",
+            created="2024-01-15",
+        )
         output_dir = tmp_path / "attachments"
 
         result = download_attachment(attachment, output_dir)

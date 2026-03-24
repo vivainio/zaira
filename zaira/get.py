@@ -2,10 +2,16 @@
 
 import argparse
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
-from zaira.export import export_ticket, export_to_stdout, search_tickets
+from zaira.export import (
+    PendingAttachment,
+    export_ticket,
+    export_to_stdout,
+    search_tickets,
+)
 
 
 def get_command(args: argparse.Namespace) -> None:
@@ -17,6 +23,7 @@ def get_command(args: argparse.Namespace) -> None:
     minimal = getattr(args, "min", False)
     raw = getattr(args, "raw", False)
     output = getattr(args, "output", None)
+    parallel = getattr(args, "parallel", False)
     if not output:
         from zaira.project import load_config
 
@@ -63,17 +70,48 @@ def get_command(args: argparse.Namespace) -> None:
                 raw=raw,
             )
     else:
+        assert output is not None
         output_dir = Path(output)
-        success = 0
-        for key in keys:
-            if export_ticket(
-                key,
-                output_dir,
-                fmt=fmt,
-                with_prs=with_prs,
-                with_tests=with_tests,
-                include_custom=include_custom,
-                with_attachments=True,
-            ):
-                success += 1
+        all_pending: list[PendingAttachment] = []
+
+        export_kwargs = dict(
+            fmt=fmt,
+            with_prs=with_prs,
+            with_tests=with_tests,
+            include_custom=include_custom,
+            with_attachments=True,
+            defer_attachments=True,
+        )
+
+        if parallel:
+            success = 0
+            with ThreadPoolExecutor() as pool:
+                futures = {
+                    pool.submit(export_ticket, key, output_dir, **export_kwargs): key
+                    for key in keys
+                }
+                for future in as_completed(futures):
+                    result = future.result()
+                    if result is not False:
+                        success += 1
+                        if isinstance(result, list):
+                            all_pending.extend(result)
+        else:
+            success = 0
+            for key in keys:
+                result = export_ticket(key, output_dir, **export_kwargs)
+                if result is not False:
+                    success += 1
+                    if isinstance(result, list):
+                        all_pending.extend(result)
+
+        if all_pending:
+            print(f"\nDownloading {len(all_pending)} attachment(s)...")
+            if parallel:
+                with ThreadPoolExecutor() as pool:
+                    list(pool.map(lambda p: p.download(), all_pending))
+            else:
+                for p in all_pending:
+                    p.download()
+
         print(f"\nExported {success}/{len(keys)} tickets to {output_dir}/")

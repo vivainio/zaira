@@ -152,7 +152,7 @@ class TestFormatHours:
 
     def test_daily_breakdown(self):
         """Shows daily breakdown with totals."""
-        daily = {
+        daily: dict[str, list[tuple[str, str, float, str | None]]] = {
             "2026-02-03": [
                 ("FOO-1", "Feature", 2.0, "Morning"),
                 ("FOO-2", "Bug", 1.0, None),

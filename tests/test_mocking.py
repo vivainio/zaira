@@ -66,6 +66,7 @@ class TestConfluenceMocking:
         page = confluence_api.fetch_page("123")
         labels = confluence_api.get_page_labels("123")
 
+        assert page is not None
         assert page["title"] == "Test"
         assert labels == ["label1", "label2"]
 

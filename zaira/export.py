@@ -14,7 +14,7 @@ from zaira.info import get_field_name
 from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
 from zaira.mdconv import is_jira_wiki, jira_wiki_to_markdown
-from zaira.types import Attachment, Comment, Ticket, get_user_identifier, yaml_quote
+from zaira.types import Attachment, Comment, get_user_identifier, yaml_quote
 
 
 def _format_timestamp(ts: str) -> str:
@@ -171,7 +171,7 @@ def get_ticket(
     include_custom: bool = False,
     include_attachments: bool = False,
     raw: bool = False,
-) -> Ticket | None:
+) -> dict[str, Any] | None:
     """Fetch ticket details.
 
     Args:
@@ -427,6 +427,7 @@ def get_pull_requests(issue_id: str) -> list[dict]:
     """Fetch GitHub PRs linked to a Jira issue via dev-status API."""
     jira = get_jira()
     try:
+        assert jira._session is not None
         resp = jira._session.get(
             f"{jira._options['server']}/rest/dev-status/1.0/issue/detail",
             params={
@@ -473,6 +474,7 @@ def download_attachment(attachment: Attachment, output_dir: Path) -> bool:
     jira = get_jira()
     try:
         # Construct the attachment URL
+        assert jira._session is not None
         url = f"{jira._options['server']}/secure/attachment/{attachment['id']}/{attachment['filename']}"
         resp = jira._session.get(url)
         resp.raise_for_status()
@@ -555,7 +557,7 @@ def format_custom_field_value(value: Any) -> str:
     return yaml_quote(str(value))
 
 
-def format_ticket_minimal(ticket: dict) -> str:
+def format_ticket_minimal(ticket: dict[str, Any]) -> str:
     """Format ticket as minimal markdown: key + summary front matter, description body."""
     key = ticket.get("key", "")
     summary = ticket.get("summary", "No summary")
@@ -564,7 +566,7 @@ def format_ticket_minimal(ticket: dict) -> str:
 
 
 def format_ticket_markdown(
-    ticket: dict, comments: list[Comment], synced: str, jira_site: str
+    ticket: dict[str, Any], comments: list[Comment], synced: str, jira_site: str
 ) -> str:
     """Format ticket data as markdown."""
     key = ticket.get("key", "")
@@ -677,7 +679,7 @@ url: https://{jira_site}/browse/{key}
 
 
 def format_ticket_json(
-    ticket: dict, comments: list[Comment], synced: str, jira_site: str
+    ticket: dict[str, Any], comments: list[Comment], synced: str, jira_site: str
 ) -> str:
     """Format ticket data as JSON."""
     key = ticket.get("key", "")
@@ -690,6 +692,19 @@ def format_ticket_json(
     return json.dumps(data, indent=2)
 
 
+class PendingAttachment:
+    """An attachment to download later."""
+
+    __slots__ = ("attachment", "output_dir")
+
+    def __init__(self, attachment: Attachment, output_dir: Path) -> None:
+        self.attachment = attachment
+        self.output_dir = output_dir
+
+    def download(self) -> bool:
+        return download_attachment(self.attachment, self.output_dir)
+
+
 def export_ticket(
     key: str,
     output_dir: Path,
@@ -699,8 +714,15 @@ def export_ticket(
     include_custom: bool = False,
     with_attachments: bool = False,
     symlinks: bool = False,
-) -> bool:
-    """Export a single ticket to markdown or JSON."""
+    defer_attachments: bool = False,
+) -> bool | list[PendingAttachment]:
+    """Export a single ticket to markdown or JSON.
+
+    Returns:
+        bool when defer_attachments is False (success/failure).
+        list[PendingAttachment] when defer_attachments is True and successful,
+        or False on failure.
+    """
     print(f"Exporting {key}...")
 
     ticket = get_ticket(
@@ -732,25 +754,30 @@ def export_ticket(
     outfile = output_dir / filename
 
     # Download attachments to attachments/{key}/
+    pending: list[PendingAttachment] = []
     if with_attachments:
         attachments = ticket.get("attachments", [])
         if attachments:
             attach_dir = output_dir / "attachments" / key
-            print(f"  Downloading {len(attachments)} attachment(s)...")
             seen: dict[str, int] = {}
             for att in attachments:
                 orig_name = att["filename"]
                 if orig_name in seen:
                     seen[orig_name] += 1
                     # Insert counter before extension: foo.png -> foo_2.png
-                    base, dot, ext = orig_name.rpartition(".")
+                    base, dot, ext_part = orig_name.rpartition(".")
                     if dot:
-                        att["filename"] = f"{base}_{seen[orig_name]}.{ext}"
+                        att["filename"] = f"{base}_{seen[orig_name]}.{ext_part}"
                     else:
                         att["filename"] = f"{orig_name}_{seen[orig_name]}"
                 else:
                     seen[orig_name] = 1
-                download_attachment(att, attach_dir)
+                pending.append(PendingAttachment(att, attach_dir))
+
+            if not defer_attachments:
+                print(f"  Downloading {len(pending)} attachment(s)...")
+                for p in pending:
+                    p.download()
 
     if fmt == "json":
         outfile.write_text(
@@ -786,6 +813,8 @@ def export_ticket(
             link.unlink(missing_ok=True)
             link.symlink_to(f"../../{filename}")
 
+    if defer_attachments:
+        return pending
     return True
 
 

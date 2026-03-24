@@ -42,6 +42,7 @@ class TestFetchPage:
 
         result = confluence_api.fetch_page("12345", "body.storage")
 
+        assert result is not None
         assert result["id"] == "12345"
         assert result["title"] == "Mocked"
 
@@ -62,6 +63,7 @@ class TestCreatePage:
 
         result = confluence_api.create_page("TEST", "New Page", "<p>Body</p>")
 
+        assert result is not None
         assert result["id"] == "99999"
         assert result["title"] == "New Page"
         assert result["space"]["key"] == "TEST"
@@ -83,6 +85,7 @@ class TestUpdatePage:
 
         result = confluence_api.update_page("123", "Updated", "<p>New</p>", 5)
 
+        assert result is not None
         assert result["id"] == "123"
         assert result["title"] == "Updated"
         assert result["version"]["number"] == 6
@@ -217,6 +220,7 @@ class TestUploadAttachment:
 
         result = confluence_api.upload_attachment("123", test_file)
 
+        assert result is not None
         assert result["id"] == "att123"
         assert result["title"] == "test.txt"
 
@@ -237,6 +241,7 @@ class TestGetPageProperty:
 
         result = confluence_api.get_page_property("123", "my-prop")
 
+        assert result is not None
         assert result["key"] == "my-prop"
         assert result["value"]["data"] == "test"
 
@@ -283,6 +288,7 @@ class TestUpdatePageProperties:
             "123", 5, "page", "New Title", "SPACE", "456"
         )
 
+        assert result is not None
         assert result["id"] == "123"
         assert result["title"] == "New Title"
         assert result["version"]["number"] == 6
@@ -306,6 +312,7 @@ class TestUpdateAttachment:
 
         result = confluence_api.update_attachment("123", "att456", test_file)
 
+        assert result is not None
         assert result["id"] == "att456"
         assert result["title"] == "updated.txt"
 
@@ -406,6 +413,7 @@ class TestFetchPageWithRequests:
         ):
             result = confluence_api.fetch_page("12345", "body.storage")
 
+        assert result is not None
         assert result["id"] == "12345"
         assert result["title"] == "Test Page"
         mock_get.assert_called_once()
@@ -452,6 +460,7 @@ class TestCreatePageWithRequests:
         ):
             result = confluence_api.create_page("SPACE", "New Page", "<p>Body</p>")
 
+        assert result is not None
         assert result["id"] == "99999"
         mock_post.assert_called_once()
 
@@ -521,6 +530,7 @@ class TestUpdatePageWithRequests:
         ):
             result = confluence_api.update_page("12345", "Updated", "<p>New</p>", 5)
 
+        assert result is not None
         assert result["version"]["number"] == 6
         mock_put.assert_called_once()
 
@@ -864,6 +874,7 @@ class TestUploadAttachmentWithRequests:
         ):
             result = confluence_api.upload_attachment("12345", test_file)
 
+        assert result is not None
         assert result["id"] == "att123"
 
     def test_returns_none_on_error(self, mock_confluence, tmp_path):
@@ -912,6 +923,7 @@ class TestGetPagePropertyWithRequests:
         ):
             result = confluence_api.get_page_property("12345", "my-prop")
 
+        assert result is not None
         assert result["key"] == "my-prop"
 
     def test_returns_none_when_not_found(self, mock_confluence):
@@ -1020,6 +1032,7 @@ class TestUpdatePagePropertiesWithRequests:
                 "12345", 5, "page", "New Title", "NEWSPACE", "67890"
             )
 
+        assert result is not None
         assert result["title"] == "New Title"
         # Verify space and ancestors were included
         call_kwargs = mock_put.call_args[1]
@@ -1118,6 +1131,7 @@ class TestUpdateAttachmentWithRequests:
         ):
             result = confluence_api.update_attachment("12345", "att456", test_file)
 
+        assert result is not None
         assert result["id"] == "att456"
 
     def test_returns_none_on_error(self, mock_confluence, tmp_path):

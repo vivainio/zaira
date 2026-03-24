@@ -8,6 +8,7 @@ import yaml
 
 from zaira.info import get_editmeta_field
 from zaira.jira_client import format_jira_error, get_jira, get_jira_site
+from zaira.types import EditmetaFieldDef
 
 
 # Standard field name mappings
@@ -80,7 +81,7 @@ def _resolve_component(name: str, project: str) -> dict:
 
 
 def map_field(
-    name: str, value: str, project: str = "", issue_type: str = ""
+    name: str, value: str | list[str], project: str = "", issue_type: str = ""
 ) -> tuple[str, Any]:
     """Map a field name to Jira field ID and format value.
 
@@ -101,7 +102,9 @@ def map_field(
         if field_id in _NAME_FIELDS:
             return field_id, {"name": value}
         if field_id == "assignee":
-            return field_id, _format_assignee(value)
+            return field_id, _format_assignee(
+                value if isinstance(value, str) else value[0] if value else None
+            )
         if field_id == "labels":
             if isinstance(value, list):
                 return field_id, value
@@ -209,7 +212,9 @@ def _parse_number(value: str) -> int | float | str:
         return value
 
 
-def _validate_field_value(field_id: str, value: Any, editmeta_field: dict) -> None:
+def _validate_field_value(
+    field_id: str, value: Any, editmeta_field: dict | EditmetaFieldDef
+) -> None:
     """Validate value against editmeta allowedValues (warning only).
 
     Prints a warning to stderr if the value is not in the allowed values list.
@@ -400,7 +405,7 @@ def _handle_update_error(e: Exception, jira, key: str) -> None:
         return
 
     try:
-        error_data = json.loads(e.response.text)
+        error_data = json.loads(str(e.response.text))
     except (json.JSONDecodeError, ValueError):
         print(f"Error updating {key}: {format_jira_error(e)}", file=sys.stderr)
         return

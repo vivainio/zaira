@@ -135,6 +135,7 @@ class TestGetBoardInfo:
 
         result = get_board_info(123)
 
+        assert result is not None
         assert result["id"] == 123
         assert result["name"] == "Test Board"
 

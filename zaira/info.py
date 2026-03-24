@@ -3,7 +3,7 @@
 import argparse
 import json
 import sys
-from typing import Callable, TypeVar
+from typing import Any, Callable, TypeVar, cast
 
 import yaml
 
@@ -15,7 +15,7 @@ from zaira.jira_client import (
     get_project_schema_path,
     get_schema_path,
 )
-from zaira.types import EditmetaSchema, ProjectSchema, ZSchema
+from zaira.types import EditmetaFieldDef, EditmetaSchema, ProjectSchema, ZSchema
 from zaira.util import fuzzy_match
 
 T = TypeVar("T")
@@ -66,9 +66,9 @@ def save_schema(schema: ZSchema) -> None:
 
 def update_schema(key: str, value: dict | list) -> None:
     """Update a single key in the cached schema."""
-    schema = load_schema() or {}
-    schema[key] = value
-    save_schema(schema)
+    raw = cast(dict[str, Any], load_schema() or {})
+    raw[key] = value
+    save_schema(cast(ZSchema, raw))
 
 
 def _parse_field_type(type_str: str) -> tuple[str, str | None]:
@@ -254,7 +254,7 @@ def _fetch_cached_data(
     """
     schema = load_schema()
     if not refresh and schema and schema_key in schema:
-        return schema[schema_key]
+        return cast(T, dict(schema)[schema_key])
     return fetch_fn()
 
 
@@ -367,6 +367,22 @@ def fields_command(args: argparse.Namespace) -> None:
             f for f in fields if f.get("custom") or f["id"].startswith("customfield_")
         ]
 
+    # Filter to allowed_fields if configured (unless --all)
+    allowed_fields_active = False
+    if not show_all:
+        from zaira.rules import ALLOWED_FIELDS_FILE, load_allowed_fields
+
+        allowed = load_allowed_fields()
+        if allowed:
+            allowed_fields_active = True
+            allowed_lower = {a.lower() for a in allowed}
+            result = [
+                f
+                for f in result
+                if f["name"].lower() in allowed_lower
+                or f["id"].lower() in allowed_lower
+            ]
+
     if filter_text:
         filter_lower = filter_text.lower()
         result = [
@@ -382,10 +398,17 @@ def fields_command(args: argparse.Namespace) -> None:
     for f in result:
         print(f"{f['id']:<25} {f['name']:<40}")
 
+    if allowed_fields_active:
+        print(
+            f"\nFiltered by {ALLOWED_FIELDS_FILE}"
+            "\nUse --all to see all fields available on the server.",
+            file=sys.stderr,
+        )
+
 
 def get_editmeta_field(
     project: str, issue_type: str, name_or_id: str
-) -> tuple[str, dict] | None:
+) -> tuple[str, EditmetaFieldDef] | None:
     """Look up field in editmeta by name or ID.
 
     Fields are keyed by name in the YAML. The Jira field ID is in the 'id' property.
@@ -454,6 +477,7 @@ def _fetch_and_save_editmeta(
     """Fetch editmeta from API for a specific issue and save to cache."""
     jira = get_jira()
     server = jira._options["server"]
+    assert jira._session is not None
     try:
         resp = jira._session.get(f"{server}/rest/api/3/issue/{key}/editmeta")
         resp.raise_for_status()
@@ -631,6 +655,7 @@ def learn_command(args: argparse.Namespace) -> None:
 
     jira = get_jira()
     server = jira._options["server"]
+    assert jira._session is not None
 
     # Resolve bare project keys (e.g. "AC") to one issue per issue type
     keys: list[str] = []

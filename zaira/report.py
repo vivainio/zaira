@@ -6,6 +6,7 @@ import io
 import json
 import shlex
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -57,7 +58,7 @@ def _group_tickets_by(
     return groups
 
 
-def humanize_age(iso_timestamp: str) -> str:
+def humanize_age(iso_timestamp: str | None) -> str:
     """Convert ISO timestamp to human-readable age like '2d' or '3w'."""
     if not iso_timestamp:
         return "-"
@@ -427,11 +428,46 @@ def generate_csv_report(tickets: list[ReportTicket]) -> str:
     return output.getvalue()
 
 
+def _format_gadget_section(
+    title: str,
+    jql: str,
+    tickets: list[ReportTicket],
+    group_by: str | None,
+    links: bool,
+) -> list[str]:
+    """Format a single dashboard gadget as markdown lines."""
+    lines = []
+    lines.append(f"## {title}")
+    lines.append("")
+    lines.append(f"**JQL:** `{jql}`")
+    lines.append("")
+    lines.append(f"**Results:** {len(tickets)} tickets")
+    lines.append("")
+
+    if tickets:
+        if group_by:
+            groups = _group_tickets_by(tickets, group_by)
+            for group_name, group_tickets in sorted(groups.items()):
+                lines.append(f"### {group_name} ({len(group_tickets)})")
+                lines.append("")
+                lines.append(
+                    generate_table(group_tickets, group_by=group_by, links=links)
+                )
+        else:
+            lines.append(generate_table(tickets, links=links))
+    else:
+        lines.append("_No tickets found._")
+
+    lines.append("")
+    return lines
+
+
 def generate_dashboard_report(
     dashboard_id: int,
     group_by: str | None = None,
     to_stdout: bool = False,
     links: bool = False,
+    parallel: bool = False,
 ) -> tuple[str, int]:
     """Generate a combined report from all JQL queries in a dashboard.
 
@@ -480,39 +516,45 @@ def generate_dashboard_report(
     total_tickets = 0
 
     # Run each gadget's JQL and generate a section
-    for gadget in sorted(jql_gadgets, key=lambda x: x.position):
-        title = gadget.filter_name or gadget.title or f"Query {gadget.id}"
-        if not to_stdout:
-            print(f"  Running: {title}")
+    sorted_gadgets = sorted(jql_gadgets, key=lambda x: x.position)
 
-        tickets = search_tickets(gadget.jql)
-        total_tickets += len(tickets)
+    if parallel:
+        # Fetch all gadget results in parallel
+        gadget_results: dict[int, list[ReportTicket]] = {}
+        with ThreadPoolExecutor() as pool:
+            futures = {
+                pool.submit(search_tickets, g.jql or ""): g for g in sorted_gadgets
+            }
+            for future in as_completed(futures):
+                g = futures[future]
+                tickets = future.result()
+                gadget_results[g.id] = tickets
+                if not to_stdout:
+                    title = g.filter_name or g.title or f"Query {g.id}"
+                    print(f"  {title}: {len(tickets)} tickets")
 
-        if not to_stdout:
-            print(f"    Found {len(tickets)} tickets")
+        for gadget in sorted_gadgets:
+            tickets = gadget_results[gadget.id]
+            title = gadget.filter_name or gadget.title or f"Query {gadget.id}"
+            total_tickets += len(tickets)
+            lines += _format_gadget_section(
+                title, gadget.jql or "", tickets, group_by, links
+            )
+    else:
+        for gadget in sorted_gadgets:
+            title = gadget.filter_name or gadget.title or f"Query {gadget.id}"
+            if not to_stdout:
+                print(f"  Running: {title}")
 
-        lines.append(f"## {title}")
-        lines.append("")
-        lines.append(f"**JQL:** `{gadget.jql}`")
-        lines.append("")
-        lines.append(f"**Results:** {len(tickets)} tickets")
-        lines.append("")
+            tickets = search_tickets(gadget.jql or "")
+            total_tickets += len(tickets)
 
-        if tickets:
-            if group_by:
-                groups = _group_tickets_by(tickets, group_by)
-                for group_name, group_tickets in sorted(groups.items()):
-                    lines.append(f"### {group_name} ({len(group_tickets)})")
-                    lines.append("")
-                    lines.append(
-                        generate_table(group_tickets, group_by=group_by, links=links)
-                    )
-            else:
-                lines.append(generate_table(tickets, links=links))
-        else:
-            lines.append("_No tickets found._")
+            if not to_stdout:
+                print(f"    Found {len(tickets)} tickets")
 
-        lines.append("")
+            lines += _format_gadget_section(
+                title, gadget.jql or "", tickets, group_by, links
+            )
 
     # Summary
     lines.append("---")
@@ -634,6 +676,7 @@ def report_command(args: argparse.Namespace) -> None:
             group_by=args.group_by,
             to_stdout=to_stdout,
             links=getattr(args, "links", False),
+            parallel=getattr(args, "parallel", False),
         )
 
         if not report:
@@ -792,7 +835,10 @@ def report_command(args: argparse.Namespace) -> None:
         exported = 0
         skipped = 0
         force = getattr(args, "force", False)
+        use_parallel = getattr(args, "parallel", False)
 
+        # Build list of keys that need exporting
+        to_export: list[str] = []
         for t in tickets:
             key = t.get("key")
             if not key:
@@ -802,18 +848,26 @@ def report_command(args: argparse.Namespace) -> None:
 
             if ticket_file:
                 if force:
-                    print(f"  {key}: forcing refresh...")
-                    if export_ticket(key, tickets_dir):
-                        exported += 1
+                    to_export.append(key)
                 elif ticket_needs_export(ticket_file, updated):
-                    print(f"  {key}: changed, refreshing...")
-                    if export_ticket(key, tickets_dir):
-                        exported += 1
+                    to_export.append(key)
                 else:
-                    print(f"  {key}: unchanged, skipping")
                     skipped += 1
             else:
-                print(f"  {key}: new, exporting...")
+                to_export.append(key)
+
+        if use_parallel and to_export:
+            with ThreadPoolExecutor() as pool:
+                futures = {
+                    pool.submit(export_ticket, key, tickets_dir): key
+                    for key in to_export
+                }
+                for future in as_completed(futures):
+                    key = futures[future]
+                    if future.result():
+                        exported += 1
+        else:
+            for key in to_export:
                 if export_ticket(key, tickets_dir):
                     exported += 1
 

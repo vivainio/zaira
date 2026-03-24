@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from zaira.types import ParentIssue, ReportTicket
 from zaira.report import (
     _group_tickets_by,
     humanize_age,
@@ -24,10 +25,10 @@ class TestGroupTicketsBy:
 
     def test_group_by_status(self):
         """Groups tickets by status field."""
-        tickets = [
-            {"key": "T-1", "status": "Open"},
-            {"key": "T-2", "status": "Open"},
-            {"key": "T-3", "status": "Done"},
+        tickets: list[ReportTicket] = [
+            ReportTicket(key="T-1", status="Open"),
+            ReportTicket(key="T-2", status="Open"),
+            ReportTicket(key="T-3", status="Done"),
         ]
         result = _group_tickets_by(tickets, "status")
 
@@ -36,10 +37,10 @@ class TestGroupTicketsBy:
 
     def test_group_by_labels_multi_value(self):
         """Groups tickets by labels (multi-value field)."""
-        tickets = [
-            {"key": "T-1", "labels": ["bug", "urgent"]},
-            {"key": "T-2", "labels": ["bug"]},
-            {"key": "T-3", "labels": []},
+        tickets: list[ReportTicket] = [
+            ReportTicket(key="T-1", labels=["bug", "urgent"]),
+            ReportTicket(key="T-2", labels=["bug"]),
+            ReportTicket(key="T-3", labels=[]),
         ]
         result = _group_tickets_by(tickets, "labels")
 
@@ -49,10 +50,10 @@ class TestGroupTicketsBy:
 
     def test_group_by_components_multi_value(self):
         """Groups tickets by components (multi-value field)."""
-        tickets = [
-            {"key": "T-1", "components": ["Backend", "API"]},
-            {"key": "T-2", "components": ["Frontend"]},
-            {"key": "T-3", "components": []},
+        tickets: list[ReportTicket] = [
+            ReportTicket(key="T-1", components=["Backend", "API"]),
+            ReportTicket(key="T-2", components=["Frontend"]),
+            ReportTicket(key="T-3", components=[]),
         ]
         result = _group_tickets_by(tickets, "components")
 
@@ -63,10 +64,14 @@ class TestGroupTicketsBy:
 
     def test_group_by_parent(self):
         """Groups tickets by parent."""
-        tickets = [
-            {"key": "T-1", "parent": {"key": "EPIC-1", "summary": "Epic One"}},
-            {"key": "T-2", "parent": {"key": "EPIC-1", "summary": "Epic One"}},
-            {"key": "T-3", "parent": None},
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="T-1", parent=ParentIssue(key="EPIC-1", summary="Epic One")
+            ),
+            ReportTicket(
+                key="T-2", parent=ParentIssue(key="EPIC-1", summary="Epic One")
+            ),
+            ReportTicket(key="T-3", parent=None),
         ]
         result = _group_tickets_by(tickets, "parent")
 
@@ -75,9 +80,9 @@ class TestGroupTicketsBy:
 
     def test_group_by_unknown_field(self):
         """Groups by unknown field uses 'Unknown' as default."""
-        tickets = [
-            {"key": "T-1"},
-            {"key": "T-2", "customfield": "value"},
+        tickets: list[ReportTicket] = [
+            ReportTicket(key="T-1"),
+            ReportTicket(key="T-2"),
         ]
         result = _group_tickets_by(tickets, "customfield")
 
@@ -214,14 +219,14 @@ class TestGenerateTable:
 
     def test_basic_table(self):
         """Generates basic markdown table."""
-        tickets = [
-            {
-                "key": "TEST-1",
-                "issuetype": "Bug",
-                "status": "Open",
-                "updated": "",
-                "summary": "Test ticket",
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="TEST-1",
+                issuetype="Bug",
+                status="Open",
+                updated="",
+                summary="Test ticket",
+            )
         ]
         result = generate_table(tickets)
 
@@ -232,14 +237,14 @@ class TestGenerateTable:
 
     def test_excludes_grouped_column(self):
         """Excludes grouped column from table."""
-        tickets = [
-            {
-                "key": "TEST-1",
-                "issuetype": "Bug",
-                "status": "Open",
-                "updated": "",
-                "summary": "Test",
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="TEST-1",
+                issuetype="Bug",
+                status="Open",
+                updated="",
+                summary="Test",
+            )
         ]
         result = generate_table(tickets, group_by="status")
 
@@ -248,15 +253,15 @@ class TestGenerateTable:
 
     def test_includes_parent_column(self):
         """Includes parent column when tickets have parents."""
-        tickets = [
-            {
-                "key": "TEST-1",
-                "issuetype": "Task",
-                "status": "Open",
-                "updated": "",
-                "summary": "Subtask",
-                "parent": {"key": "EPIC-1", "summary": "Epic"},
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="TEST-1",
+                issuetype="Task",
+                status="Open",
+                updated="",
+                summary="Subtask",
+                parent=ParentIssue(key="EPIC-1", summary="Epic"),
+            )
         ]
         result = generate_table(tickets)
 
@@ -265,14 +270,14 @@ class TestGenerateTable:
 
     def test_escapes_pipes_in_summary(self):
         """Escapes pipe characters in summary."""
-        tickets = [
-            {
-                "key": "TEST-1",
-                "issuetype": "Bug",
-                "status": "Open",
-                "updated": "",
-                "summary": "Test | with | pipes",
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="TEST-1",
+                issuetype="Bug",
+                status="Open",
+                updated="",
+                summary="Test | with | pipes",
+            )
         ]
         result = generate_table(tickets)
 
@@ -280,14 +285,14 @@ class TestGenerateTable:
 
     def test_truncates_long_summaries(self):
         """Truncates summaries longer than 200 characters."""
-        tickets = [
-            {
-                "key": "TEST-1",
-                "issuetype": "Bug",
-                "status": "Open",
-                "updated": "",
-                "summary": "A" * 250,
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="TEST-1",
+                issuetype="Bug",
+                status="Open",
+                updated="",
+                summary="A" * 250,
+            )
         ]
         result = generate_table(tickets)
 
@@ -307,14 +312,14 @@ class TestGenerateReport:
 
     def test_report_with_tickets(self):
         """Generates report with tickets."""
-        tickets = [
-            {
-                "key": "T-1",
-                "issuetype": "Bug",
-                "status": "Open",
-                "updated": "",
-                "summary": "Bug one",
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="T-1",
+                issuetype="Bug",
+                status="Open",
+                updated="",
+                summary="Bug one",
+            )
         ]
         result = generate_report(tickets, "Bug Report")
 
@@ -324,21 +329,21 @@ class TestGenerateReport:
 
     def test_report_with_grouping(self):
         """Generates grouped report."""
-        tickets = [
-            {
-                "key": "T-1",
-                "status": "Open",
-                "issuetype": "Bug",
-                "updated": "",
-                "summary": "A",
-            },
-            {
-                "key": "T-2",
-                "status": "Done",
-                "issuetype": "Bug",
-                "updated": "",
-                "summary": "B",
-            },
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="T-1",
+                status="Open",
+                issuetype="Bug",
+                updated="",
+                summary="A",
+            ),
+            ReportTicket(
+                key="T-2",
+                status="Done",
+                issuetype="Bug",
+                updated="",
+                summary="B",
+            ),
         ]
         result = generate_report(tickets, "Grouped", group_by="status")
 
@@ -351,7 +356,7 @@ class TestGenerateJsonReport:
 
     def test_valid_json(self):
         """Generates valid JSON."""
-        tickets = [{"key": "T-1", "summary": "Test"}]
+        tickets: list[ReportTicket] = [ReportTicket(key="T-1", summary="Test")]
         result = generate_json_report(tickets, "Test Report")
 
         data = json.loads(result)
@@ -392,19 +397,19 @@ class TestGenerateCsvReport:
 
     def test_csv_header(self):
         """Generates CSV with header."""
-        tickets = [
-            {
-                "key": "T-1",
-                "summary": "Test",
-                "issuetype": "Bug",
-                "status": "Open",
-                "priority": "High",
-                "assignee": "user@example.com",
-                "labels": ["bug"],
-                "parent": None,
-                "created": "2024-01-01",
-                "updated": "2024-01-02",
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="T-1",
+                summary="Test",
+                issuetype="Bug",
+                status="Open",
+                priority="High",
+                assignee="user@example.com",
+                labels=["bug"],
+                parent=None,
+                created="2024-01-01",
+                updated="2024-01-02",
+            )
         ]
         result = generate_csv_report(tickets)
 
@@ -415,19 +420,19 @@ class TestGenerateCsvReport:
 
     def test_labels_joined(self):
         """Joins labels with comma."""
-        tickets = [
-            {
-                "key": "T-1",
-                "summary": "Test",
-                "issuetype": "Bug",
-                "status": "Open",
-                "priority": "High",
-                "assignee": "user",
-                "labels": ["bug", "urgent"],
-                "parent": None,
-                "created": "",
-                "updated": "",
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="T-1",
+                summary="Test",
+                issuetype="Bug",
+                status="Open",
+                priority="High",
+                assignee="user",
+                labels=["bug", "urgent"],
+                parent=None,
+                created="",
+                updated="",
+            )
         ]
         result = generate_csv_report(tickets)
 
@@ -435,19 +440,19 @@ class TestGenerateCsvReport:
 
     def test_parent_key_extracted(self):
         """Extracts parent key from dict."""
-        tickets = [
-            {
-                "key": "T-1",
-                "summary": "Test",
-                "issuetype": "Task",
-                "status": "Open",
-                "priority": "Medium",
-                "assignee": "user",
-                "labels": [],
-                "parent": {"key": "EPIC-1", "summary": "Epic"},
-                "created": "",
-                "updated": "",
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="T-1",
+                summary="Test",
+                issuetype="Task",
+                status="Open",
+                priority="Medium",
+                assignee="user",
+                labels=[],
+                parent=ParentIssue(key="EPIC-1", summary="Epic"),
+                created="",
+                updated="",
+            )
         ]
         result = generate_csv_report(tickets)
 
@@ -570,14 +575,14 @@ class TestGenerateDashboardReport:
         mock_gadget.jql = "project = TEST"
         mock_gadget.position = 0
 
-        tickets = [
-            {
-                "key": "TEST-1",
-                "summary": "Test ticket",
-                "issuetype": "Bug",
-                "status": "Open",
-                "updated": "2024-01-15T10:00:00+0000",
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="TEST-1",
+                summary="Test ticket",
+                issuetype="Bug",
+                status="Open",
+                updated="2024-01-15T10:00:00+0000",
+            )
         ]
 
         with (
@@ -610,21 +615,21 @@ class TestGenerateDashboardReport:
         mock_gadget.jql = "project = TEST"
         mock_gadget.position = 0
 
-        tickets = [
-            {
-                "key": "T-1",
-                "status": "Open",
-                "issuetype": "Bug",
-                "updated": "",
-                "summary": "A",
-            },
-            {
-                "key": "T-2",
-                "status": "Done",
-                "issuetype": "Bug",
-                "updated": "",
-                "summary": "B",
-            },
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="T-1",
+                status="Open",
+                issuetype="Bug",
+                updated="",
+                summary="A",
+            ),
+            ReportTicket(
+                key="T-2",
+                status="Done",
+                issuetype="Bug",
+                updated="",
+                summary="B",
+            ),
         ]
 
         with (
@@ -726,15 +731,15 @@ class TestReportCommand:
             files=False,
         )
 
-        tickets = [
-            {
-                "key": "TEST-1",
-                "summary": "Test",
-                "issuetype": "Bug",
-                "status": "Open",
-                "updated": "",
-                "parent": None,
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="TEST-1",
+                summary="Test",
+                issuetype="Bug",
+                status="Open",
+                updated="",
+                parent=None,
+            )
         ]
 
         with patch("zaira.report.search_tickets", return_value=tickets):
@@ -795,7 +800,9 @@ class TestReportCommand:
             files=False,
         )
 
-        tickets = [{"key": "TEST-1", "summary": "Test", "updated": ""}]
+        tickets: list[ReportTicket] = [
+            ReportTicket(key="TEST-1", summary="Test", updated="")
+        ]
 
         with patch("zaira.report.search_tickets", return_value=tickets):
             report_command(args)
@@ -825,19 +832,19 @@ class TestReportCommand:
             files=False,
         )
 
-        tickets = [
-            {
-                "key": "TEST-1",
-                "summary": "Test",
-                "issuetype": "Bug",
-                "status": "Open",
-                "priority": "High",
-                "assignee": "user",
-                "labels": ["bug"],
-                "parent": None,
-                "created": "2024-01-01",
-                "updated": "2024-01-02",
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="TEST-1",
+                summary="Test",
+                issuetype="Bug",
+                status="Open",
+                priority="High",
+                assignee="user",
+                labels=["bug"],
+                parent=None,
+                created="2024-01-01",
+                updated="2024-01-02",
+            )
         ]
 
         with patch("zaira.report.search_tickets", return_value=tickets):
@@ -867,15 +874,15 @@ class TestReportCommand:
             files=False,
         )
 
-        tickets = [
-            {
-                "key": "T-1",
-                "summary": "A",
-                "issuetype": "Bug",
-                "status": "Open",
-                "updated": "",
-                "parent": None,
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="T-1",
+                summary="A",
+                issuetype="Bug",
+                status="Open",
+                updated="",
+                parent=None,
+            )
         ]
 
         with (
@@ -935,15 +942,15 @@ class TestReportCommand:
             files=False,
         )
 
-        tickets = [
-            {
-                "key": "T-1",
-                "summary": "A",
-                "issuetype": "Task",
-                "status": "Open",
-                "updated": "",
-                "parent": None,
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="T-1",
+                summary="A",
+                issuetype="Task",
+                status="Open",
+                updated="",
+                parent=None,
+            )
         ]
 
         with (
@@ -975,15 +982,15 @@ class TestReportCommand:
             files=False,
         )
 
-        tickets = [
-            {
-                "key": "T-1",
-                "summary": "A",
-                "issuetype": "Story",
-                "status": "Done",
-                "updated": "",
-                "parent": None,
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="T-1",
+                summary="A",
+                issuetype="Story",
+                status="Done",
+                updated="",
+                parent=None,
+            )
         ]
 
         with (
@@ -1016,15 +1023,15 @@ class TestReportCommand:
             label="urgent",
         )
 
-        tickets = [
-            {
-                "key": "T-1",
-                "summary": "A",
-                "issuetype": "Bug",
-                "status": "Open",
-                "updated": "",
-                "parent": None,
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="T-1",
+                summary="A",
+                issuetype="Bug",
+                status="Open",
+                updated="",
+                parent=None,
+            )
         ]
 
         with patch("zaira.report.search_tickets", return_value=tickets) as mock_search:
@@ -1055,15 +1062,15 @@ class TestReportCommand:
             files=False,
         )
 
-        tickets = [
-            {
-                "key": "T-1",
-                "summary": "A",
-                "issuetype": "Bug",
-                "status": "Open",
-                "updated": "",
-                "parent": None,
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="T-1",
+                summary="A",
+                issuetype="Bug",
+                status="Open",
+                updated="",
+                parent=None,
+            )
         ]
 
         with patch("zaira.report.search_tickets", return_value=tickets):
@@ -1230,15 +1237,15 @@ class TestReportCommand:
         )
 
         report_def = {"jql": "project = MYREPORT", "title": "My Report"}
-        tickets = [
-            {
-                "key": "T-1",
-                "summary": "A",
-                "issuetype": "Task",
-                "status": "Open",
-                "updated": "",
-                "parent": None,
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="T-1",
+                summary="A",
+                issuetype="Task",
+                status="Open",
+                updated="",
+                parent=None,
+            )
         ]
 
         with (
@@ -1276,15 +1283,15 @@ class TestReportCommand:
         )
 
         report_def = {"jql": "project = TEST", "output": "custom/report.md"}
-        tickets = [
-            {
-                "key": "T-1",
-                "summary": "A",
-                "issuetype": "Task",
-                "status": "Open",
-                "updated": "",
-                "parent": None,
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="T-1",
+                summary="A",
+                issuetype="Task",
+                status="Open",
+                updated="",
+                parent=None,
+            )
         ]
 
         with (
@@ -1323,15 +1330,15 @@ class TestReportCommand:
         )
 
         report_def = {"jql": "project = TEST", "output": "def-output.md"}
-        tickets = [
-            {
-                "key": "T-1",
-                "summary": "A",
-                "issuetype": "Task",
-                "status": "Open",
-                "updated": "",
-                "parent": None,
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="T-1",
+                summary="A",
+                issuetype="Task",
+                status="Open",
+                updated="",
+                parent=None,
+            )
         ]
 
         with (
@@ -1392,15 +1399,15 @@ class TestReportCommand:
             files=False,
         )
 
-        tickets = [
-            {
-                "key": "T-1",
-                "summary": "A",
-                "issuetype": "Task",
-                "status": "Open",
-                "updated": "",
-                "parent": None,
-            }
+        tickets: list[ReportTicket] = [
+            ReportTicket(
+                key="T-1",
+                summary="A",
+                issuetype="Task",
+                status="Open",
+                updated="",
+                parent=None,
+            )
         ]
 
         with (

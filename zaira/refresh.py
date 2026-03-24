@@ -7,6 +7,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import cast
 
 from zaira.config import REPORTS_DIR, TICKETS_DIR
 from zaira.types import FrontMatter
@@ -34,7 +35,7 @@ def parse_front_matter(content: str) -> FrontMatter:
                 value = value[1:-1]
             result[key.strip()] = value
 
-    return result
+    return cast(FrontMatter, result)
 
 
 def extract_ticket_keys(report_content: str) -> list[str]:
@@ -196,11 +197,11 @@ def refresh_command(args: argparse.Namespace) -> None:
         if fm.get("query"):
             jql = get_query(fm["query"])
         elif fm.get("board"):
-            board_id = fm["board"]
+            board_name = fm["board"]
             try:
-                board_id = int(board_id)
+                board_id: int | None = int(board_name)
             except ValueError:
-                board_id = get_board(board_id)
+                board_id = get_board(board_name)
             if board_id:
                 jql = get_board_issues_jql(board_id)
         elif fm.get("sprint"):

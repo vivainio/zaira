@@ -47,7 +47,7 @@ def get_dashboards(
     """
     jira = get_jira()
     try:
-        params = {"maxResults": max_results}
+        params: dict[str, int | str] = {"maxResults": max_results}
         if filter_text:
             params["filter"] = filter_text
         if owner:
@@ -195,7 +195,7 @@ def get_dashboard_raw(dashboard_id: int) -> dict | None:
         return None
 
 
-def _extract_gadget_type(uri_or_key: str) -> str:
+def _extract_gadget_type(uri_or_key: str | None) -> str:
     """Extract readable gadget type from URI or module key.
 
     Handles formats like:
@@ -286,7 +286,7 @@ def generate_dashboard_markdown(
             lines.append(f"### {name}")
             lines.append("")
             lines.append("```")
-            lines.append(g.jql)
+            lines.append(g.jql or "")
             lines.append("```")
             lines.append("")
 

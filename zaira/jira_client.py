@@ -4,6 +4,7 @@ import sys
 import tomllib
 from functools import lru_cache
 from pathlib import Path
+from typing import cast
 
 from jira import JIRA
 from platformdirs import user_cache_dir, user_config_dir
@@ -53,7 +54,7 @@ def load_credentials() -> Credentials:
         return {}
 
     with open(CREDENTIALS_FILE, "rb") as f:
-        return tomllib.load(f)
+        return cast(Credentials, tomllib.load(f))
 
 
 def save_credentials(email: str, api_token: str) -> None:

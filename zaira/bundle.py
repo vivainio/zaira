@@ -71,7 +71,9 @@ def _install_from_directory(
             yaml.dump(
                 {
                     "source": source,
-                    "installed_at": datetime.datetime.utcnow().isoformat(),
+                    "installed_at": datetime.datetime.now(
+                        datetime.timezone.utc
+                    ).isoformat(),
                 }
             )
         )
@@ -159,7 +161,9 @@ def _install_from_zip(
             yaml.dump(
                 {
                     "source": source_url,
-                    "installed_at": datetime.datetime.utcnow().isoformat(),
+                    "installed_at": datetime.datetime.now(
+                        datetime.timezone.utc
+                    ).isoformat(),
                 }
             )
         )
@@ -167,7 +171,7 @@ def _install_from_zip(
     return changes
 
 
-def _print_changes(changes: dict) -> None:
+def _print_changes(changes: BundleChanges) -> None:
     """Print file changes in a readable format."""
     if changes.added:
         for f in sorted(changes.added):
