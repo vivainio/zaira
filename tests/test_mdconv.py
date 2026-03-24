@@ -1117,6 +1117,23 @@ class TestConfluenceMacros:
         storage_again = markdown_to_storage(result_md)
         assert '<ac:structured-macro ac:name="page-tree">' in storage_again
 
+    def test_unknown_braces_not_converted_to_macro(self):
+        """Literal {word} that isn't a Confluence macro stays as text."""
+        md = "GET /api/{documentId}/images/{imageId}"
+        result = markdown_to_storage(md)
+
+        assert "MACRO_PLACEHOLDER" not in result
+        assert "ac:structured-macro" not in result
+        assert "{documentId}" in result
+        assert "{imageId}" in result
+
+    def test_known_macro_still_converted(self):
+        """Known macros like {toc} are still converted."""
+        md = "Before\n\n{toc}\n\nAfter"
+        result = markdown_to_storage(md)
+
+        assert '<ac:structured-macro ac:name="toc">' in result
+
 
 class TestDiagramRendering:
     """Tests for render_diagram_blocks and renderer registry."""

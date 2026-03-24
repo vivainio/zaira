@@ -416,10 +416,49 @@ def markdown_to_storage(md_content: str, convert_local_images: bool = True) -> s
 
     # Extract Confluence macros {name:params} before markdown processing
     # Replace with placeholders to preserve them through markdown conversion
+    # Only match known Confluence macros to avoid mangling literal braces
+    # (e.g. {documentId} in REST paths)
+    _KNOWN_MACROS = {
+        "anchor",
+        "attachments",
+        "children",
+        "code",
+        "color",
+        "column",
+        "compose",
+        "content-report-table",
+        "contributors",
+        "details",
+        "error",
+        "excerpt",
+        "excerpt-include",
+        "expand",
+        "html",
+        "include",
+        "info",
+        "jira",
+        "layout",
+        "loremipsum",
+        "multimedia",
+        "noformat",
+        "note",
+        "page-tree",
+        "panel",
+        "quote",
+        "recently-updated",
+        "section",
+        "status",
+        "tip",
+        "toc",
+        "warning",
+    }
     macro_placeholders = {}
     macro_pattern = r"\{([a-z\-]+)(?::([^}]*))?\}"
 
     def preserve_macro(match: re.Match) -> str:
+        name = match.group(1).lower()
+        if name not in _KNOWN_MACROS:
+            return match.group(0)  # leave unknown {words} as-is
         macro_str = match.group(0)
         placeholder = f"<!--MACRO_PLACEHOLDER_{len(macro_placeholders)}-->"
         macro_placeholders[placeholder] = macro_str
