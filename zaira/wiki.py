@@ -759,8 +759,22 @@ def _put_one_file(
     status: bool,
     diff: bool = False,
     renderers: list[str] | None = None,
+    mirror_parent_id: str | None = None,
+    name_prefix: str = "",
 ) -> bool:
     """Process a single markdown file for wiki put.
+
+    Args:
+        filepath: Path to markdown file
+        page_id_override: Override page ID from -p flag
+        title_override: Override title from -t flag
+        pull: Pull remote changes instead of pushing
+        force: Force overwrite on conflict
+        status: Just show sync status
+        diff: Just show diff
+        renderers: Diagram renderers
+        mirror_parent_id: Parent folder ID for mirror mode
+        name_prefix: Prefix for folder names in mirror mode
 
     Returns:
         True if successful, False otherwise
@@ -944,14 +958,54 @@ def _put_one_file(
     local_space = front_matter.get("space") or page["space"]["key"]
     remote_folder = _build_folder_path(page.get("ancestors", []))
 
-    if local_folder != remote_folder and (local_folder or remote_folder):
-        if local_folder:
-            target_parent = confluence_api.resolve_folder_path(
-                local_space, local_folder, create_missing=True
-            )
+    # Apply prefix to local folder path for comparison and resolution
+    if local_folder and name_prefix:
+        segments = [s.strip() for s in local_folder.strip("/").split("/") if s.strip()]
+        prefixed_segments = [f"{name_prefix}{seg}" for seg in segments]
+        prefixed_local_folder = "/".join(prefixed_segments)
+    else:
+        prefixed_local_folder = local_folder
+
+    # In mirror mode, strip the mirror parent's folder path from remote_folder
+    # so we compare only the path relative to the mirror parent
+    effective_remote_folder = remote_folder
+    if mirror_parent_id and remote_folder:
+        # Get the mirror parent's folder path
+        parent_page = confluence_api.fetch_page(mirror_parent_id, expand="ancestors")
+        if parent_page:
+            parent_ancestors = parent_page.get("ancestors", [])
+            parent_folder_path = _build_folder_path(parent_ancestors)
+            # Also include the parent folder's own title
+            parent_title = parent_page.get("title", "")
+            if parent_folder_path:
+                mirror_root_path = f"{parent_folder_path}/{parent_title}"
+            else:
+                mirror_root_path = parent_title
+            # Strip the mirror root path from remote_folder
+            if remote_folder.startswith(mirror_root_path + "/"):
+                effective_remote_folder = remote_folder[len(mirror_root_path) + 1 :]
+            elif remote_folder == mirror_root_path:
+                effective_remote_folder = ""
+
+    if prefixed_local_folder != effective_remote_folder and (
+        prefixed_local_folder or effective_remote_folder
+    ):
+        if prefixed_local_folder:
+            # Use mirror parent resolution if available
+            if mirror_parent_id:
+                target_parent = confluence_api.resolve_folder_path_from_parent(
+                    local_space,
+                    mirror_parent_id,
+                    prefixed_local_folder,
+                    create_missing=True,
+                )
+            else:
+                target_parent = confluence_api.resolve_folder_path(
+                    local_space, prefixed_local_folder, create_missing=True
+                )
             if not target_parent:
                 print(
-                    f"Error: Could not resolve folder path '{local_folder}' in space '{local_space}'",
+                    f"Error: Could not resolve folder path '{prefixed_local_folder}' in space '{local_space}'",
                     file=sys.stderr,
                 )
                 return False
@@ -972,7 +1026,9 @@ def _put_one_file(
             )
             return False
         remote_version = move_result["version"]["number"]
-        property_changes.append(f"folder: '{remote_folder}' -> '{local_folder}'")
+        property_changes.append(
+            f"folder: '{remote_folder}' -> '{prefixed_local_folder}'"
+        )
 
     result = confluence_api.update_page(
         page_id, new_title, storage_content, remote_version, page["type"]
@@ -1301,6 +1357,8 @@ def put_command(args: argparse.Namespace) -> None:
             getattr(args, "status", False),
             getattr(args, "diff", False),
             renderers,
+            mirror_parent_id=mirror_parent_id if mirror_mode else None,
+            name_prefix=mirror_prefix if mirror_mode else "",
         )
         if success:
             success_count += 1

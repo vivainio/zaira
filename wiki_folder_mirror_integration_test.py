@@ -244,6 +244,80 @@ def test_mirror_with_prefix():
 
         assert all_have_ids, "Some files missing confluence ID in front matter"
 
+        # --- Test update scenario: modify a file and sync again ---
+        print("\n--- Testing update scenario ---")
+
+        # Find a file in a subfolder to update
+        endpoints_file = base_dir / "backend" / "api" / "endpoints.md"
+        assert endpoints_file.exists(), f"Test file {endpoints_file} not found"
+
+        # Read current content and verify it has folder in front matter
+        original_content = endpoints_file.read_text(encoding="utf-8")
+        assert "folder: backend/api" in original_content, (
+            "Test file should have folder: backend/api in front matter"
+        )
+
+        # Extract the confluence ID for later verification
+        match = re.search(r"confluence:\s*(\d+)", original_content)
+        assert match, "Could not find confluence ID in test file"
+        page_id = match.group(1)
+        print(f"  Page ID for endpoints.md: {page_id}")
+
+        # Update the file content (append some text)
+        updated_content = original_content.replace(
+            "Creates a new user.",
+            "Creates a new user.\n\n**Updated section**: This was added in the second sync.",
+        )
+        endpoints_file.write_text(updated_content, encoding="utf-8")
+        print("  Modified endpoints.md with new content")
+
+        # Sync again
+        print(f"\n--- Re-syncing directory with prefix '{prefix}' ---")
+        result = run(
+            f'wiki put "{base_dir}" --space {WIKI_SPACE} --mirror '
+            f'--parent {WIKI_TEST_ROOT_FOLDER} --prefix "{prefix}"'
+        )
+
+        # Verify no new folders were created (should reuse existing)
+        new_ids = extract_created_ids(result.stdout)
+        print(f"  New items created: {len(new_ids)}")
+
+        # Verify the content was updated (look for "Pushed" in output)
+        assert "Pushed" in result.stdout, (
+            "File was modified but no update was performed"
+        )
+
+        # Verify the folder structure is still correct
+        # Pull the page to check its folder path includes the prefix
+        print(f"  Checking page {page_id} is still in prefixed folder structure")
+        with tempfile.TemporaryDirectory() as pull_tmpdir:
+            run(f'wiki get {page_id} -o "{pull_tmpdir}"', check=False)
+            # Find the pulled file
+            pulled_files = list(Path(pull_tmpdir).rglob("*.md"))
+            assert len(pulled_files) == 1, (
+                f"Expected 1 pulled file, got {len(pulled_files)}"
+            )
+            pulled_content = pulled_files[0].read_text(encoding="utf-8")
+            # The pulled file should have folder path ending with the prefixed structure
+            # (it may include parent folder ancestors like "Zaira-Demo/...")
+            expected_folder_end = f"{prefix}backend/{prefix}api"
+            folder_match = re.search(r"folder:\s*(.+)", pulled_content)
+            assert folder_match, "Pulled page should have folder in front matter"
+            actual_folder = folder_match.group(1).strip()
+            assert actual_folder.endswith(expected_folder_end), (
+                f"Pulled page folder should end with '{expected_folder_end}', got: '{actual_folder}'"
+            )
+            print(f"  OK: page is in correct folder '{actual_folder}'")
+
+        # Read the file again to confirm front matter still has proper folder
+        final_content = endpoints_file.read_text(encoding="utf-8")
+        assert "folder: backend/api" in final_content, (
+            "folder path in front matter should be preserved after update"
+        )
+        print("  OK: folder path preserved in front matter")
+
+        print("\n--- Update scenario test completed ---")
+
         print("\n--- Test completed ---")
         return True
 
