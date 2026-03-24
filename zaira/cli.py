@@ -1200,7 +1200,7 @@ def main() -> None:
 
             # Rename rules to rules-disabled
             rules_dir.rename(rules_disabled)
-            print(f"Rules disabled (renamed to rules-disabled)")
+            print("Rules disabled (renamed to rules-disabled)")
             print(f"\nRules location: {rules_disabled}")
             print(f"To restore: mv {rules_disabled} {rules_dir}")
             return

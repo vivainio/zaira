@@ -1,9 +1,7 @@
 """Tests for jira_client module."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from zaira import jira_client
 

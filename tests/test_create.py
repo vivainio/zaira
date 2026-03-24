@@ -270,7 +270,7 @@ class TestMapFields:
         front_matter = {"project": "TEST", "unknownfield": "value"}
 
         with patch("zaira.create.get_editmeta_field", return_value=None):
-            fields = map_fields(front_matter, "")
+            map_fields(front_matter, "")
 
         captured = capsys.readouterr()
         assert "Unknown field 'unknownfield'" in captured.err

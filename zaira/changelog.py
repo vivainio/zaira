@@ -3,7 +3,6 @@
 import argparse
 import difflib
 import sys
-from datetime import datetime
 from typing import Any
 
 from zaira.export import _format_timestamp

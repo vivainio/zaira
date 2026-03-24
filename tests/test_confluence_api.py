@@ -479,7 +479,7 @@ class TestCreatePageWithRequests:
             ),
             patch("requests.post", return_value=mock_response) as mock_post,
         ):
-            result = confluence_api.create_page(
+            confluence_api.create_page(
                 "SPACE", "Child", "<p>Body</p>", parent_id="12345"
             )
 
@@ -778,7 +778,6 @@ class TestSetPageLabelsWithRequests:
 
     def test_adds_and_removes_labels(self, mock_confluence):
         """Adds new labels and removes old ones."""
-        from unittest.mock import patch, MagicMock
 
         # Mock current labels
         confluence_api.set_api("get_page_labels", lambda page_id: ["old", "keep"])

@@ -843,7 +843,7 @@ def field_command(args: argparse.Namespace) -> None:
             print(f"  id:         {fid}")
             print(f"  type:       {fdef.get('type', '')}")
             if fdef.get("required"):
-                print(f"  required:   True")
+                print("  required:   True")
             values_by_project = info["values_by_project"]
             if values_by_project:
                 # If all projects have identical values, show flat; otherwise group by project
@@ -853,7 +853,7 @@ def field_command(args: argparse.Namespace) -> None:
                         f"  values:     {', '.join(str(v) for v in next(iter(values_by_project.values())))}"
                     )
                 else:
-                    print(f"  values:")
+                    print("  values:")
                     for proj, vals in values_by_project.items():
                         print(f"    {proj}:  {', '.join(str(v) for v in vals)}")
             desc = descriptions.get(fname)

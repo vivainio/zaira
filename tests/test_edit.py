@@ -19,7 +19,6 @@ from zaira.edit import (
     _format_assignee,
     _parse_number,
     _handle_update_error,
-    STANDARD_FIELDS,
 )
 
 

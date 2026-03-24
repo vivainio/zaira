@@ -4973,7 +4973,7 @@ class TestMirrorPreprocessing:
         )
 
         with (
-            patch("zaira.wiki._put_one_file", return_value=True) as mock_put,
+            patch("zaira.wiki._put_one_file", return_value=True),
             patch("zaira.wiki._create_page_for_file"),
             patch("zaira.wiki._get_page_info"),
             patch(

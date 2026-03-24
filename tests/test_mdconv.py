@@ -7,7 +7,6 @@ import pytest
 
 from zaira.mdconv import (
     RENDERERS,
-    DiagramRenderer,
     cleanup_render_temps,
     markdown_to_storage,
     markdown_to_jira_wiki,
@@ -20,7 +19,6 @@ from zaira.mdconv import (
     convert_attachments_to_images,
 )
 from tests.jira_wiki_samples import (
-    ALL_SAMPLES,
     HEADINGS,
     TEXT_EFFECTS,
     COLOR,

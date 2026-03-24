@@ -2,7 +2,6 @@
 
 from unittest.mock import MagicMock
 
-import pytest
 
 from zaira.my import search_my_tickets, print_table
 from zaira.types import MyTicket

@@ -2,7 +2,6 @@
 
 import json
 from datetime import datetime, timezone
-from pathlib import Path
 
 from zaira.jira_client import CACHE_DIR
 
