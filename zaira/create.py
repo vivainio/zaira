@@ -23,6 +23,9 @@ def detect_markdown(text: str) -> bool:
         # Fenced code blocks
         if re.match(r"^```", line):
             return True
+        # Markdown bullet lists: - item (Jira uses * for bullets)
+        if re.match(r"^\s*-\s+\S", line):
+            return True
     # Markdown links: [text](url)
     if re.search(r"\[([^\]]+)\]\(([^)]+)\)", text):
         return True

@@ -116,6 +116,12 @@ def map_field(
                 else [c.strip() for c in value.split(",")]
             )
             return field_id, [_resolve_component(n, project) for n in names]
+        if field_id == "description" and isinstance(value, str):
+            from zaira.create import detect_markdown
+            from zaira.mdconv import markdown_to_jira_wiki
+
+            if detect_markdown(value):
+                value = markdown_to_jira_wiki(value)
         return field_id, value
 
     # Look up in editmeta
