@@ -542,7 +542,9 @@ def markdown_to_storage(md_content: str, convert_local_images: bool = True) -> s
             filename = src_match.group(1)
             alt = alt_match.group(1) if alt_match else ""
             alt_attr = f' ac:alt="{alt}"' if alt else ""
-            return f'<ac:image{alt_attr}><ri:attachment ri:filename="{filename}"/></ac:image>'
+            # SVG images need explicit width — Confluence renders them tiny otherwise
+            width_attr = ' ac:width="800"' if filename.endswith(".svg") else ""
+            return f'<ac:image{alt_attr}{width_attr}><ri:attachment ri:filename="{filename}"/></ac:image>'
         return match.group(0)
 
     html = re.sub(r"<img\s+([^>]*)/>", img_to_attachment, html)
