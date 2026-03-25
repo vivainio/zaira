@@ -5,6 +5,7 @@ import html
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -85,11 +86,15 @@ class DiagramRenderer:
         cmd: str,
         args: list[str],
         src_ext: str = ".txt",
+        out_ext: str = ".png",
+        install_hint: str | None = None,
     ):
         self.name = name
         self.cmd = cmd
         self.args = args
         self.src_ext = src_ext
+        self.out_ext = out_ext
+        self.install_hint = install_hint
 
     def build_command(self, in_path: Path, out_path: Path) -> list[str]:
         """Build the CLI command with placeholders resolved."""
@@ -113,9 +118,18 @@ class DiagramRenderer:
 RENDERERS: dict[str, DiagramRenderer] = {
     "mermaid": DiagramRenderer(
         name="mermaid",
+        cmd="mmdr",
+        args=["-i", "{in}", "-o", "{out}", "-e", "svg"],
+        src_ext=".mmd",
+        out_ext=".svg",
+        install_hint="Download from https://github.com/1jehuang/mermaid-rs-renderer/releases or: cargo install mermaid-rs-renderer",
+    ),
+    "mermaid-slow": DiagramRenderer(
+        name="mermaid-slow",
         cmd="mmdc",
         args=["-i", "{in}", "-o", "{out}"],
         src_ext=".mmd",
+        install_hint="npm install -g @mermaid-js/mermaid-cli",
     ),
     "plantuml": DiagramRenderer(
         name="plantuml",
@@ -177,8 +191,15 @@ def render_diagram_blocks(
     active: list[tuple[str, DiagramRenderer]] = []
     for name in renderers:
         renderer = RENDERERS.get(name)
-        if renderer and renderer.is_available():
+        if not renderer:
+            raise ValueError(
+                f"Unknown renderer '{name}'. Available: {', '.join(RENDERERS)}"
+            )
+        if renderer.is_available():
             active.append((name, renderer))
+        else:
+            hint = f" {renderer.install_hint}" if renderer.install_hint else ""
+            raise RuntimeError(f"Renderer '{name}': '{renderer.cmd}' not found.{hint}")
 
     if not active:
         return md_content, []
@@ -201,25 +222,23 @@ def render_diagram_blocks(
         renderer = renderer_map[tag]
 
         content_hash = hashlib.sha256(source.encode()).hexdigest()[:12]
-        filename = f"{tag}-{content_hash}.png"
-        png_file = tmpdir / filename
+        filename = f"{tag}-{content_hash}{renderer.out_ext}"
+        out_file = tmpdir / filename
         src_file = tmpdir / f"{tag}-{content_hash}{renderer.src_ext}"
 
         src_file.write_text(source, encoding="utf-8")
-        cmd = renderer.build_command(src_file, png_file)
+        cmd = renderer.build_command(src_file, out_file)
 
         result = subprocess.run(cmd, capture_output=True, timeout=30)
 
-        if result.returncode == 0 and png_file.exists():
+        if result.returncode == 0 and out_file.exists():
             original_block = match.group(0)
-            replacement = f"{original_block}\n\n![{tag} diagram]({png_file})"
+            replacement = f"{original_block}\n\n![{tag} diagram]({out_file})"
             md_content = (
                 md_content[: match.start()] + replacement + md_content[match.end() :]
             )
-            temp_files.append(png_file)
+            temp_files.append(out_file)
         else:
-            import sys
-
             print(
                 f"  Warning: {tag} render failed: {result.stderr.decode(errors='replace').strip()}",
                 file=sys.stderr,

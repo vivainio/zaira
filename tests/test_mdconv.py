@@ -1172,13 +1172,18 @@ class TestDiagramRendering:
         assert result == md
         assert temps == []
 
-    def test_unavailable_renderer_skipped(self):
-        """When the CLI tool is not installed, renderer is skipped."""
+    def test_unavailable_renderer_raises(self):
+        """When the CLI tool is not installed, raises RuntimeError with install hint."""
         md = "```mermaid\ngraph TD\n  A-->B\n```"
         with patch("zaira.mdconv.shutil.which", return_value=None):
-            result, temps = render_diagram_blocks(md, ["mermaid"])
-        assert result == md
-        assert temps == []
+            with pytest.raises(RuntimeError, match="not found"):
+                render_diagram_blocks(md, ["mermaid"])
+
+    def test_unknown_renderer_raises(self):
+        """Unknown renderer name raises ValueError."""
+        md = "```mermaid\ngraph TD\n  A-->B\n```"
+        with pytest.raises(ValueError, match="Unknown renderer"):
+            render_diagram_blocks(md, ["nosuchrenderer"])
 
     def test_no_matching_blocks_returns_unchanged(self):
         """Content without matching blocks is returned unchanged."""
@@ -1305,6 +1310,7 @@ class TestDiagramRendering:
     def test_registry_has_expected_renderers(self):
         """Registry contains all documented renderers."""
         assert "mermaid" in RENDERERS
+        assert "mermaid-slow" in RENDERERS
         assert "plantuml" in RENDERERS
         assert "dot" in RENDERERS
         assert "graphviz" in RENDERERS
@@ -1317,9 +1323,18 @@ class TestDiagramRendering:
         in_path = Path("/tmp/in.mmd")
         out_path = Path("/tmp/out.png")
         cmd = r.build_command(in_path, out_path)
-        # First element is either "mmdc" or a resolved path ending with mmdc/mmdc.cmd
-        assert cmd[0] == "mmdc" or cmd[0].lower().endswith(("mmdc", "mmdc.cmd"))
+        # First element is either "mmdr" or a resolved path ending with mmdr
+        assert cmd[0] == "mmdr" or cmd[0].lower().endswith("mmdr")
         # Use str(Path()) to handle platform-specific separators
+        assert cmd[1:] == ["-i", str(in_path), "-o", str(out_path), "-e", "svg"]
+
+    def test_mermaid_slow_build_command(self):
+        """mermaid-slow renderer uses mmdc (legacy mermaid-cli)."""
+        r = RENDERERS["mermaid-slow"]
+        in_path = Path("/tmp/in.mmd")
+        out_path = Path("/tmp/out.png")
+        cmd = r.build_command(in_path, out_path)
+        assert cmd[0] == "mmdc" or cmd[0].lower().endswith(("mmdc", "mmdc.cmd"))
         assert cmd[1:] == ["-i", str(in_path), "-o", str(out_path)]
 
     def test_graphviz_aliases_to_dot(self):

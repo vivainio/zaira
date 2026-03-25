@@ -2268,8 +2268,8 @@ class TestPutOneFile:
         """Pushes content with mermaid blocks rendered to PNG attachments."""
         import shutil
 
-        if not shutil.which("mmdc"):
-            pytest.skip("mmdc not installed")
+        if not shutil.which("mmdr") and not shutil.which("mmdc"):
+            pytest.skip("neither mmdr nor mmdc installed")
 
         from zaira.wiki import _put_one_file
         from zaira import confluence_api

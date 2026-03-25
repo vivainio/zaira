@@ -447,8 +447,8 @@ def test_wiki_put_with_mermaid() -> str:
     import shutil
 
     print("\n=== Put with mermaid rendering ===")
-    if not shutil.which("mmdc"):
-        print("  SKIP: mmdc not installed")
+    if not shutil.which("mmdr") and not shutil.which("mmdc"):
+        print("  SKIP: neither mmdr nor mmdc installed")
         return ""
 
     timestamp = int(time.time())

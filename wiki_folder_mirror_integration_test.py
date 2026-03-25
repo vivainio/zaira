@@ -383,12 +383,13 @@ def main():
     print(f"Space: {WIKI_SPACE}")
     print(f"Parent folder: {WIKI_TEST_ROOT_FOLDER}")
 
-    # Require mmdc for mermaid rendering test
-    if not shutil.which("mmdc"):
-        print("\nERROR: mmdc (mermaid-cli) is required but not installed.")
-        print("Install with: npm install -g @mermaid-js/mermaid-cli")
+    # Require mmdr (fast Rust renderer) or mmdc (legacy) for mermaid rendering test
+    if not shutil.which("mmdr") and not shutil.which("mmdc"):
+        print("\nERROR: mmdr or mmdc is required but neither is installed.")
+        print("Install mmdr: cargo install mermaid-rs-renderer")
+        print("Or legacy:    npm install -g @mermaid-js/mermaid-cli")
         sys.exit(1)
-    print("mmdc: OK")
+    print(f"mermaid renderer: {'mmdr' if shutil.which('mmdr') else 'mmdc'}")
 
     try:
         test_mirror_with_prefix()
