@@ -278,8 +278,9 @@ def parse_field_args(
             )
             continue
         name, value = arg.split("=", 1)
+        value = read_input(value.strip())
         field_id, formatted_value = map_field(
-            name.strip(), value.strip(), project=project, issue_type=issue_type
+            name.strip(), value, project=project, issue_type=issue_type
         )
         fields[field_id] = formatted_value
     return fields

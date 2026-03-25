@@ -153,6 +153,20 @@ class TestParseFieldArgs:
 
         assert result["summary"] == "Test Value"
 
+    def test_reads_stdin_for_dash_value(self):
+        """Reads from stdin when value is '-'."""
+        with (
+            patch(
+                "zaira.edit.map_field",
+                side_effect=lambda n, v, project="", issue_type="": (n.lower(), v),
+            ),
+            patch("zaira.edit.sys.stdin") as mock_stdin,
+        ):
+            mock_stdin.read.return_value = "text from stdin"
+            result = parse_field_args(["description=-"])
+
+        assert result["description"] == "text from stdin"
+
 
 class TestParseYamlFields:
     """Tests for parse_yaml_fields function."""

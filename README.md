@@ -298,6 +298,9 @@ h2. Overview
 This is a *bold* statement with _italic_ text.
 EOF
 
+# Read any field value from stdin with -F "Field=-"
+cat description.md | zaira edit FOO-1234 -F "Description=-"
+
 # Preview changes without updating
 zaira edit FOO-1234 -F "Priority=High" --dry-run
 
