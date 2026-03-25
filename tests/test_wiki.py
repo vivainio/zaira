@@ -2751,6 +2751,60 @@ class TestCreatePageForFile:
         captured = capsys.readouterr()
         assert "Error creating page" in captured.err
 
+    def test_creates_page_with_title_prefix(self, tmp_path, mock_confluence, capsys):
+        """Applies title_prefix to page title."""
+        from zaira.wiki import _create_page_for_file
+        from zaira import confluence_api
+
+        md_file = tmp_path / "test.md"
+        md_file.write_text("# My Page\n\nContent here")
+
+        created_titles = []
+
+        def mock_create(space, title, body, parent):
+            created_titles.append(title)
+            return {"id": "12345", "version": {"number": 1}}
+
+        confluence_api.set_api("create_page", mock_create)
+        confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+
+        result = _create_page_for_file(
+            md_file, "parent-id", "TEST", title_prefix="Demo - "
+        )
+
+        assert result is True
+        assert len(created_titles) == 1
+        assert created_titles[0] == "Demo - My Page"
+
+    def test_creates_page_without_title_prefix(self, tmp_path, mock_confluence, capsys):
+        """Creates page normally when title_prefix is empty."""
+        from zaira.wiki import _create_page_for_file
+        from zaira import confluence_api
+
+        md_file = tmp_path / "test.md"
+        md_file.write_text("# My Page\n\nContent here")
+
+        created_titles = []
+
+        def mock_create(space, title, body, parent):
+            created_titles.append(title)
+            return {"id": "12345", "version": {"number": 1}}
+
+        confluence_api.set_api("create_page", mock_create)
+        confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+
+        result = _create_page_for_file(md_file, "parent-id", "TEST", title_prefix="")
+
+        assert result is True
+        assert len(created_titles) == 1
+        assert created_titles[0] == "My Page"
+
 
 class TestPutOneFileStatusCases:
     """Additional status cases for _put_one_file."""
@@ -4815,8 +4869,8 @@ class TestMirrorPreprocessing:
         assert fm["space"] == "ENG"
         assert fm["folder"] == "team/backend"
 
-    def test_mirror_with_parent_prefixes_folder(self, tmp_path):
-        """Mirror with --parent prefixes the folder path."""
+    def test_mirror_with_parent_uses_relative_folder(self, tmp_path):
+        """Mirror with --parent stores relative folder path (parent is used during resolution)."""
         sub = tmp_path / "api"
         sub.mkdir()
         f = sub / "endpoints.md"
@@ -4832,9 +4886,10 @@ class TestMirrorPreprocessing:
             status=False,
             diff=False,
             create=False,
-            parent="team-docs",
+            parent="12345",  # Now treated as parent folder ID
             space="ENG",
             mirror=True,
+            prefix=None,
         )
 
         with (
@@ -4853,7 +4908,8 @@ class TestMirrorPreprocessing:
 
         content = f.read_text()
         fm, _ = parse_front_matter(content)
-        assert fm["folder"] == "team-docs/api"
+        # With new behavior, folder is just the relative path (parent ID used during resolution)
+        assert fm["folder"] == "api"
 
     def test_mirror_root_files_get_no_folder(self, tmp_path):
         """Files at root of input dir get no folder: set."""
@@ -4917,7 +4973,7 @@ class TestMirrorPreprocessing:
         )
 
         with (
-            patch("zaira.wiki._put_one_file", return_value=True) as mock_put,
+            patch("zaira.wiki._put_one_file", return_value=True),
             patch("zaira.wiki._create_page_for_file"),
             patch("zaira.wiki._get_page_info"),
             patch(
@@ -5005,8 +5061,8 @@ class TestMirrorPreprocessing:
         assert mid_fm["folder"] == "a"
         assert deep_fm["folder"] == "a/b"
 
-    def test_mirror_root_with_parent_only(self, tmp_path):
-        """Root files with --parent get folder set to parent value."""
+    def test_mirror_root_with_parent_no_folder(self, tmp_path):
+        """Root files with --parent don't get folder in front matter (parent ID used during resolution)."""
         f = tmp_path / "page.md"
         f.write_text("---\ntitle: Page\n---\n\n# Page\n")
 
@@ -5020,9 +5076,10 @@ class TestMirrorPreprocessing:
             status=False,
             diff=False,
             create=False,
-            parent="team-docs",
+            parent="12345",  # Now treated as parent folder ID
             space="ENG",
             mirror=True,
+            prefix=None,
         )
 
         with (
@@ -5041,4 +5098,167 @@ class TestMirrorPreprocessing:
 
         content = f.read_text()
         fm, _ = parse_front_matter(content)
-        assert fm["folder"] == "team-docs"
+        # With new behavior, root files don't get folder (parent ID used during resolution)
+        assert "folder" not in fm
+
+
+class TestResolveParentFromFrontMatter:
+    """Tests for _resolve_parent_from_front_matter function."""
+
+    def test_returns_mirror_parent_when_no_folder(self, tmp_path, mock_confluence):
+        """Returns mirror_parent_id when file has no folder in front matter."""
+        from zaira.wiki import _resolve_parent_from_front_matter
+
+        md_file = tmp_path / "test.md"
+        md_file.write_text("---\nspace: ENG\n---\n\n# Content\n")
+
+        parent_id, space = _resolve_parent_from_front_matter(
+            md_file, mirror_parent_id="parent-123"
+        )
+
+        assert parent_id == "parent-123"
+        assert space == "ENG"
+
+    def test_returns_none_parent_when_no_folder_no_mirror(
+        self, tmp_path, mock_confluence
+    ):
+        """Returns None parent when no folder and no mirror_parent_id."""
+        from zaira.wiki import _resolve_parent_from_front_matter
+
+        md_file = tmp_path / "test.md"
+        md_file.write_text("---\nspace: ENG\n---\n\n# Content\n")
+
+        parent_id, space = _resolve_parent_from_front_matter(md_file)
+
+        assert parent_id is None
+        assert space == "ENG"
+
+    def test_applies_name_prefix_to_folder_segments(self, tmp_path, mock_confluence):
+        """Applies name_prefix to each folder segment."""
+        from zaira.wiki import _resolve_parent_from_front_matter
+        from zaira import confluence_api
+
+        md_file = tmp_path / "test.md"
+        md_file.write_text("---\nspace: ENG\nfolder: api/v2\n---\n\n# Content\n")
+
+        resolve_calls = []
+
+        def mock_resolve(space, path, create):
+            resolve_calls.append((space, path, create))
+            return "resolved-id"
+
+        confluence_api.set_api("resolve_folder_path", mock_resolve)
+
+        parent_id, space = _resolve_parent_from_front_matter(
+            md_file, name_prefix="Demo - "
+        )
+
+        assert parent_id == "resolved-id"
+        assert space == "ENG"
+        assert len(resolve_calls) == 1
+        assert resolve_calls[0][1] == "Demo - api/Demo - v2"
+
+    def test_uses_resolve_folder_path_from_parent_with_mirror(
+        self, tmp_path, mock_confluence
+    ):
+        """Uses resolve_folder_path_from_parent when mirror_parent_id is set."""
+        from zaira.wiki import _resolve_parent_from_front_matter
+        from zaira import confluence_api
+
+        md_file = tmp_path / "test.md"
+        md_file.write_text("---\nspace: ENG\nfolder: sub\n---\n\n# Content\n")
+
+        resolve_calls = []
+
+        def mock_resolve_from_parent(space, parent, path, create):
+            resolve_calls.append((space, parent, path, create))
+            return "resolved-id"
+
+        confluence_api.set_api(
+            "resolve_folder_path_from_parent", mock_resolve_from_parent
+        )
+
+        parent_id, space = _resolve_parent_from_front_matter(
+            md_file, mirror_parent_id="parent-123"
+        )
+
+        assert parent_id == "resolved-id"
+        assert len(resolve_calls) == 1
+        assert resolve_calls[0][0] == "ENG"
+        assert resolve_calls[0][1] == "parent-123"
+        assert resolve_calls[0][2] == "sub"
+        assert resolve_calls[0][3] is True
+
+    def test_combines_mirror_parent_and_prefix(self, tmp_path, mock_confluence):
+        """Combines mirror_parent_id and name_prefix correctly."""
+        from zaira.wiki import _resolve_parent_from_front_matter
+        from zaira import confluence_api
+
+        md_file = tmp_path / "test.md"
+        md_file.write_text("---\nspace: ENG\nfolder: docs/api\n---\n\n# Content\n")
+
+        resolve_calls = []
+
+        def mock_resolve_from_parent(space, parent, path, create):
+            resolve_calls.append((space, parent, path, create))
+            return "resolved-id"
+
+        confluence_api.set_api(
+            "resolve_folder_path_from_parent", mock_resolve_from_parent
+        )
+
+        parent_id, space = _resolve_parent_from_front_matter(
+            md_file, mirror_parent_id="parent-123", name_prefix="Test - "
+        )
+
+        assert parent_id == "resolved-id"
+        # Should apply prefix to each segment
+        assert resolve_calls[0][2] == "Test - docs/Test - api"
+
+    def test_returns_none_when_no_space(self, tmp_path, mock_confluence, capsys):
+        """Returns None, None when no space in front matter or default."""
+        from zaira.wiki import _resolve_parent_from_front_matter
+
+        md_file = tmp_path / "test.md"
+        md_file.write_text("---\ntitle: Test\n---\n\n# Content\n")
+
+        parent_id, space = _resolve_parent_from_front_matter(md_file)
+
+        assert parent_id is None
+        assert space is None
+        captured = capsys.readouterr()
+        assert "has no 'space:'" in captured.err
+
+    def test_uses_default_space_when_not_in_front_matter(
+        self, tmp_path, mock_confluence
+    ):
+        """Uses default_space when not specified in front matter."""
+        from zaira.wiki import _resolve_parent_from_front_matter
+
+        md_file = tmp_path / "test.md"
+        md_file.write_text("---\ntitle: Test\n---\n\n# Content\n")
+
+        parent_id, space = _resolve_parent_from_front_matter(
+            md_file, default_space="DEFAULT"
+        )
+
+        assert space == "DEFAULT"
+
+    def test_returns_none_when_folder_resolution_fails(
+        self, tmp_path, mock_confluence, capsys
+    ):
+        """Returns None, None when folder resolution fails."""
+        from zaira.wiki import _resolve_parent_from_front_matter
+        from zaira import confluence_api
+
+        md_file = tmp_path / "test.md"
+        md_file.write_text("---\nspace: ENG\nfolder: nonexistent\n---\n\n# Content\n")
+
+        confluence_api.set_api("resolve_folder_path", lambda s, p, c: None)
+
+        parent_id, space = _resolve_parent_from_front_matter(md_file)
+
+        assert parent_id is None
+        assert space is None
+        captured = capsys.readouterr()
+        assert "Could not resolve folder path" in captured.err

@@ -9,7 +9,6 @@ from typing import cast
 from jira import JIRA
 from platformdirs import user_cache_dir, user_config_dir
 
-from zaira.project import load_config
 from zaira.types import Credentials
 
 CONFIG_DIR = Path(user_config_dir("zaira", appauthor=False))

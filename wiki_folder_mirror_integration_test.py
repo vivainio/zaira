@@ -1,0 +1,431 @@
+#!/usr/bin/env python3
+"""Integration tests for zaira wiki put --mirror with folder structure.
+
+Tests that directory structure is mirrored to Confluence folders with --prefix.
+
+Run with: uv run wiki_folder_mirror_integration_test.py
+
+Example:
+    zaira wiki put example/ --space basspec --mirror --parent <folder-id> --prefix "Demo - "
+"""
+
+import argparse
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+# Test configuration
+WIKI_TEST_ROOT_FOLDER = "1792999571"  # Parent folder ID in Confluence
+WIKI_SPACE = "~anttiste"  # Space key (personal space)
+
+# Track created pages/folders for cleanup
+created_items: list[str] = []
+
+# Global flag for auto-delete mode
+auto_delete: bool = False
+
+
+def run(cmd: str, check: bool = True) -> subprocess.CompletedProcess:
+    """Run a zaira CLI command."""
+    full_cmd = f"python -m zaira {cmd}"
+    print(f"  $ zaira {cmd}")
+    result = subprocess.run(full_cmd, shell=True, capture_output=True, text=True)
+    if result.stdout:
+        for line in result.stdout.strip().split("\n")[:10]:
+            print(f"    {line}")
+        if result.stdout.count("\n") > 10:
+            print("    ...")
+    if result.stderr and result.returncode != 0:
+        print(f"    stderr: {result.stderr[:200]}")
+    if result.returncode != 0:
+        if check:
+            print(f"  FAILED: {result.stderr}")
+            sys.exit(1)
+        else:
+            print(f"  (exit {result.returncode})")
+    return result
+
+
+def create_test_structure(base_dir: Path) -> None:
+    """Create nested markdown files for testing mirror functionality."""
+    # Root level file
+    (base_dir / "overview.md").write_text(
+        """# Project Overview
+
+This is the main overview page at the root level.
+
+## Contents
+
+- Backend API documentation
+- Frontend components
+""",
+        encoding="utf-8",
+    )
+
+    # Backend folder
+    backend = base_dir / "backend"
+    backend.mkdir()
+    (backend / "architecture.md").write_text(
+        """# Backend Architecture
+
+## Overview
+
+The backend uses a microservices architecture.
+
+## Components
+
+| Service | Port | Description |
+|---------|------|-------------|
+| API Gateway | 8080 | Main entry point |
+| Auth Service | 8081 | Authentication |
+| Data Service | 8082 | Data processing |
+""",
+        encoding="utf-8",
+    )
+
+    # Backend/api subfolder
+    api = backend / "api"
+    api.mkdir()
+    (api / "endpoints.md").write_text(
+        """# API Endpoints
+
+## REST API
+
+### GET /users
+Returns list of users.
+
+### POST /users
+Creates a new user.
+
+```json
+{
+  "name": "John Doe",
+  "email": "john@example.com"
+}
+```
+""",
+        encoding="utf-8",
+    )
+
+    # Frontend folder
+    frontend = base_dir / "frontend"
+    frontend.mkdir()
+    (frontend / "setup.md").write_text(
+        """# Frontend Setup
+
+## Prerequisites
+
+- Node.js 18+
+- npm or yarn
+
+## Installation
+
+```bash
+npm install
+npm run dev
+```
+""",
+        encoding="utf-8",
+    )
+
+    # Frontend/components subfolder
+    components = frontend / "components"
+    components.mkdir()
+    (components / "buttons.md").write_text(
+        """# Button Components
+
+## Primary Button
+
+Used for main actions.
+
+## Secondary Button
+
+Used for secondary actions.
+
+## Icon Button
+
+Button with icon only.
+""",
+        encoding="utf-8",
+    )
+
+    (components / "forms.md").write_text(
+        """# Form Components
+
+## Text Input
+
+Standard text input field.
+
+## Select
+
+Dropdown selection component.
+
+## Checkbox
+
+Boolean toggle component.
+""",
+        encoding="utf-8",
+    )
+
+    # File with mermaid diagram
+    (base_dir / "architecture.md").write_text(
+        """# System Architecture
+
+Overview of the system components:
+
+```mermaid
+graph TD
+    A[Client] --> B[API Gateway]
+    B --> C[Auth Service]
+    B --> D[Data Service]
+    C --> E[Database]
+    D --> E
+```
+
+This diagram shows the main data flow.
+""",
+        encoding="utf-8",
+    )
+
+
+def verify_confluence_structure(
+    prefix: str,
+) -> dict[str, list[str]]:
+    """Verify the created structure in Confluence.
+
+    Returns dict mapping folder paths to list of page titles.
+    """
+    result = run(f"wiki get {WIKI_TEST_ROOT_FOLDER} --list")
+    return {"output": result.stdout}
+
+
+def extract_created_ids(output: str) -> list[str]:
+    """Extract page/folder IDs from command output."""
+    ids = []
+    # Match "Created page NNNN" or "Created folder NNNN"
+    for match in re.finditer(r"Created (?:page|folder) (\d+)", output):
+        ids.append(match.group(1))
+    return ids
+
+
+def test_mirror_with_prefix():
+    """Test mirroring a directory structure with prefix."""
+    print("\n" + "=" * 60)
+    print("TEST: Mirror directory with prefix")
+    print("=" * 60)
+
+    timestamp = int(time.time())
+    prefix = f"Test{timestamp} - "
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        base_dir = Path(tmpdir) / "docs"
+        base_dir.mkdir()
+
+        print("\n--- Creating test structure ---")
+        create_test_structure(base_dir)
+
+        # List created files
+        for f in sorted(base_dir.rglob("*.md")):
+            rel = f.relative_to(base_dir)
+            print(f"  {rel}")
+
+        print(
+            f"\n--- Mirroring to Confluence with prefix '{prefix}' and mermaid rendering ---"
+        )
+        result = run(
+            f'wiki put "{base_dir}" --space {WIKI_SPACE} --mirror '
+            f'--parent {WIKI_TEST_ROOT_FOLDER} --prefix "{prefix}" --render mermaid'
+        )
+
+        # Track created items for cleanup
+        ids = extract_created_ids(result.stdout)
+        created_items.extend(ids)
+        print(f"\n  Created {len(ids)} items")
+
+        # Verify correct number of items created
+        # Expected: 7 pages + 4 folders = 11 items
+        expected_count = 11
+        assert len(ids) >= expected_count, (
+            f"Expected at least {expected_count} items, got {len(ids)}"
+        )
+        print(
+            f"  OK: Created expected number of items ({len(ids)} >= {expected_count})"
+        )
+
+        # Verify front matter was updated in local files
+        print("\n--- Verifying front matter updates ---")
+        all_have_ids = True
+        for md_file in base_dir.rglob("*.md"):
+            content = md_file.read_text(encoding="utf-8")
+            rel_path = md_file.relative_to(base_dir)
+
+            if "confluence:" not in content:
+                print(f"  FAIL: {rel_path} missing confluence: front matter")
+                all_have_ids = False
+            else:
+                print(f"  OK: {rel_path} has confluence ID")
+
+        assert all_have_ids, "Some files missing confluence ID in front matter"
+
+        # Verify mermaid diagram was rendered
+        print("\n--- Verifying mermaid rendering ---")
+        has_mermaid_output = (
+            "Uploaded image:" in result.stdout
+            or "mermaid-" in result.stdout
+            or "attachment" in result.stdout.lower()
+        )
+        assert has_mermaid_output, (
+            "Expected mermaid diagram to be rendered and uploaded"
+        )
+        print("  OK: Mermaid diagram was rendered")
+
+        # --- Test update scenario: modify a file and sync again ---
+        print("\n--- Testing update scenario ---")
+
+        # Find a file in a subfolder to update
+        endpoints_file = base_dir / "backend" / "api" / "endpoints.md"
+        assert endpoints_file.exists(), f"Test file {endpoints_file} not found"
+
+        # Read current content and verify it has folder in front matter
+        original_content = endpoints_file.read_text(encoding="utf-8")
+        assert "folder: backend/api" in original_content, (
+            "Test file should have folder: backend/api in front matter"
+        )
+
+        # Extract the confluence ID for later verification
+        match = re.search(r"confluence:\s*(\d+)", original_content)
+        assert match, "Could not find confluence ID in test file"
+        page_id = match.group(1)
+        print(f"  Page ID for endpoints.md: {page_id}")
+
+        # Update the file content (append some text)
+        updated_content = original_content.replace(
+            "Creates a new user.",
+            "Creates a new user.\n\n**Updated section**: This was added in the second sync.",
+        )
+        endpoints_file.write_text(updated_content, encoding="utf-8")
+        print("  Modified endpoints.md with new content")
+
+        # Sync again
+        print(f"\n--- Re-syncing directory with prefix '{prefix}' ---")
+        result = run(
+            f'wiki put "{base_dir}" --space {WIKI_SPACE} --mirror '
+            f'--parent {WIKI_TEST_ROOT_FOLDER} --prefix "{prefix}"'
+        )
+
+        # Verify no new folders were created (should reuse existing)
+        new_ids = extract_created_ids(result.stdout)
+        print(f"  New items created: {len(new_ids)}")
+
+        # Verify the content was updated (look for "Pushed" in output)
+        assert "Pushed" in result.stdout, (
+            "File was modified but no update was performed"
+        )
+
+        # Verify the folder structure is still correct
+        # Pull the page to check its folder path includes the prefix
+        print(f"  Checking page {page_id} is still in prefixed folder structure")
+        with tempfile.TemporaryDirectory() as pull_tmpdir:
+            run(f'wiki get {page_id} -o "{pull_tmpdir}"', check=False)
+            # Find the pulled file
+            pulled_files = list(Path(pull_tmpdir).rglob("*.md"))
+            assert len(pulled_files) == 1, (
+                f"Expected 1 pulled file, got {len(pulled_files)}"
+            )
+            pulled_content = pulled_files[0].read_text(encoding="utf-8")
+            # The pulled file should have folder path ending with the prefixed structure
+            # (it may include parent folder ancestors like "Zaira-Demo/...")
+            expected_folder_end = f"{prefix}backend/{prefix}api"
+            folder_match = re.search(r"folder:\s*(.+)", pulled_content)
+            assert folder_match, "Pulled page should have folder in front matter"
+            actual_folder = folder_match.group(1).strip()
+            assert actual_folder.endswith(expected_folder_end), (
+                f"Pulled page folder should end with '{expected_folder_end}', got: '{actual_folder}'"
+            )
+            print(f"  OK: page is in correct folder '{actual_folder}'")
+
+        # Read the file again to confirm front matter still has proper folder
+        final_content = endpoints_file.read_text(encoding="utf-8")
+        assert "folder: backend/api" in final_content, (
+            "folder path in front matter should be preserved after update"
+        )
+        print("  OK: folder path preserved in front matter")
+
+        print("\n--- Update scenario test completed ---")
+
+        print("\n--- Test completed ---")
+        return True
+
+
+def cleanup():
+    """Delete created test pages/folders."""
+    if not created_items:
+        print("\nNo items to clean up")
+        return
+
+    print(f"\n--- Cleaning up {len(created_items)} items ---")
+    for item_id in reversed(created_items):  # Delete children first
+        result = run(f"wiki delete {item_id} --yes", check=False)
+        if result.returncode == 0:
+            print(f"  Deleted {item_id}")
+        else:
+            print(f"  Failed to delete {item_id}")
+
+
+def main():
+    print("=" * 60)
+    print("Wiki Folder Mirror Integration Test")
+    print("=" * 60)
+    print(f"Space: {WIKI_SPACE}")
+    print(f"Parent folder: {WIKI_TEST_ROOT_FOLDER}")
+
+    # Require mmdc for mermaid rendering test
+    if not shutil.which("mmdc"):
+        print("\nERROR: mmdc (mermaid-cli) is required but not installed.")
+        print("Install with: npm install -g @mermaid-js/mermaid-cli")
+        sys.exit(1)
+    print("mmdc: OK")
+
+    try:
+        test_mirror_with_prefix()
+
+        print("\n" + "=" * 60)
+        print("ALL TESTS PASSED")
+        print("=" * 60)
+
+    except AssertionError as e:
+        print(f"\nTEST FAILED: {e}")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        print("\nInterrupted")
+    finally:
+        # Ask before cleanup (unless auto-delete is enabled)
+        if created_items:
+            print(f"\nCreated {len(created_items)} items during test.")
+            if auto_delete:
+                print("Auto-delete enabled, cleaning up...")
+                cleanup()
+            else:
+                response = input("Clean up created items? [y/N] ").strip().lower()
+                if response == "y":
+                    cleanup()
+                else:
+                    print("Skipping cleanup. Items left in Confluence.")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Integration tests for zaira wiki put --mirror with folder structure."
+    )
+    parser.add_argument(
+        "--auto-delete",
+        action="store_true",
+        help="Automatically delete created items without prompting",
+    )
+    args = parser.parse_args()
+    auto_delete = args.auto_delete
+    main()

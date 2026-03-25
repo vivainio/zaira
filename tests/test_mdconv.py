@@ -7,7 +7,6 @@ import pytest
 
 from zaira.mdconv import (
     RENDERERS,
-    DiagramRenderer,
     cleanup_render_temps,
     markdown_to_storage,
     markdown_to_jira_wiki,
@@ -20,7 +19,6 @@ from zaira.mdconv import (
     convert_attachments_to_images,
 )
 from tests.jira_wiki_samples import (
-    ALL_SAMPLES,
     HEADINGS,
     TEXT_EFFECTS,
     COLOR,
@@ -1316,8 +1314,13 @@ class TestDiagramRendering:
     def test_renderer_build_command(self):
         """DiagramRenderer.build_command resolves placeholders."""
         r = RENDERERS["mermaid"]
-        cmd = r.build_command(Path("/tmp/in.mmd"), Path("/tmp/out.png"))
-        assert cmd == ["mmdc", "-i", "/tmp/in.mmd", "-o", "/tmp/out.png"]
+        in_path = Path("/tmp/in.mmd")
+        out_path = Path("/tmp/out.png")
+        cmd = r.build_command(in_path, out_path)
+        # First element is either "mmdc" or a resolved path ending with mmdc/mmdc.cmd
+        assert cmd[0] == "mmdc" or cmd[0].lower().endswith(("mmdc", "mmdc.cmd"))
+        # Use str(Path()) to handle platform-specific separators
+        assert cmd[1:] == ["-i", str(in_path), "-o", str(out_path)]
 
     def test_graphviz_aliases_to_dot(self):
         """'graphviz' renderer uses 'dot' command."""

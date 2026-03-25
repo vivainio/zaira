@@ -9,7 +9,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from zaira.config import TICKETS_DIR
 from zaira.info import get_field_name
 from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql

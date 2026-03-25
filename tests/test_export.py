@@ -1,7 +1,6 @@
 """Tests for export module."""
 
 import argparse
-from dataclasses import dataclass
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -348,7 +347,6 @@ class TestFormatTicketMarkdown:
     def test_basic_ticket_format(self):
         """Formats a basic ticket correctly."""
         from zaira.export import format_ticket_markdown
-        from zaira.types import Comment
 
         ticket = {
             "key": "TEST-123",
@@ -413,7 +411,6 @@ class TestFormatTicketMarkdown:
     def test_ticket_with_links(self):
         """Formats ticket with issue links."""
         from zaira.export import format_ticket_markdown
-        from zaira.types import Comment
 
         ticket = {
             "key": "TEST-789",
@@ -451,7 +448,6 @@ class TestFormatTicketMarkdown:
     def test_ticket_with_parent(self):
         """Formats ticket with parent reference."""
         from zaira.export import format_ticket_markdown
-        from zaira.types import Comment
 
         ticket = {
             "key": "TEST-SUB",
@@ -475,7 +471,6 @@ class TestFormatTicketMarkdown:
     def test_ticket_with_attachments(self):
         """Formats ticket with attachments."""
         from zaira.export import format_ticket_markdown
-        from zaira.types import Comment
 
         ticket = {
             "key": "TEST-ATT",
@@ -509,7 +504,6 @@ class TestFormatTicketMarkdown:
     def test_ticket_with_pull_requests(self):
         """Formats ticket with linked PRs."""
         from zaira.export import format_ticket_markdown
-        from zaira.types import Comment
 
         ticket = {
             "key": "TEST-PR",
@@ -575,7 +569,6 @@ class TestFormatTicketJson:
         """JSON output preserves all ticket fields."""
         import json
         from zaira.export import format_ticket_json
-        from zaira.types import Comment
 
         ticket = {
             "key": "TEST-456",
@@ -599,7 +592,6 @@ class TestTicketMarkdownCustomFields:
     def test_includes_custom_fields(self):
         """Includes custom fields in YAML front matter."""
         from zaira.export import format_ticket_markdown
-        from zaira.types import Comment
 
         ticket = {
             "key": "TEST-CF",
@@ -628,7 +620,6 @@ class TestTicketMarkdownCustomFields:
     def test_handles_empty_description(self):
         """Handles empty/None description."""
         from zaira.export import format_ticket_markdown
-        from zaira.types import Comment
 
         ticket = {
             "key": "TEST-ND",
@@ -652,7 +643,6 @@ class TestTicketMarkdownCustomFields:
     def test_formats_components_and_labels(self):
         """Formats components and labels lists."""
         from zaira.export import format_ticket_markdown
-        from zaira.types import Comment
 
         ticket = {
             "key": "TEST-CL",

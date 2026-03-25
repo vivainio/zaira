@@ -699,6 +699,63 @@ def resolve_folder_path(
     return parent_id
 
 
+def resolve_folder_path_from_parent(
+    space_key: str,
+    parent_id: str,
+    folder_path: str,
+    create_missing: bool = False,
+) -> str | None:
+    """Resolve a folder path starting from a parent folder ID.
+
+    Similar to resolve_folder_path but starts from a given parent folder
+    instead of space root.
+
+    Args:
+        space_key: Space key
+        parent_id: Parent folder ID to start from
+        folder_path: Slash-separated folder path relative to parent
+        create_missing: Create folders that don't exist
+
+    Returns:
+        Folder ID of the final segment, or None if not found
+    """
+    if "resolve_folder_path_from_parent" in _api_overrides:
+        return _api_overrides["resolve_folder_path_from_parent"](
+            space_key, parent_id, folder_path, create_missing
+        )
+
+    segments = [s.strip() for s in folder_path.strip("/").split("/") if s.strip()]
+    if not segments:
+        return parent_id
+
+    # Start with children of the parent folder
+    current_folders = get_child_folders(parent_id)
+    current_parent = parent_id
+
+    for segment in segments:
+        # Find matching folder by title
+        match = None
+        for f in current_folders:
+            if f["title"] == segment:
+                match = f
+                break
+
+        if not match:
+            if create_missing:
+                match = create_folder(space_key, segment, current_parent)
+                if not match:
+                    return None
+                print(f"Created folder {match['id']} for {segment}")
+            else:
+                return None
+
+        current_parent = match["id"]
+        # Get children for next level
+        current_folders = get_child_folders(current_parent)
+
+    return current_parent
+
+
 def parse_space_key(ref: str) -> str:
     """Extract space key from a space overview URL or return as-is.
 

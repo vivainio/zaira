@@ -1,7 +1,6 @@
 """Tests for info module."""
 
 import json
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,7 +15,6 @@ from zaira.info import (
     get_field_type,
     load_project_schema,
     _fetch_cached_data,
-    _fetch_and_cache_fields,
 )
 from zaira.types import ZSchema
 

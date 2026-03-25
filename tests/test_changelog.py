@@ -13,7 +13,6 @@ from zaira.changelog import (
     extract_field_revisions,
     fetch_changelog,
     format_changelog,
-    format_revisions,
 )
 
 

@@ -224,7 +224,7 @@ def format_hours(
     lines.append(f"\n{'=' * 50}")
     lines.append(f"Total: {grand_total:.1f}h  ({date_from} to {date_to})")
     if ticket_totals:
-        lines.append(f"\nBy ticket:")
+        lines.append("\nBy ticket:")
         for key, hours in sorted(ticket_totals.items(), key=lambda x: -x[1]):
             lines.append(f"  {key:<12} {hours:.1f}h")
 
@@ -243,7 +243,7 @@ def format_hours(
                     f"  {day} ({day_name})   {logged:.1f}h logged, {gap:.1f}h missing"
                 )
         if missing_lines:
-            lines.append(f"\nMissing hours:")
+            lines.append("\nMissing hours:")
             lines.extend(missing_lines)
             lines.append(
                 f"  Total missing: {total_missing:.1f}h across {len(missing_lines)} day(s)"

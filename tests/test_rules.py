@@ -1,12 +1,10 @@
 """Tests for zaira.rules module."""
 
-from pathlib import Path
 from unittest.mock import patch
 
 from zaira.rules import (
     check_ticket,
     validate_transition,
-    Violation,
     _find_rules_file,
     load_rules,
 )
@@ -1285,7 +1283,7 @@ class TestImport:
         return path
 
     def test_import_merges_base_and_override(self, tmp_path):
-        base = self._write(
+        self._write(
             tmp_path / "base.yaml",
             """\
 Story:
@@ -1294,7 +1292,7 @@ Story:
         )
         overlay = self._write(
             tmp_path / "overlay.yaml",
-            f"""\
+            """\
 import: base.yaml
 Story:
   required: [Extra Field]

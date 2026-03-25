@@ -1,10 +1,5 @@
 """Tests for project configuration module."""
 
-from pathlib import Path
-from unittest.mock import patch
-
-import pytest
-
 from zaira import project
 
 

@@ -532,7 +532,6 @@ class TestGenerateDashboardReport:
     def test_returns_empty_for_no_dashboard(self, mock_jira):
         """Returns empty when dashboard not found."""
         from zaira.report import generate_dashboard_report
-        from unittest.mock import patch
 
         with patch("zaira.report.get_dashboard", return_value=None):
             result, total = generate_dashboard_report(12345)
@@ -543,7 +542,7 @@ class TestGenerateDashboardReport:
     def test_handles_dashboard_with_no_jql_gadgets(self, mock_jira):
         """Handles dashboard with no JQL gadgets."""
         from zaira.report import generate_dashboard_report
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock
 
         mock_dashboard = MagicMock()
         mock_dashboard.name = "Test Dashboard"
@@ -561,7 +560,7 @@ class TestGenerateDashboardReport:
     def test_generates_report_with_gadgets(self, mock_jira):
         """Generates full report from dashboard gadgets."""
         from zaira.report import generate_dashboard_report
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock
 
         mock_dashboard = MagicMock()
         mock_dashboard.name = "My Dashboard"
@@ -601,7 +600,7 @@ class TestGenerateDashboardReport:
     def test_handles_grouping(self, mock_jira):
         """Generates grouped report from dashboard."""
         from zaira.report import generate_dashboard_report
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock
 
         mock_dashboard = MagicMock()
         mock_dashboard.name = "Grouped Dashboard"
@@ -652,7 +651,6 @@ class TestReportCommand:
     def test_lists_reports_when_no_args(self, mock_jira, capsys):
         """Lists available reports when no arguments given."""
         from zaira.report import report_command
-        from unittest.mock import patch, MagicMock
         import argparse
 
         args = argparse.Namespace(
@@ -686,7 +684,6 @@ class TestReportCommand:
     def test_exits_when_no_reports_defined(self, mock_jira, capsys):
         """Exits with message when no reports defined."""
         from zaira.report import report_command
-        from unittest.mock import patch
         import argparse
 
         args = argparse.Namespace(
@@ -714,7 +711,6 @@ class TestReportCommand:
     def test_generates_report_with_jql(self, mock_jira, capsys, tmp_path):
         """Generates report from JQL query."""
         from zaira.report import report_command
-        from unittest.mock import patch, MagicMock
         import argparse
 
         args = argparse.Namespace(
@@ -752,7 +748,6 @@ class TestReportCommand:
     def test_exits_when_no_tickets_found(self, mock_jira, capsys):
         """Exits with message when no tickets found."""
         from zaira.report import report_command
-        from unittest.mock import patch
         import argparse
 
         args = argparse.Namespace(
@@ -782,7 +777,6 @@ class TestReportCommand:
     def test_generates_json_format(self, mock_jira, capsys):
         """Generates JSON format report."""
         from zaira.report import report_command
-        from unittest.mock import patch
         import argparse
         import json
 
@@ -815,7 +809,6 @@ class TestReportCommand:
     def test_generates_csv_format(self, mock_jira, capsys):
         """Generates CSV format report."""
         from zaira.report import report_command
-        from unittest.mock import patch
         import argparse
 
         args = argparse.Namespace(
@@ -857,7 +850,6 @@ class TestReportCommand:
     def test_uses_named_query(self, mock_jira, capsys):
         """Uses named query from project config."""
         from zaira.report import report_command
-        from unittest.mock import patch
         import argparse
 
         args = argparse.Namespace(
@@ -897,7 +889,6 @@ class TestReportCommand:
     def test_exits_when_query_not_found(self, mock_jira, capsys):
         """Exits when named query not found."""
         from zaira.report import report_command
-        from unittest.mock import patch
         import argparse
 
         args = argparse.Namespace(
@@ -925,7 +916,6 @@ class TestReportCommand:
     def test_uses_board_jql(self, mock_jira, capsys):
         """Uses board ID to generate JQL."""
         from zaira.report import report_command
-        from unittest.mock import patch
         import argparse
 
         args = argparse.Namespace(
@@ -965,7 +955,6 @@ class TestReportCommand:
     def test_uses_sprint_jql(self, mock_jira, capsys):
         """Uses sprint ID to generate JQL."""
         from zaira.report import report_command
-        from unittest.mock import patch
         import argparse
 
         args = argparse.Namespace(
@@ -1005,7 +994,6 @@ class TestReportCommand:
     def test_adds_label_filter(self, mock_jira, capsys):
         """Adds label filter to JQL."""
         from zaira.report import report_command
-        from unittest.mock import patch, call
         import argparse
 
         args = argparse.Namespace(
@@ -1044,7 +1032,6 @@ class TestReportCommand:
     def test_saves_to_file(self, mock_jira, tmp_path):
         """Saves report to file."""
         from zaira.report import report_command
-        from unittest.mock import patch
         import argparse
 
         output_file = tmp_path / "report.md"
@@ -1084,7 +1071,6 @@ class TestReportCommand:
     def test_exits_when_no_jql_source(self, mock_jira, capsys):
         """Exits when no JQL source provided."""
         from zaira.report import report_command
-        from unittest.mock import patch
         import argparse
 
         # Named report that has no JQL source in its definition
@@ -1122,7 +1108,6 @@ class TestReportCommand:
     def test_handles_dashboard_report(self, mock_jira, capsys):
         """Handles dashboard report generation."""
         from zaira.report import report_command
-        from unittest.mock import patch, MagicMock
         import argparse
 
         args = argparse.Namespace(
@@ -1157,7 +1142,6 @@ class TestReportCommand:
     def test_handles_dashboard_url(self, mock_jira, capsys):
         """Extracts dashboard ID from URL."""
         from zaira.report import report_command
-        from unittest.mock import patch
         import argparse
 
         args = argparse.Namespace(
@@ -1191,7 +1175,6 @@ class TestReportCommand:
     def test_exits_when_dashboard_not_found(self, mock_jira, capsys):
         """Exits when dashboard not found."""
         from zaira.report import report_command
-        from unittest.mock import patch
         import argparse
 
         args = argparse.Namespace(
@@ -1219,7 +1202,6 @@ class TestReportCommand:
     def test_uses_named_report(self, mock_jira, capsys):
         """Uses named report from project config."""
         from zaira.report import report_command
-        from unittest.mock import patch
         import argparse
 
         args = argparse.Namespace(
@@ -1261,13 +1243,12 @@ class TestReportCommand:
     def test_uses_output_from_report_def(self, mock_jira, tmp_path, monkeypatch):
         """Named report output path from zproject.toml is used."""
         from zaira.report import report_command
-        from unittest.mock import patch
         import argparse
 
         monkeypatch.chdir(tmp_path)
         (tmp_path / "zproject.toml").write_text("")
 
-        out_file = tmp_path / "custom" / "report.md"
+        tmp_path / "custom" / "report.md"
         args = argparse.Namespace(
             name="my-report",
             query=None,
@@ -1308,7 +1289,6 @@ class TestReportCommand:
     def test_cli_output_overrides_report_def(self, mock_jira, tmp_path, monkeypatch):
         """CLI -o flag takes precedence over report def output."""
         from zaira.report import report_command
-        from unittest.mock import patch
         import argparse
 
         monkeypatch.chdir(tmp_path)
@@ -1353,7 +1333,6 @@ class TestReportCommand:
     def test_exits_when_named_report_not_found(self, mock_jira, capsys):
         """Exits when named report not found."""
         from zaira.report import report_command
-        from unittest.mock import patch
         import argparse
 
         args = argparse.Namespace(
@@ -1382,7 +1361,6 @@ class TestReportCommand:
     def test_uses_board_name_from_config(self, mock_jira, capsys):
         """Resolves board name from project config."""
         from zaira.report import report_command
-        from unittest.mock import patch
         import argparse
 
         args = argparse.Namespace(
@@ -1424,7 +1402,6 @@ class TestReportCommand:
     def test_exits_when_board_not_found(self, mock_jira, capsys):
         """Exits when board name not found in config."""
         from zaira.report import report_command
-        from unittest.mock import patch
         import argparse
 
         args = argparse.Namespace(

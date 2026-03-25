@@ -19,7 +19,6 @@ ALLOWED_FIELDS_FILE = CONFIG_DIR / "rules" / "allowed_fields.txt"
 def _find_rules_file(path="rules.yaml") -> Path | None:
     """Search for rules file: explicit path, then cwd, then the zaira config dir."""
     from zaira.jira_client import CONFIG_DIR
-    from zaira.types import FieldError
 
     p = Path(path)
     if p.is_absolute() or path != "rules.yaml":
@@ -566,7 +565,7 @@ def check_command(args):
                 ):
                     allowed = allowed_values_map[v.field]
                     if isinstance(allowed, list) and allowed:
-                        print(f"        Allowed values:")
+                        print("        Allowed values:")
                         for val in allowed[:10]:
                             print(f"          - {val}")
                         if len(allowed) > 10:

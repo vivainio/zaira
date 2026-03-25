@@ -1,9 +1,5 @@
 """Tests for dashboard module."""
 
-from unittest.mock import MagicMock
-
-import pytest
-
 from zaira.dashboard import (
     _get_owner_name,
     _dict_to_dashboard,

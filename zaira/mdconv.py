@@ -93,7 +93,10 @@ class DiagramRenderer:
 
     def build_command(self, in_path: Path, out_path: Path) -> list[str]:
         """Build the CLI command with placeholders resolved."""
-        result = [self.cmd]
+        # Use shutil.which to resolve the full path - required on Windows
+        # where .cmd/.bat wrappers won't execute without shell=True
+        resolved_cmd = shutil.which(self.cmd) or self.cmd
+        result = [resolved_cmd]
         for arg in self.args:
             result.append(
                 arg.replace("{in}", str(in_path))
