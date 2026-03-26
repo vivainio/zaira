@@ -501,12 +501,27 @@ def markdown_to_storage(md_content: str, convert_local_images: bool = True) -> s
         flags=re.MULTILINE,
     )
 
+    # Escape mid-word underscores so markdown doesn't treat them as emphasis
+    # e.g. FILE_STORE_AIRPORT_STAGE should not become FILE<em>STORE</em>AIRPORT_STAGE
+    # Skip HTML comments (placeholders) and fenced code blocks
+    def _escape_mid_word_underscores(text: str) -> str:
+        parts = re.split(r"(<!--.*?-->|```.*?```)", text, flags=re.DOTALL)
+        for i, part in enumerate(parts):
+            if not part.startswith("<!--") and not part.startswith("```"):
+                parts[i] = re.sub(r"(?<=\w)_(?=\w)", r"\_", part)
+        return "".join(parts)
+
+    md_content = _escape_mid_word_underscores(md_content)
+
     extensions = [
         "tables",
         "fenced_code",
         "sane_lists",
     ]
     html = markdown.markdown(md_content, extensions=extensions)
+
+    # Convert ~~strikethrough~~ to <del> tags
+    html = re.sub(r"~~(.*?)~~", r"<del>\1</del>", html)
 
     # Convert <pre><code class="language-X">...</code></pre> to Confluence code macro
     html = re.sub(
@@ -755,6 +770,10 @@ def _elem_to_markdown(
     if tag == "code":
         inner = _process_children(elem, image_dir, list_stack, in_table, table_state)
         return f"`{inner}`"
+
+    if tag in {"del", "s"}:
+        inner = _process_children(elem, image_dir, list_stack, in_table, table_state)
+        return f"~~{inner}~~"
 
     if tag == "a":
         href = elem.get("href", "")
