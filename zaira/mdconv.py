@@ -547,6 +547,22 @@ def markdown_to_storage(md_content: str, convert_local_images: bool = True) -> s
 
     html = re.sub(r"<img\s+([^>]*)/>", img_to_attachment, html)
 
+    # Convert Jira-style emoticons to Confluence emoticon macros
+    _EMOTICON_MAP = {
+        "(/)": "tick",
+        "(x)": "cross",
+        "(!)": "warning",
+        "(i)": "information",
+        "(?)": "question",
+        "(+)": "plus",
+        "(-)": "minus",
+        "(on)": "light-on",
+        "(off)": "light-off",
+        "(*)": "yellow-star",
+    }
+    for emoticon, name in _EMOTICON_MAP.items():
+        html = html.replace(emoticon, f'<ac:emoticon ac:name="{name}"/>')
+
     return html
 
 
@@ -633,6 +649,23 @@ def _elem_to_markdown(
                 )
                 return f"![{alt}]({image_dir}/{filename})"
         return ""
+
+    # Confluence emoticon
+    if tag == "emoticon":
+        _EMOTICON_REVERSE = {
+            "tick": "(/)",
+            "cross": "(x)",
+            "warning": "(!)",
+            "information": "(i)",
+            "question": "(?)",
+            "plus": "(+)",
+            "minus": "(-)",
+            "light-on": "(on)",
+            "light-off": "(off)",
+            "yellow-star": "(*)",
+        }
+        name = _get_attr(elem, "name", AC_NS) or _get_attr(elem, "name") or ""
+        return _EMOTICON_REVERSE.get(name, f"({name})")
 
     # Headers
     header_map = {
