@@ -1194,7 +1194,7 @@ class TestDiagramRendering:
         assert temps == []
 
     def test_renders_mermaid_block(self):
-        """Mermaid block gets image appended after it."""
+        """Mermaid block is replaced by rendered image."""
         md = "Before\n\n```mermaid\ngraph TD\n  A-->B\n```\n\nAfter"
 
         with (
@@ -1204,14 +1204,14 @@ class TestDiagramRendering:
             result, temps = render_diagram_blocks(md, ["mermaid"])
 
         assert len(temps) == 1
-        assert "```mermaid" in result
+        assert "```mermaid" not in result
         assert "![mermaid diagram](" in result
         assert "Before" in result
         assert "After" in result
         cleanup_render_temps(temps)
 
     def test_renders_dot_block(self):
-        """Dot/graphviz block gets image appended after it."""
+        """Dot/graphviz block is replaced by rendered image."""
         md = "```dot\ndigraph { A -> B }\n```"
 
         with (
@@ -1221,7 +1221,7 @@ class TestDiagramRendering:
             result, temps = render_diagram_blocks(md, ["dot"])
 
         assert len(temps) == 1
-        assert "```dot" in result
+        assert "```dot" not in result
         assert "![dot diagram](" in result
         cleanup_render_temps(temps)
 

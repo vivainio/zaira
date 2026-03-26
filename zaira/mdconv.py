@@ -168,12 +168,11 @@ def render_diagram_blocks(
     md_content: str,
     renderers: list[str] | None = None,
 ) -> tuple[str, list[Path]]:
-    """Render fenced diagram blocks to PNG images.
+    """Render fenced diagram blocks to images.
 
-    Finds fenced code blocks matching requested renderers, renders each to a
-    PNG in a temp directory, and appends the rendered image after the block.
-    The source is kept as a code block for documentation. Renderers whose CLI
-    tool is not installed are silently skipped.
+    Finds fenced code blocks matching requested renderers, renders each to an
+    image in a temp directory, and replaces the code block with the rendered
+    image. Renderers whose CLI tool is not installed are silently skipped.
 
     Args:
         md_content: Markdown content
@@ -232,8 +231,7 @@ def render_diagram_blocks(
         result = subprocess.run(cmd, capture_output=True, timeout=30)
 
         if result.returncode == 0 and out_file.exists():
-            original_block = match.group(0)
-            replacement = f"{original_block}\n\n![{tag} diagram]({out_file})"
+            replacement = f"![{tag} diagram]({out_file})"
             md_content = (
                 md_content[: match.start()] + replacement + md_content[match.end() :]
             )
