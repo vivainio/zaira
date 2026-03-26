@@ -51,8 +51,8 @@ class TestParseDescription:
 class TestPutCommand:
     """Tests for put_command function."""
 
-    def _make_args(self, file="-", dry_run=False, raw=False):
-        return argparse.Namespace(file=file, dry_run=dry_run, raw=raw)
+    def _make_args(self, file="-", dry_run=False, raw=False, force=False):
+        return argparse.Namespace(file=file, dry_run=dry_run, raw=raw, force=force)
 
     def test_full_format_updates_summary_and_description(self, mock_jira, capsys):
         content = (
@@ -217,6 +217,27 @@ class TestPutCommand:
             put_command(self._make_args())
 
         mock_record.assert_called_once_with("put", "FOO-1", "description")
+
+    def test_force_pushes_unchanged_content(self, mock_jira, capsys):
+        """--force pushes even when content matches remote."""
+        content = (
+            "---\nkey: FOO-123\nsummary: Same\nstatus: Open\n---\n\n"
+            "## Description\n\nSame desc.\n\n## Links\n"
+        )
+        mock_issue = MagicMock()
+        mock_issue.fields.summary = "Same"
+        mock_issue.fields.description = "Same desc."
+        mock_jira.issue.return_value = mock_issue
+
+        with (
+            patch("sys.stdin", MagicMock(read=lambda: content)),
+            patch("zaira.put.get_jira_site", return_value="jira.example.com"),
+        ):
+            put_command(self._make_args(force=True))
+
+        mock_issue.update.assert_called_once()
+        captured = capsys.readouterr()
+        assert "Updated FOO-123" in captured.out
 
     def test_raw_skips_markdown_conversion(self, mock_jira, capsys):
         """--raw sends wiki markup as-is without converting."""

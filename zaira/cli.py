@@ -459,6 +459,11 @@ def main() -> None:
         action="store_true",
         help="Skip markdown-to-wiki conversion (input is already Jira wiki)",
     )
+    put_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Push even if no changes detected",
+    )
     put_parser.set_defaults(func=put_command)
 
     # Check command

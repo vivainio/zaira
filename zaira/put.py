@@ -91,9 +91,18 @@ def put_command(args: argparse.Namespace) -> None:
         fields["description"] = new_description
         changes.append("description")
 
-    if not fields:
+    force = getattr(args, "force", False)
+    if not fields and not force:
         print(f"No changes for {key}")
         return
+    if not fields and force:
+        # Force: push all available fields even if unchanged
+        if new_summary:
+            fields["summary"] = new_summary
+            changes.append("summary")
+        if new_description is not None:
+            fields["description"] = new_description
+            changes.append("description")
 
     # Dry run
     if dry_run:
