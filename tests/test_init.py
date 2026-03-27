@@ -95,6 +95,68 @@ class TestGenerateConfig:
         assert "PROJ1" in result
         assert "PROJ2" in result
 
+    def test_no_duplicate_board_keys(self):
+        """Deduplicates board keys when projects share board names."""
+        result = generate_config(
+            projects=["P1", "P2"],
+            all_boards={
+                "P1": [{"id": 100, "name": "Kanban", "type": "kanban"}],
+                "P2": [{"id": 200, "name": "Kanban", "type": "kanban"}],
+            },
+            all_components={},
+        )
+
+        assert "kanban = 100" in result
+        assert "kanban-2 = 200" in result
+
+    def test_no_duplicate_report_keys(self):
+        """Deduplicates report keys when projects share board names."""
+        result = generate_config(
+            projects=["P1", "P2"],
+            all_boards={
+                "P1": [{"id": 100, "name": "Board", "type": "kanban"}],
+                "P2": [{"id": 200, "name": "Board", "type": "scrum"}],
+            },
+            all_components={},
+        )
+
+        # Reports section should have deduplicated keys
+        lines = result.split("\n")
+        report_keys = []
+        in_reports = False
+        for line in lines:
+            if line == "[reports]":
+                in_reports = True
+                continue
+            if in_reports and line.startswith("["):
+                break
+            if in_reports and "=" in line and not line.startswith("#"):
+                key = line.split("=")[0].strip()
+                report_keys.append(key)
+
+        assert len(report_keys) == len(set(report_keys)), (
+            f"Duplicate report keys found: {report_keys}"
+        )
+
+    def test_valid_toml_output(self):
+        """Generated config is valid TOML."""
+        import tomllib
+
+        result = generate_config(
+            projects=["P1", "P2"],
+            all_boards={
+                "P1": [{"id": 100, "name": "Kanban", "type": "kanban"}],
+                "P2": [{"id": 200, "name": "Kanban", "type": "kanban"}],
+            },
+            all_components={
+                "P1": ["API", "Backend"],
+                "P2": ["API"],
+            },
+        )
+
+        # Should not raise
+        tomllib.loads(result)
+
 
 class TestDiscoverComponents:
     """Tests for discover_components with mocked Jira."""

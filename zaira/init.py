@@ -72,6 +72,19 @@ def slugify(name: str) -> str:
     return slug
 
 
+def _unique_key(slug: str, seen: set[str]) -> str:
+    """Return a unique TOML key, appending -2, -3, etc. if needed."""
+    if slug not in seen:
+        seen.add(slug)
+        return slug
+    n = 2
+    while f"{slug}-{n}" in seen:
+        n += 1
+    key = f"{slug}-{n}"
+    seen.add(key)
+    return key
+
+
 def generate_config(
     projects: list[str],
     all_boards: dict[str, list[dict]],
@@ -89,12 +102,14 @@ def generate_config(
     # Boards - collect from all projects
     lines.append("[boards]")
     has_boards = False
+    seen_boards: set[str] = set()
     for project in projects:
         boards = all_boards.get(project, [])
         for board in boards:
             has_boards = True
+            key = _unique_key(slugify(board["name"]), seen_boards)
             lines.append(f"# {board['name']} ({board['type']})")
-            lines.append(f"{slugify(board['name'])} = {board['id']}")
+            lines.append(f"{key} = {board['id']}")
     if not has_boards:
         lines.append("# No boards found")
         lines.append("# kanban = 1789")
@@ -116,20 +131,22 @@ def generate_config(
 
     # Reports - named report definitions
     lines.append("[reports]")
+    seen_reports: set[str] = set()
     lines.append('my-tickets = { query = "my-tickets", group_by = "status" }')
+    seen_reports.add("my-tickets")
 
     for project in projects:
         prefix = f"{project.lower()}-" if len(projects) > 1 else ""
         boards = all_boards.get(project, [])
         if boards:
             board = boards[0]
-            lines.append(
-                f'{slugify(board["name"])} = {{ board = {board["id"]}, group_by = "status" }}'
-            )
+            key = _unique_key(slugify(board["name"]), seen_reports)
+            lines.append(f'{key} = {{ board = {board["id"]}, group_by = "status" }}')
         components = all_components.get(project, [])
         for comp in components:
+            key = _unique_key(f"{prefix}{slugify(comp)}", seen_reports)
             lines.append(
-                f'{prefix}{slugify(comp)} = {{ jql = "project = {project} AND component = \\"{comp}\\"", group_by = "status" }}'
+                f'{key} = {{ jql = "project = {project} AND component = \\"{comp}\\"", group_by = "status" }}'
             )
         lines.append(
             f'# {prefix}bugs = {{ jql = "project = {project} AND type = Bug", group_by = "priority" }}'
