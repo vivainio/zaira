@@ -530,11 +530,25 @@ def search_command(args: argparse.Namespace) -> None:
         elif args.format == "id":
             print(page_id)
         else:
-            # Default: show title, space, and URL
-            print(f"{title}")
-            print(f"  Space: {space_key} | ID: {page_id}")
-            print(f"  {url}")
-            print()
+            # Default: YAML-ish output
+            print(f"- title: {title}")
+            print(f"  space: {space_key}")
+            print(f'  id: "{page_id}"')
+            print(f"  url: {url}")
+            excerpt = page.get("excerpt", "")
+            if excerpt:
+                # Strip HTML tags and Confluence highlight markers
+                clean = re.sub(r"@@@(end)?hl@@@", "", excerpt)
+                clean = re.sub(r"<[^>]+>", "", clean).strip()
+                clean = clean[:200]
+                if clean:
+                    lines = clean.split("\n")
+                    if len(lines) > 1:
+                        print("  excerpt: |")
+                        for line in lines:
+                            print(f"    {line}")
+                    else:
+                        print(f"  excerpt: {clean}")
 
 
 def attach_command(args: argparse.Namespace) -> None:
