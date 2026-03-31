@@ -20,6 +20,7 @@ def get_command(args: argparse.Namespace) -> None:
     include_custom = getattr(args, "all_fields", False)
     with_prs = getattr(args, "with_prs", False)
     with_tests = getattr(args, "with_tests", False)
+    with_props = getattr(args, "with_props", False)
     minimal = getattr(args, "min", False)
     raw = getattr(args, "raw", False)
     output = getattr(args, "output", None)
@@ -65,6 +66,7 @@ def get_command(args: argparse.Namespace) -> None:
                 fmt=fmt,
                 with_prs=with_prs,
                 with_tests=with_tests,
+                with_props=with_props,
                 include_custom=include_custom,
                 minimal=minimal,
                 raw=raw,

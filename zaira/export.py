@@ -422,6 +422,63 @@ def get_linked_tests(key: str) -> list[dict]:
         return []
 
 
+PROPS_SKIP_PREFIXES = (
+    "jqlt.",
+    "scriptrunner.",
+    "history-",
+    "index-history-",
+    "tge",
+    "checklist",
+    "issue.content",
+    "ducket-data",
+)
+
+
+def get_issue_properties(issue_id: str) -> list[dict]:
+    """Fetch interesting issue properties (e.g. ducket grids).
+
+    Skips noise properties (jqlt.*, scriptrunner.*, etc.) and returns
+    a list of dicts with 'key' and 'value'.
+    """
+    jira = get_jira()
+    try:
+        resp = jira._session.get(jira._get_url(f"issue/{issue_id}/properties"))
+        keys = [p["key"] for p in resp.json().get("keys", [])]
+        results = []
+        for key in keys:
+            if any(key.startswith(p) for p in PROPS_SKIP_PREFIXES):
+                continue
+            r = jira._session.get(jira._get_url(f"issue/{issue_id}/properties/{key}"))
+            if r.status_code == 200:
+                results.append({"key": key, "value": r.json().get("value", {})})
+        return results
+    except Exception:
+        return []
+
+
+def format_ducket(prop: dict) -> str:
+    """Format a ducket property (ducketId + rows) as a markdown table."""
+    value = prop["value"]
+    rows = value.get("rows", [])
+    if not rows:
+        return ""
+    # Collect all column names in order of first appearance
+    cols: list[str] = []
+    for row in rows:
+        for col in row.get("columns", {}):
+            if col not in cols:
+                cols.append(col)
+    if not cols:
+        return ""
+    header = "| " + " | ".join(cols) + " |"
+    sep = "| " + " | ".join("---" for _ in cols) + " |"
+    lines = [header, sep]
+    for row in sorted(rows, key=lambda r: r.get("order", 0)):
+        cells = [str(row.get("columns", {}).get(c, "")) for c in cols]
+        lines.append("| " + " | ".join(cells) + " |")
+    return "\n".join(lines)
+
+
 def get_pull_requests(issue_id: str) -> list[dict]:
     """Fetch GitHub PRs linked to a Jira issue via dev-status API."""
     jira = get_jira()
@@ -664,6 +721,21 @@ url: https://{jira_site}/browse/{key}
             created = att.get("created", "")[:10]  # Just the date part
             md += f"- [{att_filename}](attachments/{key}/{att_filename}) ({size_kb} KB, {author}, {created})\n"
 
+    properties = ticket.get("properties", [])
+    if properties:
+        md += """
+## Properties
+
+"""
+        for prop in properties:
+            value = prop["value"]
+            if isinstance(value, dict) and "ducketId" in value:
+                table = format_ducket(prop)
+                if table:
+                    md += table + "\n\n"
+            else:
+                md += f"**{prop['key']}**: {json.dumps(value)}\n\n"
+
     md += """
 ## Comments
 
@@ -822,6 +894,7 @@ def export_to_stdout(
     fmt: str = "md",
     with_prs: bool = False,
     with_tests: bool = False,
+    with_props: bool = False,
     include_custom: bool = False,
     minimal: bool = False,
     raw: bool = False,
@@ -842,6 +915,8 @@ def export_to_stdout(
         ticket["pullRequests"] = get_pull_requests(ticket["id"])
     if with_tests:
         ticket["tests"] = get_linked_tests(key)
+    if with_props:
+        ticket["properties"] = get_issue_properties(ticket["id"])
 
     comments = get_comments(key, raw=raw)
     synced = datetime.now().isoformat(timespec="seconds")

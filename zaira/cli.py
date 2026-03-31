@@ -417,6 +417,11 @@ def main() -> None:
         help="Include linked Xray tests and test executions",
     )
     get_parser.add_argument(
+        "--with-props",
+        action="store_true",
+        help="Include issue properties (e.g. ducket grids)",
+    )
+    get_parser.add_argument(
         "-a",
         "--all-fields",
         action="store_true",
