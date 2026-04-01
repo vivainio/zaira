@@ -614,22 +614,17 @@ def attach_command(args: argparse.Namespace) -> None:
 
 
 def create_command(args: argparse.Namespace) -> None:
-    """Create a new Confluence page."""
-    # Read body from stdin, file, or use as literal
-    if args.body == "-":
-        body_content = sys.stdin.read()
-    elif Path(args.body).is_file():
-        body_content = Path(args.body).read_text(encoding="utf-8")
-    else:
-        body_content = args.body
+    """Create a new Confluence page from stdin (markdown)."""
+    body_content = sys.stdin.read()
 
     if not body_content.strip():
-        print("Error: Body content cannot be empty", file=sys.stderr)
+        print(
+            "Error: No content on stdin. Pipe markdown content to this command.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
-    # Convert markdown to Confluence storage format if requested
-    if args.markdown:
-        body_content = markdown_to_storage(body_content)
+    body_content = markdown_to_storage(body_content)
 
     # Optional parent page
     parent_id = parse_page_id(args.parent) if args.parent else None

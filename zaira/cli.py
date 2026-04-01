@@ -47,6 +47,7 @@ from zaira.search import search_command
 from zaira.get import get_command
 from zaira.put import put_command
 from zaira.bundle import bundle_install_command, bundle_update_command
+from zaira.skills import install_skills_command
 from zaira.rules import check_command
 from zaira.activity_log import read_entries, format_entries
 
@@ -935,21 +936,9 @@ def main() -> None:
         help="Page title",
     )
     wiki_create.add_argument(
-        "-b",
-        "--body",
-        required=True,
-        help="Page body: file path, '-' for stdin, or literal content",
-    )
-    wiki_create.add_argument(
         "-p",
         "--parent",
         help="Parent page ID or URL (optional)",
-    )
-    wiki_create.add_argument(
-        "-m",
-        "--markdown",
-        action="store_true",
-        help="Convert body from Markdown to Confluence storage format",
     )
     wiki_create.set_defaults(wiki_func=wiki_create_command)
 
@@ -1261,6 +1250,17 @@ def main() -> None:
         help="Show what would be updated without making changes",
     )
     bundle_update_p.set_defaults(bundle_func=bundle_update_command)
+
+    install_skills_parser = subparsers.add_parser(
+        "install-skills",
+        help="Install Claude Code skills to ~/.claude/skills/",
+    )
+    install_skills_parser.add_argument(
+        "--skills-dir",
+        default=None,
+        help="Target directory for skills (default: ~/.claude/skills/)",
+    )
+    install_skills_parser.set_defaults(func=install_skills_command)
 
     args = parser.parse_args()
 

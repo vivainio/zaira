@@ -41,3 +41,6 @@ package = true
 
 [tool.setuptools]
 packages = ["zaira"]
+
+[tool.setuptools.package-data]
+zaira = ["skills/zaira/*"]
