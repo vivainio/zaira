@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from zaira.info import get_field_name
+from zaira.info import get_field_custom_type, get_field_name
 from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
 from zaira.mdconv import is_jira_wiki, jira_wiki_to_markdown
@@ -207,18 +207,20 @@ def get_ticket(
                 dict.fromkeys(c.name for c in (fields.components or []))
             ),
             "labels": fields.labels or [],
-            "parent": {
-                "key": fields.parent.key,
-                "summary": fields.parent.fields.summary,
-            }
-            if hasattr(fields, "parent") and fields.parent
-            else None,
+            "parent": (
+                {
+                    "key": fields.parent.key,
+                    "summary": fields.parent.fields.summary,
+                }
+                if hasattr(fields, "parent") and fields.parent
+                else None
+            ),
             "issuelinks": [
                 {
                     "type": link.type.name,
-                    "direction": "outward"
-                    if hasattr(link, "outwardIssue")
-                    else "inward",
+                    "direction": (
+                        "outward" if hasattr(link, "outwardIssue") else "inward"
+                    ),
                     "key": (
                         link.outwardIssue.key
                         if hasattr(link, "outwardIssue")
@@ -235,23 +237,40 @@ def get_ticket(
         }
 
         # Add custom fields with human-readable names
+        # paragraph_fields: textarea custom fields always shown as body sections
+        # custom_fields: remaining custom fields, shown in YAML front matter with --all-fields
+        raw_fields_data = issue.raw.get("fields", {})
+        paragraph_fields: dict[str, str] = {}
+        custom_fields: dict[str, Any] = {}
+        for field_id, value in raw_fields_data.items():
+            if not field_id.startswith("customfield_") or value is None:
+                continue
+            is_option = isinstance(value, dict) and ("value" in value or "id" in value)
+            extracted = extract_custom_field_value(value)
+            if not is_option and is_placeholder_value(extracted):
+                continue
+            field_name = get_field_name(field_id)
+            if not field_name:
+                if include_custom:
+                    custom_fields[field_id] = extracted
+                continue
+            if _is_bogus_field_name(field_name):
+                continue
+            custom_type = get_field_custom_type(field_id)
+            is_textarea = custom_type == "textarea" or (
+                isinstance(extracted, str) and "\n" in extracted
+            )
+            if is_textarea and isinstance(extracted, str):
+                text = (
+                    jira_wiki_to_markdown(extracted)
+                    if is_jira_wiki(extracted)
+                    else extracted
+                )
+                paragraph_fields[field_name] = text
+            elif include_custom:
+                custom_fields[field_name] = extracted
+        ticket["paragraph_fields"] = paragraph_fields
         if include_custom:
-            raw_fields = issue.raw.get("fields", {})
-            custom_fields = {}
-            for field_id, value in raw_fields.items():
-                if field_id.startswith("customfield_") and value is not None:
-                    # Option fields (dicts with 'value'/'id') are explicit selections — skip placeholder check
-                    is_option = isinstance(value, dict) and (
-                        "value" in value or "id" in value
-                    )
-                    extracted = extract_custom_field_value(value)
-                    if is_option or not is_placeholder_value(extracted):
-                        field_name = get_field_name(field_id)
-                        if field_name and not _is_bogus_field_name(field_name):
-                            custom_fields[field_name] = extracted
-                        elif not field_name:
-                            # Keep ID if name not in schema
-                            custom_fields[field_id] = extracted
             ticket["custom_fields"] = custom_fields
 
         # Add extra fields for JSON export
@@ -275,9 +294,9 @@ def get_ticket(
                     "key": st.key,
                     "summary": st.fields.summary,
                     "status": st.fields.status.name,
-                    "issuetype": st.fields.issuetype.name
-                    if st.fields.issuetype
-                    else "Unknown",
+                    "issuetype": (
+                        st.fields.issuetype.name if st.fields.issuetype else "Unknown"
+                    ),
                 }
                 for st in (fields.subtasks or [])
             ]
@@ -638,11 +657,19 @@ def format_ticket_markdown(
     parent_data = ticket.get("parent")
     parent = parent_data["key"] if parent_data else "None"
 
-    # Build custom fields YAML lines
+    # Build custom fields YAML lines (non-textarea fields from --all-fields)
     custom_fields_yaml = ""
     custom_fields = ticket.get("custom_fields", {})
     for name, value in sorted(custom_fields.items()):
         custom_fields_yaml += f"{name}: {format_custom_field_value(value)}\n"
+
+    # Build paragraph sections (textarea fields, always shown)
+    paragraph_fields = ticket.get("paragraph_fields", {})
+    paragraph_sections = "".join(
+        f"\n## {name}\n\n{value}\n"
+        for name, value in sorted(paragraph_fields.items())
+        if value.strip()
+    )
 
     md = f"""---
 key: {key}
@@ -666,7 +693,7 @@ url: https://{jira_site}/browse/{key}
 ## Description
 
 {description}
-
+{paragraph_sections}
 ## Links
 
 """

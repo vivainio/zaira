@@ -61,7 +61,7 @@ def save_schema(schema: ZSchema) -> None:
     """Save instance schema to global cache directory."""
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     schema_file = get_schema_path()
-    schema_file.write_text(json.dumps(schema, indent=2))
+    schema_file.write_text(json.dumps({**schema, "version": SCHEMA_VERSION}, indent=2))
 
 
 def update_schema(key: str, value: dict | list) -> None:
@@ -91,6 +91,10 @@ def _build_fields_dict(raw_fields: list[dict]) -> dict:
         type_str = _encode_field_type(s)
         if type_str:
             entry["type"] = type_str
+        # Store custom type suffix for rendering hints (e.g. "textarea", "textfield")
+        custom_uri = s.get("custom", "")
+        if custom_uri and ":" in custom_uri:
+            entry["custom_type"] = custom_uri.split(":")[-1]
         result[f["id"]] = entry
     return result
 
@@ -211,6 +215,21 @@ def get_field_type(field_id: str) -> str | None:
         return None
     outer, _ = _parse_field_type(type_str)
     return outer
+
+
+def get_field_custom_type(field_id: str) -> str | None:
+    """Get field custom type suffix by ID (e.g. 'textarea', 'textfield').
+
+    Returns None if not found or schema not yet cached with custom_type.
+    Requires fields to have been fetched after this feature was added.
+    """
+    schema = load_schema()
+    if not schema or "fields" not in schema:
+        return None
+    field_def = schema["fields"].get(field_id)
+    if field_def is None:
+        return None
+    return field_def.get("custom_type")
 
 
 def get_field_item_type(field_id: str) -> str | None:
