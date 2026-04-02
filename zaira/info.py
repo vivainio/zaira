@@ -9,6 +9,7 @@ import yaml
 
 from zaira.jira_client import (
     CACHE_DIR,
+    CONFIG_DIR,
     format_jira_error,
     get_editmeta_path,
     get_jira,
@@ -23,6 +24,7 @@ T = TypeVar("T")
 
 SCHEMA_VERSION = 2
 FIELD_DESCRIPTIONS_FILE = CACHE_DIR / "field_descriptions.yaml"
+DEFAULT_FIELDS_FILE = CONFIG_DIR / "rules" / "default_fields.txt"
 
 
 def load_field_descriptions() -> dict[str, str]:
@@ -215,6 +217,26 @@ def get_field_type(field_id: str) -> str | None:
         return None
     outer, _ = _parse_field_type(type_str)
     return outer
+
+
+def load_default_fields() -> set[str]:
+    """Load default fields from default_fields.txt.
+
+    These fields are always shown in ticket front matter without --all-fields.
+    File lives at ~/.config/zaira/rules/default_fields.txt.
+
+    Returns:
+        Set of field names; empty set if file not configured.
+    """
+    if not DEFAULT_FIELDS_FILE.exists():
+        return set()
+    fields: set[str] = set()
+    with open(DEFAULT_FIELDS_FILE) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                fields.add(line)
+    return fields
 
 
 def get_field_custom_type(field_id: str) -> str | None:

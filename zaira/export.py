@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from zaira.info import get_field_custom_type, get_field_name
+from zaira.info import get_field_custom_type, get_field_name, load_default_fields
 from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
 from zaira.mdconv import is_jira_wiki, jira_wiki_to_markdown
@@ -95,6 +95,8 @@ def extract_custom_field_value(value: Any) -> Any:
     if isinstance(value, dict):
         if "value" in value:
             return value["value"]
+        if "displayName" in value:
+            return value["displayName"]
         if "name" in value:
             return value["name"]
     return str(value)
@@ -238,10 +240,12 @@ def get_ticket(
 
         # Add custom fields with human-readable names
         # paragraph_fields: textarea custom fields always shown as body sections
-        # custom_fields: remaining custom fields, shown in YAML front matter with --all-fields
+        # custom_fields: non-textarea fields shown in YAML front matter;
+        #   always included if in default_fields.txt, otherwise only with --all-fields
         raw_fields_data = issue.raw.get("fields", {})
         paragraph_fields: dict[str, str] = {}
         custom_fields: dict[str, Any] = {}
+        default_fields_lower = {f.lower() for f in load_default_fields()}
         for field_id, value in raw_fields_data.items():
             if not field_id.startswith("customfield_") or value is None:
                 continue
@@ -267,11 +271,10 @@ def get_ticket(
                     else extracted
                 )
                 paragraph_fields[field_name] = text
-            elif include_custom:
+            elif include_custom or field_name.lower() in default_fields_lower:
                 custom_fields[field_name] = extracted
         ticket["paragraph_fields"] = paragraph_fields
-        if include_custom:
-            ticket["custom_fields"] = custom_fields
+        ticket["custom_fields"] = custom_fields
 
         # Add extra fields for JSON export
         if full:
