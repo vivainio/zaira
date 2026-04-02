@@ -1418,11 +1418,14 @@ class TestGetCommand:
 class TestCreateCommand:
     """Tests for create_command function."""
 
-    def test_create_page_with_markdown(self, mock_confluence, capsys):
+    def test_create_page_with_markdown(self, mock_confluence, capsys, monkeypatch):
         """Creates page with markdown body."""
         from zaira.wiki import create_command
         from zaira import confluence_api
         import argparse
+        import io
+
+        monkeypatch.setattr("sys.stdin", io.StringIO("# Hello\n\nWorld"))
 
         confluence_api.set_api(
             "create_page",
@@ -1434,8 +1437,6 @@ class TestCreateCommand:
 
         args = argparse.Namespace(
             title="New Page",
-            body="# Hello\n\nWorld",
-            markdown=True,
             space="TEST",
             parent=None,
         )
@@ -1449,15 +1450,16 @@ class TestCreateCommand:
         captured = capsys.readouterr()
         assert "Created page 12345" in captured.out
 
-    def test_create_page_empty_body_error(self, capsys):
-        """Errors when body is empty."""
+    def test_create_page_empty_body_error(self, capsys, monkeypatch):
+        """Errors when stdin is empty."""
         from zaira.wiki import create_command
         import argparse
+        import io
+
+        monkeypatch.setattr("sys.stdin", io.StringIO("   "))
 
         args = argparse.Namespace(
             title="New Page",
-            body="   ",
-            markdown=False,
             space="TEST",
             parent=None,
         )
@@ -1467,17 +1469,18 @@ class TestCreateCommand:
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
-        assert "Body content cannot be empty" in captured.err
+        assert "No content on stdin" in captured.err
 
-    def test_create_page_requires_space_or_parent(self, capsys):
+    def test_create_page_requires_space_or_parent(self, capsys, monkeypatch):
         """Errors when neither space nor parent specified."""
         from zaira.wiki import create_command
         import argparse
+        import io
+
+        monkeypatch.setattr("sys.stdin", io.StringIO("Content"))
 
         args = argparse.Namespace(
             title="New Page",
-            body="Content",
-            markdown=False,
             space=None,
             parent=None,
         )
@@ -1489,11 +1492,16 @@ class TestCreateCommand:
         captured = capsys.readouterr()
         assert "Either --space or --parent is required" in captured.err
 
-    def test_create_page_infers_space_from_parent(self, mock_confluence, capsys):
+    def test_create_page_infers_space_from_parent(
+        self, mock_confluence, capsys, monkeypatch
+    ):
         """Infers space from parent page."""
         from zaira.wiki import create_command
         from zaira import confluence_api
         import argparse
+        import io
+
+        monkeypatch.setattr("sys.stdin", io.StringIO("Content"))
 
         confluence_api.set_api(
             "fetch_page",
@@ -1512,8 +1520,6 @@ class TestCreateCommand:
 
         args = argparse.Namespace(
             title="New Page",
-            body="Content",
-            markdown=False,
             space=None,
             parent="99999",
         )
@@ -1527,18 +1533,19 @@ class TestCreateCommand:
         captured = capsys.readouterr()
         assert "Created page 12345" in captured.out
 
-    def test_create_page_api_error(self, mock_confluence, capsys):
+    def test_create_page_api_error(self, mock_confluence, capsys, monkeypatch):
         """Handles API error on create."""
         from zaira.wiki import create_command
         from zaira import confluence_api
         import argparse
+        import io
+
+        monkeypatch.setattr("sys.stdin", io.StringIO("Content"))
 
         confluence_api.set_api("create_page", lambda space, title, body, parent: None)
 
         args = argparse.Namespace(
             title="New Page",
-            body="Content",
-            markdown=False,
             space="TEST",
             parent=None,
         )
@@ -1550,14 +1557,14 @@ class TestCreateCommand:
         captured = capsys.readouterr()
         assert "Error creating page" in captured.err
 
-    def test_create_page_reads_from_file(self, tmp_path, mock_confluence, capsys):
-        """Reads body from file."""
+    def test_create_page_reads_from_stdin(self, mock_confluence, capsys, monkeypatch):
+        """Reads body from stdin."""
         from zaira.wiki import create_command
         from zaira import confluence_api
         import argparse
+        import io
 
-        content_file = tmp_path / "content.txt"
-        content_file.write_text("File content here")
+        monkeypatch.setattr("sys.stdin", io.StringIO("File content here"))
 
         confluence_api.set_api(
             "create_page",
@@ -1569,8 +1576,6 @@ class TestCreateCommand:
 
         args = argparse.Namespace(
             title="New Page",
-            body=str(content_file),
-            markdown=False,
             space="TEST",
             parent=None,
         )
@@ -3335,11 +3340,16 @@ class TestAttachCommandEdgeCases:
 class TestCreateCommandEdgeCases:
     """Additional edge cases for create_command."""
 
-    def test_create_parent_space_fetch_error(self, mock_confluence, capsys):
+    def test_create_parent_space_fetch_error(
+        self, mock_confluence, capsys, monkeypatch
+    ):
         """Errors when cannot get space from parent."""
         from zaira.wiki import create_command
         from zaira import confluence_api
         import argparse
+        import io
+
+        monkeypatch.setattr("sys.stdin", io.StringIO("Content"))
 
         confluence_api.set_api(
             "fetch_page",
@@ -3351,8 +3361,6 @@ class TestCreateCommandEdgeCases:
 
         args = argparse.Namespace(
             title="New Page",
-            body="Content",
-            markdown=False,
             space=None,
             parent="99999",
         )
