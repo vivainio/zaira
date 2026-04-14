@@ -225,44 +225,28 @@ def get_child_pages(page_id: str, limit: int = 100) -> list[dict]:
 
 
 def search_pages(cql: str, limit: int = 25, expand: str = "") -> dict:
-    """Search pages using Confluence full-text search.
-
-    Uses the /search endpoint which provides better relevance ranking
-    and finds content regardless of creator account status.
+    """Search pages using Confluence CQL via the /content endpoint.
 
     Args:
         cql: CQL query string
         limit: Maximum results
-        expand: Comma-separated expansions (applied under content.)
+        expand: Comma-separated expansions
 
     Returns:
-        Search response dict with 'results' key, normalized to match
-        /content/search format (results are page objects directly).
+        Search response dict with 'results' key.
     """
     if "search_pages" in _api_overrides:
         return _api_overrides["search_pages"](cql, limit, expand)
 
     base_url, auth = _get_auth()
-    # Map expand fields to /search format (content.X)
-    search_expand = ",".join(
-        f"content.{field}" for field in expand.split(",") if field.strip()
-    )
     params: dict[str, Any] = {"cql": cql, "limit": limit}
-    if search_expand:
-        params["expand"] = search_expand
-    r = requests.get(f"{base_url}/search", params=params, auth=auth)
+    if expand:
+        params["expand"] = expand
+    r = requests.get(f"{base_url}/content", params=params, auth=auth)
     if not r.ok:
         return {"results": [], "error": f"{r.status_code} - {r.reason}", "text": r.text}
 
-    data = r.json()
-    # Normalize: /search wraps pages in content key, flatten to match old format
-    normalized = []
-    for item in data.get("results", []):
-        page = item.get("content", item)
-        page["excerpt"] = item.get("excerpt", "")
-        normalized.append(page)
-    data["results"] = normalized
-    return data
+    return r.json()
 
 
 def get_page_labels(page_id: str) -> list[str]:
