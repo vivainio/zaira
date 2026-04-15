@@ -139,11 +139,25 @@ def transition_command(args: argparse.Namespace) -> None:
 
         all_rules = try_load_rules()
         violations = []
+        available_transitions: list[dict] = []
 
         if all_rules:
             ticket = get_ticket(key, full=True, include_custom=True)
             if ticket:
-                violations.extend(validate_transition(ticket, all_rules, status))
+                # Resolve transition name (e.g. "Start Implementation") to the
+                # actual target status name (e.g. "Implementing") so rule
+                # checks like valid_transitions compare status-to-status.
+                target_status = status
+                status_lower = status.lower()
+                available_transitions = get_transitions(key)
+                for t in available_transitions:
+                    if (
+                        t["name"].lower() == status_lower
+                        or t["to"]["name"].lower() == status_lower
+                    ):
+                        target_status = t["to"]["name"]
+                        break
+                violations.extend(validate_transition(ticket, all_rules, target_status))
 
         if violations:
             print(
@@ -167,6 +181,13 @@ def transition_command(args: argparse.Namespace) -> None:
                     "no_open_linked",
                 ):
                     print(f"        {v.message}", file=sys.stderr)
+            if (
+                any(v.check == "valid_transitions" for v in violations)
+                and available_transitions
+            ):
+                print("\nAvailable transitions from Jira:", file=sys.stderr)
+                for t in available_transitions:
+                    print(f"  - {t['name']} → {t['to']['name']}", file=sys.stderr)
             print("\nUse --no-check to skip validation.", file=sys.stderr)
             sys.exit(1)
 
