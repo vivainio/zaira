@@ -555,6 +555,8 @@ def check_command(args):
                     "count_matches",
                     "sections_present",
                     "allowed_fields",
+                    "valid_transitions",
+                    "no_open_linked",
                 ):
                     print(f"        {v.message}")
 

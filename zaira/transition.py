@@ -161,6 +161,10 @@ def transition_command(args: argparse.Namespace) -> None:
                     "one_of",
                     "not_one_of",
                     "allowed_fields",
+                    "valid_transitions",
+                    "count_matches",
+                    "sections_present",
+                    "no_open_linked",
                 ):
                     print(f"        {v.message}", file=sys.stderr)
             print("\nUse --no-check to skip validation.", file=sys.stderr)
