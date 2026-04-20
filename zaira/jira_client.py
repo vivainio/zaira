@@ -6,6 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import cast
 
+import keyring
 from jira import JIRA
 from platformdirs import user_cache_dir, user_config_dir
 
@@ -17,6 +18,8 @@ CACHE_DIR = Path(user_cache_dir("zaira", appauthor=False))
 
 CREDENTIALS_FILE = CONFIG_DIR / "credentials.toml"
 CONFIG_FILE = CONFIG_DIR / "config.toml"
+
+KEYRING_SERVICE = "zaira"
 
 
 def get_schema_path() -> Path:
@@ -47,8 +50,8 @@ def get_server_from_config() -> str | None:
     return None
 
 
-def load_credentials() -> Credentials:
-    """Load credentials from the platform config directory."""
+def _read_credentials_file() -> Credentials:
+    """Read credentials.toml without consulting the keyring."""
     if not CREDENTIALS_FILE.exists():
         return {}
 
@@ -56,15 +59,51 @@ def load_credentials() -> Credentials:
         return cast(Credentials, tomllib.load(f))
 
 
+def load_credentials() -> Credentials:
+    """Load credentials, preferring the OS keyring for api_token.
+
+    site/email come from credentials.toml; api_token comes from the keyring
+    (service='zaira', username=email), falling back to the file if present.
+    """
+    creds = _read_credentials_file()
+
+    if not creds.get("api_token"):
+        email = creds.get("email")
+        if email:
+            token = keyring.get_password(KEYRING_SERVICE, email)
+            if token:
+                creds["api_token"] = token
+
+    return creds
+
+
+def save_token_to_keyring(email: str, api_token: str) -> None:
+    """Store the Jira API token in the OS keyring."""
+    keyring.set_password(KEYRING_SERVICE, email, api_token)
+
+
+def delete_token_from_keyring(email: str) -> None:
+    """Remove the Jira API token from the OS keyring (if present)."""
+    try:
+        keyring.delete_password(KEYRING_SERVICE, email)
+    except keyring.errors.PasswordDeleteError:
+        pass
+
+
 def save_credentials(email: str, api_token: str) -> None:
-    """Save credentials to the platform config directory."""
+    """Save email to credentials.toml and api_token to the OS keyring."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
-    content = f'email = "{email}"\napi_token = "{api_token}"\n'
-    CREDENTIALS_FILE.write_text(content)
-
-    # Secure the file
+    existing = _read_credentials_file()
+    site = existing.get("site", "")
+    lines = []
+    if site:
+        lines.append(f'site = "{site}"')
+    lines.append(f'email = "{email}"')
+    CREDENTIALS_FILE.write_text("\n".join(lines) + "\n")
     CREDENTIALS_FILE.chmod(0o600)
+
+    save_token_to_keyring(email, api_token)
 
 
 def get_credentials() -> tuple[str, str, str]:
@@ -147,7 +186,10 @@ def format_jira_error(e: Exception) -> str:
     """Extract a clean error message from a JIRAError, stripping headers/response noise."""
     from jira.exceptions import JIRAError
 
+    msg = ""
+    status = None
     if isinstance(e, JIRAError):
+        status = getattr(e, "status_code", None)
         if e.response is not None and hasattr(e.response, "json"):
             try:
                 data = e.response.json()
@@ -156,9 +198,18 @@ def format_jira_error(e: Exception) -> str:
                 parts = [m for m in msgs if m]
                 parts += [f"{k}: {v}" for k, v in errs.items()]
                 if parts:
-                    return "; ".join(parts)
+                    msg = "; ".join(parts)
             except Exception:
                 pass
-        if e.text:
-            return e.text
-    return str(e)
+        if not msg and e.text:
+            msg = e.text
+    if not msg:
+        msg = str(e)
+
+    if status in (401, 403):
+        msg += (
+            " (auth failed - API token may be expired; run 'zaira init' to update it)"
+        )
+    elif status == 404 and "do not have permission" in msg:
+        msg += " (or your API token is expired - try 'zaira init' to update it)"
+    return msg
