@@ -90,6 +90,29 @@ def delete_token_from_keyring(email: str) -> None:
         pass
 
 
+def strip_token_from_credentials_file() -> bool:
+    """Remove any `api_token = ...` line from credentials.toml.
+
+    Returns True if a line was removed.
+    """
+    if not CREDENTIALS_FILE.exists():
+        return False
+    original = CREDENTIALS_FILE.read_text()
+    kept = [
+        line
+        for line in original.splitlines()
+        if not line.lstrip().startswith("api_token")
+    ]
+    new = "\n".join(kept)
+    if kept and not new.endswith("\n"):
+        new += "\n"
+    if new == original:
+        return False
+    CREDENTIALS_FILE.write_text(new)
+    CREDENTIALS_FILE.chmod(0o600)
+    return True
+
+
 def save_credentials(email: str, api_token: str) -> None:
     """Save email to credentials.toml and api_token to the OS keyring."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)

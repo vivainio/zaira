@@ -28,15 +28,18 @@ Run `zaira init` to create the credentials file:
 zaira init
 ```
 
-This creates a credentials file in your platform's config directory (`~/Library/Application Support/zaira/` on macOS, `~/.config/zaira/` on Linux). Edit it with your Jira details:
+This creates a credentials file in your platform's config directory (`~/Library/Application Support/zaira/` on macOS, `~/.config/zaira/` on Linux). Edit it with your Jira site and email:
 
 ```toml
 site = "your-company.atlassian.net"
 email = "your-email@example.com"
-api_token = "your-api-token"
 ```
 
+Then run `zaira init` again — it will prompt for your API token (hidden input) and store it in the OS keyring (Keychain on macOS, Secret Service / kwallet on Linux, Credential Manager on Windows).
+
 Get your API token from: https://id.atlassian.com/manage-profile/security/api-tokens
+
+Use `zaira init --set-token` to replace a stored token. If you prefer the old behaviour, you can still put `api_token = "..."` directly in `credentials.toml`; it will be used in preference to the keyring.
 
 ### 2. Initialize project (optional, for project managers)
 
@@ -78,6 +81,9 @@ zaira get FOO-1234 --with-tests
 
 # Include custom fields (uses cached schema for name lookup)
 zaira get FOO-1234 --all-fields
+
+# Use a named field as body instead of description
+zaira get FOO-1234 --field "Solution Section"
 
 # Minimal output (key + summary front matter, description as body)
 zaira get FOO-1234 --min
@@ -158,6 +164,31 @@ New description goes here.
 ```
 
 Markdown in the description is auto-converted to Jira wiki syntax.
+
+#### Custom field targeting with `--field`
+
+By default, the body is written to the `description` field. Use `--field` to target a different Jira field:
+
+```bash
+# Round-trip a custom field
+zaira get FOO-123 --field "Solution Section" > solution.md
+# ... edit solution.md ...
+zaira put solution.md
+
+# Override target field from CLI (takes precedence over front matter)
+zaira put solution.md --field "Solution Section"
+```
+
+When `get` is called with `--field`, it emits `field:` in the front matter. When `put` sees `field:` in front matter (or `--field` on the CLI), it writes the body to that Jira field instead of description:
+
+```markdown
+---
+key: FOO-123
+summary: "Implement feature X"
+field: Solution Section
+---
+Solution content goes here.
+```
 
 ### search
 

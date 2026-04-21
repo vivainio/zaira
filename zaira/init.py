@@ -1,6 +1,7 @@
 """Initialize project configuration."""
 
 import argparse
+import getpass
 import json
 import sys
 from pathlib import Path
@@ -13,6 +14,8 @@ from zaira.jira_client import (
     get_jira_site,
     get_project_schema_path,
     load_credentials,
+    save_token_to_keyring,
+    strip_token_from_credentials_file,
 )
 from zaira.info import _fetch_and_cache_fields
 
@@ -176,55 +179,84 @@ max_hours_per_day = 7.5
     CONFIG_FILE.write_text(template)
 
 
-def setup_credentials() -> None:
-    """Create or prompt to edit credentials file."""
-    if CREDENTIALS_FILE.exists():
-        # File exists but has invalid/placeholder values
-        print(f"Credentials file exists but is not configured: {CREDENTIALS_FILE}\n")
-        print("Please edit this file with your Jira credentials:")
-        print("  1. Set your Jira site (e.g., company.atlassian.net)")
-        print("  2. Set your email address")
-        print(
-            "  3. Add your API token from https://id.atlassian.com/manage-profile/security/api-tokens"
-        )
-    else:
-        # Create template
-        CREDENTIALS_FILE.parent.mkdir(parents=True, exist_ok=True)
+def _ensure_credentials_file() -> bool:
+    """Make sure credentials.toml has a real site and email.
 
+    Returns True if the file is ready (site + email set), False if the user
+    still needs to edit it.
+    """
+    if not CREDENTIALS_FILE.exists():
+        CREDENTIALS_FILE.parent.mkdir(parents=True, exist_ok=True)
         template = """# Jira credentials
+# The API token is stored in the OS keyring; 'zaira init' will prompt for it.
 # Get your API token from: https://id.atlassian.com/manage-profile/security/api-tokens
 
 site = "your-company.atlassian.net"
 email = "your-email@example.com"
-api_token = "your-api-token"
 """
         CREDENTIALS_FILE.write_text(template)
         CREDENTIALS_FILE.chmod(0o600)
-
         _create_config_file()
-
         print(f"Created {CREDENTIALS_FILE}\n")
-        print("Please edit this file with your Jira credentials:")
-        print("  1. Set your Jira site (e.g., company.atlassian.net)")
-        print("  2. Set your email address")
         print(
-            "  3. Add your API token from https://id.atlassian.com/manage-profile/security/api-tokens"
+            "Please edit this file with your Jira site and email, then run 'zaira init' again."
         )
+        return False
 
-    print("\nThen run 'zaira init' again.")
+    creds = load_credentials()
+    site = creds.get("site")
+    email = creds.get("email")
+    if (
+        not site
+        or not email
+        or site == "your-company.atlassian.net"
+        or email == "your-email@example.com"
+    ):
+        print(f"Credentials file needs to be configured: {CREDENTIALS_FILE}\n")
+        print("Please set 'site' and 'email', then run 'zaira init' again.")
+        return False
+
+    return True
+
+
+def _prompt_for_token(email: str) -> str:
+    """Prompt the user for an API token (hidden input)."""
+    print(
+        f"No API token found for {email} in the OS keyring.\n"
+        "Get one from https://id.atlassian.com/manage-profile/security/api-tokens"
+    )
+    token = getpass.getpass("Jira API token: ").strip()
+    if not token:
+        print("Error: empty token", file=sys.stderr)
+        sys.exit(1)
+    return token
 
 
 def init_command(args: argparse.Namespace) -> None:
     """Handle init subcommand - credentials setup only."""
-    if check_credentials():
-        _create_config_file()
-        print("Credentials configured.")
-        print(f"  Site: {get_jira_site()}")
-        print(f"  Credentials: {CREDENTIALS_FILE}")
-        print(f"  Config: {CONFIG_FILE}")
-    else:
-        setup_credentials()
+    if not _ensure_credentials_file():
         sys.exit(1)
+
+    creds = load_credentials()
+    email = creds["email"]
+
+    reset = getattr(args, "set_token", False)
+    if reset or not creds.get("api_token"):
+        token = _prompt_for_token(email)
+        save_token_to_keyring(email, token)
+        print(f"Stored API token for {email} in the OS keyring.\n")
+        if reset and strip_token_from_credentials_file():
+            print(
+                f"Removed stale api_token from {CREDENTIALS_FILE} "
+                "so the keyring value takes effect.\n"
+            )
+
+    _create_config_file()
+    print("Credentials configured.")
+    print(f"  Site: {get_jira_site()}")
+    print(f"  Credentials: {CREDENTIALS_FILE}")
+    print(f"  Config: {CONFIG_FILE}")
+    print("  Token: stored in OS keyring")
 
 
 def init_project_command(args: argparse.Namespace) -> None:
