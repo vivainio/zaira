@@ -2323,14 +2323,13 @@ class TestPutOneFile:
 
         assert result is True
 
-        # Verify a mermaid PNG was uploaded as attachment
+        # Verify a mermaid SVG was uploaded as attachment
         assert len(uploaded_attachments) == 1
         assert uploaded_attachments[0].startswith("mermaid-")
-        assert uploaded_attachments[0].endswith(".png")
+        assert uploaded_attachments[0].endswith(".svg")
 
-        # Verify the pushed HTML contains both code block and image
+        # Verify the pushed HTML embeds the rendered image
         html = pushed_body["html"]
-        assert '<ac:parameter ac:name="language">mermaid</ac:parameter>' in html
         assert '<ri:attachment ri:filename="mermaid-' in html
 
         captured = capsys.readouterr()
