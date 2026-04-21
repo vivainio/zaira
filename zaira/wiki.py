@@ -1554,7 +1554,7 @@ def download_images(
     img_path.mkdir(exist_ok=True)
 
     # Use base URL from response (includes /wiki context path)
-    download_base = data.get("_links", {}).get("base", get_server_from_config())
+    download_base = data.get("_links", {}).get("base") or get_server_from_config()
 
     for att in attachments:
         filename = att["title"]
