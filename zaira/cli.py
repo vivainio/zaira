@@ -295,6 +295,11 @@ def main() -> None:
         action="store_true",
         help="Re-prompt for the API token even if one is already stored in the keyring",
     )
+    init_parser.add_argument(
+        "--migrate-token",
+        action="store_true",
+        help="Move the api_token from credentials.toml into the OS keyring (no prompt)",
+    )
     init_parser.set_defaults(func=init_command)
 
     # Init-project command - generate zproject.toml

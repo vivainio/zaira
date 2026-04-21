@@ -10,6 +10,7 @@ from zaira.jira_client import (
     CACHE_DIR,
     CONFIG_FILE,
     CREDENTIALS_FILE,
+    _read_credentials_file,
     get_jira,
     get_jira_site,
     get_project_schema_path,
@@ -240,16 +241,32 @@ def init_command(args: argparse.Namespace) -> None:
     creds = load_credentials()
     email = creds["email"]
 
-    reset = getattr(args, "set_token", False)
-    if reset or not creds.get("api_token"):
-        token = _prompt_for_token(email)
-        save_token_to_keyring(email, token)
-        print(f"Stored API token for {email} in the OS keyring.\n")
-        if reset and strip_token_from_credentials_file():
+    migrate = getattr(args, "migrate_token", False)
+    if migrate:
+        file_token = _read_credentials_file().get("api_token")
+        if not file_token:
             print(
-                f"Removed stale api_token from {CREDENTIALS_FILE} "
-                "so the keyring value takes effect.\n"
+                f"No api_token found in {CREDENTIALS_FILE} to migrate.",
+                file=sys.stderr,
             )
+            sys.exit(1)
+        save_token_to_keyring(email, file_token)
+        strip_token_from_credentials_file()
+        print(
+            f"Migrated api_token from {CREDENTIALS_FILE} to the OS keyring "
+            f"for {email}.\n"
+        )
+    else:
+        reset = getattr(args, "set_token", False)
+        if reset or not creds.get("api_token"):
+            token = _prompt_for_token(email)
+            save_token_to_keyring(email, token)
+            print(f"Stored API token for {email} in the OS keyring.\n")
+            if reset and strip_token_from_credentials_file():
+                print(
+                    f"Removed stale api_token from {CREDENTIALS_FILE} "
+                    "so the keyring value takes effect.\n"
+                )
 
     _create_config_file()
     print("Credentials configured.")
