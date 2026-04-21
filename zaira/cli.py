@@ -290,6 +290,11 @@ def main() -> None:
         "init",
         help="Setup Jira credentials",
     )
+    init_parser.add_argument(
+        "--set-token",
+        action="store_true",
+        help="Re-prompt for the API token even if one is already stored in the keyring",
+    )
     init_parser.set_defaults(func=init_command)
 
     # Init-project command - generate zproject.toml
