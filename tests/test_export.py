@@ -1491,6 +1491,121 @@ class TestExportToStdout:
         captured = capsys.readouterr()
         assert "Error: Could not fetch" in captured.err
 
+    def test_body_field_promotes_paragraph_field(self, mock_jira, capsys):
+        """--field promotes a paragraph (textarea) field to body with field: in front matter."""
+        from zaira.export import export_to_stdout
+        from unittest.mock import patch
+
+        mock_issue = MagicMock()
+        mock_issue.id = "12345"
+        mock_issue.key = "TEST-1"
+        mock_issue.fields.summary = "Test ticket"
+        mock_issue.fields.description = "Original description"
+        mock_issue.fields.issuetype.name = "Epic"
+        mock_issue.fields.status.name = "Open"
+        mock_issue.fields.status.statusCategory.name = "To Do"
+        mock_issue.fields.priority.name = "Medium"
+        mock_issue.fields.assignee = None
+        mock_issue.fields.reporter = None
+        mock_issue.fields.created = "2024-01-01"
+        mock_issue.fields.updated = "2024-01-02"
+        mock_issue.fields.components = []
+        mock_issue.fields.labels = []
+        mock_issue.fields.parent = None
+        mock_issue.fields.issuelinks = []
+        mock_issue.fields.comment.comments = []
+        mock_issue.raw = {
+            "fields": {"customfield_50000": "Solution content\nwith lines"}
+        }
+
+        mock_jira.issue.return_value = mock_issue
+
+        with (
+            patch("zaira.export.get_field_name", return_value="Solution Section"),
+            patch("zaira.export.get_field_custom_type", return_value="textarea"),
+            patch("zaira.export.get_jira_site", return_value="jira.example.com"),
+        ):
+            result = export_to_stdout("TEST-1", body_field="Solution Section")
+
+        assert result is True
+        captured = capsys.readouterr()
+        assert "field: Solution Section" in captured.out
+        # Body should contain the promoted field content as description
+        assert "Solution content" in captured.out
+
+    def test_body_field_minimal_output(self, mock_jira, capsys):
+        """--field with --min emits field: in front matter."""
+        from zaira.export import export_to_stdout
+        from unittest.mock import patch
+
+        mock_issue = MagicMock()
+        mock_issue.id = "12345"
+        mock_issue.key = "TEST-1"
+        mock_issue.fields.summary = "Test"
+        mock_issue.fields.description = "Desc"
+        mock_issue.fields.issuetype.name = "Epic"
+        mock_issue.fields.status.name = "Open"
+        mock_issue.fields.status.statusCategory.name = "To Do"
+        mock_issue.fields.priority.name = "Medium"
+        mock_issue.fields.assignee = None
+        mock_issue.fields.reporter = None
+        mock_issue.fields.created = "2024-01-01"
+        mock_issue.fields.updated = "2024-01-02"
+        mock_issue.fields.components = []
+        mock_issue.fields.labels = []
+        mock_issue.fields.parent = None
+        mock_issue.fields.issuelinks = []
+        mock_issue.fields.comment.comments = []
+        mock_issue.raw = {"fields": {"customfield_50000": "Field body"}}
+
+        mock_jira.issue.return_value = mock_issue
+
+        with (
+            patch("zaira.export.get_field_name", return_value="My Field"),
+            patch("zaira.export.get_field_custom_type", return_value="textarea"),
+            patch("zaira.export.get_jira_site", return_value="jira.example.com"),
+        ):
+            result = export_to_stdout("TEST-1", body_field="My Field", minimal=True)
+
+        assert result is True
+        captured = capsys.readouterr()
+        assert "field: My Field" in captured.out
+        assert "Field body" in captured.out
+
+    def test_body_field_not_found_warns(self, mock_jira, capsys):
+        """--field with unknown field name warns but still outputs."""
+        from zaira.export import export_to_stdout
+        from unittest.mock import patch
+
+        mock_issue = MagicMock()
+        mock_issue.id = "12345"
+        mock_issue.key = "TEST-1"
+        mock_issue.fields.summary = "Test"
+        mock_issue.fields.description = "Desc"
+        mock_issue.fields.issuetype.name = "Bug"
+        mock_issue.fields.status.name = "Open"
+        mock_issue.fields.status.statusCategory.name = "To Do"
+        mock_issue.fields.priority.name = "Medium"
+        mock_issue.fields.assignee = None
+        mock_issue.fields.reporter = None
+        mock_issue.fields.created = "2024-01-01"
+        mock_issue.fields.updated = "2024-01-02"
+        mock_issue.fields.components = []
+        mock_issue.fields.labels = []
+        mock_issue.fields.parent = None
+        mock_issue.fields.issuelinks = []
+        mock_issue.fields.comment.comments = []
+        mock_issue.raw = {"fields": {}}
+
+        mock_jira.issue.return_value = mock_issue
+
+        with patch("zaira.export.get_jira_site", return_value="jira.example.com"):
+            result = export_to_stdout("TEST-1", body_field="Nonexistent")
+
+        assert result is True
+        captured = capsys.readouterr()
+        assert "not found" in captured.err
+
 
 class TestExportCommand:
     """Tests for export_command function."""

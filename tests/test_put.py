@@ -51,8 +51,10 @@ class TestParseDescription:
 class TestPutCommand:
     """Tests for put_command function."""
 
-    def _make_args(self, file="-", dry_run=False, raw=False, force=False):
-        return argparse.Namespace(file=file, dry_run=dry_run, raw=raw, force=force)
+    def _make_args(self, file="-", dry_run=False, raw=False, force=False, field=None):
+        return argparse.Namespace(
+            file=file, dry_run=dry_run, raw=raw, force=force, field=field
+        )
 
     def test_full_format_updates_summary_and_description(self, mock_jira, capsys):
         content = (
@@ -255,3 +257,77 @@ class TestPutCommand:
 
         call_fields = mock_issue.update.call_args[1]["fields"]
         assert call_fields["description"] == "h2. Wiki Heading\n\n*bold* text"
+
+    def test_field_from_front_matter(self, mock_jira, capsys):
+        """field: in front matter routes body to that custom field."""
+        content = "---\nkey: FOO-1\nfield: Solution Section\n---\nNew solution."
+        mock_issue = MagicMock()
+        mock_issue.fields.summary = "Title"
+        mock_issue.fields.customfield_99999 = "Old solution."
+        mock_jira.issue.return_value = mock_issue
+
+        with (
+            patch("sys.stdin", MagicMock(read=lambda: content)),
+            patch("zaira.put.get_jira_site", return_value="jira.example.com"),
+            patch(
+                "zaira.put.get_field_id", return_value="customfield_99999"
+            ) as mock_get_id,
+        ):
+            put_command(self._make_args())
+
+        mock_get_id.assert_called_once_with("Solution Section")
+        mock_issue.update.assert_called_once_with(
+            fields={"customfield_99999": "New solution."}
+        )
+        captured = capsys.readouterr()
+        assert "Solution Section" in captured.out
+
+    def test_field_flag_overrides_front_matter(self, mock_jira, capsys):
+        """--field flag takes precedence over front matter field:."""
+        content = "---\nkey: FOO-1\nfield: Ignored Field\n---\nBody text."
+        mock_issue = MagicMock()
+        mock_issue.fields.summary = "Title"
+        mock_issue.fields.customfield_11111 = "Old."
+        mock_jira.issue.return_value = mock_issue
+
+        with (
+            patch("sys.stdin", MagicMock(read=lambda: content)),
+            patch("zaira.put.get_jira_site", return_value="jira.example.com"),
+            patch("zaira.put.get_field_id", return_value="customfield_11111"),
+        ):
+            put_command(self._make_args(field="CLI Field"))
+
+        mock_issue.update.assert_called_once_with(
+            fields={"customfield_11111": "Body text."}
+        )
+
+    def test_field_unknown_errors(self, mock_jira, capsys):
+        """Unknown field name should exit with error."""
+        content = "---\nkey: FOO-1\nfield: Nonexistent\n---\nBody."
+
+        with (
+            patch("sys.stdin", MagicMock(read=lambda: content)),
+            patch("zaira.put.get_field_id", return_value=None),
+            pytest.raises(SystemExit),
+        ):
+            put_command(self._make_args())
+
+        captured = capsys.readouterr()
+        assert "Could not resolve" in captured.err
+
+    def test_field_no_changes(self, mock_jira, capsys):
+        """No update when custom field content matches remote."""
+        content = "---\nkey: FOO-1\nfield: My Field\n---\nSame content."
+        mock_issue = MagicMock()
+        mock_issue.fields.summary = "Title"
+        mock_issue.fields.customfield_99999 = "Same content."
+        mock_jira.issue.return_value = mock_issue
+
+        with (
+            patch("sys.stdin", MagicMock(read=lambda: content)),
+            patch("zaira.put.get_field_id", return_value="customfield_99999"),
+        ):
+            put_command(self._make_args())
+
+        captured = capsys.readouterr()
+        assert "No changes" in captured.out

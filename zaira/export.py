@@ -640,7 +640,9 @@ def format_ticket_minimal(ticket: dict[str, Any]) -> str:
     key = ticket.get("key", "")
     summary = ticket.get("summary", "No summary")
     description = ticket.get("description", "No description") or "No description"
-    return f"---\nkey: {key}\nsummary: {yaml_quote(summary)}\n---\n{description}\n"
+    body_field_name = ticket.get("body_field")
+    field_line = f"field: {yaml_quote(body_field_name)}\n" if body_field_name else ""
+    return f"---\nkey: {key}\nsummary: {yaml_quote(summary)}\n{field_line}---\n{description}\n"
 
 
 def format_ticket_markdown(
@@ -666,6 +668,12 @@ def format_ticket_markdown(
     for name, value in sorted(custom_fields.items()):
         custom_fields_yaml += f"{name}: {format_custom_field_value(value)}\n"
 
+    # Build field: line if body was promoted from a named field
+    body_field_name = ticket.get("body_field")
+    body_field_yaml = (
+        f"field: {yaml_quote(body_field_name)}\n" if body_field_name else ""
+    )
+
     # Build paragraph sections (textarea fields, always shown)
     paragraph_fields = ticket.get("paragraph_fields", {})
     paragraph_sections = "".join(
@@ -687,7 +695,7 @@ updated: {_format_timestamp(ticket.get("updated", ""))}
 components: {yaml_quote(components)}
 labels: {yaml_quote(labels)}
 parent: {parent}
-{custom_fields_yaml}synced: {synced}
+{custom_fields_yaml}{body_field_yaml}synced: {synced}
 url: https://{jira_site}/browse/{key}
 ---
 
@@ -919,6 +927,29 @@ def export_ticket(
     return True
 
 
+def _apply_body_field(ticket: dict[str, Any], body_field: str) -> None:
+    """Promote a named field to body content, replacing description."""
+    # Check paragraph_fields first (textarea fields)
+    paragraph_fields = ticket.get("paragraph_fields", {})
+    for name, value in list(paragraph_fields.items()):
+        if name.lower() == body_field.lower():
+            ticket["description"] = value
+            ticket["body_field"] = name
+            del paragraph_fields[name]
+            return
+
+    # Check custom_fields
+    custom_fields = ticket.get("custom_fields", {})
+    for name, value in list(custom_fields.items()):
+        if name.lower() == body_field.lower():
+            ticket["description"] = str(value)
+            ticket["body_field"] = name
+            del custom_fields[name]
+            return
+
+    print(f"Warning: field '{body_field}' not found on ticket", file=sys.stderr)
+
+
 def export_to_stdout(
     key: str,
     fmt: str = "md",
@@ -928,14 +959,21 @@ def export_to_stdout(
     include_custom: bool = False,
     minimal: bool = False,
     raw: bool = False,
+    body_field: str | None = None,
 ) -> bool:
     """Export a single ticket to stdout."""
+    # --field implies --all-fields so the target field is fetched
+    if body_field:
+        include_custom = True
     ticket = get_ticket(
         key, full=(fmt == "json"), include_custom=include_custom, raw=raw
     )
     if not ticket:
         print(f"Error: Could not fetch {key}", file=sys.stderr)
         return False
+
+    if body_field:
+        _apply_body_field(ticket, body_field)
 
     if minimal:
         print(format_ticket_minimal(ticket))

@@ -434,6 +434,10 @@ def main() -> None:
         help="Include custom fields",
     )
     get_parser.add_argument(
+        "--field",
+        help="Use named field as body instead of description (adds field: to front matter)",
+    )
+    get_parser.add_argument(
         "--min",
         action="store_true",
         help="Minimal output: key + summary front matter, description as body (symmetric with minimal put)",
@@ -464,6 +468,10 @@ def main() -> None:
         "--dry-run",
         action="store_true",
         help="Show what would change without pushing",
+    )
+    put_parser.add_argument(
+        "--field",
+        help="Override target field for body (default: from front matter 'field:' or description)",
     )
     put_parser.add_argument(
         "--raw",

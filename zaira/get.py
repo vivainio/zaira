@@ -23,6 +23,7 @@ def get_command(args: argparse.Namespace) -> None:
     with_props = getattr(args, "with_props", False)
     minimal = getattr(args, "min", False)
     raw = getattr(args, "raw", False)
+    body_field = getattr(args, "field", None)
     output = getattr(args, "output", None)
     parallel = getattr(args, "parallel", False)
     if not output:
@@ -70,6 +71,7 @@ def get_command(args: argparse.Namespace) -> None:
                 include_custom=include_custom,
                 minimal=minimal,
                 raw=raw,
+                body_field=body_field,
             )
     else:
         assert output is not None
