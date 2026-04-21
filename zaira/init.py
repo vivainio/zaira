@@ -273,7 +273,12 @@ def init_command(args: argparse.Namespace) -> None:
     print(f"  Site: {get_jira_site()}")
     print(f"  Credentials: {CREDENTIALS_FILE}")
     print(f"  Config: {CONFIG_FILE}")
-    print("  Token: stored in OS keyring")
+    if _read_credentials_file().get("api_token"):
+        print(
+            "  Token: credentials.toml (run `zaira init --migrate-token` to move to keyring)"
+        )
+    else:
+        print("  Token: OS keyring")
 
 
 def init_project_command(args: argparse.Namespace) -> None:
