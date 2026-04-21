@@ -11,6 +11,7 @@ from zaira.jira_client import (
     CONFIG_FILE,
     CREDENTIALS_FILE,
     _read_credentials_file,
+    format_jira_error,
     get_jira,
     get_jira_site,
     get_project_schema_path,
@@ -279,6 +280,19 @@ def init_command(args: argparse.Namespace) -> None:
         )
     else:
         print("  Token: OS keyring")
+
+    _ping_jira()
+
+
+def _ping_jira() -> None:
+    """Verify credentials by calling /myself. Prints the result inline."""
+    try:
+        user = get_jira().myself()
+    except Exception as e:
+        print(f"  Jira access: FAILED — {format_jira_error(e)}", file=sys.stderr)
+        return
+    name = user.get("displayName") or user.get("emailAddress") or "unknown"
+    print(f"  Jira access: OK (authenticated as {name})")
 
 
 def init_project_command(args: argparse.Namespace) -> None:
