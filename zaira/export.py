@@ -820,6 +820,7 @@ def export_ticket(
     fmt: str = "md",
     with_prs: bool = False,
     with_tests: bool = False,
+    with_props: bool = False,
     include_custom: bool = False,
     with_attachments: bool = False,
     symlinks: bool = False,
@@ -848,6 +849,8 @@ def export_ticket(
         ticket["pullRequests"] = get_pull_requests(ticket["id"])
     if with_tests:
         ticket["tests"] = get_linked_tests(key)
+    if with_props:
+        ticket["properties"] = get_issue_properties(ticket["id"])
 
     comments = get_comments(key)
     synced = datetime.now().isoformat(timespec="seconds")

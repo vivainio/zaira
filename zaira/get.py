@@ -82,6 +82,7 @@ def get_command(args: argparse.Namespace) -> None:
             fmt=fmt,
             with_prs=with_prs,
             with_tests=with_tests,
+            with_props=with_props,
             include_custom=include_custom,
             with_attachments=True,
             defer_attachments=True,
