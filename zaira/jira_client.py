@@ -229,7 +229,7 @@ def format_jira_error(e: Exception) -> str:
     if not msg:
         msg = str(e)
 
-    if status in (401, 403):
+    if status in (401, 403) and "permission" not in msg.lower():
         msg += (
             " (auth failed - API token may be expired; run 'zaira init' to update it)"
         )
