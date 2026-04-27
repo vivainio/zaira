@@ -62,8 +62,29 @@ def transition_ticket(
         jira.transition_issue(key, match["id"], fields=fields or {}, comment=comment)
         return True
     except Exception as e:
-        print(f"Error transitioning {key}: {format_jira_error(e)}", file=sys.stderr)
+        msg = format_jira_error(e)
+        print(f"Error transitioning {key}: {msg}", file=sys.stderr)
+        _suggest_field_names(msg)
         return False
+
+
+def _suggest_field_names(msg: str) -> None:
+    """If the error message references customfield_NNNNN IDs, print friendly names."""
+    import re
+
+    from zaira.info import get_field_name
+
+    seen: set[str] = set()
+    for fid in re.findall(r"customfield_\d+", msg):
+        if fid in seen:
+            continue
+        seen.add(fid)
+        try:
+            name = get_field_name(fid)
+        except Exception:
+            name = None
+        if name and name != fid:
+            print(f"  Did you mean: {name!r} (instead of {fid})?", file=sys.stderr)
 
 
 def transition_command(args: argparse.Namespace) -> None:
