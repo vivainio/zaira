@@ -533,20 +533,26 @@ def get_pull_requests(issue_id: str) -> list[dict]:
 MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
-def download_attachment(attachment: Attachment, output_dir: Path) -> bool:
+def download_attachment(
+    attachment: Attachment, output_dir: Path, enforce_size_limit: bool = True
+) -> bool:
     """Download a single attachment to the output directory.
 
     Args:
         attachment: Attachment metadata dict
         output_dir: Directory to save the file
+        enforce_size_limit: If True, skip files larger than MAX_ATTACHMENT_SIZE.
 
     Returns:
         True if successful, False otherwise
     """
     size = attachment.get("size", 0)
-    if size > MAX_ATTACHMENT_SIZE:
+    if enforce_size_limit and size > MAX_ATTACHMENT_SIZE:
         size_mb = size / (1024 * 1024)
-        print(f"    Skipping {attachment['filename']} ({size_mb:.1f} MB > 10 MB limit)")
+        print(
+            f"    Skipping {attachment['filename']} ({size_mb:.1f} MB > 10 MB limit); "
+            f"request it by exact filename to download anyway"
+        )
         return False
 
     jira = get_jira()
@@ -593,12 +599,15 @@ def get_attachment_command(args: argparse.Namespace) -> None:
             print(f"  {a['filename']} ({size_kb} KB)")
         return
 
+    is_glob = any(c in pattern for c in "*?[")
+    enforce_size_limit = is_glob or len(matched) > 1
+
     print(f"Downloading {len(matched)} attachment(s) from {key}...")
     success = 0
     for att in matched:
         size_kb = att.get("size", 0) // 1024
         print(f"  {att['filename']} ({size_kb} KB)...", end=" ")
-        if download_attachment(att, output_dir):
+        if download_attachment(att, output_dir, enforce_size_limit=enforce_size_limit):
             print("done")
             success += 1
         else:
