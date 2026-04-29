@@ -48,6 +48,61 @@ owner = <accountId> AND archived = false
 name LIKE "Q3"
 ```
 
+## Recipes
+
+### Current risks summary
+
+A markdown table of every goal that's currently at risk or off track, with the owner-written explanation in the Open risks column:
+
+```bash
+zaira goals export --url '<goals-url>' \
+  --tql 'status = at_risk OR status = off_track' \
+  --full --format table -o risks.md
+```
+
+### Goals by owner
+
+Get one row per goal, then sort/group by the Owner column in your editor or with `awk -F'|' '{print $4, $2}' goals-table.md | sort`:
+
+```bash
+zaira goals export --url '<goals-url>' --full --format table -o goals-table.md
+```
+
+### Filter JSON to "goals with any risk info"
+
+`zaira` doesn't ship a `--has-risks` flag, but the JSON output is easy to filter with `jq`. Picks up both explicit `goal.risks` entries and historical at-risk transitions in the update history:
+
+```bash
+zaira goals export --url '<goals-url>' --full -o goals.json
+
+jq '[.[] | select(
+  ((.risks.edges // []) | map(select(.node.resolvedDate == null)) | length > 0)
+  or
+  ((.updates.edges // []) | any(
+    .node.newState.value as $n
+    | $n != .node.oldState.value
+    and (["at_risk","off_track","paused"] | index($n))
+  ))
+)]' goals.json > goals-with-risks.json
+```
+
+### Hierarchy walk: a portfolio goal and its sub-goals
+
+`--full` already includes sub-goals (one level down). For deeper hierarchies, do one `goals get` per parent and recurse:
+
+```bash
+zaira goals get TEAM-14 --format json | jq '.subGoals.edges[].node.key'
+```
+
+### Status snapshot
+
+Quick count of where things stand:
+
+```bash
+zaira goals export --url '<goals-url>' --full -o goals.json
+jq -r '[.[] | .status.value] | group_by(.) | map({status: .[0], count: length})' goals.json
+```
+
 ## Auth and endpoint
 
 Uses Basic auth with email + API token from `zaira init` against `https://<your-site>.atlassian.net/gateway/api/graphql`. If you generated a *scoped* token, it needs the `read:goal:townsquare` scope (classic tokens just work). Some experimental fields like `goalType` are gated behind the Townsquare opt-in directive — already wired in the queries.
