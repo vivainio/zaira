@@ -299,8 +299,8 @@ def _risk_updates(goal: dict) -> list[str]:
             n = ne.get("node") or {}
             if n.get("archived"):
                 continue
-            s = (n.get("summary") or "").strip()
-            d = (n.get("description") or "").strip()
+            s = _adf_to_text(n.get("summary")).strip()
+            d = _adf_to_text(n.get("description")).strip()
             if s or d:
                 out.append(": ".join(p for p in (s, d) if p))
     return out
