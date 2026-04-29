@@ -43,6 +43,7 @@ from zaira.goals import (
     goals_command,
     export_command as goals_export_command,
     get_command as goals_get_command,
+    updates_command as goals_updates_command,
 )
 from zaira.init import init_command, init_project_command
 from zaira.my import my_command
@@ -1297,6 +1298,11 @@ def main() -> None:
         "--full", action="store_true", help="Include all fields (slower, larger)"
     )
     goals_export_p.add_argument(
+        "--with-updates",
+        action="store_true",
+        help="Include each goal's check-in update history in the export",
+    )
+    goals_export_p.add_argument(
         "--format",
         choices=["json", "md", "table"],
         default=None,
@@ -1327,6 +1333,26 @@ def main() -> None:
     )
     goals_get_p.add_argument("-o", "--output", help="Write to file instead of stdout")
     goals_get_p.set_defaults(goals_func=goals_get_command)
+
+    goals_updates_p = goals_subparsers.add_parser(
+        "updates", help="Show check-in update history for a goal"
+    )
+    goals_updates_p.add_argument("key", help="Goal key (e.g. TEAM-42) or ARI")
+    goals_updates_p.add_argument(
+        "--cloud-id",
+        default=None,
+        help="Cloud/site ID (auto-detected from your Jira site if omitted)",
+    )
+    goals_updates_p.add_argument(
+        "--limit", type=int, default=50, help="Max updates to fetch (default 50)"
+    )
+    goals_updates_p.add_argument(
+        "--format", choices=["md", "json"], default=None, help="Output format"
+    )
+    goals_updates_p.add_argument(
+        "-o", "--output", help="Write to file instead of stdout"
+    )
+    goals_updates_p.set_defaults(goals_func=goals_updates_command)
 
     install_skills_parser = subparsers.add_parser(
         "install-skills",

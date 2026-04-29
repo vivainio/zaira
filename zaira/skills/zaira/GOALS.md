@@ -25,16 +25,21 @@ zaira goals get TEAM-123                                      # full fields, JSO
 zaira goals get TEAM-123 -o goal.md                           # markdown (extension auto-picks format)
 zaira goals get TEAM-123 --minimal --format json              # slim
 zaira goals get ari:cloud:townsquare:...:goal/abc123          # ARI also works
+
+# Update / check-in history for a goal (state transitions, summaries, notes)
+zaira goals updates TEAM-123                                  # markdown to stdout
+zaira goals updates TEAM-123 --format json -o updates.json    # raw JSON
+zaira goals updates TEAM-123 --limit 10                       # cap results
+
+# Bulk: include each goal's update history in the export
+zaira goals export --url '...' --full --with-updates -o goals.json
 ```
 
 ## Output details
 
 - **Status** values are mapped to friendly labels: `On track`, `At risk`, `Pending`, `Cancelled`, `Done`, `Off track`, `Paused`, `Archived`.
 - **Description** and **latest update** text is rendered from Atlassian Document Format (ADF) into plain markdown — paragraphs, headings, bullet/numbered lists, code, blockquotes, hard breaks, and `**bold**` / `*em*` / `` `code` `` / `[link](url)` marks.
-- **Open risks** column in the table format combines two sources:
-  - Unresolved entries from `goal.risks` (the dedicated risks feature in Atlassian Goals).
-  - Update summaries from the goal's check-in history where the status *transitioned into* `at_risk`, `off_track`, or `paused` — i.e. the explanation a goal owner wrote when they marked the goal at-risk. Each entry is prefixed with the date and the new status, e.g. `(2026-04-02 → At risk) Some PI1 dev items still need work…`.
-  - Plus any non-archived `updateNotes` on those check-ins (free-form risk/blocker notes).
+- **Open risks** column in the table format shows unresolved entries from `goal.risks` (the dedicated risks feature in Atlassian Goals). To see *why* a goal moved to At risk, use `zaira goals updates <KEY>` — it lists check-in history with state transitions and the summary the owner wrote.
 
 ## TQL filters
 

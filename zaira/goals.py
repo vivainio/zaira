@@ -62,21 +62,6 @@ latestUserUpdate {
   newTargetDateConfidence
   lastEditedBy { accountId name }
 }
-updates(first: 20) @optIn(to: "Townsquare") {
-  edges {
-    node {
-      uuid
-      creationDate
-      summary
-      newState { value }
-      oldState { value }
-      missedUpdate
-      updateNotes(first: 20) {
-        edges { node { summary description archived } }
-      }
-    }
-  }
-}
 """.strip()
 
 
@@ -149,10 +134,19 @@ def search_goals(
     cloud_id: str,
     tql: str = "archived = false",
     full: bool = False,
+    with_updates: bool = False,
     page_size: int = 50,
 ) -> list[dict]:
     """Page through goals_search and return a flat list of goal nodes."""
     fields = FULL_FIELDS if full else MINIMAL_FIELDS
+    if with_updates:
+        fields = (
+            fields
+            + '\nupdates(first: 20) @optIn(to: "Townsquare") '
+            + "{ edges { node { "
+            + UPDATE_FIELDS
+            + " } } }"
+        )
     container = f"ari:cloud:townsquare::site/{cloud_id}"
     query = f"""
     query GoalsSearch($containerId: ID!, $q: String, $first: Int!, $after: String) {{
@@ -271,41 +265,6 @@ def _indent(text: str, prefix: str = "  ") -> str:
     return "\n".join(prefix + ln for ln in text.rstrip().splitlines())
 
 
-_RISK_STATES = {"at_risk", "off_track", "paused"}
-
-
-def _risk_updates(goal: dict) -> list[str]:
-    """Extract risk-flavored text from a goal's updates feed.
-
-    Surfaces:
-      - Update summaries where the goal transitioned INTO an at-risk/off-track state
-      - Non-archived updateNotes summaries (free-form risk/blocker notes teams add)
-    """
-    out: list[str] = []
-    edges = ((goal.get("updates") or {}).get("edges")) or []
-    for e in edges:
-        node = e.get("node") or {}
-        new_state = (node.get("newState") or {}).get("value")
-        old_state = (node.get("oldState") or {}).get("value")
-        date = (node.get("creationDate") or "")[:10]
-        if new_state in _RISK_STATES and new_state != old_state:
-            text = _adf_to_text(node.get("summary")).strip()
-            label = _STATUS_LABELS.get(new_state, new_state)
-            if text:
-                out.append(f"({date} → {label}) {text}")
-            else:
-                out.append(f"({date} → {label})")
-        for ne in ((node.get("updateNotes") or {}).get("edges")) or []:
-            n = ne.get("node") or {}
-            if n.get("archived"):
-                continue
-            s = _adf_to_text(n.get("summary")).strip()
-            d = _adf_to_text(n.get("description")).strip()
-            if s or d:
-                out.append(": ".join(p for p in (s, d) if p))
-    return out
-
-
 def _cell(text: str) -> str:
     """Escape pipes/newlines for a markdown table cell."""
     if not text:
@@ -347,8 +306,6 @@ def _to_table(goals: list[dict]) -> str:
             if (r.get("node") or {}).get("summary")
             and not (r.get("node") or {}).get("resolvedDate")
         ]
-        for upd in _risk_updates(g):
-            open_risks.append(upd)
         risks_cell = "; ".join(r for r in open_risks if r)
         row = [
             key,
@@ -410,6 +367,116 @@ def _to_markdown(goals: list[dict]) -> str:
     return "\n".join(lines)
 
 
+UPDATE_FIELDS = """
+uuid
+creationDate
+updateType
+summary
+oldState { value }
+newState { value }
+oldScore
+newScore
+oldTargetDate
+newTargetDate
+missedUpdate
+creator { accountId name }
+lastEditedBy { accountId name }
+url
+updateNotes(first: 50) {
+  edges { node { summary description archived creationDate creator { name } } }
+}
+""".strip()
+
+
+def get_goal_updates(
+    key_or_id: str, cloud_id: str | None = None, limit: int = 50
+) -> list[dict]:
+    """Fetch the raw check-in update history for a goal, newest first."""
+    is_ari = key_or_id.startswith("ari:")
+    inner = (
+        f'updates(first: {limit}) @optIn(to: "Townsquare") '
+        f"{{ edges {{ node {{ {UPDATE_FIELDS} }} }} }}"
+    )
+    if is_ari:
+        query = f"query GoalUpdatesById($id: ID!) {{ goals_byId(id: $id) {{ key name {inner} }} }}"
+        data = _post_graphql(query, {"id": key_or_id})
+        goal = data.get("goals_byId") or {}
+    else:
+        cid = cloud_id or get_cloud_id()
+        container = f"ari:cloud:townsquare::site/{cid}"
+        query = (
+            "query GoalUpdatesByKey($containerId: ID!, $goalKey: String!) { "
+            f"goals_byKey(containerId: $containerId, goalKey: $goalKey) {{ key name {inner} }} "
+            "}"
+        )
+        data = _post_graphql(query, {"containerId": container, "goalKey": key_or_id})
+        goal = data.get("goals_byKey") or {}
+    edges = ((goal.get("updates") or {}).get("edges")) or []
+    return [e["node"] for e in edges if e and e.get("node")]
+
+
+def _updates_to_markdown(key: str, updates: list[dict]) -> str:
+    lines = [f"# Updates for {key} ({len(updates)})", ""]
+    for u in updates:
+        date = (u.get("creationDate") or "")[:10]
+        old = (u.get("oldState") or {}).get("value") or ""
+        new = (u.get("newState") or {}).get("value") or ""
+        creator = (u.get("creator") or {}).get("name") or ""
+        transition = (
+            f"{_STATUS_LABELS.get(old, old)} → {_STATUS_LABELS.get(new, new)}"
+            if old or new
+            else ""
+        )
+        head = f"## {date}  {transition}".rstrip()
+        if creator:
+            head += f"  — {creator}"
+        lines.append(head)
+        if u.get("missedUpdate"):
+            lines.append("- _missed update_")
+        text = _adf_to_text(u.get("summary")).strip()
+        if text:
+            lines.append(text)
+        notes = ((u.get("updateNotes") or {}).get("edges")) or []
+        live_notes = [
+            (ne.get("node") or {})
+            for ne in notes
+            if not (ne.get("node") or {}).get("archived")
+        ]
+        if live_notes:
+            lines.append("")
+            lines.append("**Notes:**")
+            for n in live_notes:
+                s = _adf_to_text(n.get("summary")).strip()
+                d = _adf_to_text(n.get("description")).strip()
+                lines.append("- " + (": ".join(p for p in (s, d) if p)))
+        lines.append("")
+    return "\n".join(lines)
+
+
+def updates_command(args: argparse.Namespace) -> None:
+    try:
+        updates = get_goal_updates(args.key, cloud_id=args.cloud_id, limit=args.limit)
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    fmt = args.format
+    if not fmt and args.output:
+        fmt = "md" if args.output.endswith(".md") else "json"
+    fmt = fmt or "md"
+
+    if fmt == "md":
+        text = _updates_to_markdown(args.key, updates)
+    else:
+        text = json.dumps(updates, indent=2, ensure_ascii=False)
+
+    if args.output:
+        Path(args.output).write_text(text, encoding="utf-8")
+        print(f"Wrote {len(updates)} updates for {args.key} to {args.output}")
+    else:
+        print(text)
+
+
 def get_goal(
     key_or_id: str, full: bool = True, cloud_id: str | None = None
 ) -> dict | None:
@@ -462,7 +529,7 @@ def goals_command(args: argparse.Namespace) -> None:
     if hasattr(args, "goals_func"):
         args.goals_func(args)
     else:
-        print("Usage: zaira goals <export|get>", file=sys.stderr)
+        print("Usage: zaira goals <export|get|updates>", file=sys.stderr)
         sys.exit(1)
 
 
@@ -486,7 +553,12 @@ def export_command(args: argparse.Namespace) -> None:
         tql = "archived = false"
 
     try:
-        goals = search_goals(cloud_id, tql=tql, full=args.full)
+        goals = search_goals(
+            cloud_id,
+            tql=tql,
+            full=args.full,
+            with_updates=getattr(args, "with_updates", False),
+        )
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
