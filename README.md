@@ -641,12 +641,15 @@ zaira goals export --url '...' --format table -o goals.md    # one row per goal 
 zaira goals export --url '...' --full --format md -o goals.md
 
 # Single goal — cloudId is auto-detected from your Jira site
-zaira goals get TEAM-123
-zaira goals get TEAM-123 -o goal.md
+zaira goals get TEAM-123                                # full fields, JSON to stdout
+zaira goals get TEAM-123 --minimal                      # slim fields only
+zaira goals get TEAM-123 -o goal.md                     # markdown (extension picks format)
 zaira goals get ari:cloud:townsquare:...:goal/abc123 --format json
 ```
 
 Talks to the GraphQL gateway on your Jira site (`/gateway/api/graphql`); no extra setup beyond `zaira init`. Status enum values are mapped to friendly labels (`On track`, `At risk`, `Pending`, `Cancelled`, …) and ADF-formatted descriptions and updates are rendered as plain markdown.
+
+The `table` format's **Open risks** column combines unresolved entries from `goal.risks` with update summaries where the goal transitioned into `at_risk`/`off_track`/`paused` — the latter is where most teams actually document the risk reasoning, so the column lights up even when nobody uses the dedicated Risks feature.
 
 ### changelog
 
