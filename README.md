@@ -645,6 +645,10 @@ zaira goals get TEAM-123                                # full fields, JSON to s
 zaira goals get TEAM-123 --minimal                      # slim fields only
 zaira goals get TEAM-123 -o goal.md                     # markdown (extension picks format)
 zaira goals get ari:cloud:townsquare:...:goal/abc123 --format json
+
+# Batch — multiple keys in one API call
+zaira goals get TEAM-1 TEAM-2 TEAM-3 -o goals/          # one file per goal
+zaira goals get TEAM-1 TEAM-2 -o pair.md                # combined markdown
 ```
 
 Talks to the GraphQL gateway on your Jira site (`/gateway/api/graphql`); no extra setup beyond `zaira init`. Status enum values are mapped to friendly labels (`On track`, `At risk`, `Pending`, `Cancelled`, …) and ADF-formatted descriptions and updates are rendered as plain markdown.

@@ -499,30 +499,100 @@ def get_goal(
 
 
 def get_command(args: argparse.Namespace) -> None:
+    keys = list(args.keys)
+    fmt = args.format
+    output = args.output
+    if not fmt and output and not Path(output).is_dir() and not output.endswith("/"):
+        fmt = "md" if output.endswith(".md") else "json"
+    fmt = fmt or "json"
+
     try:
-        goal = get_goal(args.key, full=not args.minimal, cloud_id=args.cloud_id)
+        if len(keys) == 1 and not keys[0].startswith("ari:"):
+            single = get_goal(keys[0], full=not args.minimal, cloud_id=args.cloud_id)
+            goals = [single] if single else []
+            missing = [] if single else [keys[0]]
+        else:
+            goals, missing = _batch_get_goals(
+                keys, full=not args.minimal, cloud_id=args.cloud_id
+            )
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
-    if not goal:
-        print(f"Goal not found: {args.key}", file=sys.stderr)
+
+    for k in missing:
+        print(f"Goal not found: {k}", file=sys.stderr)
+    if not goals:
         sys.exit(1)
 
-    fmt = args.format
-    if not fmt and args.output:
-        fmt = "md" if args.output.endswith(".md") else "json"
-    fmt = fmt or "json"
+    if output and (
+        Path(output).is_dir()
+        or output.endswith("/")
+        or len(goals) > 1
+        and "." not in Path(output).name
+    ):
+        out_dir = Path(output)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for g in goals:
+            key = g.get("key") or g.get("id", "goal").replace("/", "_")
+            ext = "md" if fmt == "md" else "json"
+            text = (
+                _to_markdown([g])
+                if fmt == "md"
+                else json.dumps(g, indent=2, ensure_ascii=False)
+            )
+            (out_dir / f"{key}.{ext}").write_text(text, encoding="utf-8")
+        print(f"Wrote {len(goals)} goals to {out_dir}/")
+        return
 
     if fmt == "md":
-        text = _to_markdown([goal])
+        text = _to_markdown(goals)
     else:
-        text = json.dumps(goal, indent=2, ensure_ascii=False)
+        text = json.dumps(
+            goals if len(goals) > 1 else goals[0], indent=2, ensure_ascii=False
+        )
 
-    if args.output:
-        Path(args.output).write_text(text, encoding="utf-8")
-        print(f"Wrote goal {args.key} to {args.output}")
+    if output:
+        Path(output).write_text(text, encoding="utf-8")
+        print(f"Wrote {len(goals)} goal(s) to {output}")
     else:
         print(text)
+
+
+def _batch_get_goals(
+    keys: list[str], full: bool, cloud_id: str | None
+) -> tuple[list[dict], list[str]]:
+    """Batch-fetch goals by key (or ARI). Uses TQL OR-list for keys, goals_byIds for ARIs."""
+    aris = [k for k in keys if k.startswith("ari:")]
+    plain = [k for k in keys if not k.startswith("ari:")]
+    fields = FULL_FIELDS if full else MINIMAL_FIELDS
+    out: list[dict] = []
+    found_keys: set[str] = set()
+
+    if plain:
+        cid = cloud_id or get_cloud_id()
+        tql = " OR ".join(f"key = {k}" for k in plain)
+        goals = search_goals(cid, tql=tql, full=full, page_size=max(50, len(plain)))
+        for g in goals:
+            if g.get("key"):
+                found_keys.add(g["key"])
+        out.extend(goals)
+
+    if aris:
+        query = f"query GoalsByIds($ids: [ID!]!) {{ goals_byIds(goalIds: $ids) {{ {fields} }} }}"
+        data = _post_graphql(query, {"ids": aris})
+        for g in data.get("goals_byIds") or []:
+            if g:
+                out.append(g)
+                if g.get("id"):
+                    found_keys.add(g["id"])
+
+    missing = [
+        k
+        for k in keys
+        if k not in found_keys
+        and not (k.startswith("ari:") and any(g.get("id") == k for g in out))
+    ]
+    return out, missing
 
 
 def goals_command(args: argparse.Namespace) -> None:

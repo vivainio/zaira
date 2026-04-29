@@ -26,6 +26,11 @@ zaira goals get TEAM-123 -o goal.md                           # markdown (extens
 zaira goals get TEAM-123 --minimal --format json              # slim
 zaira goals get ari:cloud:townsquare:...:goal/abc123          # ARI also works
 
+# Multiple goals at once — single API call (TQL OR-list for keys, goals_byIds for ARIs)
+zaira goals get TEAM-1 TEAM-2 TEAM-3                          # all to stdout
+zaira goals get TEAM-1 TEAM-2 TEAM-3 -o goals/                # one file per goal in goals/
+zaira goals get TEAM-1 TEAM-2 -o pair.md                      # combined markdown
+
 # Update / check-in history for a goal (state transitions, summaries, notes)
 zaira goals updates TEAM-123                                  # markdown to stdout
 zaira goals updates TEAM-123 --format json -o updates.json    # raw JSON

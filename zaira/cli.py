@@ -1316,7 +1316,9 @@ def main() -> None:
     goals_get_p = goals_subparsers.add_parser(
         "get", help="Fetch a single goal by key or ARI"
     )
-    goals_get_p.add_argument("key", help="Goal key (e.g. TEAM-42) or ARI")
+    goals_get_p.add_argument(
+        "keys", nargs="+", help="One or more goal keys (e.g. TEAM-42) or ARIs"
+    )
     goals_get_p.add_argument(
         "--cloud-id",
         default=None,
