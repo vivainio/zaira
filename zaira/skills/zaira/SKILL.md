@@ -155,6 +155,10 @@ h3. Heading 3
 
 See [CONFLUENCE.md](./CONFLUENCE.md) for wiki commands (`zaira wiki get/put/edit/delete`).
 
+## Atlassian Goals
+
+See [GOALS.md](./GOALS.md) for the Atlassian Goals (Townsquare) export commands (`zaira goals export/get`).
+
 ## Programmatic Access
 
 ```python
