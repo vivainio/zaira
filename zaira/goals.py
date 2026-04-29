@@ -57,9 +57,25 @@ latestUserUpdate {
   updateType
   summary
   newScore
+  newState { value }
   newTargetDate
   newTargetDateConfidence
   lastEditedBy { accountId name }
+}
+updates(first: 20) @optIn(to: "Townsquare") {
+  edges {
+    node {
+      uuid
+      creationDate
+      summary
+      newState { value }
+      oldState { value }
+      missedUpdate
+      updateNotes(first: 20) {
+        edges { node { summary description archived } }
+      }
+    }
+  }
 }
 """.strip()
 
@@ -255,6 +271,41 @@ def _indent(text: str, prefix: str = "  ") -> str:
     return "\n".join(prefix + ln for ln in text.rstrip().splitlines())
 
 
+_RISK_STATES = {"at_risk", "off_track", "paused"}
+
+
+def _risk_updates(goal: dict) -> list[str]:
+    """Extract risk-flavored text from a goal's updates feed.
+
+    Surfaces:
+      - Update summaries where the goal transitioned INTO an at-risk/off-track state
+      - Non-archived updateNotes summaries (free-form risk/blocker notes teams add)
+    """
+    out: list[str] = []
+    edges = ((goal.get("updates") or {}).get("edges")) or []
+    for e in edges:
+        node = e.get("node") or {}
+        new_state = (node.get("newState") or {}).get("value")
+        old_state = (node.get("oldState") or {}).get("value")
+        date = (node.get("creationDate") or "")[:10]
+        if new_state in _RISK_STATES and new_state != old_state:
+            text = _adf_to_text(node.get("summary")).strip()
+            label = _STATUS_LABELS.get(new_state, new_state)
+            if text:
+                out.append(f"({date} → {label}) {text}")
+            else:
+                out.append(f"({date} → {label})")
+        for ne in ((node.get("updateNotes") or {}).get("edges")) or []:
+            n = ne.get("node") or {}
+            if n.get("archived"):
+                continue
+            s = (n.get("summary") or "").strip()
+            d = (n.get("description") or "").strip()
+            if s or d:
+                out.append(": ".join(p for p in (s, d) if p))
+    return out
+
+
 def _cell(text: str) -> str:
     """Escape pipes/newlines for a markdown table cell."""
     if not text:
@@ -296,7 +347,9 @@ def _to_table(goals: list[dict]) -> str:
             if (r.get("node") or {}).get("summary")
             and not (r.get("node") or {}).get("resolvedDate")
         ]
-        risks_cell = "; ".join(open_risks)
+        for upd in _risk_updates(g):
+            open_risks.append(upd)
+        risks_cell = "; ".join(r for r in open_risks if r)
         row = [
             key,
             name,

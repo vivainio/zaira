@@ -31,7 +31,10 @@ zaira goals get ari:cloud:townsquare:...:goal/abc123          # ARI also works
 
 - **Status** values are mapped to friendly labels: `On track`, `At risk`, `Pending`, `Cancelled`, `Done`, `Off track`, `Paused`, `Archived`.
 - **Description** and **latest update** text is rendered from Atlassian Document Format (ADF) into plain markdown — paragraphs, headings, bullet/numbered lists, code, blockquotes, hard breaks, and `**bold**` / `*em*` / `` `code` `` / `[link](url)` marks.
-- **Open risks** column in the table format only includes risks where `resolvedDate` is null and uses `goal.risks` from the API. If your tenant doesn't track risks at the goal level, the column will be empty.
+- **Open risks** column in the table format combines two sources:
+  - Unresolved entries from `goal.risks` (the dedicated risks feature in Atlassian Goals).
+  - Update summaries from the goal's check-in history where the status *transitioned into* `at_risk`, `off_track`, or `paused` — i.e. the explanation a goal owner wrote when they marked the goal at-risk. Each entry is prefixed with the date and the new status, e.g. `(2026-04-02 → At risk) Some PI1 dev items still need work…`.
+  - Plus any non-archived `updateNotes` on those check-ins (free-form risk/blocker notes).
 
 ## TQL filters
 
