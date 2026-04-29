@@ -39,7 +39,7 @@ zaira goals export --url '...' --full --with-updates -o goals.json
 
 - **Status** values are mapped to friendly labels: `On track`, `At risk`, `Pending`, `Cancelled`, `Done`, `Off track`, `Paused`, `Archived`.
 - **Description** and **latest update** text is rendered from Atlassian Document Format (ADF) into plain markdown — paragraphs, headings, bullet/numbered lists, code, blockquotes, hard breaks, and `**bold**` / `*em*` / `` `code` `` / `[link](url)` marks.
-- **Open risks** column in the table format shows unresolved entries from `goal.risks` (the dedicated risks feature in Atlassian Goals). To see *why* a goal moved to At risk, use `zaira goals updates <KEY>` — it lists check-in history with state transitions and the summary the owner wrote.
+- **Open risks** column in the table format shows unresolved entries from `goal.risks`. Check-in history (state transitions, summaries, notes) is available separately via `zaira goals updates <KEY>` or in bulk via `zaira goals export --with-updates`.
 
 ## TQL filters
 

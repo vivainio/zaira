@@ -649,7 +649,7 @@ zaira goals get ari:cloud:townsquare:...:goal/abc123 --format json
 
 Talks to the GraphQL gateway on your Jira site (`/gateway/api/graphql`); no extra setup beyond `zaira init`. Status enum values are mapped to friendly labels (`On track`, `At risk`, `Pending`, `Cancelled`, …) and ADF-formatted descriptions and updates are rendered as plain markdown.
 
-The `table` format's **Open risks** column shows unresolved entries from `goal.risks` (the dedicated Risks feature in the Goals UI). To see the explanation behind a status change, use `zaira goals updates <KEY>` — it lists the check-in history with state transitions and creator-written summaries. For bulk export, pass `--with-updates` to include each goal's update history alongside the rest of the fields.
+The `table` format's **Open risks** column shows unresolved entries from `goal.risks`. Use `zaira goals updates <KEY>` to see a goal's check-in history; pass `--with-updates` on `goals export` to include the update history in the bulk output.
 
 ### changelog
 
