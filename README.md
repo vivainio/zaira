@@ -621,6 +621,33 @@ Error: Conflict detected!
 Use --diff to see changes, --force to overwrite remote, or --pull to discard local changes
 ```
 
+### goals
+
+Export Atlassian Goals (the Townsquare/Atlas product at `home.atlassian.com`) using the same Jira API token. Two subcommands, mirroring `report` (bulk) and `get` (single):
+
+```bash
+# Bulk export — paste the home.atlassian.com goals URL and zaira pulls cloudId + TQL out of it
+zaira goals export --url 'https://home.atlassian.com/o/<orgId>/goals?cloudId=<cloudId>&tql=<encoded>'
+
+# Or pass them directly
+zaira goals export --cloud-id <cloudId> --tql 'archived = false'
+
+# Output formats
+zaira goals export --url '...' --format json -o goals.json
+zaira goals export --url '...' --format md   -o goals.md     # one section per goal
+zaira goals export --url '...' --format table -o goals.md    # one row per goal (Key, Name, Owner, Status, Target, Description, Latest update, Open risks)
+
+# Slim vs full field set (default is slim; --full pulls description, sub-goals, projects, progress, latest update, tags, risks, etc.)
+zaira goals export --url '...' --full --format md -o goals.md
+
+# Single goal — cloudId is auto-detected from your Jira site
+zaira goals get TEAM-123
+zaira goals get TEAM-123 -o goal.md
+zaira goals get ari:cloud:townsquare:...:goal/abc123 --format json
+```
+
+Talks to the GraphQL gateway on your Jira site (`/gateway/api/graphql`); no extra setup beyond `zaira init`. Status enum values are mapped to friendly labels (`On track`, `At risk`, `Pending`, `Cancelled`, …) and ADF-formatted descriptions and updates are rendered as plain markdown.
+
 ### changelog
 
 Show the change history for a ticket (who changed what, when):

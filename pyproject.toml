@@ -24,6 +24,7 @@ dependencies = [
     "markdown>=3.5",
     "platformdirs>=4.0.0",
     "pyyaml>=6.0",
+    "requests>=2.31",
 ]
 
 [project.urls]

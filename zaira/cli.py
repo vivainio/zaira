@@ -39,6 +39,11 @@ from zaira.info import (
     fields_command,
     field_command,
 )
+from zaira.goals import (
+    goals_command,
+    export_command as goals_export_command,
+    get_command as goals_get_command,
+)
 from zaira.init import init_command, init_project_command
 from zaira.my import my_command
 from zaira.report import report_command
@@ -1268,6 +1273,60 @@ def main() -> None:
         help="Show what would be updated without making changes",
     )
     bundle_update_p.set_defaults(bundle_func=bundle_update_command)
+
+    goals_parser = subparsers.add_parser(
+        "goals", help="Atlassian Goals (Townsquare) export and lookup"
+    )
+    goals_parser.set_defaults(func=goals_command)
+    goals_subparsers = goals_parser.add_subparsers(dest="goals_command")
+
+    goals_export_p = goals_subparsers.add_parser(
+        "export", help="Export goals matching a TQL query"
+    )
+    goals_export_p.add_argument(
+        "--url",
+        help="home.atlassian.com goals URL (cloudId & tql parsed from query string)",
+    )
+    goals_export_p.add_argument("--cloud-id", help="Atlassian cloud/site ID")
+    goals_export_p.add_argument(
+        "--tql",
+        default=None,
+        help='TQL filter (default: "archived = false")',
+    )
+    goals_export_p.add_argument(
+        "--full", action="store_true", help="Include all fields (slower, larger)"
+    )
+    goals_export_p.add_argument(
+        "--format",
+        choices=["json", "md", "table"],
+        default=None,
+        help="Output format (table = one row per goal in markdown)",
+    )
+    goals_export_p.add_argument(
+        "-o", "--output", help="Write to file instead of stdout"
+    )
+    goals_export_p.set_defaults(goals_func=goals_export_command)
+
+    goals_get_p = goals_subparsers.add_parser(
+        "get", help="Fetch a single goal by key or ARI"
+    )
+    goals_get_p.add_argument("key", help="Goal key (e.g. TEAM-42) or ARI")
+    goals_get_p.add_argument(
+        "--cloud-id",
+        default=None,
+        help="Cloud/site ID (auto-detected from your Jira site if omitted)",
+    )
+    goals_get_p.add_argument(
+        "--minimal", action="store_true", help="Only fetch minimal fields"
+    )
+    goals_get_p.add_argument(
+        "--format",
+        choices=["json", "md", "table"],
+        default=None,
+        help="Output format (table = one row per goal in markdown)",
+    )
+    goals_get_p.add_argument("-o", "--output", help="Write to file instead of stdout")
+    goals_get_p.set_defaults(goals_func=goals_get_command)
 
     install_skills_parser = subparsers.add_parser(
         "install-skills",
