@@ -52,6 +52,18 @@ zaira init-project FOO BAR          # Multiple projects
 
 This discovers each project's components, labels, and boards, then generates `zproject.toml` with named queries and reports. This is intended for project managers and power users who need repeatable reports and batch operations. Most commands work without this file.
 
+## WSL
+
+On WSL, zaira stores the API token in Windows Credential Manager instead of the Linux keyring (which isn't a real secret store on most WSL setups). It does this by shelling out to the [`wincred`](https://github.com/vivainio/wincred) helper binary, which it shares with Windows-side zaira.
+
+Install it:
+
+```bash
+zaira init --install-wincred
+```
+
+This downloads `wincred.exe` into a Windows-side `.local\bin` directory found on PATH (uv on Windows provides `%USERPROFILE%\.local\bin`), then runs the normal credential setup.
+
 ## Commands
 
 ### get
