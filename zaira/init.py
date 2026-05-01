@@ -6,6 +6,7 @@ import json
 import sys
 from pathlib import Path
 
+from zaira import wincred
 from zaira.jira_client import (
     CACHE_DIR,
     CONFIG_FILE,
@@ -221,10 +222,14 @@ email = "your-email@example.com"
     return True
 
 
+def _token_store_name() -> str:
+    return "Windows Credential Manager" if wincred.is_wsl() else "OS keyring"
+
+
 def _prompt_for_token(email: str) -> str:
     """Prompt the user for an API token (hidden input)."""
     print(
-        f"No API token found for {email} in the OS keyring.\n"
+        f"No API token found for {email} in the {_token_store_name()}.\n"
         "Get one from https://id.atlassian.com/manage-profile/security/api-tokens"
     )
     token = getpass.getpass("Jira API token: ").strip()
@@ -236,6 +241,17 @@ def _prompt_for_token(email: str) -> str:
 
 def init_command(args: argparse.Namespace) -> None:
     """Handle init subcommand - credentials setup only."""
+    if getattr(args, "install_wincred", False):
+        if not wincred.is_wsl():
+            print("--install-wincred only works under WSL.", file=sys.stderr)
+            sys.exit(1)
+        try:
+            version = wincred.install()
+        except Exception as e:
+            print(f"Failed to install wincred.exe: {e}", file=sys.stderr)
+            sys.exit(1)
+        print(f"Installed {version}.\n")
+
     if not _ensure_credentials_file():
         sys.exit(1)
 
@@ -254,7 +270,7 @@ def init_command(args: argparse.Namespace) -> None:
         save_token_to_keyring(email, file_token)
         strip_token_from_credentials_file()
         print(
-            f"Migrated api_token from {CREDENTIALS_FILE} to the OS keyring "
+            f"Migrated api_token from {CREDENTIALS_FILE} to the {_token_store_name()} "
             f"for {email}.\n"
         )
     else:
@@ -262,11 +278,11 @@ def init_command(args: argparse.Namespace) -> None:
         if reset or not creds.get("api_token"):
             token = _prompt_for_token(email)
             save_token_to_keyring(email, token)
-            print(f"Stored API token for {email} in the OS keyring.\n")
+            print(f"Stored API token for {email} in the {_token_store_name()}.\n")
             if reset and strip_token_from_credentials_file():
                 print(
                     f"Removed stale api_token from {CREDENTIALS_FILE} "
-                    "so the keyring value takes effect.\n"
+                    f"so the {_token_store_name()} value takes effect.\n"
                 )
 
     _create_config_file()
@@ -276,10 +292,19 @@ def init_command(args: argparse.Namespace) -> None:
     print(f"  Config: {CONFIG_FILE}")
     if _read_credentials_file().get("api_token"):
         print(
-            "  Token: credentials.toml (run `zaira init --migrate-token` to move to keyring)"
+            f"  Token: credentials.toml (run `zaira init --migrate-token` to move to {_token_store_name()})"
         )
     else:
-        print("  Token: OS keyring")
+        print(f"  Token: {_token_store_name()}")
+    if wincred.is_wsl():
+        info = wincred.backend_info()
+        if info:
+            version, path = info
+            print(f"  Backend: {version} ({path})")
+        else:
+            print(
+                "  Backend: wincred.exe not installed (run `zaira init --install-wincred`)"
+            )
 
     _ping_jira()
 

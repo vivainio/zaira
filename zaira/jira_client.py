@@ -10,6 +10,7 @@ import keyring
 from jira import JIRA
 from platformdirs import user_cache_dir, user_config_dir
 
+from zaira import wincred
 from zaira.types import Credentials
 
 CONFIG_DIR = Path(user_config_dir("zaira", appauthor=False))
@@ -70,20 +71,37 @@ def load_credentials() -> Credentials:
     if not creds.get("api_token"):
         email = creds.get("email")
         if email:
-            token = keyring.get_password(KEYRING_SERVICE, email)
+            token = _get_token(email)
             if token:
                 creds["api_token"] = token
 
     return creds
 
 
+def _get_token(email: str) -> str | None:
+    if wincred.is_wsl():
+        try:
+            return wincred.get_password(KEYRING_SERVICE, email)
+        except wincred.WincredNotInstalled:
+            # Don't block reads when wincred isn't installed yet: user may be
+            # running `zaira init --install-wincred` to bootstrap.
+            return None
+    return keyring.get_password(KEYRING_SERVICE, email)
+
+
 def save_token_to_keyring(email: str, api_token: str) -> None:
-    """Store the Jira API token in the OS keyring."""
+    """Store the Jira API token in the OS keyring (or Windows Credential Manager on WSL)."""
+    if wincred.is_wsl():
+        wincred.set_password(KEYRING_SERVICE, email, api_token)
+        return
     keyring.set_password(KEYRING_SERVICE, email, api_token)
 
 
 def delete_token_from_keyring(email: str) -> None:
-    """Remove the Jira API token from the OS keyring (if present)."""
+    """Remove the Jira API token from the secret store (if present)."""
+    if wincred.is_wsl():
+        wincred.delete_password(KEYRING_SERVICE, email)
+        return
     try:
         keyring.delete_password(KEYRING_SERVICE, email)
     except keyring.errors.PasswordDeleteError:

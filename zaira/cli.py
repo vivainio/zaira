@@ -306,6 +306,11 @@ def main() -> None:
         action="store_true",
         help="Move the api_token from credentials.toml into the OS keyring (no prompt)",
     )
+    init_parser.add_argument(
+        "--install-wincred",
+        action="store_true",
+        help="Download wincred.exe to %%USERPROFILE%%\\.local\\bin so zaira can use the Windows Credential Manager from WSL",
+    )
     init_parser.set_defaults(func=init_command)
 
     # Init-project command - generate zproject.toml
