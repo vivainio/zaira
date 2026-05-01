@@ -251,6 +251,13 @@ def init_command(args: argparse.Namespace) -> None:
             print(f"Failed to install wincred.exe: {e}", file=sys.stderr)
             sys.exit(1)
         print(f"Installed {version}.\n")
+    elif wincred.is_wsl() and wincred.backend_info() is None:
+        print(
+            "wincred.exe is not installed. Run `zaira init --install-wincred` "
+            "to fetch it (zaira uses Windows Credential Manager from WSL).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     if not _ensure_credentials_file():
         sys.exit(1)

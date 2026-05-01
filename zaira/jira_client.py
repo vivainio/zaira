@@ -80,12 +80,7 @@ def load_credentials() -> Credentials:
 
 def _get_token(email: str) -> str | None:
     if wincred.is_wsl():
-        try:
-            return wincred.get_password(KEYRING_SERVICE, email)
-        except wincred.WincredNotInstalled:
-            # Don't block reads when wincred isn't installed yet: user may be
-            # running `zaira init --install-wincred` to bootstrap.
-            return None
+        return wincred.get_password(KEYRING_SERVICE, email)
     return keyring.get_password(KEYRING_SERVICE, email)
 
 

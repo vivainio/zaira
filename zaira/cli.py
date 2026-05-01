@@ -1378,7 +1378,13 @@ def main() -> None:
         parser.print_help()
         sys.exit(1)
 
-    args.func(args)
+    from zaira.wincred import WincredNotInstalled
+
+    try:
+        args.func(args)
+    except WincredNotInstalled as e:
+        print(e, file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

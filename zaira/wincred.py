@@ -13,11 +13,10 @@ import subprocess
 WINCRED_BINARY = "wincred.exe"
 INSTALL_URL = "https://github.com/vivainio/wincred/releases/latest/download/wincred.exe"
 INSTALL_HINT = (
-    f"wincred.exe is required to use the Windows Credential Manager from WSL.\n"
-    f"\n"
-    f"Install it from PowerShell on the Windows side:\n"
-    f"\n"
-    f"    iwr {INSTALL_URL} -OutFile $HOME\\.local\\bin\\wincred.exe\n"
+    "wincred.exe is required to use Windows Credential Manager from WSL.\n"
+    "Install it with:\n"
+    "\n"
+    "    zaira init --install-wincred\n"
 )
 
 
