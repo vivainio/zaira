@@ -80,7 +80,11 @@ def load_credentials() -> Credentials:
 
 def _get_token(email: str) -> str | None:
     if wincred.is_wsl():
-        return wincred.get_password(KEYRING_SERVICE, email)
+        try:
+            return wincred.get_password(KEYRING_SERVICE, email)
+        except wincred.WslInteropUnavailable as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
     return keyring.get_password(KEYRING_SERVICE, email)
 
 

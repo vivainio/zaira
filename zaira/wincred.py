@@ -27,6 +27,23 @@ class WincredNotInstalled(RuntimeError):
         super().__init__(INSTALL_HINT)
 
 
+class WslInteropUnavailable(RuntimeError):
+    """Raised when WSL can't launch wincred.exe because the interop socket is unreachable.
+
+    Typically happens when running inside a sandbox that blocks /run/WSL/*_interop —
+    e.g. Claude Code's sandbox mode. wincred.exe exits rc=1 with stderr like
+    `WSL (...) ERROR: UtilConnectUnix:524: socket failed 1`.
+    """
+
+    def __init__(self, stderr: str) -> None:
+        super().__init__(
+            "Cannot reach Windows Credential Manager: WSL interop is unavailable.\n"
+            "This usually means you're running in a sandbox that blocks the WSL "
+            "interop socket (e.g. Claude Code's sandbox mode).\n"
+            f"wincred.exe stderr: {stderr.strip()}"
+        )
+
+
 def is_wsl() -> bool:
     """Return True when running on WSL with Windows interop enabled."""
     return bool(os.environ.get("WSL_INTEROP"))
@@ -34,7 +51,7 @@ def is_wsl() -> bool:
 
 def _run(args: list[str], stdin: str | None = None) -> subprocess.CompletedProcess[str]:
     try:
-        return subprocess.run(
+        r = subprocess.run(
             [WINCRED_BINARY, *args],
             input=stdin,
             capture_output=True,
@@ -43,6 +60,15 @@ def _run(args: list[str], stdin: str | None = None) -> subprocess.CompletedProce
         )
     except FileNotFoundError as e:
         raise WincredNotInstalled() from e
+    if r.returncode != 0 and _is_wsl_interop_failure(r.stderr):
+        raise WslInteropUnavailable(r.stderr)
+    return r
+
+
+def _is_wsl_interop_failure(stderr: str) -> bool:
+    return "UtilConnectUnix" in stderr or (
+        "WSL" in stderr and "socket failed" in stderr
+    )
 
 
 def get_password(service: str, username: str) -> str | None:
