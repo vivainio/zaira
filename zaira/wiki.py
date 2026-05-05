@@ -182,12 +182,21 @@ def _fetch_page(page_id: str) -> dict | None:
         Page dict or None on error
     """
     page = confluence_api.fetch_page(
-        page_id, expand="body.storage,version,space,ancestors"
+        page_id,
+        expand="body.storage,version,space,ancestors,children.attachment.version",
     )
     if not page:
         print(f"Error fetching {page_id}", file=sys.stderr)
         return None
     return page
+
+
+def _extract_attachment_names(page: dict) -> list[str]:
+    """Extract attachment filenames from an expanded page response."""
+    children = page.get("children") or {}
+    attachments = children.get("attachment") or {}
+    results = attachments.get("results") or []
+    return [a["title"] for a in results if a.get("title")]
 
 
 def _fetch_labels(page_id: str) -> list[str]:
@@ -324,6 +333,11 @@ def _export_page_to_file(
     if labels:
         front_matter["labels"] = labels
 
+    # Add attachments if any
+    attachments = _extract_attachment_names(page)
+    if attachments:
+        front_matter["attachments"] = attachments
+
     content = write_front_matter(front_matter, md_body)
 
     # Write file (create subdirs from folder path)
@@ -422,6 +436,10 @@ def get_command(args: argparse.Namespace) -> None:
             labels = _fetch_labels(page_id)
             if labels:
                 front_matter["labels"] = labels
+            # Add attachments if any
+            attachments = _extract_attachment_names(page)
+            if attachments:
+                front_matter["attachments"] = attachments
             print(write_front_matter(front_matter, md_body))
         return
 
@@ -549,6 +567,51 @@ def search_command(args: argparse.Namespace) -> None:
                             print(f"    {line}")
                     else:
                         print(f"  excerpt: {clean}")
+
+
+def get_attachment_command(args: argparse.Namespace) -> None:
+    """Download attachments from a Confluence page by filename pattern."""
+    from fnmatch import fnmatch
+
+    page_id = parse_page_id(args.page)
+    pattern = args.pattern
+    output_dir = Path(getattr(args, "output", None) or ".")
+
+    data = confluence_api.get_attachments(page_id, expand="version")
+    attachments = data.get("results", [])
+    if not attachments:
+        print(f"No attachments on page {page_id}")
+        return
+
+    matched = [a for a in attachments if fnmatch(a["title"], pattern)]
+    if not matched:
+        print(f"No attachments matching '{pattern}' on page {page_id}")
+        print("Available attachments:")
+        for a in attachments:
+            size_kb = (a.get("extensions", {}).get("fileSize") or 0) // 1024
+            print(f"  {a['title']} ({size_kb} KB)")
+        return
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    download_base = data.get("_links", {}).get("base") or get_server_from_config()
+
+    print(f"Downloading {len(matched)} attachment(s) from page {page_id}...")
+    success = 0
+    for att in matched:
+        size_kb = (att.get("extensions", {}).get("fileSize") or 0) // 1024
+        name = att["title"]
+        download_url = download_base + att["_links"]["download"]
+        dest = output_dir / name
+        print(f"  {name} ({size_kb} KB)...", end=" ")
+        if confluence_api.download_attachment(download_url, dest):
+            print("done")
+            success += 1
+        else:
+            print("failed")
+
+    print(f"\nDownloaded {success}/{len(matched)} files to {output_dir}/")
+    if success < len(matched):
+        sys.exit(1)
 
 
 def attach_command(args: argparse.Namespace) -> None:

@@ -553,6 +553,13 @@ zaira wiki attach 123456 image.png                        # Single file
 zaira wiki attach 123456 *.png                            # Glob pattern
 zaira wiki attach 123456 image.png --replace              # Replace if exists
 
+# Download attachments by filename pattern
+zaira wiki get-attachment 123456 '*.pdf'                  # Match pattern
+zaira wiki get-attachment 123456 '*' -o ./files           # All, into directory
+# Note: `wiki get` lists attachments in the markdown frontmatter
+# (`attachments: [foo.pdf, bar.xlsx]`), and `wiki get --format json`
+# includes them under `children.attachment.results`.
+
 # Delete page
 zaira wiki delete 123456              # Prompts for confirmation
 zaira wiki delete 123456 --yes        # Skip confirmation

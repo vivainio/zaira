@@ -26,6 +26,7 @@ from zaira.wiki import (
     create_command as wiki_create_command,
     put_command as wiki_put_command,
     attach_command as wiki_attach_command,
+    get_attachment_command as wiki_get_attachment_command,
     edit_command as wiki_edit_command,
     delete_command as wiki_delete_command,
     ls_command as wiki_ls_command,
@@ -1069,6 +1070,25 @@ def main() -> None:
         help="Replace existing attachments with same filename",
     )
     wiki_attach.set_defaults(wiki_func=wiki_attach_command)
+
+    wiki_get_att = wiki_subparsers.add_parser(
+        "get-attachment",
+        help="Download attachments from a Confluence page by filename pattern",
+    )
+    wiki_get_att.add_argument(
+        "page",
+        help="Page ID or Confluence URL",
+    )
+    wiki_get_att.add_argument(
+        "pattern",
+        help="Filename pattern (e.g., '*.pdf', 'report*')",
+    )
+    wiki_get_att.add_argument(
+        "-o",
+        "--output",
+        help="Output directory (default: current directory)",
+    )
+    wiki_get_att.set_defaults(wiki_func=wiki_get_attachment_command)
 
     wiki_edit = wiki_subparsers.add_parser(
         "edit",
