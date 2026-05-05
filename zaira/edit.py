@@ -183,6 +183,8 @@ def format_field_value(
         return _format_assignee(value)
     elif field_type == "option":
         return {"value": value}
+    elif field_type == "issuelink":
+        return {"key": value}
     elif field_type == "array":
         if isinstance(value, str):
             values = [v.strip() for v in value.split(",")]

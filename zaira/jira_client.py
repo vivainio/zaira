@@ -247,7 +247,7 @@ def format_jira_error(e: Exception) -> str:
         msg = str(e)
 
     if status in (401, 403) and "permission" not in msg.lower():
-        msg += " (auth failed - API token may be expired; run 'zaira init --set-token' to update it)"
+        msg += " (auth failed - API token may be expired; create a new one at https://id.atlassian.com/manage-profile/security/api-tokens then run 'zaira init --set-token' to update it)"
     elif status == 404 and "do not have permission" in msg:
-        msg += " (or your API token is expired - try 'zaira init --set-token' to update it)"
+        msg += " (or your API token is expired - create a new one at https://id.atlassian.com/manage-profile/security/api-tokens then run 'zaira init --set-token' to update it)"
     return msg

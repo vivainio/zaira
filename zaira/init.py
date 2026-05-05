@@ -1,7 +1,6 @@
 """Initialize project configuration."""
 
 import argparse
-import getpass
 import json
 import sys
 from pathlib import Path
@@ -227,12 +226,12 @@ def _token_store_name() -> str:
 
 
 def _prompt_for_token(email: str) -> str:
-    """Prompt the user for an API token (hidden input)."""
+    """Prompt the user for an API token."""
     print(
-        f"No API token found for {email} in the {_token_store_name()}.\n"
+        f"Setting API token for {email} in the {_token_store_name()}.\n"
         "Get one from https://id.atlassian.com/manage-profile/security/api-tokens"
     )
-    token = getpass.getpass("Jira API token: ").strip()
+    token = input("Jira API token: ").strip()
     if not token:
         print("Error: empty token", file=sys.stderr)
         sys.exit(1)
