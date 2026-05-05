@@ -64,7 +64,16 @@ zaira wiki delete 123456 --yes              # Skip confirmation
 # Upload attachments
 zaira wiki attach 123456 image.png          # Single file
 zaira wiki attach 123456 *.png --replace    # Replace existing
+
+# Download attachments by filename pattern
+zaira wiki get-attachment 123456 "*.pdf"          # Download PDFs to current dir
+zaira wiki get-attachment 123456 "report*" -o tmp/  # Download to specific dir
+zaira wiki get-attachment 123456 "*"               # Download all attachments
 ```
+
+`zaira wiki get` lists attachment filenames in the markdown front matter
+(`attachments: [foo.pdf, ...]`); `--format json` exposes the full attachment
+objects under `children.attachment.results`.
 
 ## Front Matter
 
@@ -77,6 +86,7 @@ title: My Page Title
 space: ENG
 folder: guides/api
 labels: [docs, api, v2]
+attachments: [report.pdf, data.xlsx]   # read-only; written by `wiki get`
 ---
 
 Page content here...
