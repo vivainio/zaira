@@ -637,6 +637,7 @@ def _elem_to_markdown(
         else:
             # Preserve generic macros as {name:param1=value1|param2=value2}
             params = []
+            body_elem = None
             for child in elem:
                 child_tag = _get_tag(child)
                 if child_tag == "parameter":
@@ -646,10 +647,18 @@ def _elem_to_markdown(
                     param_value = child.text or ""
                     if param_name:
                         params.append(f"{param_name}={param_value}")
+                elif child_tag == "rich-text-body":
+                    body_elem = child
 
             macro_str = macro_name
             if params:
                 macro_str += ":" + "|".join(params)
+
+            if body_elem is not None:
+                body_md = _process_children(
+                    body_elem, image_dir, list_stack, in_table, table_state
+                )
+                return f"\n{{{macro_str}}}\n{body_md}\n{{{macro_name}}}\n"
             return f"\n{{{macro_str}}}\n"
 
     # Confluence image with attachment
