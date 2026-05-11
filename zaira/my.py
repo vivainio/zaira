@@ -1,8 +1,9 @@
 """Show my open tickets."""
 
 import argparse
+import sys
 
-from zaira.jira_client import get_jira
+from zaira.jira_client import format_jira_error, get_jira
 from zaira.report import humanize_age
 from zaira.types import MyTicket
 
@@ -22,7 +23,17 @@ DEFAULT_REPORTED_JQL = (
 
 def search_my_tickets(jql: str) -> list[MyTicket]:
     """Search for tickets and return minimal ticket data."""
+    from jira.exceptions import JIRAError
+
     jira = get_jira()
+    # currentUser() silently resolves to nothing for unauthenticated requests,
+    # making search_issues return [] instead of raising. Verify auth upfront so
+    # an expired token shows a clear error instead of "No open tickets."
+    try:
+        jira.myself()
+    except JIRAError as e:
+        print(f"Error: {format_jira_error(e)}", file=sys.stderr)
+        sys.exit(1)
     issues = jira.search_issues(jql, maxResults=False)
     tickets = []
     for issue in issues:
