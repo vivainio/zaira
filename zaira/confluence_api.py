@@ -15,6 +15,28 @@ from zaira.jira_client import load_credentials, get_server_from_config
 # API function overrides for testing
 _api_overrides: dict[str, Callable] = {}
 
+# Cached Atlassian cloud ID for the configured tenant
+_cloud_id: str | None = None
+
+
+def _get_cloud_id() -> str | None:
+    """Return the cloud ID for the configured tenant, or None if unavailable."""
+    global _cloud_id
+    if _cloud_id is not None:
+        return _cloud_id or None
+    server = get_server_from_config()
+    if not server:
+        return None
+    try:
+        r = requests.get(f"{server}/_edge/tenant_info", timeout=10)
+        if r.ok:
+            _cloud_id = r.json().get("cloudId") or ""
+        else:
+            _cloud_id = ""
+    except requests.RequestException:
+        _cloud_id = ""
+    return _cloud_id or None
+
 
 def set_api(name: str, func: Callable) -> None:
     """Override an API function for testing."""
@@ -458,6 +480,18 @@ def download_attachment(url: str, dest: Path) -> bool:
     creds = load_credentials()
     auth = HTTPBasicAuth(creds["email"], creds["api_token"])
     r = requests.get(url, auth=auth)
+    # The /wiki/download/attachments/... endpoint rejects API-token basic auth
+    # directly, but works when routed through the api.atlassian.com gateway,
+    # which redirects to the media CDN with a signed token.
+    if r.status_code == 401 and "/wiki/download/" in url:
+        cloud_id = _get_cloud_id()
+        server = get_server_from_config()
+        if cloud_id and server and url.startswith(server):
+            gateway_url = (
+                f"https://api.atlassian.com/ex/confluence/{cloud_id}"
+                + url[len(server) :]
+            )
+            r = requests.get(gateway_url, auth=auth)
     if not r.ok:
         return False
     dest.write_bytes(r.content)
