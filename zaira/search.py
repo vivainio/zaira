@@ -326,7 +326,7 @@ def build_jql(args: argparse.Namespace) -> str:
     if args.text:
         clauses.append(f'text ~ "{args.text}"')
     if args.project:
-        clauses.append(f"project = {args.project}")
+        clauses.append(f'project = "{args.project}"')
     if args.status:
         clauses.append(f'status = "{args.status}"')
     if args.assignee:

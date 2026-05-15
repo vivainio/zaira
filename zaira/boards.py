@@ -74,7 +74,7 @@ def get_board_issues_jql(board_id: int) -> str | None:
 
     if "(" in location and ")" in location:
         project = location.split("(")[-1].rstrip(")")
-        return f"project = {project} ORDER BY updated DESC"
+        return f'project = "{project}" ORDER BY updated DESC'
 
     return None
 

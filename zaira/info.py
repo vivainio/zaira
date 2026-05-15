@@ -577,7 +577,7 @@ def ensure_editmeta_for_type(project: str, issue_type: str) -> EditmetaSchema | 
 
     jira = get_jira()
     issues = jira.search_issues(
-        f'project = {project} AND issuetype = "{issue_type}" ORDER BY created DESC',
+        f'project = "{project}" AND issuetype = "{issue_type}" ORDER BY created DESC',
         maxResults=1,
     )
     if not issues:
@@ -716,7 +716,7 @@ def learn_command(args: argparse.Namespace) -> None:
         else:
             # Find one issue per issue type in the project
             issues = jira.search_issues(
-                f"project = {k} ORDER BY created DESC", maxResults=100
+                f'project = "{k}" ORDER BY created DESC', maxResults=100
             )
             if not issues:
                 print(f"No issues found in project {k}", file=sys.stderr)

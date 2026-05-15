@@ -38,7 +38,7 @@ def discover_labels(project: str) -> list[str]:
     jira = get_jira()
     try:
         issues = jira.search_issues(
-            f"project = {project} ORDER BY updated DESC",
+            f'project = "{project}" ORDER BY updated DESC',
             maxResults=200,
         )
         labels = set()
