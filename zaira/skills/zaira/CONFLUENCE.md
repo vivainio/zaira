@@ -13,6 +13,10 @@ zaira wiki ls ENG -d 0                      # Root level only
 zaira wiki ls "https://acme.atlassian.net/wiki/spaces/ENG/overview"  # From URL
 zaira wiki ls my                            # List your personal space
 
+# Recently viewed (website "Recent" sidebar)
+zaira wiki recent                           # Show recently viewed pages
+zaira wiki recent -n 10                     # Limit to 10
+
 # Get page (outputs markdown with front matter)
 zaira wiki get 123456                       # Get page by ID
 zaira wiki get "https://acme.atlassian.net/wiki/spaces/DEV/pages/123456/Title"

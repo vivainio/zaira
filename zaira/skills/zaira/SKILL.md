@@ -49,6 +49,8 @@ zaira refresh sprint-review.md              # Refresh existing report
 # View my tickets
 zaira my                                    # Show my assigned tickets
 zaira my -r                                 # Show tickets I reported (created)
+zaira recent                                # Show recently viewed tickets (website "Recent" list)
+zaira recent -n 10                          # Limit to 10
 zaira boards                                # List boards
 
 # Create ticket from YAML front matter
