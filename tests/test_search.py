@@ -160,7 +160,7 @@ class TestBuildJql:
     def test_project_filter(self):
         ns = self._ns(text="x", project="DEMO")
         result = build_jql(ns)
-        assert "project = DEMO" in result
+        assert 'project = "DEMO"' in result
 
     def test_status_filter(self):
         ns = self._ns(text="x", status="Open")

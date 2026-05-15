@@ -158,7 +158,7 @@ class TestGetBoardIssuesJql:
 
         result = get_board_issues_jql(123)
 
-        assert result == "project = AC ORDER BY updated DESC"
+        assert result == 'project = "AC" ORDER BY updated DESC'
 
     def test_returns_none_for_invalid_board(self, mock_jira):
         """Returns None for non-existent board."""
