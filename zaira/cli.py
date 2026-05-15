@@ -48,6 +48,7 @@ from zaira.goals import (
 )
 from zaira.init import init_command, init_project_command
 from zaira.my import my_command
+from zaira.recent import recent_command, wiki_recent_command
 from zaira.report import report_command
 from zaira.refresh import refresh_command
 from zaira.search import search_command
@@ -344,6 +345,19 @@ def main() -> None:
         help="Show tickets I reported (created) instead of assigned to me",
     )
     my_parser.set_defaults(func=my_command)
+
+    recent_parser = subparsers.add_parser(
+        "recent",
+        help="Show recently viewed Jira tickets",
+    )
+    recent_parser.add_argument(
+        "-n",
+        "--limit",
+        type=int,
+        default=20,
+        help="Maximum results (default: 20)",
+    )
+    recent_parser.set_defaults(func=recent_command)
 
     # Search command
     search_parser = subparsers.add_parser(
@@ -1152,6 +1166,19 @@ def main() -> None:
         help="Tree depth (-1 for unlimited, 0 for root only, default: 1)",
     )
     wiki_ls.set_defaults(wiki_func=wiki_ls_command)
+
+    wiki_recent = wiki_subparsers.add_parser(
+        "recent",
+        help="Show recently viewed Confluence pages",
+    )
+    wiki_recent.add_argument(
+        "-n",
+        "--limit",
+        type=int,
+        default=20,
+        help="Maximum results (default: 20)",
+    )
+    wiki_recent.set_defaults(wiki_func=wiki_recent_command)
 
     # Changelog command (Jira issue history)
     changelog_parser = subparsers.add_parser(
