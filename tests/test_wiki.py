@@ -2683,6 +2683,59 @@ class TestPutCommand:
         captured = capsys.readouterr()
         assert "Created page 99999" in captured.out
 
+    def test_create_resolves_my_space_alias(
+        self, tmp_path, mock_confluence, capsys, monkeypatch
+    ):
+        """put --create resolves the 'my' space alias before creating a page.
+
+        Regression: previously put's create path passed the literal "my" to the
+        Confluence API (only create_command resolved it), producing an
+        unhelpful error.
+        """
+        from zaira.wiki import put_command
+        from zaira import confluence_api
+        import argparse
+
+        # Unlinked file with space: my in front matter -> per-file resolve path
+        unlinked_file = tmp_path / "new_page.md"
+        unlinked_file.write_text("---\nspace: my\n---\n\n# New Page\n\nContent")
+
+        monkeypatch.setattr(
+            confluence_api, "get_personal_space_key", lambda: "~personal123"
+        )
+
+        seen_spaces: list[str] = []
+
+        def fake_create_page(space, title, body, parent):
+            seen_spaces.append(space)
+            return {"id": "99999", "version": {"number": 1}}
+
+        confluence_api.set_api("create_page", fake_create_page)
+        confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
+        confluence_api.set_api(
+            "get_attachments", lambda page_id, expand: {"results": []}
+        )
+
+        args = argparse.Namespace(
+            files=[str(unlinked_file)],
+            body=None,
+            page=None,
+            title=None,
+            pull=False,
+            force=False,
+            status=False,
+            diff=False,
+            create=True,
+            parent=None,
+        )
+
+        put_command(args)
+
+        # The resolved personal key must be used, never the literal "my".
+        assert seen_spaces == ["~personal123"]
+        captured = capsys.readouterr()
+        assert "Created page 99999" in captured.out
+
 
 class TestCreatePageForFile:
     """Tests for _create_page_for_file function."""

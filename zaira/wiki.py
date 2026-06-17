@@ -220,6 +220,21 @@ def _any_file_has_folder_front_matter(files: list[Path]) -> bool:
     return False
 
 
+def _resolve_space_alias(space_key: str | None) -> str | None:
+    """Resolve the 'my' space alias to the personal space key.
+
+    Returns the resolved key, or the input unchanged for non-alias values.
+    Exits the process if 'my' cannot be resolved.
+    """
+    if space_key and space_key.lower() == "my":
+        resolved = confluence_api.get_personal_space_key()
+        if not resolved:
+            print("Error: Could not determine personal space key.", file=sys.stderr)
+            sys.exit(1)
+        return resolved
+    return space_key
+
+
 def _resolve_parent_from_front_matter(
     filepath: Path,
     default_space: str | None = None,
@@ -240,7 +255,7 @@ def _resolve_parent_from_front_matter(
     content = filepath.read_text(encoding="utf-8")
     fm, _ = parse_front_matter(content)
 
-    file_space = fm.get("space") or default_space
+    file_space = _resolve_space_alias(fm.get("space") or default_space)
     folder_path = fm.get("folder")
 
     if not file_space:
@@ -1358,7 +1373,7 @@ def put_command(args: argparse.Namespace) -> None:
             if mirror_mode:
                 # In mirror mode, use per-file resolution with the mirror parent
                 per_file_resolve = True
-                space_key = getattr(args, "space", None)
+                space_key = _resolve_space_alias(getattr(args, "space", None))
             elif args.parent:
                 parent_id = parse_page_id(args.parent)
                 info = _get_page_info(parent_id)
@@ -1373,7 +1388,7 @@ def put_command(args: argparse.Namespace) -> None:
             elif _any_file_has_folder_front_matter(unlinked_files):
                 # Files have space:/folder: in front matter — resolve per-file
                 per_file_resolve = True
-                space_key = getattr(args, "space", None)
+                space_key = _resolve_space_alias(getattr(args, "space", None))
             elif linked_files:
                 # Get parent from linked files - verify they all have same parent
                 parents_seen: dict[
