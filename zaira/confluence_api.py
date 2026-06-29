@@ -247,7 +247,13 @@ def get_child_pages(page_id: str, limit: int = 100) -> list[dict]:
 
 
 def search_pages(cql: str, limit: int = 25, expand: str = "") -> dict:
-    """Search pages using Confluence CQL via the /content endpoint.
+    """Search pages using Confluence CQL via the /content/search endpoint.
+
+    Note: the plain /content endpoint does not honor the `cql` parameter
+    (it returns the default content listing regardless of query), and the
+    generic /search endpoint returns 500 for CQL queries on this instance.
+    /content/search both honors CQL and returns flat page objects in
+    'results', so no normalization is needed.
 
     Args:
         cql: CQL query string
@@ -264,7 +270,7 @@ def search_pages(cql: str, limit: int = 25, expand: str = "") -> dict:
     params: dict[str, Any] = {"cql": cql, "limit": limit}
     if expand:
         params["expand"] = expand
-    r = requests.get(f"{base_url}/content", params=params, auth=auth)
+    r = requests.get(f"{base_url}/content/search", params=params, auth=auth)
     if not r.ok:
         return {"results": [], "error": f"{r.status_code} - {r.reason}", "text": r.text}
 
