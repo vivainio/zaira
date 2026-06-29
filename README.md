@@ -889,6 +889,13 @@ The client uses credentials from the platform config directory (`~/Library/Appli
 
 A [zaira agent skill](https://github.com/vivainio/agent-skills/tree/main/skills/zaira) is available for AI coding assistants, enabling agents to use zaira commands directly.
 
+Install the bundled Claude Code skills with:
+
+```bash
+zaira install-skills                       # installs to ~/.claude/skills/
+zaira install-skills --skills-dir ./skills # custom target directory
+```
+
 ## License
 
 MIT
