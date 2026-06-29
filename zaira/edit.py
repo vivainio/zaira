@@ -28,10 +28,44 @@ _NAME_FIELDS = {"priority", "resolution"}
 
 
 def read_input(value: str) -> str:
-    """Read value, supporting stdin with '-'."""
+    """Read a field value, supporting stdin with '-'.
+
+    Exits with an error if '-' is given but stdin is empty, rather than
+    silently writing a blank value (which Jira accepts and reports as a
+    successful update).
+    """
     if value == "-":
-        return sys.stdin.read()
+        data = sys.stdin.read()
+        if not data.strip():
+            print(
+                "Error: '-' was given but no data was received on stdin.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        return data
     return value
+
+
+def read_file_or_stdin(path: str) -> str:
+    """Read content from a file path, or stdin when path is '-'.
+
+    Used by --from, which takes a YAML file (not an inline value).
+    """
+    if path == "-":
+        data = sys.stdin.read()
+        if not data.strip():
+            print(
+                "Error: '--from -' was given but no data was received on stdin.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        return data
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    except OSError as e:
+        print(f"Error: cannot read --from file '{path}': {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 def _format_assignee(value: str | None) -> dict | None:
@@ -492,6 +526,12 @@ def edit_command(args: argparse.Namespace) -> None:
 
     fields = {}
 
+    # Read --from content once (stdin can only be consumed once, and a file
+    # should be read exactly once) and reuse it for both the whitelist check
+    # and the actual field parsing below.
+    from_input = getattr(args, "from_file", None)
+    from_content = read_file_or_stdin(from_input) if from_input else None
+
     # Handle --title and --description (legacy)
     if args.title:
         fields["summary"] = args.title
@@ -521,11 +561,9 @@ def edit_command(args: argparse.Namespace) -> None:
                     field_args_names.append(name)
 
             # Extract field names from --from file/stdin
-            from_input = getattr(args, "from_file", None)
             yaml_field_names = []
-            if from_input:
-                content = read_input(from_input)
-                data = yaml.safe_load(content)
+            if from_content is not None:
+                data = yaml.safe_load(from_content)
                 if isinstance(data, dict):
                     yaml_field_names = list(data.keys())
 
@@ -557,11 +595,9 @@ def edit_command(args: argparse.Namespace) -> None:
         )
 
     # Handle --from file/stdin
-    from_input = getattr(args, "from_file", None)
-    if from_input:
-        content = read_input(from_input)
+    if from_content is not None:
         fields.update(
-            parse_yaml_fields(content, project=project, issue_type=issue_type)
+            parse_yaml_fields(from_content, project=project, issue_type=issue_type)
         )
 
     if not fields:

@@ -9,6 +9,7 @@ import pytest
 
 from zaira.edit import (
     read_input,
+    read_file_or_stdin,
     map_field,
     parse_field_args,
     parse_yaml_fields,
@@ -37,6 +38,53 @@ class TestReadInput:
         result = read_input("-")
 
         assert result == "stdin content"
+
+    def test_exits_on_empty_stdin(self, monkeypatch, capsys):
+        """Exits with an error rather than silently returning '' on empty stdin."""
+        monkeypatch.setattr(sys, "stdin", MagicMock(read=lambda: ""))
+
+        with pytest.raises(SystemExit):
+            read_input("-")
+
+        assert "no data was received on stdin" in capsys.readouterr().err
+
+    def test_exits_on_whitespace_only_stdin(self, monkeypatch, capsys):
+        """Whitespace-only stdin is treated as empty."""
+        monkeypatch.setattr(sys, "stdin", MagicMock(read=lambda: "   \n  "))
+
+        with pytest.raises(SystemExit):
+            read_input("-")
+
+
+class TestReadFileOrStdin:
+    """Tests for read_file_or_stdin (used by --from)."""
+
+    def test_reads_file_contents(self, tmp_path):
+        """Reads the contents of the given file path (not the path itself)."""
+        f = tmp_path / "fields.yaml"
+        f.write_text("summary: Hello\n", encoding="utf-8")
+
+        assert read_file_or_stdin(str(f)) == "summary: Hello\n"
+
+    def test_reads_stdin_for_dash(self, monkeypatch):
+        """Reads stdin when path is '-'."""
+        monkeypatch.setattr(sys, "stdin", MagicMock(read=lambda: "summary: X\n"))
+
+        assert read_file_or_stdin("-") == "summary: X\n"
+
+    def test_exits_on_missing_file(self, tmp_path, capsys):
+        """Exits with an error when the file does not exist."""
+        with pytest.raises(SystemExit):
+            read_file_or_stdin(str(tmp_path / "does-not-exist.yaml"))
+
+        assert "cannot read --from file" in capsys.readouterr().err
+
+    def test_exits_on_empty_stdin(self, monkeypatch, capsys):
+        """Exits when '--from -' is given but stdin is empty."""
+        monkeypatch.setattr(sys, "stdin", MagicMock(read=lambda: ""))
+
+        with pytest.raises(SystemExit):
+            read_file_or_stdin("-")
 
 
 class TestMapField:
@@ -559,19 +607,20 @@ class TestEditCommand:
 
         mock_issue.update.assert_called_once()
 
-    def test_reads_fields_from_yaml_content(self, mock_jira, capsys):
-        """Updates ticket with fields from YAML content via --from."""
+    def test_reads_fields_from_yaml_file(self, mock_jira, capsys, tmp_path):
+        """Updates ticket with fields from a YAML file passed to --from."""
         mock_issue = MagicMock()
         mock_jira.issue.return_value = mock_issue
 
-        yaml_content = "summary: From YAML\npriority: Low\n"
+        yaml_file = tmp_path / "fields.yaml"
+        yaml_file.write_text("summary: From YAML\npriority: Low\n", encoding="utf-8")
 
         args = argparse.Namespace(
             key="test-123",
             title=None,
             description=None,
             field=None,
-            from_file=yaml_content,
+            from_file=str(yaml_file),
         )
 
         with patch("zaira.edit.get_jira_site", return_value="jira.example.com"):
