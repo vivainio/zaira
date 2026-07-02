@@ -62,7 +62,9 @@ class TestCommentCommand:
 
     def test_exits_on_empty_body(self, capsys):
         """Exits with error when comment body is empty."""
-        args = argparse.Namespace(key="test-123", body="   ")
+        args = argparse.Namespace(
+            key="test-123", body="   ", list=False, edit=None, delete=None
+        )
 
         with pytest.raises(SystemExit) as exc_info:
             comment_command(args)
@@ -75,7 +77,13 @@ class TestCommentCommand:
         """Auto-converts markdown to Jira wiki before posting."""
         mock_jira.add_comment.return_value = MagicMock()
 
-        args = argparse.Namespace(key="test-123", body="## Heading\n\nContent")
+        args = argparse.Namespace(
+            key="test-123",
+            body="## Heading\n\nContent",
+            list=False,
+            edit=None,
+            delete=None,
+        )
 
         with patch("zaira.comment.get_jira_site", return_value="jira.example.com"):
             comment_command(args)
@@ -88,7 +96,13 @@ class TestCommentCommand:
         """Adds comment and shows success message."""
         mock_jira.add_comment.return_value = MagicMock()
 
-        args = argparse.Namespace(key="test-123", body="This is a valid comment")
+        args = argparse.Namespace(
+            key="test-123",
+            body="This is a valid comment",
+            list=False,
+            edit=None,
+            delete=None,
+        )
 
         with patch("zaira.comment.get_jira_site", return_value="jira.example.com"):
             comment_command(args)
@@ -101,7 +115,9 @@ class TestCommentCommand:
         """Exits with error when add_comment fails."""
         mock_jira.add_comment.side_effect = Exception("Permission denied")
 
-        args = argparse.Namespace(key="test-123", body="Valid comment")
+        args = argparse.Namespace(
+            key="test-123", body="Valid comment", list=False, edit=None, delete=None
+        )
 
         with patch("zaira.comment.get_jira_site", return_value="jira.example.com"):
             with pytest.raises(SystemExit) as exc_info:
@@ -113,7 +129,9 @@ class TestCommentCommand:
         """Converts ticket key to uppercase."""
         mock_jira.add_comment.return_value = MagicMock()
 
-        args = argparse.Namespace(key="test-123", body="Comment")
+        args = argparse.Namespace(
+            key="test-123", body="Comment", list=False, edit=None, delete=None
+        )
 
         with patch("zaira.comment.get_jira_site", return_value="jira.example.com"):
             comment_command(args)
@@ -125,7 +143,9 @@ class TestCommentCommand:
         monkeypatch.setattr(sys, "stdin", MagicMock(read=lambda: "stdin comment"))
         mock_jira.add_comment.return_value = MagicMock()
 
-        args = argparse.Namespace(key="TEST-123", body="-")
+        args = argparse.Namespace(
+            key="TEST-123", body="-", list=False, edit=None, delete=None
+        )
 
         with patch("zaira.comment.get_jira_site", return_value="jira.example.com"):
             comment_command(args)
@@ -141,7 +161,11 @@ class TestSpecialCharacters:
         mock_jira.add_comment.return_value = MagicMock()
 
         args = argparse.Namespace(
-            key="TEST-123", body="He said \"hello\" and 'goodbye'"
+            key="TEST-123",
+            body="He said \"hello\" and 'goodbye'",
+            list=False,
+            edit=None,
+            delete=None,
         )
 
         with patch("zaira.comment.get_jira_site", return_value="jira.example.com"):
@@ -158,7 +182,9 @@ class TestSpecialCharacters:
         mock_jira.add_comment.return_value = MagicMock()
 
         body = "Line 1\nLine 2\n\nLine 4 after blank"
-        args = argparse.Namespace(key="TEST-123", body=body)
+        args = argparse.Namespace(
+            key="TEST-123", body=body, list=False, edit=None, delete=None
+        )
 
         with patch("zaira.comment.get_jira_site", return_value="jira.example.com"):
             comment_command(args)
@@ -172,7 +198,9 @@ class TestSpecialCharacters:
         mock_jira.add_comment.return_value = MagicMock()
 
         body = "Testing unicode: café, naïve, 日本語, emoji 🎉👍"
-        args = argparse.Namespace(key="TEST-123", body=body)
+        args = argparse.Namespace(
+            key="TEST-123", body=body, list=False, edit=None, delete=None
+        )
 
         with patch("zaira.comment.get_jira_site", return_value="jira.example.com"):
             comment_command(args)
@@ -186,7 +214,9 @@ class TestSpecialCharacters:
         mock_jira.add_comment.return_value = MagicMock()
 
         body = "Code: {code}print('hello'){code} and [link|http://example.com]"
-        args = argparse.Namespace(key="TEST-123", body=body)
+        args = argparse.Namespace(
+            key="TEST-123", body=body, list=False, edit=None, delete=None
+        )
 
         with patch("zaira.comment.get_jira_site", return_value="jira.example.com"):
             comment_command(args)
@@ -198,7 +228,9 @@ class TestSpecialCharacters:
         mock_jira.add_comment.return_value = MagicMock()
 
         body = r"Path: C:\Users\test\file.txt and regex: \d+\.\d+"
-        args = argparse.Namespace(key="TEST-123", body=body)
+        args = argparse.Namespace(
+            key="TEST-123", body=body, list=False, edit=None, delete=None
+        )
 
         with patch("zaira.comment.get_jira_site", return_value="jira.example.com"):
             comment_command(args)
