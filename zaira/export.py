@@ -359,6 +359,7 @@ def get_comments(key: str, raw: bool = False) -> list[Comment]:
                     author=c.author.displayName if c.author else "Unknown",
                     created=_format_timestamp(c.created or ""),
                     body=body_str,
+                    id=c.id,
                 )
             )
         return result

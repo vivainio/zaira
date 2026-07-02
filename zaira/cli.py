@@ -536,7 +536,7 @@ def main() -> None:
     # Comment command
     comment_parser = subparsers.add_parser(
         "comment",
-        help="Add a comment to a ticket",
+        help="Add, edit, delete, or list comments on a ticket",
     )
     comment_parser.add_argument(
         "key",
@@ -544,7 +544,24 @@ def main() -> None:
     )
     comment_parser.add_argument(
         "body",
-        help="Comment text (use '-' to read from stdin)",
+        nargs="?",
+        default=None,
+        help="Comment text (use '-' to read from stdin). Required unless --list or --delete is used.",
+    )
+    comment_parser.add_argument(
+        "--list",
+        action="store_true",
+        help="List comments with their IDs (needed for --edit/--delete)",
+    )
+    comment_parser.add_argument(
+        "--edit",
+        metavar="ID",
+        help="Edit the comment with this ID instead of adding a new one",
+    )
+    comment_parser.add_argument(
+        "--delete",
+        metavar="ID",
+        help="Delete the comment with this ID",
     )
     comment_parser.set_defaults(func=comment_command)
 

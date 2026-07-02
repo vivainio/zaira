@@ -33,6 +33,7 @@ class Comment:
     author: str
     created: str
     body: str
+    id: str = ""
 
 
 @dataclass
