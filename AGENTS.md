@@ -83,6 +83,14 @@ Or use `--generate-notes` to auto-generate from commits:
 gh release create v0.3.0 --generate-notes
 ```
 
+## Skill Files
+
+Whenever you edit `zaira/skills/zaira/SKILL.md` (or `GOALS.md`/`CONFLUENCE.md`), bump its `updated: YYYY-MM-DD` frontmatter field. Run this rather than editing the field by hand:
+
+```bash
+markstate update zaira/skills/zaira/SKILL.md --set updated=today
+```
+
 ## Project Structure
 
 - `zaira/` - Main package

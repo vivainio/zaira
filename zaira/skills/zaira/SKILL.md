@@ -1,6 +1,7 @@
 ---
 name: zaira
 description: Access Jira tickets offline using zaira CLI. Use when user needs to export, report, or refresh Jira tickets, or mentions "jira", "zaira", or ticket keys like "FOO-123".
+updated: 2026-07-03
 ---
 
 # Zaira - Jira CLI
