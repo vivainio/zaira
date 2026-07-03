@@ -1442,6 +1442,11 @@ def main() -> None:
         parser.print_help()
         sys.exit(1)
 
+    if args.command != "install-skills":
+        from zaira.skills import check_skill_staleness
+
+        check_skill_staleness()
+
     from zaira.wincred import WincredNotInstalled
 
     try:
