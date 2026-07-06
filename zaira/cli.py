@@ -93,6 +93,32 @@ def _migrate_legacy_dirs() -> None:
     print(f"Migrated zaira data from {old} to {CONFIG_DIR}", file=sys.stderr)
 
 
+def _warn_if_store_python() -> None:
+    """Warn if running on Microsoft Store Python, whose AppContainer sandbox
+    silently redirects %LOCALAPPDATA% paths (e.g. credentials.toml) to a
+    per-package cache directory, causing config to appear to vanish.
+    """
+    if sys.platform != "win32":
+        return
+    base = getattr(sys, "_base_executable", None) or sys.base_prefix
+    if "WindowsApps" not in base and "PythonSoftwareFoundation" not in base:
+        return
+
+    from zaira.jira_client import CONFIG_DIR
+
+    print(
+        "Warning: zaira is running on Microsoft Store Python. Its AppContainer\n"
+        "sandbox silently redirects %LOCALAPPDATA% paths, so files zaira writes to\n"
+        f"{CONFIG_DIR}\n"
+        "may actually land under a hidden per-package cache directory instead\n"
+        "(...\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.*\\LocalCache\\...).\n"
+        "This can make credentials.toml appear to disappear or reset.\n"
+        "Fix: uninstall Store Python and install Python from python.org instead,\n"
+        "then reinstall zaira.",
+        file=sys.stderr,
+    )
+
+
 def main() -> None:
     # Force UTF-8 stdout on Windows to avoid encode/decode errors
     # when Jira content contains characters outside cp1252
@@ -102,6 +128,7 @@ def main() -> None:
             assert isinstance(stdout, io.TextIOWrapper)
             stdout.reconfigure(encoding="utf-8")
 
+    _warn_if_store_python()
     _migrate_legacy_dirs()
 
     parser = argparse.ArgumentParser(
