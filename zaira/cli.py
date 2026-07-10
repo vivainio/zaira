@@ -995,6 +995,10 @@ def main() -> None:
         help="Filter by page creator name",
     )
     wiki_search.add_argument(
+        "--label",
+        help="Filter by page label",
+    )
+    wiki_search.add_argument(
         "--limit",
         type=int,
         default=25,

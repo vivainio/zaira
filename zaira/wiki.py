@@ -509,6 +509,12 @@ def search_command(args: argparse.Namespace) -> None:
         if args.creator:
             cql_parts.append(f'creator.fullname ~ "{args.creator}"')
 
+        # Optional label filter — the value must be quoted or Confluence's
+        # CQL parser fails silently on hyphenated label names (e.g.
+        # "aws-services" without quotes returns a "could not parse cql" error)
+        if args.label:
+            cql_parts.append(f'label = "{args.label}"')
+
         # Only search pages (not attachments, comments, etc.)
         cql_parts.append("type = page")
 
