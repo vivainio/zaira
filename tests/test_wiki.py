@@ -922,6 +922,7 @@ class TestSearchCommand:
             space=None,
             cql=None,
             creator=None,
+            label=None,
             limit=25,
             format="default",
         )
@@ -951,6 +952,7 @@ class TestSearchCommand:
             space=None,
             cql=None,
             creator=None,
+            label=None,
             limit=25,
             format="json",
         )
@@ -979,6 +981,7 @@ class TestSearchCommand:
             space=None,
             cql=None,
             creator=None,
+            label=None,
             limit=25,
             format="url",
         )
@@ -1010,6 +1013,7 @@ class TestSearchCommand:
             space=None,
             cql=None,
             creator=None,
+            label=None,
             limit=25,
             format="id",
         )
@@ -1038,6 +1042,7 @@ class TestSearchCommand:
             space=None,
             cql=None,
             creator=None,
+            label=None,
             limit=25,
             format="default",
         )
@@ -1068,6 +1073,7 @@ class TestSearchCommand:
             space=None,
             cql=None,
             creator=None,
+            label=None,
             limit=25,
             format="default",
         )
@@ -1100,6 +1106,7 @@ class TestSearchCommand:
             space="MYSPACE",
             cql=None,
             creator=None,
+            label=None,
             limit=25,
             format="default",
         )
@@ -1133,6 +1140,7 @@ class TestSearchCommand:
             cql=None,
             space=None,
             creator="John Doe",
+            label=None,
             limit=25,
             format="default",
         )
@@ -1144,6 +1152,82 @@ class TestSearchCommand:
             search_command(args)
 
         assert 'creator.fullname ~ "John Doe"' in cql_received[0]
+
+    def test_search_with_label_filter(self, mock_confluence, capsys):
+        """Filters by label, with the value quoted.
+
+        Confluence's CQL parser silently fails ("could not parse cql") on
+        hyphenated label values passed unquoted, e.g. label=aws-services —
+        the value must always be quoted.
+        """
+        from zaira.wiki import search_command
+        from zaira import confluence_api
+        import argparse
+
+        cql_received = []
+
+        def mock_search(cql, limit, expand):
+            cql_received.append(cql)
+            return {
+                "results": [{"id": "12345", "title": "Page", "space": {"key": "TEST"}}]
+            }
+
+        confluence_api.set_api("search_pages", mock_search)
+
+        args = argparse.Namespace(
+            query="test",
+            cql=None,
+            space=None,
+            creator=None,
+            label="aws-services",
+            limit=25,
+            format="default",
+        )
+
+        with patch(
+            "zaira.wiki.get_server_from_config",
+            return_value="https://site.atlassian.net",
+        ):
+            search_command(args)
+
+        assert 'label = "aws-services"' in cql_received[0]
+
+    def test_search_with_space_and_label_filter(self, mock_confluence, capsys):
+        """Combines space and label filters with AND, both quoted."""
+        from zaira.wiki import search_command
+        from zaira import confluence_api
+        import argparse
+
+        cql_received = []
+
+        def mock_search(cql, limit, expand):
+            cql_received.append(cql)
+            return {
+                "results": [{"id": "12345", "title": "Page", "space": {"key": "BTA"}}]
+            }
+
+        confluence_api.set_api("search_pages", mock_search)
+
+        args = argparse.Namespace(
+            query="Proton",
+            cql=None,
+            space="BTA",
+            creator=None,
+            label="aws-services",
+            limit=25,
+            format="default",
+        )
+
+        with patch(
+            "zaira.wiki.get_server_from_config",
+            return_value="https://site.atlassian.net",
+        ):
+            search_command(args)
+
+        cql = cql_received[0]
+        assert 'space = "BTA"' in cql
+        assert 'label = "aws-services"' in cql
+        assert " AND " in cql
 
 
 class TestGetCommand:
