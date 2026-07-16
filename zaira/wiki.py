@@ -24,6 +24,9 @@ from zaira.mdconv import (
 # Property key for sync metadata
 SYNC_PROPERTY_KEY = "zaira-sync"
 
+# Property key prefix for idempotent append sections (one property per section id)
+APPEND_PROPERTY_PREFIX = "zaira-append-"
+
 
 def parse_front_matter(content: str) -> tuple[dict, str]:
     """Parse YAML front matter from markdown content.
@@ -854,6 +857,7 @@ def _put_one_file(
     renderers: list[str] | None = None,
     mirror_parent_id: str | None = None,
     name_prefix: str = "",
+    raw: bool = False,
 ) -> bool:
     """Process a single markdown file for wiki put.
 
@@ -868,6 +872,7 @@ def _put_one_file(
         renderers: Diagram renderers
         mirror_parent_id: Parent folder ID for mirror mode
         name_prefix: Prefix for folder names in mirror mode
+        raw: Treat file content as literal Confluence storage format (skip markdown conversion)
 
     Returns:
         True if successful, False otherwise
@@ -950,9 +955,9 @@ def _put_one_file(
 
     # Handle --diff
     if diff:
-        remote_md = storage_to_markdown(remote_body)
+        remote_compare = remote_body if raw else storage_to_markdown(remote_body)
         local_lines = body_only.splitlines(keepends=True)
-        remote_lines = remote_md.splitlines(keepends=True)
+        remote_lines = remote_compare.splitlines(keepends=True)
 
         diff_lines = list(
             difflib.unified_diff(
@@ -973,7 +978,7 @@ def _put_one_file(
     # Handle --pull
     if pull:
         download_images(page_id, filepath)
-        md_content = storage_to_markdown(remote_body)
+        md_content = remote_body if raw else storage_to_markdown(remote_body)
 
         # Sync properties from remote
         front_matter["confluence"] = int(page_id)
@@ -1024,15 +1029,19 @@ def _put_one_file(
         print(f"{filepath}: already in sync")
         return True
 
-    # Render diagram blocks to PNG (if requested and tools available)
-    body_only, render_temps = render_diagram_blocks(body_only, renderers)
+    if raw:
+        image_hashes = stored_image_hashes
+        storage_content = body_only
+    else:
+        # Render diagram blocks to PNG (if requested and tools available)
+        body_only, render_temps = render_diagram_blocks(body_only, renderers)
 
-    # Upload images (including rendered diagram PNGs)
-    image_hashes = sync_images(page_id, filepath, body_only, stored_image_hashes)
-    cleanup_render_temps(render_temps)
+        # Upload images (including rendered diagram PNGs)
+        image_hashes = sync_images(page_id, filepath, body_only, stored_image_hashes)
+        cleanup_render_temps(render_temps)
 
-    # Convert and push
-    storage_content = markdown_to_storage(body_only)
+        # Convert and push
+        storage_content = markdown_to_storage(body_only)
     property_changes = []
 
     # Determine title: -t flag > front matter > current remote title
@@ -1250,6 +1259,7 @@ def put_command(args: argparse.Namespace) -> None:
                     getattr(args, "status", False),
                     getattr(args, "diff", False),
                     renderers,
+                    raw=getattr(args, "raw", False),
                 )
                 sys.exit(0 if success else 1)
             finally:
@@ -1452,6 +1462,7 @@ def put_command(args: argparse.Namespace) -> None:
             renderers,
             mirror_parent_id=mirror_parent_id if mirror_mode else None,
             name_prefix=mirror_prefix if mirror_mode else "",
+            raw=getattr(args, "raw", False),
         )
         if success:
             success_count += 1
@@ -1490,6 +1501,77 @@ def put_command(args: argparse.Namespace) -> None:
     # Summary for batch operations
     if len(files_to_process) > 1:
         print(f"\nProcessed {success_count} file(s), {fail_count} failed")
+
+
+def _append_section_slug(section: str) -> str:
+    """Sanitize a user-supplied section id into a safe content-property key suffix."""
+    return re.sub(r"[^a-zA-Z0-9_-]+", "-", section.strip()).strip("-") or "default"
+
+
+def append_command(args: argparse.Namespace) -> None:
+    """Append to a Confluence page, optionally tracked for idempotent replacement.
+
+    Without --section, always appends to the end of the page (plain append,
+    no tracking). With --section, the previously-appended block for that
+    section id is tracked in a hidden page property (not visible in the
+    rendered page or the page source): on re-runs, if that previous block is
+    still present verbatim in the page body it is replaced in place;
+    otherwise the new content is appended to the end.
+    """
+    page_id = parse_page_id(args.page)
+    section = getattr(args, "section", None)
+    section_key = (
+        APPEND_PROPERTY_PREFIX + _append_section_slug(section) if section else None
+    )
+
+    if args.file == "-":
+        content = sys.stdin.read()
+    else:
+        path = Path(args.file)
+        if not path.exists():
+            print(f"Error: File not found: {path}", file=sys.stderr)
+            sys.exit(1)
+        content = path.read_text(encoding="utf-8")
+
+    if not content.strip():
+        print("Error: empty content", file=sys.stderr)
+        sys.exit(1)
+
+    raw = getattr(args, "raw", False)
+    new_block = content if raw else markdown_to_storage(content)
+
+    page = confluence_api.fetch_page(page_id, expand="version,body.storage")
+    if not page:
+        print(f"Error fetching page {page_id}", file=sys.stderr)
+        sys.exit(1)
+
+    remote_body = page["body"]["storage"]["value"]
+    version = page["version"]["number"]
+    title = page["title"]
+
+    previous_block = None
+    if section_key:
+        prop = confluence_api.get_page_property(page_id, section_key)
+        previous_block = prop.get("value", {}).get("content") if prop else None
+
+    if previous_block and previous_block in remote_body:
+        new_body = remote_body.replace(previous_block, new_block, 1)
+        action = "Replaced"
+    else:
+        new_body = remote_body + new_block
+        action = "Appended"
+
+    result = confluence_api.update_page(page_id, title, new_body, version, page["type"])
+    if not result:
+        print(f"Error updating page {page_id}", file=sys.stderr)
+        sys.exit(1)
+
+    if section_key:
+        confluence_api.set_page_property(page_id, section_key, {"content": new_block})
+
+    new_version = result["version"]["number"]
+    detail = f"section '{section}' on" if section else "to"
+    print(f"{action} {detail} page {page_id} (version {version} -> {new_version})")
 
 
 def get_sync_property(page_id: str) -> dict | None:

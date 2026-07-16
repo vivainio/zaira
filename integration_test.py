@@ -17,7 +17,7 @@ import pytest
 
 def run(cmd: str, check: bool = True) -> subprocess.CompletedProcess:
     """Run a zaira CLI command."""
-    full_cmd = f"python -m zaira {cmd}"
+    full_cmd = f"{sys.executable} -m zaira {cmd}"
     print(f"  $ zaira {cmd}")
     result = subprocess.run(full_cmd, shell=True, capture_output=True, text=True)
     if result.stdout:
@@ -32,7 +32,7 @@ def run(cmd: str, check: bool = True) -> subprocess.CompletedProcess:
 
 def run_stdin(cmd: str, stdin: str) -> subprocess.CompletedProcess:
     """Run a zaira CLI command with stdin input."""
-    full_cmd = f"python -m zaira {cmd}"
+    full_cmd = f"{sys.executable} -m zaira {cmd}"
     print(f"  $ zaira {cmd} (stdin)")
     result = subprocess.run(
         full_cmd, shell=True, input=stdin, capture_output=True, text=True

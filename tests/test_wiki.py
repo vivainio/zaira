@@ -1432,7 +1432,7 @@ class TestGetCommand:
         captured = capsys.readouterr()
         assert "Exported 2 page(s)" in captured.out
 
-    def test_get_with_children(self, mock_confluence, capsys):
+    def test_get_with_children(self, mock_confluence, capsys, tmp_path):
         """Gets page with children expanded."""
         from zaira.wiki import get_command
         from zaira import confluence_api
@@ -1464,7 +1464,7 @@ class TestGetCommand:
             pages=["12345"],
             list=False,
             children=True,
-            output=str(Path("/tmp/test_output")),
+            output=str(tmp_path / "test_output"),
             format="markdown",
         )
 
@@ -5406,3 +5406,383 @@ class TestResolveParentFromFrontMatter:
         assert space is None
         captured = capsys.readouterr()
         assert "Could not resolve folder path" in captured.err
+
+
+class TestAppendSectionSlug:
+    """Tests for _append_section_slug function."""
+
+    def test_simple_id_unchanged(self):
+        from zaira.wiki import _append_section_slug
+
+        assert _append_section_slug("ci-status") == "ci-status"
+
+    def test_sanitizes_special_characters(self):
+        from zaira.wiki import _append_section_slug
+
+        assert _append_section_slug("CI Status: build#42") == "CI-Status-build-42"
+
+    def test_empty_falls_back_to_default(self):
+        from zaira.wiki import _append_section_slug
+
+        assert _append_section_slug("   ") == "default"
+
+
+class TestAppendCommand:
+    """Tests for append_command function."""
+
+    def _args(
+        self,
+        tmp_path,
+        content,
+        page="12345",
+        section=None,
+        raw=False,
+        use_stdin=False,
+    ):
+        if use_stdin:
+            file_arg = "-"
+        else:
+            f = tmp_path / "append.md"
+            f.write_text(content)
+            file_arg = str(f)
+        return argparse.Namespace(page=page, section=section, file=file_arg, raw=raw)
+
+    def test_appends_when_no_previous_property(self, tmp_path, mock_confluence, capsys):
+        """First run appends to end of body and records the property."""
+        from zaira.wiki import append_command
+        from zaira import confluence_api
+
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "type": "page",
+                "version": {"number": 3},
+                "body": {"storage": {"value": "<p>Existing</p>"}},
+            },
+        )
+        confluence_api.set_api("get_page_property", lambda page_id, key: None)
+
+        update_calls = []
+
+        def fake_update(page_id, title, body, version, page_type):
+            update_calls.append((page_id, title, body, version, page_type))
+            return {"version": {"number": version + 1}}
+
+        confluence_api.set_api("update_page", fake_update)
+
+        set_calls = []
+        confluence_api.set_api(
+            "set_page_property",
+            lambda page_id, key, value: set_calls.append((page_id, key, value)) or True,
+        )
+
+        args = self._args(tmp_path, "New content", section="ci-status", raw=True)
+        append_command(args)
+
+        assert len(update_calls) == 1
+        _, _, body, version, _ = update_calls[0]
+        assert body == "<p>Existing</p>New content"
+        assert version == 3
+
+        assert set_calls[0][1] == "zaira-append-ci-status"
+        assert set_calls[0][2] == {"content": "New content"}
+
+        captured = capsys.readouterr()
+        assert (
+            "Appended section 'ci-status' on page 12345 (version 3 -> 4)"
+            in captured.out
+        )
+
+    def test_replaces_previous_block_in_place(self, tmp_path, mock_confluence, capsys):
+        """Replaces the previously tracked block instead of duplicating."""
+        from zaira.wiki import append_command
+        from zaira import confluence_api
+
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "type": "page",
+                "version": {"number": 5},
+                "body": {"storage": {"value": "<p>Before</p>OLD BLOCK<p>After</p>"}},
+            },
+        )
+        confluence_api.set_api(
+            "get_page_property",
+            lambda page_id, key: {"value": {"content": "OLD BLOCK"}},
+        )
+
+        update_calls = []
+
+        def fake_update(page_id, title, body, version, page_type):
+            update_calls.append(body)
+            return {"version": {"number": version + 1}}
+
+        confluence_api.set_api("update_page", fake_update)
+        confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
+
+        args = self._args(tmp_path, "NEW BLOCK", section="ci-status", raw=True)
+        append_command(args)
+
+        assert update_calls[0] == "<p>Before</p>NEW BLOCK<p>After</p>"
+        captured = capsys.readouterr()
+        assert "Replaced section 'ci-status'" in captured.out
+
+    def test_falls_back_to_append_when_previous_block_edited_away(
+        self, tmp_path, mock_confluence, capsys
+    ):
+        """If tracked block no longer matches remote content, appends instead."""
+        from zaira.wiki import append_command
+        from zaira import confluence_api
+
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "type": "page",
+                "version": {"number": 5},
+                "body": {"storage": {"value": "<p>Manually edited</p>"}},
+            },
+        )
+        confluence_api.set_api(
+            "get_page_property",
+            lambda page_id, key: {"value": {"content": "OLD BLOCK"}},
+        )
+
+        update_calls = []
+
+        def fake_update(page_id, title, body, version, page_type):
+            update_calls.append(body)
+            return {"version": {"number": version + 1}}
+
+        confluence_api.set_api("update_page", fake_update)
+        confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
+
+        args = self._args(tmp_path, "NEW BLOCK", section="ci-status", raw=True)
+        append_command(args)
+
+        assert update_calls[0] == "<p>Manually edited</p>NEW BLOCK"
+        captured = capsys.readouterr()
+        assert "Appended section 'ci-status'" in captured.out
+
+    def test_markdown_conversion_applied_without_raw(self, tmp_path, mock_confluence):
+        """Content is converted from markdown to storage format unless --raw."""
+        from zaira.wiki import append_command
+        from zaira import confluence_api
+
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "type": "page",
+                "version": {"number": 1},
+                "body": {"storage": {"value": ""}},
+            },
+        )
+        confluence_api.set_api("get_page_property", lambda page_id, key: None)
+
+        update_calls = []
+
+        def fake_update(page_id, title, body, version, page_type):
+            update_calls.append(body)
+            return {"version": {"number": version + 1}}
+
+        confluence_api.set_api("update_page", fake_update)
+        confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
+
+        args = self._args(tmp_path, "Hello world", raw=False)
+        append_command(args)
+
+        assert update_calls[0] == "<p>Hello world</p>"
+
+    def test_reads_content_from_stdin(self, tmp_path, mock_confluence, monkeypatch):
+        """Reads content from stdin when file is '-'."""
+        import io
+        from zaira.wiki import append_command
+        from zaira import confluence_api
+
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "type": "page",
+                "version": {"number": 1},
+                "body": {"storage": {"value": ""}},
+            },
+        )
+        confluence_api.set_api("get_page_property", lambda page_id, key: None)
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, page_type: {
+                "version": {"number": version + 1}
+            },
+        )
+        confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
+
+        monkeypatch.setattr("sys.stdin", io.StringIO("Stdin content"))
+
+        args = self._args(tmp_path, "", raw=True, use_stdin=True)
+        append_command(args)
+
+    def test_errors_on_missing_file(self, tmp_path, capsys):
+        """Errors and exits when file does not exist."""
+        from zaira.wiki import append_command
+
+        args = argparse.Namespace(
+            page="12345",
+            section="ci-status",
+            file=str(tmp_path / "missing.md"),
+            raw=True,
+        )
+
+        with pytest.raises(SystemExit):
+            append_command(args)
+
+        captured = capsys.readouterr()
+        assert "File not found" in captured.err
+
+    def test_errors_on_empty_content(self, tmp_path, mock_confluence, capsys):
+        """Errors and exits when content is empty/whitespace."""
+        from zaira.wiki import append_command
+
+        f = tmp_path / "empty.md"
+        f.write_text("   ")
+
+        args = argparse.Namespace(
+            page="12345", section="ci-status", file=str(f), raw=True
+        )
+
+        with pytest.raises(SystemExit):
+            append_command(args)
+
+        captured = capsys.readouterr()
+        assert "empty content" in captured.err
+
+    def test_errors_when_page_fetch_fails(self, tmp_path, mock_confluence, capsys):
+        """Errors and exits when the page cannot be fetched."""
+        from zaira.wiki import append_command
+        from zaira import confluence_api
+
+        confluence_api.set_api("fetch_page", lambda page_id, expand: None)
+
+        args = self._args(tmp_path, "content", raw=True)
+
+        with pytest.raises(SystemExit):
+            append_command(args)
+
+        captured = capsys.readouterr()
+        assert "Error fetching page" in captured.err
+
+    def test_accepts_page_url(self, tmp_path, mock_confluence):
+        """Resolves a page URL to its numeric id via parse_page_id."""
+        from zaira.wiki import append_command
+        from zaira import confluence_api
+
+        seen_page_ids = []
+
+        def fake_fetch(page_id, expand):
+            seen_page_ids.append(page_id)
+            return {
+                "id": page_id,
+                "title": "Test",
+                "type": "page",
+                "version": {"number": 1},
+                "body": {"storage": {"value": ""}},
+            }
+
+        confluence_api.set_api("fetch_page", fake_fetch)
+        confluence_api.set_api("get_page_property", lambda page_id, key: None)
+        confluence_api.set_api(
+            "update_page",
+            lambda page_id, title, body, version, page_type: {
+                "version": {"number": version + 1}
+            },
+        )
+        confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
+
+        args = self._args(
+            tmp_path,
+            "content",
+            page="https://example.atlassian.net/wiki/spaces/SPACE/pages/98765/Title",
+            raw=True,
+        )
+        append_command(args)
+
+        assert seen_page_ids == ["98765"]
+
+    def test_plain_append_without_section_skips_property_tracking(
+        self, tmp_path, mock_confluence, capsys
+    ):
+        """Without --section, always appends and never touches page properties."""
+        from zaira.wiki import append_command
+        from zaira import confluence_api
+
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "type": "page",
+                "version": {"number": 3},
+                "body": {"storage": {"value": "<p>Existing</p>"}},
+            },
+        )
+
+        def fail_get(page_id, key):
+            raise AssertionError("get_page_property should not be called")
+
+        def fail_set(page_id, key, value):
+            raise AssertionError("set_page_property should not be called")
+
+        confluence_api.set_api("get_page_property", fail_get)
+        confluence_api.set_api("set_page_property", fail_set)
+
+        update_calls = []
+
+        def fake_update(page_id, title, body, version, page_type):
+            update_calls.append(body)
+            return {"version": {"number": version + 1}}
+
+        confluence_api.set_api("update_page", fake_update)
+
+        args = self._args(tmp_path, "New content", raw=True)
+        append_command(args)
+
+        assert update_calls[0] == "<p>Existing</p>New content"
+        captured = capsys.readouterr()
+        assert "Appended to page 12345 (version 3 -> 4)" in captured.out
+
+    def test_plain_append_duplicates_on_rerun(self, tmp_path, mock_confluence):
+        """Without --section, re-running duplicates content instead of replacing it."""
+        from zaira.wiki import append_command
+        from zaira import confluence_api
+
+        body_state = {"value": "<p>Existing</p>"}
+
+        confluence_api.set_api(
+            "fetch_page",
+            lambda page_id, expand: {
+                "id": "12345",
+                "title": "Test",
+                "type": "page",
+                "version": {"number": 1},
+                "body": {"storage": {"value": body_state["value"]}},
+            },
+        )
+
+        def fake_update(page_id, title, body, version, page_type):
+            body_state["value"] = body
+            return {"version": {"number": version + 1}}
+
+        confluence_api.set_api("update_page", fake_update)
+
+        append_command(self._args(tmp_path, "Same block", raw=True))
+        append_command(self._args(tmp_path, "Same block", raw=True))
+
+        assert body_state["value"] == "<p>Existing</p>Same blockSame block"

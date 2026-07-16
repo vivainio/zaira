@@ -153,7 +153,8 @@ class TestLogCommand:
         args = argparse.Namespace(
             key="test-123", time=None, comment=None, date=None, list=True
         )
-        log_command(args)
+        with patch("zaira.worklog.get_jira_site", return_value="jira.example.com"):
+            log_command(args)
 
         captured = capsys.readouterr()
         assert "Worklogs for TEST-123" in captured.out
@@ -171,7 +172,8 @@ class TestLogCommand:
         args = argparse.Namespace(
             key="TEST-123", time=None, comment=None, date=None, list=True
         )
-        log_command(args)
+        with patch("zaira.worklog.get_jira_site", return_value="jira.example.com"):
+            log_command(args)
 
         captured = capsys.readouterr()
         assert "Total: 3.0h" in captured.out
@@ -183,7 +185,8 @@ class TestLogCommand:
         args = argparse.Namespace(
             key="TEST-123", time=None, comment=None, date=None, list=True
         )
-        log_command(args)
+        with patch("zaira.worklog.get_jira_site", return_value="jira.example.com"):
+            log_command(args)
 
         captured = capsys.readouterr()
         assert "No worklogs found" in captured.out
@@ -194,8 +197,9 @@ class TestLogCommand:
             key="test-123", time=None, comment=None, date=None, list=False
         )
 
-        with pytest.raises(SystemExit) as exc_info:
-            log_command(args)
+        with patch("zaira.worklog.get_jira_site", return_value="jira.example.com"):
+            with pytest.raises(SystemExit) as exc_info:
+                log_command(args)
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
@@ -252,8 +256,9 @@ class TestLogCommand:
             key="TEST-123", time="2h", comment=None, date="02/05/2026", list=False
         )
 
-        with pytest.raises(SystemExit) as exc_info:
-            log_command(args)
+        with patch("zaira.worklog.get_jira_site", return_value="jira.example.com"):
+            with pytest.raises(SystemExit) as exc_info:
+                log_command(args)
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
@@ -575,8 +580,9 @@ class TestLogCommandSpread:
             include_weekends=False,
         )
 
-        with pytest.raises(SystemExit) as exc_info:
-            log_command(args)
+        with patch("zaira.worklog.get_jira_site", return_value="jira.example.com"):
+            with pytest.raises(SystemExit) as exc_info:
+                log_command(args)
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr()

@@ -11,6 +11,7 @@ import shutil
 import subprocess
 
 WINCRED_BINARY = "wincred.exe"
+WINCRED_TIMEOUT = 5.0
 INSTALL_URL = "https://github.com/vivainio/wincred/releases/latest/download/wincred.exe"
 INSTALL_HINT = (
     "wincred.exe is required to use Windows Credential Manager from WSL.\n"
@@ -44,6 +45,23 @@ class WslInteropUnavailable(RuntimeError):
         )
 
 
+class WincredTimeout(RuntimeError):
+    """Raised when wincred.exe doesn't return within the allotted time.
+
+    Seen when WSL's interop session is stuck (stale /run/WSL/*_interop sockets) —
+    the Windows-side process is never launched and wincred.exe never starts or
+    exits, so there's no stderr to inspect, only silence. Restarting WSL
+    (`wsl --shutdown` from Windows, then reopening the terminal) clears it.
+    """
+
+    def __init__(self, timeout: float) -> None:
+        super().__init__(
+            f"wincred.exe did not respond within {timeout:.0f}s.\n"
+            "This usually means WSL's interop session is stuck. Fix: from Windows, "
+            "run `wsl --shutdown`, then reopen your WSL terminal."
+        )
+
+
 def is_wsl() -> bool:
     """Return True when running on WSL with Windows interop enabled."""
     return bool(os.environ.get("WSL_INTEROP"))
@@ -57,9 +75,12 @@ def _run(args: list[str], stdin: str | None = None) -> subprocess.CompletedProce
             capture_output=True,
             text=True,
             check=False,
+            timeout=WINCRED_TIMEOUT,
         )
     except FileNotFoundError as e:
         raise WincredNotInstalled() from e
+    except subprocess.TimeoutExpired as e:
+        raise WincredTimeout(WINCRED_TIMEOUT) from e
     if r.returncode != 0 and _is_wsl_interop_failure(r.stderr):
         raise WslInteropUnavailable(r.stderr)
     return r

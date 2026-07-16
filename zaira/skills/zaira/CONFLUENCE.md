@@ -53,6 +53,13 @@ zaira wiki put docs/*.md --create           # Create new pages for unlinked file
 zaira wiki put docs/*.md --create --space ENG  # Create in specific space
 zaira wiki put docs/ --space ENG --mirror      # Mirror directory tree to Confluence folders
 zaira wiki put docs/ --space ENG --mirror --parent team-docs  # Nest under prefix
+zaira wiki put page.md --raw                # Push literal Confluence storage format (XHTML), skip markdown conversion
+
+# Append to a page
+zaira wiki append 123456 status.md                  # Plain append, no tracking (dumb append every time)
+echo "Build passed" | zaira wiki append 123456 -    # From stdin
+zaira wiki append 123456 status.md -s ci-status     # Idempotent: reruns replace this section in place
+zaira wiki append 123456 entry.md --raw             # Append literal storage-format HTML
 
 # Edit page properties
 zaira wiki edit 123456 --title "New Title"
@@ -132,6 +139,18 @@ Content here...
 - If the folder path doesn't exist, missing folders are created automatically
 - `space:` is required when `folder:` is present (can also use `--space` flag)
 - Title priority: front matter `title:` > first `# Heading` > filename
+
+## Appending to a Page
+
+`zaira wiki append <page> <file|->` adds content to the end of an existing page without touching the rest of it — no local file tracking or front matter needed.
+
+By default it's a plain append: every run adds another copy to the end. Pass `-s`/`--section <id>` to make it idempotent instead — the previously-appended block for that section id is tracked in a hidden Confluence page property (invisible in the rendered page and in the page source), so reruns replace it in place rather than duplicating it. If the tracked block is gone (someone edited it away) or this is the first run, it falls back to a plain append. Different section ids on the same page are tracked independently.
+
+```bash
+zaira wiki append 123456 status.md                # Plain append, duplicates on every run
+zaira wiki append 123456 status.md -s ci-status   # Idempotent: reruns replace this section in place
+zaira wiki append 123456 status.html --raw        # Literal storage format, skip markdown conversion
+```
 
 ## Image Handling
 

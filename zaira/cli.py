@@ -25,6 +25,7 @@ from zaira.wiki import (
     search_command as wiki_search_command,
     create_command as wiki_create_command,
     put_command as wiki_put_command,
+    append_command as wiki_append_command,
     attach_command as wiki_attach_command,
     get_attachment_command as wiki_get_attachment_command,
     edit_command as wiki_edit_command,
@@ -1065,6 +1066,11 @@ def main() -> None:
         help="Treat input as Markdown (auto-enabled for .md files)",
     )
     wiki_put.add_argument(
+        "--raw",
+        action="store_true",
+        help="Treat input as literal Confluence storage format (XHTML), skip markdown conversion",
+    )
+    wiki_put.add_argument(
         "--pull",
         action="store_true",
         help="Pull remote changes to local file(s) instead of pushing",
@@ -1111,6 +1117,31 @@ def main() -> None:
         help="Render diagram blocks to PNG and attach (comma-separated: mermaid,dot,plantuml,d2,ditaa)",
     )
     wiki_put.set_defaults(wiki_func=wiki_put_command)
+
+    wiki_append = wiki_subparsers.add_parser(
+        "append",
+        help="Append to a Confluence page (optionally idempotent via --section)",
+    )
+    wiki_append.add_argument(
+        "page",
+        help="Page ID or Confluence URL",
+    )
+    wiki_append.add_argument(
+        "file",
+        help="File with content to append, or '-' for stdin",
+    )
+    wiki_append.add_argument(
+        "-s",
+        "--section",
+        help="Track this block under a section id: reruns replace it in place "
+        "instead of duplicating it. Omit for a plain, always-append.",
+    )
+    wiki_append.add_argument(
+        "--raw",
+        action="store_true",
+        help="Treat input as literal Confluence storage format (XHTML), skip markdown conversion",
+    )
+    wiki_append.set_defaults(wiki_func=wiki_append_command)
 
     wiki_attach = wiki_subparsers.add_parser(
         "attach",

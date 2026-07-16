@@ -31,7 +31,7 @@ auto_delete: bool = False
 
 def run(cmd: str, check: bool = True) -> subprocess.CompletedProcess:
     """Run a zaira CLI command."""
-    full_cmd = f"python -m zaira {cmd}"
+    full_cmd = f"{sys.executable} -m zaira {cmd}"
     print(f"  $ zaira {cmd}")
     result = subprocess.run(full_cmd, shell=True, capture_output=True, text=True)
     if result.stdout:
