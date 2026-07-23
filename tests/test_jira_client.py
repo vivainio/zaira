@@ -2,8 +2,10 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
 
 from zaira import jira_client
+from zaira.errors import CredentialsNotConfigured
 
 
 class TestGetSchemaPath:
@@ -94,6 +96,22 @@ class TestLoadCredentials:
             result = jira_client.load_credentials()
 
         assert result == {}
+
+
+class TestGetCredentials:
+    """Tests for complete credential loading."""
+
+    def test_raises_application_error_when_credentials_are_missing(self):
+        """Missing credentials do not terminate programmatic callers."""
+        with (
+            patch.object(jira_client, "get_server_from_config", return_value=None),
+            patch.object(jira_client, "load_credentials", return_value={}),
+            pytest.raises(CredentialsNotConfigured) as exc_info,
+        ):
+            jira_client.get_credentials()
+
+        assert "Credentials not configured" in str(exc_info.value)
+        assert exc_info.value.exit_code == 1
 
 
 class TestGetJiraSite:

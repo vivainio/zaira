@@ -11,6 +11,7 @@ from jira import JIRA
 from platformdirs import user_cache_dir, user_config_dir
 
 from zaira import wincred
+from zaira.errors import CredentialsNotConfigured
 from zaira.types import Credentials
 
 CONFIG_DIR = Path(user_config_dir("zaira", appauthor=False))
@@ -160,11 +161,10 @@ def get_credentials() -> tuple[str, str, str]:
     token = creds.get("api_token")
 
     if not server or not email or not token:
-        print(
-            f"Error: Credentials not configured in {CREDENTIALS_FILE}", file=sys.stderr
+        raise CredentialsNotConfigured(
+            f"Credentials not configured in {CREDENTIALS_FILE}\n"
+            "Run 'zaira init' to set up credentials."
         )
-        print("\nRun 'zaira init' to set up credentials.", file=sys.stderr)
-        sys.exit(1)
 
     return server, email, token
 

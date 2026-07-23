@@ -14,6 +14,7 @@ from zaira.comment import comment_command
 from zaira.create import create_command
 from zaira.dashboard import dashboard_command, dashboards_command
 from zaira.edit import edit_command
+from zaira.errors import ApplicationError
 from zaira.export import get_attachment_command
 from zaira.hours import hours_command
 from zaira.link import link_command
@@ -1513,6 +1514,9 @@ def main() -> None:
 
     try:
         args.func(args)
+    except ApplicationError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(e.exit_code)
     except WincredNotInstalled as e:
         print(e, file=sys.stderr)
         sys.exit(1)
