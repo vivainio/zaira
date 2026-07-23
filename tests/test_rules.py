@@ -1,5 +1,6 @@
 """Tests for zaira.rules module."""
 
+from pathlib import Path
 from unittest.mock import patch
 
 from zaira.rules import (
@@ -11,7 +12,7 @@ from zaira.rules import (
 import zaira.jira_client as jira_client_mod
 
 
-def _ticket(**overrides) -> object:
+def _ticket(**overrides: object) -> dict[str, object]:
     base = {
         "key": "TEST-1",
         "summary": "Test ticket",
@@ -1280,7 +1281,7 @@ class TestFindRulesFile:
 
 
 class TestImport:
-    def _write(self, path: str, content: str) -> object:
+    def _write(self, path: Path, content: str) -> Path:
         path.write_text(content)
         return path
 
