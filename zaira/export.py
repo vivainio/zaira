@@ -56,7 +56,7 @@ def extract_description(
             return desc
         return jira_wiki_to_markdown(desc) if is_jira_wiki(desc) else desc
 
-    def extract_text(node) -> str:
+    def extract_text(node: Any) -> str:
         if isinstance(node, str):
             return node
         if isinstance(node, dict):

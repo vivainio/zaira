@@ -1,5 +1,6 @@
 """Install Claude Code skills bundled with zaira."""
 
+import argparse
 import sys
 from datetime import date
 from importlib.resources import files
@@ -13,7 +14,7 @@ STALE_CHECK_MARKER = CACHE_DIR / "skill-check.txt"
 INSTALLED_SKILL_MD = Path.home() / ".claude" / "skills" / "zaira" / "SKILL.md"
 
 
-def install_skills_command(args) -> None:
+def install_skills_command(args: argparse.Namespace) -> None:
     skills_dir = (
         Path(args.skills_dir) if args.skills_dir else Path.home() / ".claude" / "skills"
     )

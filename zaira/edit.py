@@ -347,7 +347,7 @@ def parse_yaml_fields(content: str, project: str = "", issue_type: str = "") -> 
 
 
 def get_allowed_values(
-    jira, key: str, field_ids: list[str], issue_type: str = ""
+    jira: Any, key: str, field_ids: list[str], issue_type: str = ""
 ) -> dict[str, list[str]]:
     """Get allowed values for fields.
 
@@ -439,7 +439,7 @@ def _print_allowed_values(
             print(f"  ... and {len(values) - 20} more", file=sys.stderr)
 
 
-def _handle_update_error(e: Exception, jira, key: str) -> None:
+def _handle_update_error(e: Exception, jira: Any, key: str) -> None:
     """Handle and display Jira update errors with allowed values."""
     import json
 

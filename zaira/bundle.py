@@ -1,5 +1,6 @@
 """Bundle install/update commands for distributing rules files."""
 
+import argparse
 import datetime
 import io
 import urllib.request
@@ -188,7 +189,7 @@ def _print_changes(changes: BundleChanges) -> None:
         print("  (no changes)")
 
 
-def bundle_install_command(args) -> None:
+def bundle_install_command(args: argparse.Namespace) -> None:
     source = args.source
     dry_run = getattr(args, "dry_run", False)
 
@@ -225,7 +226,7 @@ def bundle_install_command(args) -> None:
         print("\nUse without --dry-run to install.")
 
 
-def bundle_update_command(args) -> None:
+def bundle_update_command(args: argparse.Namespace) -> None:
     if not BUNDLE_META.exists():
         raise SystemExit(
             "No bundle installed. Run 'zaira bundle install <source>' first."

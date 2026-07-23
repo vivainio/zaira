@@ -2,6 +2,7 @@
 
 import argparse
 import sys
+from typing import Any
 
 from zaira.export import extract_custom_field_value
 from zaira.info import get_field_id
@@ -40,7 +41,7 @@ FIELD_ALIASES = {
 }
 
 
-def _user_display(user) -> str:
+def _user_display(user: Any) -> str:
     if not user:
         return ""
     if hasattr(user, "displayName"):
@@ -74,7 +75,7 @@ def _resolve_extra_field(name: str) -> tuple[str, str | None]:
     return name, None
 
 
-def _extract_field_value(issue, key: str) -> str:
+def _extract_field_value(issue: Any, key: str) -> str:
     """Extract a display value for a field from an issue."""
     lower = key.lower()
 

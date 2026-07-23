@@ -312,7 +312,7 @@ def _fetch_cached_data(
 def link_types_command(args: argparse.Namespace) -> None:
     """List available link types."""
 
-    def fetch_link_types():
+    def fetch_link_types() -> dict[str, dict[str, str]]:
         jira = get_jira()
         types = jira.issue_link_types()
         data = {t.name: {"outward": t.outward, "inward": t.inward} for t in types}
@@ -337,7 +337,7 @@ def link_types_command(args: argparse.Namespace) -> None:
 def statuses_command(args: argparse.Namespace) -> None:
     """List available statuses."""
 
-    def fetch_statuses():
+    def fetch_statuses() -> dict[str, str | None]:
         jira = get_jira()
         raw = jira.statuses()
         data = {
@@ -365,7 +365,7 @@ def statuses_command(args: argparse.Namespace) -> None:
 def issue_types_command(args: argparse.Namespace) -> None:
     """List available issue types."""
 
-    def fetch_issue_types():
+    def fetch_issue_types() -> dict[str, dict[str, bool]]:
         jira = get_jira()
         raw = jira.issue_types()
         data = {t.name: {"subtask": t.subtask} for t in raw}
@@ -508,7 +508,9 @@ def load_editmeta(project: str, issue_type: str) -> EditmetaSchema | None:
     return None
 
 
-def _fix_component_allowed_values(fields: dict, project: str, jira) -> None:
+def _fix_component_allowed_values(
+    fields: dict[str, Any], project: str, jira: Any
+) -> None:
     """Replace component allowedValues with live project components.
 
     The editmeta API returns an unreliable superset not scoped to the project.

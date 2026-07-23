@@ -267,7 +267,7 @@ class _ExistingHours:
         self,
         totals: dict[str, float],
         details: dict[str, list[tuple[str, float]]],
-    ):
+    ) -> None:
         self.totals = totals
         self.details = details  # date -> [(ticket_key, hours), ...]
 

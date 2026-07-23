@@ -65,7 +65,13 @@ from zaira.activity_log import read_entries, format_entries
 class _SingleValueAction(argparse.Action):
     """Argparse action that errors if the flag is given more than once."""
 
-    def __call__(self, parser, namespace, values, option_string=None):
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Any,
+        option_string: str | None = None,
+    ) -> None:
         if getattr(namespace, self.dest) is not None:
             parser.error(f"{option_string} can only be specified once")
         setattr(namespace, self.dest, values)

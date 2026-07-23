@@ -1,9 +1,10 @@
 """Rules engine for ticket validation."""
 
+import argparse
 import re
 import sys
-from collections import namedtuple
 from pathlib import Path
+from typing import Any, Mapping, NamedTuple
 
 import yaml
 
@@ -11,12 +12,19 @@ from zaira.export import get_ticket
 from zaira.jira_client import CONFIG_DIR
 from zaira.types import FieldError
 
-Violation = namedtuple("Violation", ["field", "check", "message"])
+
+class Violation(NamedTuple):
+    """A failed ticket rule."""
+
+    field: str
+    check: str
+    message: str
+
 
 ALLOWED_FIELDS_FILE = CONFIG_DIR / "rules" / "allowed_fields.txt"
 
 
-def _find_rules_file(path="rules.yaml") -> Path | None:
+def _find_rules_file(path: str | Path = "rules.yaml") -> Path | None:
     """Search for rules file: explicit path, then cwd, then the zaira config dir."""
     from zaira.jira_client import CONFIG_DIR
 
@@ -31,7 +39,9 @@ def _find_rules_file(path="rules.yaml") -> Path | None:
     return None
 
 
-def _merge_rule_block(base, override):
+def _merge_rule_block(
+    base: Mapping[str, Any], override: Mapping[str, Any]
+) -> dict[str, Any]:
     """Merge override rule block on top of base. Returns merged dict."""
     result = dict(base)
     for key, val in override.items():
@@ -70,7 +80,9 @@ def _merge_rule_block(base, override):
     return result
 
 
-def _merge_all_rules(base, override):
+def _merge_all_rules(
+    base: Mapping[str, Any], override: Mapping[str, Any]
+) -> dict[str, Any]:
     """Merge override on top of base at the top level (issue-type keyed)."""
     result = dict(base)
     for issue_type, type_rules in override.items():
@@ -81,7 +93,7 @@ def _merge_all_rules(base, override):
     return result
 
 
-def _load_rules_file(path: Path, seen: frozenset) -> dict:
+def _load_rules_file(path: Path, seen: frozenset[Path]) -> dict[str, Any]:
     """Load a YAML rules file, following import chains with cycle detection."""
     abs_path = path.resolve()
     if abs_path in seen:
@@ -101,7 +113,7 @@ def _load_rules_file(path: Path, seen: frozenset) -> dict:
     return _merge_all_rules(base, data)
 
 
-def load_rules(path="rules.yaml"):
+def load_rules(path: str | Path = "rules.yaml") -> dict[str, Any]:
     """Load YAML rules file. Returns dict keyed by issue type name."""
     from zaira.jira_client import CONFIG_DIR
 
@@ -115,7 +127,7 @@ def load_rules(path="rules.yaml"):
     return _load_rules_file(p, frozenset())
 
 
-def _get_field_value(ticket, field_name):
+def _get_field_value(ticket: Mapping[str, Any], field_name: str) -> tuple[bool, Any]:
     """Look up a field by human-readable name in ticket dict.
 
     Checks standard ticket keys first, then custom_fields.
@@ -139,7 +151,9 @@ def _get_field_value(ticket, field_name):
     return False, None
 
 
-def _apply_rules(ticket, rule_block):
+def _apply_rules(
+    ticket: Mapping[str, Any], rule_block: Mapping[str, Any]
+) -> list[Violation]:
     """Apply a single rule block and return violations.
 
     A rule block can contain: required, non_empty, contains, not_contains,
@@ -347,7 +361,9 @@ def _apply_rules(ticket, rule_block):
     return violations
 
 
-def _match_condition(ticket, match, status):
+def _match_condition(
+    ticket: Mapping[str, Any], match: Mapping[str, Any], status: str
+) -> bool:
     """Check if all field conditions in a match dict are satisfied.
 
     For scalar fields, compares as strings.
@@ -369,7 +385,11 @@ def _match_condition(ticket, match, status):
     return True
 
 
-def check_ticket(ticket, rules, status=None):
+def check_ticket(
+    ticket: Mapping[str, Any],
+    rules: Mapping[str, Any],
+    status: str | None = None,
+) -> list[Violation]:
     """Check a ticket dict against rules. Returns list of Violation.
 
     If status is given, use it instead of ticket's current status (for
@@ -397,7 +417,7 @@ def check_ticket(ticket, rules, status=None):
     return violations
 
 
-def try_load_rules(path="rules.yaml"):
+def try_load_rules(path: str | Path = "rules.yaml") -> dict[str, Any] | None:
     """Load rules file, returning None if it doesn't exist."""
     p = _find_rules_file(path)
     if not p:
@@ -463,7 +483,11 @@ def check_field_allowed(
     return None
 
 
-def validate_transition(ticket, all_rules, target_status):
+def validate_transition(
+    ticket: Mapping[str, Any],
+    all_rules: Mapping[str, Any],
+    target_status: str,
+) -> list[Violation]:
     """Check ticket against rules for target_status.
 
     Returns list of Violation, or empty list if no rules apply.
@@ -491,7 +515,7 @@ def validate_transition(ticket, all_rules, target_status):
     return violations
 
 
-def check_command(args):
+def check_command(args: argparse.Namespace) -> None:
     """CLI handler: load rules, fetch tickets, run checks, print report."""
     rules_path = getattr(args, "rules", "rules.yaml")
     all_rules = load_rules(rules_path)

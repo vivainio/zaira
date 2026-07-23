@@ -9,6 +9,7 @@ on WSL distros).
 import os
 import shutil
 import subprocess
+from pathlib import Path
 
 WINCRED_BINARY = "wincred.exe"
 WINCRED_TIMEOUT = 5.0
@@ -172,14 +173,12 @@ def install() -> str:
     return v.stdout.strip().replace("\r", "")
 
 
-def _windows_local_bin():
+def _windows_local_bin() -> Path:
     """Find a .local/bin under /mnt/c on the inherited Windows PATH.
 
     Raises RuntimeError if none is found — installing somewhere not on PATH
     wouldn't make wincred.exe callable anyway.
     """
-    from pathlib import Path
-
     for entry in os.environ.get("PATH", "").split(":"):
         if entry.startswith("/mnt/") and entry.rstrip("/").lower().endswith(
             "/.local/bin"

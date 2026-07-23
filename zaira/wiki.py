@@ -8,6 +8,7 @@ import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from zaira import confluence_api
 from zaira.jira_client import get_server_from_config
@@ -78,7 +79,7 @@ def write_front_matter(front_matter: dict, body: str) -> str:
     class InlineListDumper(yaml.SafeDumper):
         pass
 
-    def represent_list(dumper, data):
+    def represent_list(dumper: Any, data: list[Any]) -> Any:
         return dumper.represent_sequence("tag:yaml.org,2002:seq", data, flow_style=True)
 
     InlineListDumper.add_representer(list, represent_list)

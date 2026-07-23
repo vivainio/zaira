@@ -88,7 +88,7 @@ class DiagramRenderer:
         src_ext: str = ".txt",
         out_ext: str = ".png",
         install_hint: str | None = None,
-    ):
+    ) -> None:
         self.name = name
         self.cmd = cmd
         self.args = args
