@@ -186,7 +186,7 @@ def refresh_command(args: argparse.Namespace) -> None:
         front_matter = parse_front_matter(report_path.read_text(encoding="utf-8"))
 
         # Resolve report definition if named report
-        fm = dict(front_matter)
+        fm: FrontMatter = front_matter.copy()
         if fm.get("report"):
             report_def = get_report(fm["report"]) or {}
             for k in ("query", "jql", "board", "sprint", "label"):

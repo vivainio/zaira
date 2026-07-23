@@ -107,6 +107,7 @@ def put_command(args: argparse.Namespace) -> None:
 
     if new_description is not None:
         if target_field_id:
+            assert target_field_name is not None
             # Write body to the named custom field
             live_value = getattr(issue.fields, target_field_id, None) or ""
             if new_description != live_value:
@@ -130,6 +131,7 @@ def put_command(args: argparse.Namespace) -> None:
             changes.append("summary")
         if new_description is not None:
             if target_field_id:
+                assert target_field_name is not None
                 fields[target_field_id] = new_description
                 changes.append(target_field_name)
             else:

@@ -465,13 +465,16 @@ def get_issue_properties(issue_id: str) -> list[dict]:
     """
     jira = get_jira()
     try:
-        resp = jira._session.get(jira._get_url(f"issue/{issue_id}/properties"))
+        session = jira._session
+        if session is None:
+            return []
+        resp = session.get(jira._get_url(f"issue/{issue_id}/properties"))
         keys = [p["key"] for p in resp.json().get("keys", [])]
         results = []
         for key in keys:
             if any(key.startswith(p) for p in PROPS_SKIP_PREFIXES):
                 continue
-            r = jira._session.get(jira._get_url(f"issue/{issue_id}/properties/{key}"))
+            r = session.get(jira._get_url(f"issue/{issue_id}/properties/{key}"))
             if r.status_code == 200:
                 results.append({"key": key, "value": r.json().get("value", {})})
         return results

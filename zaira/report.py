@@ -14,7 +14,7 @@ from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
 from zaira.config import get_reports_dir
 from zaira.dashboard import get_dashboard, get_dashboard_gadgets
-from zaira.types import ReportTicket, get_user_identifier
+from zaira.types import ParentIssue, ReportTicket, get_user_identifier
 from zaira.util import humanize_age
 
 
@@ -77,13 +77,13 @@ def search_tickets(jql: str) -> list[ReportTicket]:
     jira = get_jira()
     try:
         issues = jira.search_issues(jql, maxResults=False)
-        tickets = []
+        tickets: list[ReportTicket] = []
         for issue in issues:
             fields = issue.fields
             labels = fields.labels or []
 
             # Get parent info if available
-            parent = None
+            parent: ParentIssue | None = None
             if hasattr(fields, "parent") and fields.parent:
                 parent = {
                     "key": fields.parent.key,
@@ -92,7 +92,7 @@ def search_tickets(jql: str) -> list[ReportTicket]:
                     else "",
                 }
 
-            ticket = {
+            ticket: ReportTicket = {
                 "key": issue.key,
                 "summary": fields.summary or "",
                 "issuetype": fields.issuetype.name if fields.issuetype else "?",
@@ -487,7 +487,7 @@ def generate_dashboard_report(
 
     if parallel:
         # Fetch all gadget results in parallel
-        gadget_results: dict[int, list[ReportTicket]] = {}
+        gadget_results: dict[str, list[ReportTicket]] = {}
         with ThreadPoolExecutor() as pool:
             futures = {
                 pool.submit(search_tickets, g.jql or ""): g for g in sorted_gadgets

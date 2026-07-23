@@ -35,7 +35,7 @@ def search_my_tickets(jql: str) -> list[MyTicket]:
         print(f"Error: {format_jira_error(e)}", file=sys.stderr)
         sys.exit(1)
     issues = jira.search_issues(jql, maxResults=False)
-    tickets = []
+    tickets: list[MyTicket] = []
     for issue in issues:
         fields = issue.fields
         tickets.append(

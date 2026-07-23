@@ -650,7 +650,7 @@ def _elem_to_markdown(
                 elif child_tag == "rich-text-body":
                     body_elem = child
 
-            macro_str = macro_name
+            macro_str = macro_name or ""
             if params:
                 macro_str += ":" + "|".join(params)
 

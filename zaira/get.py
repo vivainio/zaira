@@ -4,6 +4,7 @@ import argparse
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import TypedDict
 
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
 from zaira.export import (
@@ -12,6 +13,18 @@ from zaira.export import (
     export_to_stdout,
     search_tickets,
 )
+
+
+class ExportKwargs(TypedDict):
+    """Keyword arguments shared by serial and parallel ticket exports."""
+
+    fmt: str
+    with_prs: bool
+    with_tests: bool
+    with_props: bool
+    include_custom: bool
+    with_attachments: bool
+    defer_attachments: bool
 
 
 def get_command(args: argparse.Namespace) -> None:
@@ -78,15 +91,15 @@ def get_command(args: argparse.Namespace) -> None:
         output_dir = Path(output)
         all_pending: list[PendingAttachment] = []
 
-        export_kwargs = dict(
-            fmt=fmt,
-            with_prs=with_prs,
-            with_tests=with_tests,
-            with_props=with_props,
-            include_custom=include_custom,
-            with_attachments=True,
-            defer_attachments=True,
-        )
+        export_kwargs: ExportKwargs = {
+            "fmt": fmt,
+            "with_prs": with_prs,
+            "with_tests": with_tests,
+            "with_props": with_props,
+            "include_custom": include_custom,
+            "with_attachments": True,
+            "defer_attachments": True,
+        }
 
         if parallel:
             from zaira.info import ensure_fields_cached

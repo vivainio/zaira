@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import cast
 
 import keyring
+from keyring.errors import PasswordDeleteError
 from jira import JIRA
 from platformdirs import user_cache_dir, user_config_dir
 
@@ -104,7 +105,7 @@ def delete_token_from_keyring(email: str) -> None:
         return
     try:
         keyring.delete_password(KEYRING_SERVICE, email)
-    except keyring.errors.PasswordDeleteError:
+    except PasswordDeleteError:
         pass
 
 
