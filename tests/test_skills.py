@@ -2,6 +2,7 @@
 
 import argparse
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -76,7 +77,7 @@ class TestCheckSkillStaleness:
         bundled_updated: str | None,
         installed_updated: str | None,
         installed_exists: bool = True,
-    ) -> object:
+    ) -> ModuleType:
         from zaira import skills
 
         bundled_root = tmp_path / "bundled"

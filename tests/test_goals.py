@@ -1,6 +1,7 @@
 """Tests for goals module."""
 
 import argparse
+from collections.abc import Iterator
 import json
 from unittest.mock import MagicMock, patch
 
@@ -30,7 +31,7 @@ from zaira.goals import (
 
 
 @pytest.fixture(autouse=True)
-def _reset_cloud_id_cache() -> object:
+def _reset_cloud_id_cache() -> Iterator[None]:
     goals._cached_cloud_id = None
     yield
     goals._cached_cloud_id = None

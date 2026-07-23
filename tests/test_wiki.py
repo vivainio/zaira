@@ -5505,7 +5505,7 @@ class TestAppendCommand:
         section: str | None = None,
         raw: bool = False,
         use_stdin: bool = False,
-    ) -> object:
+    ) -> argparse.Namespace:
         if use_stdin:
             file_arg = "-"
         else:

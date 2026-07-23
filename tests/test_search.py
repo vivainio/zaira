@@ -1,5 +1,6 @@
 """Tests for search module."""
 
+import argparse
 import importlib.util
 import json
 
@@ -140,10 +141,8 @@ class TestLooksLikeJql:
 class TestBuildJql:
     """Tests for JQL builder."""
 
-    def _ns(self, **kwargs) -> object:
+    def _ns(self, **kwargs: object) -> argparse.Namespace:
         """Build a minimal argparse.Namespace for build_jql."""
-        import argparse
-
         defaults = dict(jql=None, text=None, project=None, status=None, assignee=None)
         defaults.update(kwargs)
         return argparse.Namespace(**defaults)

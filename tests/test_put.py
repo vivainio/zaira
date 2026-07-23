@@ -58,7 +58,7 @@ class TestPutCommand:
         raw: bool = False,
         force: bool = False,
         field: str | None = None,
-    ) -> object:
+    ) -> argparse.Namespace:
         return argparse.Namespace(
             file=file, dry_run=dry_run, raw=raw, force=force, field=field
         )
