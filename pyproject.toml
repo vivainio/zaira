@@ -63,7 +63,7 @@ markers = [
 ]
 
 [tool.ty.src]
-include = ["zaira"]
+include = ["zaira", "tests"]
 
 [tool.ty.analysis]
 allowed-unresolved-imports = ["toon_format"]

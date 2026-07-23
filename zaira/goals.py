@@ -265,7 +265,7 @@ def _indent(text: str, prefix: str = "  ") -> str:
     return "\n".join(prefix + ln for ln in text.rstrip().splitlines())
 
 
-def _cell(text: str) -> str:
+def _cell(text: str | None) -> str:
     """Escape pipes/newlines for a markdown table cell."""
     if not text:
         return ""
