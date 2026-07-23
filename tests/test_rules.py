@@ -11,7 +11,7 @@ from zaira.rules import (
 import zaira.jira_client as jira_client_mod
 
 
-def _ticket(**overrides):
+def _ticket(**overrides) -> object:
     base = {
         "key": "TEST-1",
         "summary": "Test ticket",
@@ -1025,7 +1025,7 @@ class TestSectionsPresent:
 
 
 class TestValidTransitions:
-    def _rules(self):
+    def _rules(self) -> dict[str, object]:
         return {
             "Story": {
                 "valid_transitions": {
@@ -1082,7 +1082,9 @@ class TestValidTransitions:
 
 
 class TestNoOpenLinked:
-    def _linked_ticket(self, key, issuetype, priority, status, status_cat):
+    def _linked_ticket(
+        self, key: str, issuetype: str, priority: str, status: str, status_cat: str
+    ) -> dict[str, object]:
         return {
             "key": key,
             "issuetype": issuetype,
@@ -1278,7 +1280,7 @@ class TestFindRulesFile:
 
 
 class TestImport:
-    def _write(self, path, content):
+    def _write(self, path: str, content: str) -> object:
         path.write_text(content)
         return path
 

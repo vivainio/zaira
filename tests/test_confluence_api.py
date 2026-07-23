@@ -11,7 +11,7 @@ class TestApiOverrides:
     def test_set_api_stores_override(self):
         """set_api stores function override."""
 
-        def mock_fn():
+        def mock_fn() -> str:
             return "mocked"
 
         confluence_api.set_api("test_func", mock_fn)
@@ -789,11 +789,11 @@ class TestSetPageLabelsWithRequests:
         removed_labels = []
         added_labels = []
 
-        def mock_remove(page_id, label):
+        def mock_remove(page_id: str, label: str) -> bool:
             removed_labels.append(label)
             return True
 
-        def mock_add(page_id, labels):
+        def mock_add(page_id: str, labels: list[str]) -> bool:
             added_labels.extend(labels)
             return True
 
@@ -1279,7 +1279,9 @@ class TestResolveFolderPathFromParent:
         """Creates folders when create_missing is True."""
         created_folders = []
 
-        def mock_create_folder(space, title, parent):
+        def mock_create_folder(
+            space: str, title: str, parent: str | None
+        ) -> dict[str, object]:
             folder_id = f"created-{title}"
             created_folders.append((space, title, parent))
             return {"id": folder_id, "title": title}

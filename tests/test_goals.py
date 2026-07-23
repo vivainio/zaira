@@ -30,7 +30,7 @@ from zaira.goals import (
 
 
 @pytest.fixture(autouse=True)
-def _reset_cloud_id_cache():
+def _reset_cloud_id_cache() -> object:
     goals._cached_cloud_id = None
     yield
     goals._cached_cloud_id = None
@@ -627,7 +627,7 @@ class TestGoalsCommand:
     def test_dispatches_to_goals_func(self):
         called = {}
 
-        def fake_func(args):
+        def fake_func(args: argparse.Namespace) -> None:
             called["ran"] = True
 
         goals_command(argparse.Namespace(goals_func=fake_func))

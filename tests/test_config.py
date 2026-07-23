@@ -91,7 +91,7 @@ class TestFindProjectRootEdgeCases:
         # Mock Path.iterdir to raise PermissionError for parent
         original_iterdir = Path.iterdir
 
-        def mock_iterdir(self):
+        def mock_iterdir(self) -> object:
             if self == tmp_path / "restricted":
                 raise PermissionError("Permission denied")
             return original_iterdir(self)

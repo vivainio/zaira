@@ -1,6 +1,7 @@
 """Tests for info module."""
 
 import json
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -279,7 +280,7 @@ class TestFetchCachedData:
 
         fetch_called = False
 
-        def mock_fetch():
+        def mock_fetch() -> dict[str, object]:
             nonlocal fetch_called
             fetch_called = True
             return {}
@@ -296,7 +297,7 @@ class TestFetchCachedData:
         schema = {"version": 2, "statuses": {"old": "data"}}
         schema_file.write_text(json.dumps(schema))
 
-        def mock_fetch():
+        def mock_fetch() -> dict[str, object]:
             return {"new": "data"}
 
         with patch("zaira.info.get_schema_path", return_value=schema_file):
@@ -310,7 +311,7 @@ class TestFetchCachedData:
         schema = {"other_key": "value"}
         schema_file.write_text(json.dumps(schema))
 
-        def mock_fetch():
+        def mock_fetch() -> list[object]:
             return ["High", "Medium", "Low"]
 
         with patch("zaira.info.get_schema_path", return_value=schema_file):
@@ -794,7 +795,7 @@ class TestInfoCommand:
 
         called = []
 
-        def mock_func(args):
+        def mock_func(args: argparse.Namespace) -> None:
             called.append(True)
 
         args = argparse.Namespace(info_func=mock_func)
@@ -915,7 +916,13 @@ class TestGetFieldNameAutoFetch:
 class TestFieldCommand:
     """Tests for field_command (zaira info field)."""
 
-    def _write_editmeta(self, tmp_path, project, issue_type, fields):
+    def _write_editmeta(
+        self,
+        tmp_path: Path,
+        project: str,
+        issue_type: str,
+        fields: dict[str, object],
+    ) -> None:
         import yaml as _yaml
 
         data = {"project": project, "issueType": issue_type, "fields": fields}

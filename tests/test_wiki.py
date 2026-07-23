@@ -1,6 +1,8 @@
 """Tests for wiki module."""
 
 import argparse
+from pathlib import Path
+from typing import NoReturn
 from unittest.mock import patch
 
 import pytest
@@ -371,7 +373,7 @@ class TestSetSyncProperty:
 
         called_with = {}
 
-        def mock_set(page_id, key, value):
+        def mock_set(page_id: str, key: str, value: object) -> bool:
             called_with["page_id"] = page_id
             called_with["key"] = key
             called_with["value"] = value
@@ -470,7 +472,7 @@ class TestGetChildren:
         from zaira.wiki import _get_children
         from zaira import confluence_api
 
-        def mock_get_children(page_id, limit):
+        def mock_get_children(page_id: str, limit: int) -> list[object]:
             if page_id == "12345":
                 return [{"id": "111"}, {"id": "222"}]
             return []
@@ -486,7 +488,7 @@ class TestGetChildren:
         from zaira.wiki import _get_children
         from zaira import confluence_api
 
-        def mock_get_children(page_id, limit):
+        def mock_get_children(page_id: str, limit: int) -> list[object]:
             if page_id == "12345":
                 return [{"id": "111"}]
             elif page_id == "111":
@@ -808,10 +810,10 @@ class TestPrintPageTree:
         from zaira.wiki import _print_page_tree
         from zaira import confluence_api
 
-        def mock_fetch(page_id, expand):
+        def mock_fetch(page_id: str, expand: str) -> dict[str, object]:
             return {"title": f"Page {page_id}", "space": {"key": "TEST"}}
 
-        def mock_children(page_id, limit):
+        def mock_children(page_id: str, limit: int) -> list[object]:
             if page_id == "12345":
                 return [{"id": "111"}]
             return []
@@ -1092,7 +1094,7 @@ class TestSearchCommand:
 
         cql_received = []
 
-        def mock_search(cql, limit, expand):
+        def mock_search(cql: str, limit: int, expand: str) -> dict[str, object]:
             cql_received.append(cql)
             return {
                 "results": [{"id": "12345", "title": "Page", "space": {"key": "TEST"}}]
@@ -1126,7 +1128,7 @@ class TestSearchCommand:
 
         cql_received = []
 
-        def mock_search(cql, limit, expand):
+        def mock_search(cql: str, limit: int, expand: str) -> dict[str, object]:
             cql_received.append(cql)
             return {
                 "results": [{"id": "12345", "title": "Page", "space": {"key": "TEST"}}]
@@ -1165,7 +1167,7 @@ class TestSearchCommand:
 
         cql_received = []
 
-        def mock_search(cql, limit, expand):
+        def mock_search(cql: str, limit: int, expand: str) -> dict[str, object]:
             cql_received.append(cql)
             return {
                 "results": [{"id": "12345", "title": "Page", "space": {"key": "TEST"}}]
@@ -1199,7 +1201,7 @@ class TestSearchCommand:
 
         cql_received = []
 
-        def mock_search(cql, limit, expand):
+        def mock_search(cql: str, limit: int, expand: str) -> dict[str, object]:
             cql_received.append(cql)
             return {
                 "results": [{"id": "12345", "title": "Page", "space": {"key": "BTA"}}]
@@ -1398,7 +1400,7 @@ class TestGetCommand:
         from zaira import confluence_api
         import argparse
 
-        def mock_fetch(page_id, expand):
+        def mock_fetch(page_id: str, expand: str) -> dict[str, object]:
             return {
                 "id": page_id,
                 "title": f"Page {page_id}",
@@ -1437,7 +1439,7 @@ class TestGetCommand:
         from zaira import confluence_api
         import argparse
 
-        def mock_fetch(page_id, expand):
+        def mock_fetch(page_id: str, expand: str) -> dict[str, object]:
             return {
                 "id": page_id,
                 "title": f"Page {page_id}",
@@ -1446,7 +1448,7 @@ class TestGetCommand:
                 "body": {"storage": {"value": "<p>Content</p>"}},
             }
 
-        def mock_children(page_id, limit):
+        def mock_children(page_id: str, limit: int) -> list[object]:
             if page_id == "12345":
                 return [{"id": "111"}]
             return []
@@ -2387,13 +2389,17 @@ class TestPutOneFile:
             "get_attachments", lambda page_id, expand: {"results": []}
         )
 
-        def capture_upload(page_id, filepath, filename=None):
+        def capture_upload(
+            page_id: str, filepath: Path, filename: str | None = None
+        ) -> dict[str, object]:
             uploaded_attachments.append(filepath.name)
             return {"id": "att-1", "title": filepath.name}
 
         confluence_api.set_api("upload_attachment", capture_upload)
 
-        def capture_update(page_id, title, body, version, ptype):
+        def capture_update(
+            page_id: str, title: str, body: str, version: int, ptype: str
+        ) -> dict[str, object]:
             pushed_body["html"] = body
             return {"version": {"number": 2}}
 
@@ -2639,7 +2645,7 @@ class TestPutCommand:
         md_file2 = tmp_path / "file2.md"
         md_file2.write_text("---\nconfluence: 222\n---\n\n# Content 2")
 
-        def mock_fetch(page_id, expand):
+        def mock_fetch(page_id: str, expand: str) -> dict[str, object]:
             return {
                 "id": page_id,
                 "title": f"Page {page_id}",
@@ -2789,7 +2795,9 @@ class TestPutCommand:
 
         seen_spaces: list[str] = []
 
-        def fake_create_page(space, title, body, parent):
+        def fake_create_page(
+            space: str, title: str, body: str, parent: str | None
+        ) -> dict[str, object]:
             seen_spaces.append(space)
             return {"id": "99999", "version": {"number": 1}}
 
@@ -2901,7 +2909,9 @@ class TestCreatePageForFile:
 
         created_titles = []
 
-        def mock_create(space, title, body, parent):
+        def mock_create(
+            space: str, title: str, body: str, parent: str | None
+        ) -> dict[str, object]:
             created_titles.append(title)
             return {"id": "12345", "version": {"number": 1}}
 
@@ -2929,7 +2939,9 @@ class TestCreatePageForFile:
 
         created_titles = []
 
-        def mock_create(space, title, body, parent):
+        def mock_create(
+            space: str, title: str, body: str, parent: str | None
+        ) -> dict[str, object]:
             created_titles.append(title)
             return {"id": "12345", "version": {"number": 1}}
 
@@ -3377,7 +3389,7 @@ class TestGetCommandEdgeCases:
         from zaira import confluence_api
         import argparse
 
-        def mock_fetch(page_id, expand):
+        def mock_fetch(page_id: str, expand: str) -> object:
             if page_id == "12345":
                 return None  # First page fails
             return {
@@ -3549,7 +3561,7 @@ class TestPutCommandMoreCases:
         unlinked = tmp_path / "new.md"
         unlinked.write_text("# New Page")
 
-        def mock_fetch(page_id, expand):
+        def mock_fetch(page_id: str, expand: str) -> dict[str, object]:
             parent = "parent-1" if page_id == "111" else "parent-2"
             return {
                 "id": page_id,
@@ -3748,7 +3760,7 @@ class TestPutCommandMoreCases:
         md2 = tmp_path / "file2.md"
         md2.write_text("---\nconfluence: 222\n---\n\n# Content 2")
 
-        def mock_fetch(page_id, expand):
+        def mock_fetch(page_id: str, expand: str) -> dict[str, object]:
             return {
                 "id": page_id,
                 "title": f"Page {page_id}",
@@ -3799,7 +3811,7 @@ class TestPutCommandMoreCases:
         md2 = tmp_path / "bad.md"
         md2.write_text("---\nconfluence: 222\n---\n\n# Content")
 
-        def mock_fetch(page_id, expand):
+        def mock_fetch(page_id: str, expand: str) -> object:
             if page_id == "222":
                 return None  # Simulate failure
             return {
@@ -5286,7 +5298,7 @@ class TestResolveParentFromFrontMatter:
 
         resolve_calls = []
 
-        def mock_resolve(space, path, create):
+        def mock_resolve(space: str, path: str, create: bool) -> str:
             resolve_calls.append((space, path, create))
             return "resolved-id"
 
@@ -5313,7 +5325,9 @@ class TestResolveParentFromFrontMatter:
 
         resolve_calls = []
 
-        def mock_resolve_from_parent(space, parent, path, create):
+        def mock_resolve_from_parent(
+            space: str, parent: str | None, path: str, create: bool
+        ) -> str:
             resolve_calls.append((space, parent, path, create))
             return "resolved-id"
 
@@ -5342,7 +5356,9 @@ class TestResolveParentFromFrontMatter:
 
         resolve_calls = []
 
-        def mock_resolve_from_parent(space, parent, path, create):
+        def mock_resolve_from_parent(
+            space: str, parent: str | None, path: str, create: bool
+        ) -> str:
             resolve_calls.append((space, parent, path, create))
             return "resolved-id"
 
@@ -5431,13 +5447,13 @@ class TestAppendCommand:
 
     def _args(
         self,
-        tmp_path,
-        content,
-        page="12345",
-        section=None,
-        raw=False,
-        use_stdin=False,
-    ):
+        tmp_path: Path,
+        content: str,
+        page: str | None = "12345",
+        section: str | None = None,
+        raw: bool = False,
+        use_stdin: bool = False,
+    ) -> object:
         if use_stdin:
             file_arg = "-"
         else:
@@ -5465,7 +5481,9 @@ class TestAppendCommand:
 
         update_calls = []
 
-        def fake_update(page_id, title, body, version, page_type):
+        def fake_update(
+            page_id: str, title: str, body: str, version: int, page_type: str
+        ) -> dict[str, object]:
             update_calls.append((page_id, title, body, version, page_type))
             return {"version": {"number": version + 1}}
 
@@ -5516,7 +5534,9 @@ class TestAppendCommand:
 
         update_calls = []
 
-        def fake_update(page_id, title, body, version, page_type):
+        def fake_update(
+            page_id: str, title: str, body: str, version: int, page_type: str
+        ) -> dict[str, object]:
             update_calls.append(body)
             return {"version": {"number": version + 1}}
 
@@ -5554,7 +5574,9 @@ class TestAppendCommand:
 
         update_calls = []
 
-        def fake_update(page_id, title, body, version, page_type):
+        def fake_update(
+            page_id: str, title: str, body: str, version: int, page_type: str
+        ) -> dict[str, object]:
             update_calls.append(body)
             return {"version": {"number": version + 1}}
 
@@ -5587,7 +5609,9 @@ class TestAppendCommand:
 
         update_calls = []
 
-        def fake_update(page_id, title, body, version, page_type):
+        def fake_update(
+            page_id: str, title: str, body: str, version: int, page_type: str
+        ) -> dict[str, object]:
             update_calls.append(body)
             return {"version": {"number": version + 1}}
 
@@ -5685,7 +5709,7 @@ class TestAppendCommand:
 
         seen_page_ids = []
 
-        def fake_fetch(page_id, expand):
+        def fake_fetch(page_id: str, expand: str) -> dict[str, object]:
             seen_page_ids.append(page_id)
             return {
                 "id": page_id,
@@ -5733,10 +5757,10 @@ class TestAppendCommand:
             },
         )
 
-        def fail_get(page_id, key):
+        def fail_get(page_id: str, key: str) -> NoReturn:
             raise AssertionError("get_page_property should not be called")
 
-        def fail_set(page_id, key, value):
+        def fail_set(page_id: str, key: str, value: object) -> NoReturn:
             raise AssertionError("set_page_property should not be called")
 
         confluence_api.set_api("get_page_property", fail_get)
@@ -5744,7 +5768,9 @@ class TestAppendCommand:
 
         update_calls = []
 
-        def fake_update(page_id, title, body, version, page_type):
+        def fake_update(
+            page_id: str, title: str, body: str, version: int, page_type: str
+        ) -> dict[str, object]:
             update_calls.append(body)
             return {"version": {"number": version + 1}}
 
@@ -5775,7 +5801,9 @@ class TestAppendCommand:
             },
         )
 
-        def fake_update(page_id, title, body, version, page_type):
+        def fake_update(
+            page_id: str, title: str, body: str, version: int, page_type: str
+        ) -> dict[str, object]:
             body_state["value"] = body
             return {"version": {"number": version + 1}}
 

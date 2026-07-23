@@ -1136,7 +1136,7 @@ class TestConfluenceMacros:
 class TestDiagramRendering:
     """Tests for render_diagram_blocks and renderer registry."""
 
-    def _fake_run(self, cmd, capture_output, timeout):
+    def _fake_run(self, cmd: list[str], capture_output: bool, timeout: float) -> object:
         """Helper: simulate a successful render by creating the output PNG."""
         # Find the output path — it's the arg after -o, or the last arg for d2/ditaa
         if "-o" in cmd:
@@ -1151,7 +1151,9 @@ class TestDiagramRendering:
 
         return FakeResult()
 
-    def _fake_run_fail(self, cmd, capture_output, timeout):
+    def _fake_run_fail(
+        self, cmd: list[str], capture_output: bool, timeout: float
+    ) -> object:
         class FakeResult:
             returncode = 1
             stderr = b"Parse error"
@@ -1274,7 +1276,9 @@ class TestDiagramRendering:
         filenames = []
         original_fake = self._fake_run
 
-        def tracking_run(cmd, capture_output, timeout):
+        def tracking_run(
+            cmd: list[str], capture_output: bool, timeout: float
+        ) -> object:
             if "-o" in cmd:
                 out_path = cmd[cmd.index("-o") + 1]
             else:

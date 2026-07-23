@@ -6,7 +6,7 @@ from zaira.create import map_fields
 from zaira.edit import format_field_value, _parse_number
 
 
-def _em(field_id, field_type):
+def _em(field_id: str, field_type: str) -> tuple[object, ...]:
     """Helper to create editmeta mock return value."""
     return (field_id, {"id": field_id, "type": field_type})
 

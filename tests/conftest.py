@@ -8,7 +8,7 @@ from zaira import confluence_api
 
 
 @pytest.fixture
-def mock_jira():
+def mock_jira() -> object:
     """Provide a mock JIRA client.
 
     The mock is injected into jira_client and automatically reset after the test.
@@ -25,7 +25,7 @@ def mock_jira():
 
 
 @pytest.fixture
-def mock_confluence():
+def mock_confluence() -> object:
     """Reset confluence API overrides after test.
 
     This fixture ensures any API overrides set during a test are cleaned up.

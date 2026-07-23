@@ -9,7 +9,7 @@ from jira.exceptions import JIRAError
 from zaira.recent import recent_command, wiki_recent_command
 
 
-def _mock_issue(key, summary, status_name="Open"):
+def _mock_issue(key: str, summary: str, status_name: str = "Open") -> object:
     issue = MagicMock()
     issue.key = key
     issue.fields.summary = summary

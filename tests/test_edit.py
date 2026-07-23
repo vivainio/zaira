@@ -497,7 +497,7 @@ class TestEditCommand:
     """Tests for edit_command function."""
 
     @pytest.fixture(autouse=True)
-    def _no_ensure_editmeta(self):
+    def _no_ensure_editmeta(self) -> object:
         with patch("zaira.info.ensure_editmeta", return_value=None):
             yield
 

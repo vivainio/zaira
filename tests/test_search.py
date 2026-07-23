@@ -140,7 +140,7 @@ class TestLooksLikeJql:
 class TestBuildJql:
     """Tests for JQL builder."""
 
-    def _ns(self, **kwargs):
+    def _ns(self, **kwargs) -> object:
         """Build a minimal argparse.Namespace for build_jql."""
         import argparse
 

@@ -1,6 +1,9 @@
 """Tests for zaira install-skills command."""
 
 import argparse
+from pathlib import Path
+
+import pytest
 
 
 def test_install_skills_copies_files(tmp_path):
@@ -68,12 +71,12 @@ class TestCheckSkillStaleness:
 
     def _setup(
         self,
-        tmp_path,
-        monkeypatch,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
         bundled_updated: str | None,
         installed_updated: str | None,
         installed_exists: bool = True,
-    ):
+    ) -> object:
         from zaira import skills
 
         bundled_root = tmp_path / "bundled"

@@ -19,7 +19,7 @@ from zaira.hours import (
 )
 
 
-def _mock_issue(key, summary):
+def _mock_issue(key: str, summary: str) -> object:
     """Create a mock issue."""
     issue = MagicMock()
     issue.key = key
@@ -27,7 +27,9 @@ def _mock_issue(key, summary):
     return issue
 
 
-def _mock_worklog(author_email, time_seconds, started, comment=None):
+def _mock_worklog(
+    author_email: str, time_seconds: int, started: str, comment: str | None = None
+) -> object:
     """Create a mock worklog entry."""
     wl = MagicMock()
     wl.author = MagicMock()

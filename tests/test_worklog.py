@@ -20,11 +20,11 @@ from zaira.worklog import (
 
 
 def _mock_worklog(
-    author_name="user@example.com",
-    time_spent="2h",
-    started="2026-02-06T09:00:00.000+0000",
-    comment=None,
-):
+    author_name: str = "user@example.com",
+    time_spent: str = "2h",
+    started: str = "2026-02-06T09:00:00.000+0000",
+    comment: str | None = None,
+) -> object:
     """Create a mock worklog entry."""
     entry = MagicMock()
     entry.author = MagicMock()

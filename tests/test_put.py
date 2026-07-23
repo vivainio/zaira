@@ -51,7 +51,14 @@ class TestParseDescription:
 class TestPutCommand:
     """Tests for put_command function."""
 
-    def _make_args(self, file="-", dry_run=False, raw=False, force=False, field=None):
+    def _make_args(
+        self,
+        file: str = "-",
+        dry_run: bool = False,
+        raw: bool = False,
+        force: bool = False,
+        field: str | None = None,
+    ) -> object:
         return argparse.Namespace(
             file=file, dry_run=dry_run, raw=raw, force=force, field=field
         )

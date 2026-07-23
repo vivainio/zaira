@@ -66,8 +66,10 @@ class TestFormatDiff:
 
 
 def _make_history(
-    items, author="user@test.com", created="2026-01-15T10:30:00.000+0000"
-):
+    items: list[object],
+    author: str = "user@test.com",
+    created: str = "2026-01-15T10:30:00.000+0000",
+) -> object:
     """Build a mock changelog history entry."""
     history = MagicMock()
     history.author = MagicMock()

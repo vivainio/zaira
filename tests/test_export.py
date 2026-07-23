@@ -1128,7 +1128,7 @@ class TestDownloadAttachment:
 class TestGetAttachmentCommand:
     """Tests for get_attachment_command."""
 
-    def _make_ticket(self, attachments):
+    def _make_ticket(self, attachments: list[dict[str, object]]) -> dict[str, object]:
         return {
             "key": "TEST-123",
             "summary": "Test",
