@@ -56,6 +56,29 @@ class TestGetProjectDir:
         assert result == tmp_path / "reports"
 
 
+class TestRuntimeDirectories:
+    """Tests for paths that must follow the active working directory."""
+
+    def test_reports_dir_is_resolved_at_call_time(self, tmp_path):
+        """Changing project context after import changes the reports path."""
+        first = tmp_path / "first"
+        second = tmp_path / "second"
+        first.mkdir()
+        second.mkdir()
+
+        with (
+            patch("zaira.config.find_project_root", return_value=None),
+            patch.object(Path, "cwd", return_value=first),
+        ):
+            assert config.get_reports_dir() == first / "reports"
+
+        with (
+            patch("zaira.config.find_project_root", return_value=None),
+            patch.object(Path, "cwd", return_value=second),
+        ):
+            assert config.get_reports_dir() == second / "reports"
+
+
 class TestFindProjectRootEdgeCases:
     """Edge cases for find_project_root function."""
 

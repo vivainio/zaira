@@ -10,9 +10,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
-from zaira.config import REPORTS_DIR
 from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
+from zaira.config import get_reports_dir
 from zaira.dashboard import get_dashboard, get_dashboard_gadgets
 from zaira.types import ReportTicket, get_user_identifier
 from zaira.util import humanize_age
@@ -662,7 +662,7 @@ def report_command(args: argparse.Namespace) -> None:
                     if report_name
                     else f"dashboard-{dashboard_id}.md"
                 )
-                output_path = REPORTS_DIR / filename
+                output_path = get_reports_dir() / filename
 
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(report, encoding="utf-8")
@@ -777,7 +777,7 @@ def report_command(args: argparse.Namespace) -> None:
         else:
             # Generate filename from title
             slug = title.lower().replace(" ", "-")
-            output_path = REPORTS_DIR / f"{slug}.{ext}"
+            output_path = get_reports_dir() / f"{slug}.{ext}"
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(report, encoding="utf-8")

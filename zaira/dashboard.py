@@ -6,7 +6,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from zaira.config import REPORTS_DIR
+from zaira.config import get_reports_dir
 from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.types import Dashboard, DashboardGadget
 
@@ -392,7 +392,7 @@ def dashboard_command(args: argparse.Namespace) -> None:
         output_path = (
             Path(args.output)
             if args.output
-            else REPORTS_DIR / f"dashboard-{dashboard_id}.{ext}"
+            else get_reports_dir() / f"dashboard-{dashboard_id}.{ext}"
         )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(output)

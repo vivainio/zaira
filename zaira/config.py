@@ -35,6 +35,11 @@ def get_tickets_dir() -> Path:
     return Path.cwd() / "tickets"
 
 
+def get_reports_dir() -> Path:
+    """Get the reports directory for the project active at call time."""
+    return get_project_dir("reports")
+
+
 # Default directories - relative to project root if found, else cwd
 TICKETS_DIR = get_project_dir("tickets")
-REPORTS_DIR = get_project_dir("reports")
+REPORTS_DIR = get_reports_dir()
