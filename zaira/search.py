@@ -6,8 +6,8 @@ import sys
 from zaira.export import extract_custom_field_value
 from zaira.info import get_field_id
 from zaira.jira_client import get_jira
-from zaira.report import humanize_age
 from zaira.types import SearchResult
+from zaira.util import humanize_age
 
 
 PAGE_SIZE = 50

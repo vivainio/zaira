@@ -7,7 +7,7 @@ import json
 import shlex
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 from zaira.config import REPORTS_DIR
@@ -15,6 +15,7 @@ from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
 from zaira.dashboard import get_dashboard, get_dashboard_gadgets
 from zaira.types import ReportTicket, get_user_identifier
+from zaira.util import humanize_age
 
 
 def _group_tickets_by(
@@ -56,40 +57,6 @@ def _group_tickets_by(
             groups.setdefault(key, []).append(t)
 
     return groups
-
-
-def humanize_age(iso_timestamp: str | None) -> str:
-    """Convert ISO timestamp to human-readable age like '2d' or '3w'."""
-    if not iso_timestamp:
-        return "-"
-    try:
-        # Parse ISO timestamp (Jira format: 2026-01-11T14:30:00.000+0000)
-        dt = datetime.fromisoformat(iso_timestamp.replace("+0000", "+00:00"))
-        now = datetime.now(timezone.utc)
-        delta = now - dt
-
-        seconds = delta.total_seconds()
-        if seconds < 60:
-            return "now"
-        minutes = seconds / 60
-        if minutes < 60:
-            return f"{int(minutes)}m"
-        hours = minutes / 60
-        if hours < 24:
-            return f"{int(hours)}h"
-        days = hours / 24
-        if days < 7:
-            return f"{int(days)}d"
-        weeks = days / 7
-        if weeks < 4:
-            return f"{int(weeks)}w"
-        months = days / 30
-        if months < 12:
-            return f"{int(months)}mo"
-        years = days / 365
-        return f"{int(years)}y"
-    except (ValueError, TypeError):
-        return "-"
 
 
 def get_ticket_dates(key: str) -> dict:

@@ -4,8 +4,8 @@ import argparse
 import sys
 
 from zaira.jira_client import format_jira_error, get_jira
-from zaira.report import humanize_age
 from zaira.types import MyTicket
+from zaira.util import humanize_age
 
 
 DEFAULT_ASSIGNED_JQL = (
