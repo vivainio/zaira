@@ -52,3 +52,9 @@ packages = ["zaira"]
 
 [tool.setuptools.package-data]
 zaira = ["skills/zaira/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: requires configured external services and may modify remote data",
+]

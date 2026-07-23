@@ -148,7 +148,6 @@ def install() -> str:
     Raises RuntimeError if not running on WSL or if any step fails.
     """
     import urllib.request
-    from pathlib import Path
 
     if not is_wsl():
         raise RuntimeError("--install-wincred only runs under WSL")

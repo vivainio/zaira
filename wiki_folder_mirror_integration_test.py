@@ -18,6 +18,12 @@ import tempfile
 import time
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.integration
+
+COMMAND_TIMEOUT_SECONDS = 60
+
 # Test configuration
 WIKI_TEST_ROOT_FOLDER = "1792999571"  # Parent folder ID in Confluence
 WIKI_SPACE = "~anttiste"  # Space key (personal space)
@@ -33,7 +39,13 @@ def run(cmd: str, check: bool = True) -> subprocess.CompletedProcess:
     """Run a zaira CLI command."""
     full_cmd = f"{sys.executable} -m zaira {cmd}"
     print(f"  $ zaira {cmd}")
-    result = subprocess.run(full_cmd, shell=True, capture_output=True, text=True)
+    result = subprocess.run(
+        full_cmd,
+        shell=True,
+        capture_output=True,
+        text=True,
+        timeout=COMMAND_TIMEOUT_SECONDS,
+    )
     if result.stdout:
         for line in result.stdout.strip().split("\n")[:10]:
             print(f"    {line}")
