@@ -1,14 +1,15 @@
 """Shared pytest fixtures for zaira tests."""
 
-import pytest
+from collections.abc import Iterator
 from unittest.mock import MagicMock
 
-from zaira import jira_client
-from zaira import confluence_api
+import pytest
+
+from zaira import confluence_api, jira_client
 
 
 @pytest.fixture
-def mock_jira() -> object:
+def mock_jira() -> Iterator[MagicMock]:
     """Provide a mock JIRA client.
 
     The mock is injected into jira_client and automatically reset after the test.
@@ -25,7 +26,7 @@ def mock_jira() -> object:
 
 
 @pytest.fixture
-def mock_confluence() -> object:
+def mock_confluence() -> Iterator[None]:
     """Reset confluence API overrides after test.
 
     This fixture ensures any API overrides set during a test are cleaned up.
