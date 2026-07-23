@@ -417,6 +417,10 @@ class TestFetchPageWithRequests:
         assert result["id"] == "12345"
         assert result["title"] == "Test Page"
         mock_get.assert_called_once()
+        assert (
+            mock_get.call_args.kwargs["timeout"]
+            == confluence_api.REQUEST_TIMEOUT_SECONDS
+        )
 
     def test_returns_none_on_error(self, mock_confluence):
         """Returns None when API request fails."""

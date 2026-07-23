@@ -11,6 +11,8 @@ from requests.auth import HTTPBasicAuth
 
 from zaira.jira_client import load_credentials, get_server_from_config
 
+REQUEST_TIMEOUT_SECONDS = 30
+
 
 # API function overrides for testing
 _api_overrides: dict[str, Callable] = {}
@@ -28,7 +30,7 @@ def _get_cloud_id() -> str | None:
     if not server:
         return None
     try:
-        r = requests.get(f"{server}/_edge/tenant_info", timeout=10)
+        r = requests.get(f"{server}/_edge/tenant_info", timeout=REQUEST_TIMEOUT_SECONDS)
         if r.ok:
             _cloud_id = r.json().get("cloudId") or ""
         else:
@@ -80,7 +82,12 @@ def fetch_page(page_id: str, expand: str = "") -> dict | None:
 
     base_url, auth = _get_auth()
     params = {"expand": expand} if expand else {}
-    r = requests.get(f"{base_url}/content/{page_id}", params=params, auth=auth)
+    r = requests.get(
+        f"{base_url}/content/{page_id}",
+        params=params,
+        auth=auth,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
     if not r.ok:
         return None
     return r.json()
@@ -121,7 +128,12 @@ def create_page(
     if parent_id:
         payload["ancestors"] = [{"id": parent_id}]
 
-    r = requests.post(f"{base_url}/content", json=payload, auth=auth)
+    r = requests.post(
+        f"{base_url}/content",
+        json=payload,
+        auth=auth,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
     if not r.ok:
         return None
     return r.json()
@@ -156,7 +168,12 @@ def update_page(
         "type": page_type,
         "body": {"storage": {"value": body, "representation": "storage"}},
     }
-    r = requests.put(f"{base_url}/content/{page_id}", json=payload, auth=auth)
+    r = requests.put(
+        f"{base_url}/content/{page_id}",
+        json=payload,
+        auth=auth,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
     if not r.ok:
         return None
     return r.json()
@@ -199,7 +216,12 @@ def update_page_properties(
     if parent_id:
         payload["ancestors"] = [{"id": parent_id}]
 
-    r = requests.put(f"{base_url}/content/{page_id}", json=payload, auth=auth)
+    r = requests.put(
+        f"{base_url}/content/{page_id}",
+        json=payload,
+        auth=auth,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
     if not r.ok:
         return None
     return r.json()
@@ -218,7 +240,11 @@ def delete_page(page_id: str) -> bool:
         return _api_overrides["delete_page"](page_id)
 
     base_url, auth = _get_auth()
-    r = requests.delete(f"{base_url}/content/{page_id}", auth=auth)
+    r = requests.delete(
+        f"{base_url}/content/{page_id}",
+        auth=auth,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
     return r.ok
 
 
@@ -240,6 +266,7 @@ def get_child_pages(page_id: str, limit: int = 100) -> list[dict]:
         f"{base_url}/content/{page_id}/child/page",
         params={"limit": limit},
         auth=auth,
+        timeout=REQUEST_TIMEOUT_SECONDS,
     )
     if not r.ok:
         return []
@@ -270,7 +297,12 @@ def search_pages(cql: str, limit: int = 25, expand: str = "") -> dict:
     params: dict[str, Any] = {"cql": cql, "limit": limit}
     if expand:
         params["expand"] = expand
-    r = requests.get(f"{base_url}/content/search", params=params, auth=auth)
+    r = requests.get(
+        f"{base_url}/content/search",
+        params=params,
+        auth=auth,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
     if not r.ok:
         return {"results": [], "error": f"{r.status_code} - {r.reason}", "text": r.text}
 
@@ -290,7 +322,11 @@ def get_page_labels(page_id: str) -> list[str]:
         return _api_overrides["get_page_labels"](page_id)
 
     base_url, auth = _get_auth()
-    r = requests.get(f"{base_url}/content/{page_id}/label", auth=auth)
+    r = requests.get(
+        f"{base_url}/content/{page_id}/label",
+        auth=auth,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
     if not r.ok:
         return []
     return [lbl["name"] for lbl in r.json().get("results", [])]
@@ -317,6 +353,7 @@ def add_page_labels(page_id: str, labels: list[str]) -> bool:
         f"{base_url}/content/{page_id}/label",
         json=[{"name": lbl} for lbl in labels],
         auth=auth,
+        timeout=REQUEST_TIMEOUT_SECONDS,
     )
     return r.ok
 
@@ -335,7 +372,11 @@ def remove_page_label(page_id: str, label: str) -> bool:
         return _api_overrides["remove_page_label"](page_id, label)
 
     base_url, auth = _get_auth()
-    r = requests.delete(f"{base_url}/content/{page_id}/label/{label}", auth=auth)
+    r = requests.delete(
+        f"{base_url}/content/{page_id}/label/{label}",
+        auth=auth,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
     return r.ok
 
 
@@ -386,6 +427,7 @@ def get_attachments(page_id: str, expand: str = "") -> dict:
         f"{base_url}/content/{page_id}/child/attachment",
         params=params,
         auth=auth,
+        timeout=REQUEST_TIMEOUT_SECONDS,
     )
     if not r.ok:
         return {"results": []}
@@ -420,6 +462,7 @@ def upload_attachment(
             files={"file": (name, f)},
             headers=headers,
             auth=auth,
+            timeout=REQUEST_TIMEOUT_SECONDS,
         )
 
     if not r.ok:
@@ -463,6 +506,7 @@ def update_attachment(
             files={"file": (name, f)},
             headers=headers,
             auth=auth,
+            timeout=REQUEST_TIMEOUT_SECONDS,
         )
 
     if not r.ok:
@@ -485,7 +529,7 @@ def download_attachment(url: str, dest: Path) -> bool:
 
     creds = load_credentials()
     auth = HTTPBasicAuth(creds["email"], creds["api_token"])
-    r = requests.get(url, auth=auth)
+    r = requests.get(url, auth=auth, timeout=REQUEST_TIMEOUT_SECONDS)
     # The /wiki/download/attachments/... endpoint rejects API-token basic auth
     # directly, but works when routed through the api.atlassian.com gateway,
     # which redirects to the media CDN with a signed token.
@@ -497,7 +541,7 @@ def download_attachment(url: str, dest: Path) -> bool:
                 f"https://api.atlassian.com/ex/confluence/{cloud_id}"
                 + url[len(server) :]
             )
-            r = requests.get(gateway_url, auth=auth)
+            r = requests.get(gateway_url, auth=auth, timeout=REQUEST_TIMEOUT_SECONDS)
     if not r.ok:
         return False
     dest.write_bytes(r.content)
@@ -518,7 +562,11 @@ def get_page_property(page_id: str, key: str) -> dict | None:
         return _api_overrides["get_page_property"](page_id, key)
 
     base_url, auth = _get_auth()
-    r = requests.get(f"{base_url}/content/{page_id}/property/{key}", auth=auth)
+    r = requests.get(
+        f"{base_url}/content/{page_id}/property/{key}",
+        auth=auth,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
     if not r.ok:
         return None
     return r.json()
@@ -554,6 +602,7 @@ def set_page_property(page_id: str, key: str, value: dict) -> bool:
                 "version": {"number": prop_version + 1},
             },
             auth=auth,
+            timeout=REQUEST_TIMEOUT_SECONDS,
         )
     else:
         # Create new property
@@ -564,6 +613,7 @@ def set_page_property(page_id: str, key: str, value: dict) -> bool:
                 "value": value,
             },
             auth=auth,
+            timeout=REQUEST_TIMEOUT_SECONDS,
         )
 
     return r.ok
@@ -592,6 +642,7 @@ def get_space_root_pages(space_key: str, limit: int = 100) -> list[dict]:
             "expand": "version",
         },
         auth=auth,
+        timeout=REQUEST_TIMEOUT_SECONDS,
     )
     if not r.ok:
         return []
@@ -620,6 +671,7 @@ def get_space_root_folders(space_key: str, limit: int = 100) -> list[dict]:
             "expand": "ancestors",
         },
         auth=auth,
+        timeout=REQUEST_TIMEOUT_SECONDS,
     )
     if not r.ok:
         return []
@@ -648,6 +700,7 @@ def get_child_folders(content_id: str, limit: int = 100) -> list[dict]:
         f"{base_url}/content/{content_id}/child/folder",
         params={"limit": limit},
         auth=auth,
+        timeout=REQUEST_TIMEOUT_SECONDS,
     )
     if not r.ok:
         return []
@@ -681,7 +734,12 @@ def create_folder(
     if parent_id:
         payload["ancestors"] = [{"id": parent_id}]
 
-    r = requests.post(f"{base_url}/content", json=payload, auth=auth)
+    r = requests.post(
+        f"{base_url}/content",
+        json=payload,
+        auth=auth,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
     if not r.ok:
         return None
     return r.json()
@@ -827,6 +885,7 @@ def get_personal_space_key() -> str | None:
             f"{server}/wiki/rest/api/user/current",
             params={"expand": "personalSpace"},
             auth=auth,
+            timeout=REQUEST_TIMEOUT_SECONDS,
         )
         if r.ok:
             return r.json().get("personalSpace", {}).get("key")
