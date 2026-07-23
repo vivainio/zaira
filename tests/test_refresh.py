@@ -105,7 +105,7 @@ class TestFindTicketFile:
         ticket_file = tickets_dir / "TEST-123-my-ticket.md"
         ticket_file.write_text("content")
 
-        with patch("zaira.refresh.TICKETS_DIR", tickets_dir):
+        with patch("zaira.refresh.get_tickets_dir", return_value=tickets_dir):
             result = find_ticket_file("TEST-123")
 
         assert result == ticket_file
@@ -115,14 +115,16 @@ class TestFindTicketFile:
         tickets_dir = tmp_path / "tickets"
         tickets_dir.mkdir()
 
-        with patch("zaira.refresh.TICKETS_DIR", tickets_dir):
+        with patch("zaira.refresh.get_tickets_dir", return_value=tickets_dir):
             result = find_ticket_file("NONEXISTENT-1")
 
         assert result is None
 
     def test_returns_none_when_dir_missing(self, tmp_path):
         """Returns None when tickets dir doesn't exist."""
-        with patch("zaira.refresh.TICKETS_DIR", tmp_path / "nonexistent"):
+        with patch(
+            "zaira.refresh.get_tickets_dir", return_value=tmp_path / "nonexistent"
+        ):
             result = find_ticket_file("TEST-1")
 
         assert result is None
@@ -230,7 +232,7 @@ class TestRefreshCommand:
 
         args = argparse.Namespace(report="nonexistent.md", full=False, force=False)
 
-        with patch("zaira.refresh.REPORTS_DIR", tmp_path / "reports"):
+        with patch("zaira.refresh.get_reports_dir", return_value=tmp_path / "reports"):
             with pytest.raises(SystemExit) as exc_info:
                 refresh_command(args)
 
@@ -292,7 +294,7 @@ Report content.
         args = argparse.Namespace(report="myreport.md", full=False, force=False)
 
         # Mock subprocess to prevent actual command execution
-        with patch("zaira.refresh.REPORTS_DIR", reports_dir):
+        with patch("zaira.refresh.get_reports_dir", return_value=reports_dir):
             with patch("zaira.refresh.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0)
                 refresh_command(args)
@@ -318,7 +320,7 @@ Content.
 
         args = argparse.Namespace(report="myreport", full=False, force=False)
 
-        with patch("zaira.refresh.REPORTS_DIR", reports_dir):
+        with patch("zaira.refresh.get_reports_dir", return_value=reports_dir):
             with patch("zaira.refresh.subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0)
                 refresh_command(args)

@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import cast
 
-from zaira.config import REPORTS_DIR, TICKETS_DIR
+from zaira.config import get_reports_dir, get_tickets_dir
 from zaira.types import FrontMatter
 
 
@@ -47,7 +47,7 @@ def extract_ticket_keys(report_content: str) -> list[str]:
 
 def find_ticket_file(key: str, search_dir: Path | None = None) -> Path | None:
     """Find existing ticket file by key."""
-    d = search_dir or TICKETS_DIR
+    d = search_dir or get_tickets_dir()
     if not d.exists():
         return None
     for f in d.glob(f"{key}-*.md"):
@@ -140,10 +140,11 @@ def refresh_command(args: argparse.Namespace) -> None:
     report_path = Path(args.report)
     if not report_path.exists():
         # Try in reports directory
-        report_path = REPORTS_DIR / args.report
+        reports_dir = get_reports_dir()
+        report_path = reports_dir / args.report
         if not report_path.exists():
             # Try with .md extension
-            report_path = REPORTS_DIR / f"{args.report}.md"
+            report_path = reports_dir / f"{args.report}.md"
 
     if not report_path.exists():
         print(f"Error: Report not found: {args.report}")
@@ -221,6 +222,7 @@ def refresh_command(args: argparse.Namespace) -> None:
             exported = 0
             skipped = 0
             force = getattr(args, "force", False)
+            tickets_dir = get_tickets_dir()
 
             for t in sorted(tickets, key=lambda x: x["key"]):
                 key = t["key"]
@@ -230,18 +232,18 @@ def refresh_command(args: argparse.Namespace) -> None:
                 if ticket_file:
                     if force:
                         print(f"  {key}: forcing refresh...")
-                        if export_ticket(key, TICKETS_DIR):
+                        if export_ticket(key, tickets_dir):
                             exported += 1
                     elif ticket_needs_export(ticket_file, updated):
                         print(f"  {key}: changed, refreshing...")
-                        if export_ticket(key, TICKETS_DIR):
+                        if export_ticket(key, tickets_dir):
                             exported += 1
                     else:
                         print(f"  {key}: unchanged, skipping")
                         skipped += 1
                 else:
                     print(f"  {key}: new, exporting...")
-                    if export_ticket(key, TICKETS_DIR):
+                    if export_ticket(key, tickets_dir):
                         exported += 1
 
             print(f"\nExported {exported} tickets, {skipped} unchanged")
