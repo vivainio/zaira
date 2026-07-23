@@ -17,47 +17,47 @@ from zaira.changelog import (
 
 
 class TestExtractValue:
-    def test_none(self):
+    def test_none(self) -> None:
         assert _extract_value(None) == ""
 
-    def test_string(self):
+    def test_string(self) -> None:
         assert _extract_value("hello") == "hello"
 
-    def test_dict_with_name(self):
+    def test_dict_with_name(self) -> None:
         assert _extract_value({"name": "Done"}) == "Done"
 
-    def test_dict_with_value(self):
+    def test_dict_with_value(self) -> None:
         assert _extract_value({"value": "High"}) == "High"
 
-    def test_dict_with_display_name(self):
+    def test_dict_with_display_name(self) -> None:
         assert _extract_value({"displayName": "John"}) == "John"
 
-    def test_fallback_str(self):
+    def test_fallback_str(self) -> None:
         assert _extract_value(42) == "42"
 
 
 class TestIsLongText:
-    def test_short(self):
+    def test_short(self) -> None:
         assert not _is_long_text("short")
 
-    def test_multiline(self):
+    def test_multiline(self) -> None:
         assert _is_long_text("line1\nline2")
 
-    def test_long(self):
+    def test_long(self) -> None:
         assert _is_long_text("x" * 121)
 
 
 class TestFormatDiff:
-    def test_basic_diff(self):
+    def test_basic_diff(self) -> None:
         result = _format_diff("old text", "new text")
         assert "-old text" in result
         assert "+new text" in result
 
-    def test_no_changes(self):
+    def test_no_changes(self) -> None:
         result = _format_diff("same", "same")
         assert result == "(no visible changes)"
 
-    def test_multiline_diff(self):
+    def test_multiline_diff(self) -> None:
         old = "line1\nline2\nline3"
         new = "line1\nchanged\nline3"
         result = _format_diff(old, new)
@@ -89,7 +89,7 @@ def _make_history(
 
 
 class TestFetchChangelog:
-    def test_basic_fetch(self, mock_jira):
+    def test_basic_fetch(self, mock_jira) -> None:
         issue = MagicMock()
         issue.changelog.histories = [
             _make_history([("status", "status", "Open", "In Progress")]),
@@ -104,7 +104,7 @@ class TestFetchChangelog:
         assert entries[0]["items"][0]["to"] == "In Progress"
         mock_jira.issue.assert_called_once_with("TEST-1", expand="changelog")
 
-    def test_multiple_histories(self, mock_jira):
+    def test_multiple_histories(self, mock_jira) -> None:
         issue = MagicMock()
         issue.changelog.histories = [
             _make_history([("status", "status", "Open", "In Progress")]),
@@ -116,7 +116,7 @@ class TestFetchChangelog:
 
         assert len(entries) == 2
 
-    def test_resolves_custom_field_names(self, mock_jira):
+    def test_resolves_custom_field_names(self, mock_jira) -> None:
         issue = MagicMock()
         issue.changelog.histories = [
             _make_history([("Custom Field", "customfield_12345", "", "value")]),
@@ -128,7 +128,7 @@ class TestFetchChangelog:
 
         assert entries[0]["items"][0]["field"] == "Story Points"
 
-    def test_exits_on_error(self, mock_jira):
+    def test_exits_on_error(self, mock_jira) -> None:
         mock_jira.issue.side_effect = Exception("Not found")
 
         with pytest.raises(SystemExit):
@@ -136,10 +136,10 @@ class TestFetchChangelog:
 
 
 class TestFormatChangelog:
-    def test_empty(self):
+    def test_empty(self) -> None:
         assert format_changelog([]) == "(no changelog entries)"
 
-    def test_simple_change(self):
+    def test_simple_change(self) -> None:
         entries = [
             {
                 "author": "user@test.com",
@@ -152,7 +152,7 @@ class TestFormatChangelog:
         assert "status" in result
         assert "Open → Done" in result
 
-    def test_field_set_from_empty(self):
+    def test_field_set_from_empty(self) -> None:
         entries = [
             {
                 "author": "u@t.com",
@@ -163,7 +163,7 @@ class TestFormatChangelog:
         result = format_changelog(entries)
         assert "→ dev@test.com" in result
 
-    def test_field_cleared(self):
+    def test_field_cleared(self) -> None:
         entries = [
             {
                 "author": "u@t.com",
@@ -174,7 +174,7 @@ class TestFormatChangelog:
         result = format_changelog(entries)
         assert "*(cleared)*" in result
 
-    def test_field_filter(self):
+    def test_field_filter(self) -> None:
         entries = [
             {
                 "author": "u@t.com",
@@ -189,7 +189,7 @@ class TestFormatChangelog:
         assert "status" in result
         assert "priority" not in result
 
-    def test_field_filter_no_match(self):
+    def test_field_filter_no_match(self) -> None:
         entries = [
             {
                 "author": "u@t.com",
@@ -200,7 +200,7 @@ class TestFormatChangelog:
         result = format_changelog(entries, field_filter="description")
         assert result == "(no matching changes)"
 
-    def test_long_text_shows_diff_by_default(self):
+    def test_long_text_shows_diff_by_default(self) -> None:
         """Long text fields show diffs by default."""
         entries = [
             {
@@ -220,7 +220,7 @@ class TestFormatChangelog:
         assert "-old line 2" in result
         assert "+new line 2" in result
 
-    def test_short_values_no_diff(self):
+    def test_short_values_no_diff(self) -> None:
         """Short values use arrow notation, not diffs."""
         entries = [
             {
@@ -233,7 +233,7 @@ class TestFormatChangelog:
         assert "```diff" not in result
         assert "Open → Done" in result
 
-    def test_full_mode_shows_raw_long_text(self):
+    def test_full_mode_shows_raw_long_text(self) -> None:
         """--full shows complete old/new values instead of diffs."""
         entries = [
             {
@@ -255,7 +255,7 @@ class TestFormatChangelog:
 
 
 class TestChangelogCommand:
-    def test_basic_run(self, mock_jira, capsys):
+    def test_basic_run(self, mock_jira, capsys) -> None:
         issue = MagicMock()
         issue.changelog.histories = [
             _make_history([("status", "status", "Open", "Done")]),
@@ -270,7 +270,7 @@ class TestChangelogCommand:
         captured = capsys.readouterr()
         assert "Open → Done" in captured.out
 
-    def test_tail_limit(self, mock_jira, capsys):
+    def test_tail_limit(self, mock_jira, capsys) -> None:
         issue = MagicMock()
         issue.changelog.histories = [
             _make_history(
@@ -293,7 +293,7 @@ class TestChangelogCommand:
         assert "In Progress → Done" in captured.out
         assert "Open → In Progress" not in captured.out
 
-    def test_uppercases_key(self, mock_jira, capsys):
+    def test_uppercases_key(self, mock_jira, capsys) -> None:
         issue = MagicMock()
         issue.changelog.histories = []
         mock_jira.issue.return_value = issue
@@ -305,7 +305,7 @@ class TestChangelogCommand:
 
         mock_jira.issue.assert_called_once_with("TEST-1", expand="changelog")
 
-    def test_revisions_requires_field(self, mock_jira, capsys):
+    def test_revisions_requires_field(self, mock_jira, capsys) -> None:
         args = argparse.Namespace(
             key="TEST-1",
             tail=None,
@@ -318,7 +318,7 @@ class TestChangelogCommand:
             changelog_command(args)
         assert "--field" in capsys.readouterr().err
 
-    def test_rev_requires_field(self, mock_jira, capsys):
+    def test_rev_requires_field(self, mock_jira, capsys) -> None:
         args = argparse.Namespace(
             key="TEST-1",
             tail=None,
@@ -331,7 +331,7 @@ class TestChangelogCommand:
             changelog_command(args)
         assert "--field" in capsys.readouterr().err
 
-    def test_rev_prints_specific_revision(self, mock_jira, capsys):
+    def test_rev_prints_specific_revision(self, mock_jira, capsys) -> None:
         issue = MagicMock()
         issue.changelog.histories = [
             _make_history(
@@ -356,7 +356,7 @@ class TestChangelogCommand:
         changelog_command(args)
         assert capsys.readouterr().out.strip() == "v1 text"
 
-    def test_rev_prints_latest(self, mock_jira, capsys):
+    def test_rev_prints_latest(self, mock_jira, capsys) -> None:
         issue = MagicMock()
         issue.changelog.histories = [
             _make_history(
@@ -377,7 +377,7 @@ class TestChangelogCommand:
         changelog_command(args)
         assert capsys.readouterr().out.strip() == "v2"
 
-    def test_rev_not_found(self, mock_jira, capsys):
+    def test_rev_not_found(self, mock_jira, capsys) -> None:
         issue = MagicMock()
         issue.changelog.histories = [
             _make_history([("description", "description", "v1", "v2")]),
@@ -396,7 +396,7 @@ class TestChangelogCommand:
             changelog_command(args)
         assert "revision 99 not found" in capsys.readouterr().err
 
-    def test_revisions_list(self, mock_jira, capsys):
+    def test_revisions_list(self, mock_jira, capsys) -> None:
         issue = MagicMock()
         issue.changelog.histories = [
             _make_history(
@@ -429,7 +429,7 @@ class TestChangelogCommand:
 
 
 class TestExtractFieldRevisions:
-    def test_builds_revision_chain(self):
+    def test_builds_revision_chain(self) -> None:
         entries = [
             {
                 "author": "a@t.com",
@@ -451,10 +451,10 @@ class TestExtractFieldRevisions:
         assert revs[2]["rev"] == 3
         assert revs[2]["value"] == "v3"
 
-    def test_empty_entries(self):
+    def test_empty_entries(self) -> None:
         assert extract_field_revisions([], "description") == []
 
-    def test_no_matching_field(self):
+    def test_no_matching_field(self) -> None:
         entries = [
             {
                 "author": "a@t.com",
@@ -464,7 +464,7 @@ class TestExtractFieldRevisions:
         ]
         assert extract_field_revisions(entries, "description") == []
 
-    def test_case_insensitive_field_match(self):
+    def test_case_insensitive_field_match(self) -> None:
         entries = [
             {
                 "author": "a@t.com",

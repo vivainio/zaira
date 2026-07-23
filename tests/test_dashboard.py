@@ -18,26 +18,26 @@ from zaira.types import Dashboard, DashboardGadget
 class TestGetOwnerName:
     """Tests for _get_owner_name function."""
 
-    def test_none_owner(self):
+    def test_none_owner(self) -> None:
         """Returns empty string for None owner."""
         assert _get_owner_name(None) == ""
 
-    def test_display_name(self):
+    def test_display_name(self) -> None:
         """Returns displayName when available."""
         owner = {"displayName": "John Doe", "name": "jdoe"}
         assert _get_owner_name(owner) == "John Doe"
 
-    def test_name_fallback(self):
+    def test_name_fallback(self) -> None:
         """Falls back to name when no displayName."""
         owner = {"name": "jdoe", "accountId": "123"}
         assert _get_owner_name(owner) == "jdoe"
 
-    def test_account_id_fallback(self):
+    def test_account_id_fallback(self) -> None:
         """Falls back to accountId when no name."""
         owner = {"accountId": "123456"}
         assert _get_owner_name(owner) == "123456"
 
-    def test_empty_dict(self):
+    def test_empty_dict(self) -> None:
         """Returns empty string for empty dict."""
         assert _get_owner_name({}) == ""
 
@@ -45,7 +45,7 @@ class TestGetOwnerName:
 class TestDictToDashboard:
     """Tests for _dict_to_dashboard function."""
 
-    def test_converts_full_dict(self):
+    def test_converts_full_dict(self) -> None:
         """Converts complete API response to Dashboard."""
         api_response = {
             "id": "12345",
@@ -66,7 +66,7 @@ class TestDictToDashboard:
         assert result.view_url == "https://jira.example.com/dashboard/12345"
         assert result.is_favourite is True
 
-    def test_handles_missing_fields(self):
+    def test_handles_missing_fields(self) -> None:
         """Handles missing optional fields."""
         api_response = {"id": "999"}
 
@@ -83,7 +83,7 @@ class TestDictToDashboard:
 class TestGetDashboards:
     """Tests for get_dashboards function with mocked Jira."""
 
-    def test_returns_dashboards(self, mock_jira):
+    def test_returns_dashboards(self, mock_jira) -> None:
         """Returns list of Dashboard objects."""
         mock_jira._get_json.return_value = {
             "values": [
@@ -98,7 +98,7 @@ class TestGetDashboards:
         assert all(isinstance(d, Dashboard) for d in result)
         assert result[0].name == "Dashboard One"
 
-    def test_passes_filter_params(self, mock_jira):
+    def test_passes_filter_params(self, mock_jira) -> None:
         """Passes filter parameters to API."""
         mock_jira._get_json.return_value = {"values": []}
 
@@ -111,7 +111,7 @@ class TestGetDashboards:
         assert params["owner"] == "user123"
         assert params["maxResults"] == 10
 
-    def test_handles_error(self, mock_jira, capsys):
+    def test_handles_error(self, mock_jira, capsys) -> None:
         """Returns empty list on error."""
         mock_jira._get_json.side_effect = Exception("API Error")
 
@@ -125,7 +125,7 @@ class TestGetDashboards:
 class TestGetMyDashboards:
     """Tests for get_my_dashboards function with mocked Jira."""
 
-    def test_returns_my_dashboards(self, mock_jira):
+    def test_returns_my_dashboards(self, mock_jira) -> None:
         """Returns dashboards owned by current user."""
         mock_jira._get_json.return_value = {
             "values": [{"id": "10", "name": "My Dashboard"}]
@@ -138,7 +138,7 @@ class TestGetMyDashboards:
             "dashboard/search", params={"owner": "me"}
         )
 
-    def test_handles_error(self, mock_jira, capsys):
+    def test_handles_error(self, mock_jira, capsys) -> None:
         """Returns empty list on error."""
         mock_jira._get_json.side_effect = Exception("API Error")
 
@@ -150,7 +150,7 @@ class TestGetMyDashboards:
 class TestGetDashboard:
     """Tests for get_dashboard function with mocked Jira."""
 
-    def test_returns_dashboard(self, mock_jira):
+    def test_returns_dashboard(self, mock_jira) -> None:
         """Returns Dashboard object for valid ID."""
         mock_jira._get_json.return_value = {
             "id": "42",
@@ -165,7 +165,7 @@ class TestGetDashboard:
         assert result.name == "Specific Dashboard"
         mock_jira._get_json.assert_called_with("dashboard/42")
 
-    def test_returns_none_on_error(self, mock_jira, capsys):
+    def test_returns_none_on_error(self, mock_jira, capsys) -> None:
         """Returns None when dashboard not found."""
         mock_jira._get_json.side_effect = Exception("Not found")
 
@@ -179,7 +179,7 @@ class TestGetDashboard:
 class TestGetDashboardRaw:
     """Tests for get_dashboard_raw function with mocked Jira."""
 
-    def test_returns_raw_data(self, mock_jira):
+    def test_returns_raw_data(self, mock_jira) -> None:
         """Returns raw API response."""
         mock_jira._get_json.return_value = {"id": "123", "raw": "data"}
 
@@ -188,7 +188,7 @@ class TestGetDashboardRaw:
         assert result == {"id": "123", "raw": "data"}
         mock_jira._get_json.assert_called_with("dashboard/123")
 
-    def test_returns_none_on_error(self, mock_jira):
+    def test_returns_none_on_error(self, mock_jira) -> None:
         """Returns None on error."""
         mock_jira._get_json.side_effect = Exception("Error")
 
@@ -200,7 +200,7 @@ class TestGetDashboardRaw:
 class TestGetGadgetConfig:
     """Tests for _get_gadget_config function with mocked Jira."""
 
-    def test_returns_config_value(self, mock_jira):
+    def test_returns_config_value(self, mock_jira) -> None:
         """Returns value from config response."""
         mock_jira._get_json.return_value = {"value": {"filterId": "123"}}
 
@@ -208,7 +208,7 @@ class TestGetGadgetConfig:
 
         assert result == {"filterId": "123"}
 
-    def test_returns_none_on_error(self, mock_jira):
+    def test_returns_none_on_error(self, mock_jira) -> None:
         """Returns None on error."""
         mock_jira._get_json.side_effect = Exception("Error")
 
@@ -220,7 +220,7 @@ class TestGetGadgetConfig:
 class TestGetFilter:
     """Tests for _get_filter function with mocked Jira."""
 
-    def test_returns_filter_data(self, mock_jira):
+    def test_returns_filter_data(self, mock_jira) -> None:
         """Returns filter data."""
         mock_jira._get_json.return_value = {
             "name": "My Filter",
@@ -231,7 +231,7 @@ class TestGetFilter:
 
         assert result == {"name": "My Filter", "jql": "project = TEST"}
 
-    def test_returns_none_on_error(self, mock_jira):
+    def test_returns_none_on_error(self, mock_jira) -> None:
         """Returns None on error."""
         mock_jira._get_json.side_effect = Exception("Error")
 
@@ -243,26 +243,26 @@ class TestGetFilter:
 class TestExtractGadgetType:
     """Tests for _extract_gadget_type function (pure)."""
 
-    def test_extracts_from_uri(self):
+    def test_extracts_from_uri(self) -> None:
         """Extracts gadget type from URI format."""
         uri = "rest/gadgets/1.0/g/com.atlassian.jira.gadgets:filter-results-gadget/more"
         result = _extract_gadget_type(uri)
 
         assert result == "Filter Results"
 
-    def test_extracts_from_module_key(self):
+    def test_extracts_from_module_key(self) -> None:
         """Extracts gadget type from module key format."""
         key = "com.atlassian.jira.gadgets:pie-chart-gadget"
         result = _extract_gadget_type(key)
 
         assert result == "Pie Chart"
 
-    def test_handles_empty_string(self):
+    def test_handles_empty_string(self) -> None:
         """Returns 'unknown' for empty string."""
         assert _extract_gadget_type("") == "unknown"
         assert _extract_gadget_type(None) == "unknown"
 
-    def test_handles_simple_string(self):
+    def test_handles_simple_string(self) -> None:
         """Handles simple string without colon."""
         result = _extract_gadget_type("simple-gadget")
         assert "Simple" in result
@@ -271,7 +271,7 @@ class TestExtractGadgetType:
 class TestGenerateDashboardMarkdown:
     """Tests for generate_dashboard_markdown function (pure)."""
 
-    def test_generates_basic_markdown(self):
+    def test_generates_basic_markdown(self) -> None:
         """Generates markdown with dashboard info."""
         dashboard = Dashboard(
             id=123,
@@ -292,7 +292,7 @@ class TestGenerateDashboardMarkdown:
         assert "**Owner:** John Doe" in result
         assert "**Favourite:** Yes" in result
 
-    def test_includes_gadgets(self):
+    def test_includes_gadgets(self) -> None:
         """Includes gadget information."""
         dashboard = Dashboard(
             id=456,
@@ -320,7 +320,7 @@ class TestGenerateDashboardMarkdown:
         assert "Filter Results" in result
         assert "project = TEST" in result
 
-    def test_no_description(self):
+    def test_no_description(self) -> None:
         """Handles dashboard without description."""
         dashboard = Dashboard(
             id=789,

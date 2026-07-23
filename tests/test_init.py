@@ -15,27 +15,27 @@ from zaira.init import (
 class TestSlugify:
     """Tests for slugify function (pure)."""
 
-    def test_lowercase(self):
+    def test_lowercase(self) -> None:
         """Converts to lowercase."""
         assert slugify("Hello World") == "hello-world"
 
-    def test_replaces_spaces(self):
+    def test_replaces_spaces(self) -> None:
         """Replaces spaces with hyphens."""
         assert slugify("my board name") == "my-board-name"
 
-    def test_removes_parentheses(self):
+    def test_removes_parentheses(self) -> None:
         """Removes parentheses."""
         assert slugify("Board (Scrum)") == "board-scrum"
 
-    def test_combined(self):
+    def test_combined(self) -> None:
         """Handles combined cases."""
         assert slugify("My Project (Dev)") == "my-project-dev"
 
-    def test_strips_ampersand(self):
+    def test_strips_ampersand(self) -> None:
         """Strips & and other special chars that break TOML bare keys."""
         assert slugify("DevOps Epics & Studies") == "devops-epics-studies"
 
-    def test_strips_special_characters(self):
+    def test_strips_special_characters(self) -> None:
         """Strips all non-alphanumeric/dash/underscore characters."""
         assert slugify("Board #1 @test!") == "board-1-test"
 
@@ -43,7 +43,7 @@ class TestSlugify:
 class TestGenerateConfig:
     """Tests for generate_config function (pure)."""
 
-    def test_basic_config(self):
+    def test_basic_config(self) -> None:
         """Generates basic config structure."""
         result = generate_config(
             projects=["TEST"],
@@ -55,7 +55,7 @@ class TestGenerateConfig:
         assert "[boards]" in result
         assert "[queries]" in result
 
-    def test_includes_boards(self):
+    def test_includes_boards(self) -> None:
         """Includes boards in config."""
         result = generate_config(
             projects=["PROJ"],
@@ -71,7 +71,7 @@ class TestGenerateConfig:
         assert "kanban-board = 123" in result
         assert "sprint-board = 456" in result
 
-    def test_no_boards_placeholder(self):
+    def test_no_boards_placeholder(self) -> None:
         """Shows placeholder when no boards."""
         result = generate_config(
             projects=["TEST"],
@@ -81,7 +81,7 @@ class TestGenerateConfig:
 
         assert "# No boards found" in result
 
-    def test_multiple_projects(self):
+    def test_multiple_projects(self) -> None:
         """Handles multiple projects."""
         result = generate_config(
             projects=["PROJ1", "PROJ2"],
@@ -95,7 +95,7 @@ class TestGenerateConfig:
         assert "PROJ1" in result
         assert "PROJ2" in result
 
-    def test_no_duplicate_board_keys(self):
+    def test_no_duplicate_board_keys(self) -> None:
         """Deduplicates board keys when projects share board names."""
         result = generate_config(
             projects=["P1", "P2"],
@@ -109,7 +109,7 @@ class TestGenerateConfig:
         assert "kanban = 100" in result
         assert "kanban-2 = 200" in result
 
-    def test_no_duplicate_report_keys(self):
+    def test_no_duplicate_report_keys(self) -> None:
         """Deduplicates report keys when projects share board names."""
         result = generate_config(
             projects=["P1", "P2"],
@@ -138,7 +138,7 @@ class TestGenerateConfig:
             f"Duplicate report keys found: {report_keys}"
         )
 
-    def test_valid_toml_output(self):
+    def test_valid_toml_output(self) -> None:
         """Generated config is valid TOML."""
         import tomllib
 
@@ -161,7 +161,7 @@ class TestGenerateConfig:
 class TestDiscoverComponents:
     """Tests for discover_components with mocked Jira."""
 
-    def test_returns_component_names(self, mock_jira):
+    def test_returns_component_names(self, mock_jira) -> None:
         """Returns sorted list of component names."""
         mock_proj = MagicMock()
         mock_jira.project.return_value = mock_proj
@@ -179,7 +179,7 @@ class TestDiscoverComponents:
 
         assert result == ["API", "Backend", "Frontend"]  # sorted
 
-    def test_filters_empty_names(self, mock_jira):
+    def test_filters_empty_names(self, mock_jira) -> None:
         """Filters out components with empty names."""
         mock_proj = MagicMock()
         mock_jira.project.return_value = mock_proj
@@ -197,7 +197,7 @@ class TestDiscoverComponents:
 
         assert result == ["Valid"]
 
-    def test_returns_empty_on_error(self, mock_jira):
+    def test_returns_empty_on_error(self, mock_jira) -> None:
         """Returns empty list on error."""
         mock_jira.project.side_effect = Exception("Not found")
 
@@ -209,7 +209,7 @@ class TestDiscoverComponents:
 class TestDiscoverLabels:
     """Tests for discover_labels with mocked Jira."""
 
-    def test_returns_labels_from_issues(self, mock_jira):
+    def test_returns_labels_from_issues(self, mock_jira) -> None:
         """Returns sorted unique labels from issues."""
         issue1 = MagicMock()
         issue1.fields.labels = ["bug", "urgent"]
@@ -224,7 +224,7 @@ class TestDiscoverLabels:
 
         assert result == ["bug", "feature", "urgent"]  # sorted, unique
 
-    def test_handles_none_labels(self, mock_jira):
+    def test_handles_none_labels(self, mock_jira) -> None:
         """Handles issues with None labels."""
         issue1 = MagicMock()
         issue1.fields.labels = None
@@ -235,7 +235,7 @@ class TestDiscoverLabels:
 
         assert result == []
 
-    def test_returns_empty_on_error(self, mock_jira):
+    def test_returns_empty_on_error(self, mock_jira) -> None:
         """Returns empty list on error."""
         mock_jira.search_issues.side_effect = Exception("Error")
 
@@ -247,7 +247,7 @@ class TestDiscoverLabels:
 class TestDiscoverBoards:
     """Tests for discover_boards with mocked Jira."""
 
-    def test_returns_board_info(self, mock_jira):
+    def test_returns_board_info(self, mock_jira) -> None:
         """Returns list of board dicts."""
         board1 = MagicMock()
         board1.id = 100
@@ -267,7 +267,7 @@ class TestDiscoverBoards:
         assert result[0] == {"id": 100, "name": "Kanban", "type": "kanban"}
         assert result[1] == {"id": 200, "name": "Scrum", "type": "scrum"}
 
-    def test_returns_empty_on_error(self, mock_jira):
+    def test_returns_empty_on_error(self, mock_jira) -> None:
         """Returns empty list on error."""
         mock_jira.boards.side_effect = Exception("Error")
 

@@ -23,7 +23,7 @@ from zaira.types import ZSchema
 class TestLoadSchema:
     """Tests for load_schema function."""
 
-    def test_returns_none_when_no_file(self, tmp_path):
+    def test_returns_none_when_no_file(self, tmp_path) -> None:
         """Returns None when schema file doesn't exist."""
         with patch(
             "zaira.info.get_schema_path", return_value=tmp_path / "nonexistent.json"
@@ -31,7 +31,7 @@ class TestLoadSchema:
             result = load_schema()
         assert result is None
 
-    def test_loads_schema_from_file(self, tmp_path):
+    def test_loads_schema_from_file(self, tmp_path) -> None:
         """Loads schema from JSON file."""
         schema_file = tmp_path / "schema.json"
         schema_data = {
@@ -49,7 +49,7 @@ class TestLoadSchema:
 class TestSaveSchema:
     """Tests for save_schema function."""
 
-    def test_saves_schema_to_file(self, tmp_path):
+    def test_saves_schema_to_file(self, tmp_path) -> None:
         """Saves schema to JSON file."""
         schema_file = tmp_path / "schema.json"
         schema_data: ZSchema = {
@@ -71,7 +71,7 @@ class TestSaveSchema:
 class TestUpdateSchema:
     """Tests for update_schema function."""
 
-    def test_updates_existing_schema(self, tmp_path):
+    def test_updates_existing_schema(self, tmp_path) -> None:
         """Updates key in existing schema."""
         schema_file = tmp_path / "schema.json"
         existing = {"version": 2, "fields": {"old": "value"}}
@@ -87,7 +87,7 @@ class TestUpdateSchema:
         assert loaded["fields"] == {"old": "value"}
         assert loaded["statuses"] == {"Open": "To Do"}
 
-    def test_creates_schema_if_none(self, tmp_path):
+    def test_creates_schema_if_none(self, tmp_path) -> None:
         """Creates new schema if none exists."""
         schema_file = tmp_path / "schema.json"
 
@@ -104,7 +104,7 @@ class TestUpdateSchema:
 class TestGetFieldId:
     """Tests for get_field_id function."""
 
-    def test_returns_field_id_by_name(self, tmp_path):
+    def test_returns_field_id_by_name(self, tmp_path) -> None:
         """Returns field ID for given name."""
         schema_file = tmp_path / "schema.json"
         schema = {
@@ -118,7 +118,7 @@ class TestGetFieldId:
 
         assert result == "customfield_10551"
 
-    def test_case_insensitive_lookup(self, tmp_path):
+    def test_case_insensitive_lookup(self, tmp_path) -> None:
         """Lookup is case-insensitive."""
         schema_file = tmp_path / "schema.json"
         schema = {"version": 2, "fields": {"customfield_123": {"name": "Epic Link"}}}
@@ -128,7 +128,7 @@ class TestGetFieldId:
             assert get_field_id("epic link") == "customfield_123"
             assert get_field_id("EPIC LINK") == "customfield_123"
 
-    def test_returns_none_when_not_found(self, tmp_path):
+    def test_returns_none_when_not_found(self, tmp_path) -> None:
         """Returns None when field not found."""
         schema_file = tmp_path / "schema.json"
         schema = {"version": 2, "fields": {"customfield_123": {"name": "Existing"}}}
@@ -139,7 +139,7 @@ class TestGetFieldId:
 
         assert result is None
 
-    def test_returns_none_when_no_schema(self, tmp_path):
+    def test_returns_none_when_no_schema(self, tmp_path) -> None:
         """Returns None when no schema exists."""
         with patch(
             "zaira.info.get_schema_path", return_value=tmp_path / "nonexistent.json"
@@ -152,7 +152,7 @@ class TestGetFieldId:
 class TestGetFieldName:
     """Tests for get_field_name function."""
 
-    def test_returns_field_name_by_id(self, tmp_path):
+    def test_returns_field_name_by_id(self, tmp_path) -> None:
         """Returns field name for given ID."""
         schema_file = tmp_path / "schema.json"
         schema = {
@@ -166,7 +166,7 @@ class TestGetFieldName:
 
         assert result == "Story Points"
 
-    def test_returns_none_when_not_found(self, tmp_path):
+    def test_returns_none_when_not_found(self, tmp_path) -> None:
         """Returns None when field ID not found."""
         schema_file = tmp_path / "schema.json"
         schema = {"version": 2, "fields": {"customfield_123": {"name": "Existing"}}}
@@ -181,7 +181,7 @@ class TestGetFieldName:
 class TestGetFieldMap:
     """Tests for get_field_map function."""
 
-    def test_returns_name_to_id_mapping(self, tmp_path):
+    def test_returns_name_to_id_mapping(self, tmp_path) -> None:
         """Returns dict mapping names to IDs."""
         schema_file = tmp_path / "schema.json"
         schema = {
@@ -201,7 +201,7 @@ class TestGetFieldMap:
             "Epic Link": "customfield_456",
         }
 
-    def test_returns_empty_dict_when_no_schema(self, tmp_path):
+    def test_returns_empty_dict_when_no_schema(self, tmp_path) -> None:
         """Returns empty dict when no schema."""
         with patch(
             "zaira.info.get_schema_path", return_value=tmp_path / "nonexistent.json"
@@ -214,7 +214,7 @@ class TestGetFieldMap:
 class TestGetFieldType:
     """Tests for get_field_type function."""
 
-    def test_returns_field_type(self, tmp_path):
+    def test_returns_field_type(self, tmp_path) -> None:
         """Returns field type for given ID."""
         schema_file = tmp_path / "schema.json"
         schema = {
@@ -232,7 +232,7 @@ class TestGetFieldType:
             assert get_field_type("customfield_456") == "option"
             assert get_field_type("customfield_789") == "array"
 
-    def test_returns_none_when_not_found(self, tmp_path):
+    def test_returns_none_when_not_found(self, tmp_path) -> None:
         """Returns None when field type not found."""
         schema_file = tmp_path / "schema.json"
         schema = {"version": 2, "fields": {}}
@@ -247,7 +247,7 @@ class TestGetFieldType:
 class TestLoadProjectSchema:
     """Tests for load_project_schema function."""
 
-    def test_loads_project_schema(self, tmp_path):
+    def test_loads_project_schema(self, tmp_path) -> None:
         """Loads project schema from file."""
         schema_file = tmp_path / "project_schema.json"
         schema = {"components": ["Backend", "Frontend"], "labels": ["bug", "feature"]}
@@ -258,7 +258,7 @@ class TestLoadProjectSchema:
 
         assert result == schema
 
-    def test_returns_none_when_no_file(self, tmp_path):
+    def test_returns_none_when_no_file(self, tmp_path) -> None:
         """Returns None when file doesn't exist."""
         with patch(
             "zaira.info.get_project_schema_path",
@@ -272,7 +272,7 @@ class TestLoadProjectSchema:
 class TestFetchCachedData:
     """Tests for _fetch_cached_data function."""
 
-    def test_returns_cached_data(self, tmp_path):
+    def test_returns_cached_data(self, tmp_path) -> None:
         """Returns cached data when available."""
         schema_file = tmp_path / "schema.json"
         schema = {"version": 2, "statuses": {"Open": "To Do", "Done": "Done"}}
@@ -291,7 +291,7 @@ class TestFetchCachedData:
         assert result == {"Open": "To Do", "Done": "Done"}
         assert not fetch_called
 
-    def test_fetches_when_refresh_true(self, tmp_path):
+    def test_fetches_when_refresh_true(self, tmp_path) -> None:
         """Fetches fresh data when refresh=True."""
         schema_file = tmp_path / "schema.json"
         schema = {"version": 2, "statuses": {"old": "data"}}
@@ -305,7 +305,7 @@ class TestFetchCachedData:
 
         assert result == {"new": "data"}
 
-    def test_fetches_when_key_missing(self, tmp_path):
+    def test_fetches_when_key_missing(self, tmp_path) -> None:
         """Fetches data when key not in cache."""
         schema_file = tmp_path / "schema.json"
         schema = {"other_key": "value"}
@@ -323,7 +323,7 @@ class TestFetchCachedData:
 class TestGetFieldIdEdgeCases:
     """Additional tests for get_field_id edge cases."""
 
-    def test_returns_none_for_missing_fields_key(self, tmp_path):
+    def test_returns_none_for_missing_fields_key(self, tmp_path) -> None:
         """Returns None when 'fields' key is missing."""
         schema_file = tmp_path / "schema.json"
         schema = {"version": 2, "statuses": {}}  # No 'fields' key
@@ -338,7 +338,7 @@ class TestGetFieldIdEdgeCases:
 class TestGetFieldNameEdgeCases:
     """Additional tests for get_field_name edge cases."""
 
-    def test_returns_none_for_missing_fields_key(self, tmp_path):
+    def test_returns_none_for_missing_fields_key(self, tmp_path) -> None:
         """Returns None when 'fields' key is missing."""
         schema_file = tmp_path / "schema.json"
         schema = {"version": 2, "statuses": {}}
@@ -359,7 +359,7 @@ class TestGetFieldNameEdgeCases:
 class TestGetFieldTypeEdgeCases:
     """Additional tests for get_field_type edge cases."""
 
-    def test_returns_none_for_missing_fieldtypes_key(self, tmp_path):
+    def test_returns_none_for_missing_fieldtypes_key(self, tmp_path) -> None:
         """Returns None when 'fieldTypes' key is missing."""
         schema_file = tmp_path / "schema.json"
         schema = {"version": 2, "fields": {}}  # No 'fieldTypes' key
@@ -374,7 +374,7 @@ class TestGetFieldTypeEdgeCases:
 class TestLinkTypesCommand:
     """Tests for link_types_command function."""
 
-    def test_displays_link_types_from_cache(self, mock_jira, capsys, tmp_path):
+    def test_displays_link_types_from_cache(self, mock_jira, capsys, tmp_path) -> None:
         """Displays link types from cached schema."""
         from zaira.info import link_types_command
         import argparse
@@ -399,7 +399,7 @@ class TestLinkTypesCommand:
         assert "blocks" in captured.out
         assert "Relates" in captured.out
 
-    def test_fetches_link_types_on_refresh(self, mock_jira, capsys, tmp_path):
+    def test_fetches_link_types_on_refresh(self, mock_jira, capsys, tmp_path) -> None:
         """Fetches link types from API on refresh."""
         from zaira.info import link_types_command
         import argparse
@@ -424,7 +424,7 @@ class TestLinkTypesCommand:
         captured = capsys.readouterr()
         assert "Blocks" in captured.out
 
-    def test_handles_api_error(self, mock_jira, capsys, tmp_path):
+    def test_handles_api_error(self, mock_jira, capsys, tmp_path) -> None:
         """Handles API errors gracefully."""
         from zaira.info import link_types_command
         import argparse
@@ -448,7 +448,7 @@ class TestLinkTypesCommand:
 class TestStatusesCommand:
     """Tests for statuses_command function."""
 
-    def test_displays_statuses_from_cache(self, mock_jira, capsys, tmp_path):
+    def test_displays_statuses_from_cache(self, mock_jira, capsys, tmp_path) -> None:
         """Displays statuses from cached schema."""
         from zaira.info import statuses_command
         import argparse
@@ -474,7 +474,7 @@ class TestStatusesCommand:
         assert "To Do" in captured.out
         assert "Done" in captured.out
 
-    def test_fetches_statuses_on_refresh(self, mock_jira, capsys, tmp_path):
+    def test_fetches_statuses_on_refresh(self, mock_jira, capsys, tmp_path) -> None:
         """Fetches statuses from API on refresh."""
         from zaira.info import statuses_command
         import argparse
@@ -498,7 +498,7 @@ class TestStatusesCommand:
         captured = capsys.readouterr()
         assert "Open" in captured.out
 
-    def test_handles_api_error(self, mock_jira, capsys, tmp_path):
+    def test_handles_api_error(self, mock_jira, capsys, tmp_path) -> None:
         """Handles API errors gracefully."""
         from zaira.info import statuses_command
         import argparse
@@ -520,7 +520,7 @@ class TestStatusesCommand:
 class TestIssueTypesCommand:
     """Tests for issue_types_command function."""
 
-    def test_displays_issue_types_from_cache(self, mock_jira, capsys, tmp_path):
+    def test_displays_issue_types_from_cache(self, mock_jira, capsys, tmp_path) -> None:
         """Displays issue types from cached schema."""
         from zaira.info import issue_types_command
         import argparse
@@ -547,7 +547,7 @@ class TestIssueTypesCommand:
         assert "Sub-task" in captured.out
         assert "yes" in captured.out  # subtask = yes
 
-    def test_fetches_issue_types_on_refresh(self, mock_jira, capsys, tmp_path):
+    def test_fetches_issue_types_on_refresh(self, mock_jira, capsys, tmp_path) -> None:
         """Fetches issue types from API on refresh."""
         from zaira.info import issue_types_command
         import argparse
@@ -571,7 +571,7 @@ class TestIssueTypesCommand:
         captured = capsys.readouterr()
         assert "Bug" in captured.out
 
-    def test_handles_api_error(self, mock_jira, capsys, tmp_path):
+    def test_handles_api_error(self, mock_jira, capsys, tmp_path) -> None:
         """Handles API errors gracefully."""
         from zaira.info import issue_types_command
         import argparse
@@ -593,7 +593,9 @@ class TestIssueTypesCommand:
 class TestFieldsCommand:
     """Tests for fields_command function."""
 
-    def test_displays_custom_fields_from_cache(self, mock_jira, capsys, tmp_path):
+    def test_displays_custom_fields_from_cache(
+        self, mock_jira, capsys, tmp_path
+    ) -> None:
         """Displays custom fields from cached schema."""
         from zaira.info import fields_command
         import argparse
@@ -623,7 +625,7 @@ class TestFieldsCommand:
         # Standard fields not shown by default
         assert "Summary" not in captured.out
 
-    def test_shows_all_fields(self, mock_jira, capsys, tmp_path):
+    def test_shows_all_fields(self, mock_jira, capsys, tmp_path) -> None:
         """Shows all fields when --all flag is set."""
         from zaira.info import fields_command
         import argparse
@@ -647,7 +649,7 @@ class TestFieldsCommand:
         assert "Story Points" in captured.out
         assert "Summary" in captured.out
 
-    def test_filters_fields(self, mock_jira, capsys, tmp_path):
+    def test_filters_fields(self, mock_jira, capsys, tmp_path) -> None:
         """Filters fields by name."""
         from zaira.info import fields_command
         import argparse
@@ -676,7 +678,7 @@ class TestFieldsCommand:
         assert "Story Points" not in captured.out
         assert "Epic Link" not in captured.out
 
-    def test_fetches_fields_on_refresh(self, mock_jira, capsys, tmp_path):
+    def test_fetches_fields_on_refresh(self, mock_jira, capsys, tmp_path) -> None:
         """Fetches fields from API on refresh."""
         from zaira.info import fields_command
         import argparse
@@ -705,7 +707,7 @@ class TestFieldsCommand:
         captured = capsys.readouterr()
         assert "Story Points" in captured.out
 
-    def test_filters_by_allowed_fields(self, mock_jira, capsys, tmp_path):
+    def test_filters_by_allowed_fields(self, mock_jira, capsys, tmp_path) -> None:
         """Shows only allowed fields when allowed_fields is configured."""
         from zaira.info import fields_command
         import argparse
@@ -739,7 +741,7 @@ class TestFieldsCommand:
         assert "Filtered by" in captured.err
         assert "--all" in captured.err
 
-    def test_all_flag_ignores_allowed_fields(self, mock_jira, capsys, tmp_path):
+    def test_all_flag_ignores_allowed_fields(self, mock_jira, capsys, tmp_path) -> None:
         """--all flag shows all fields even when allowed_fields is configured."""
         from zaira.info import fields_command
         import argparse
@@ -765,7 +767,7 @@ class TestFieldsCommand:
         assert "Sprint" in captured.out
         assert "Summary" in captured.out
 
-    def test_handles_api_error(self, mock_jira, capsys, tmp_path):
+    def test_handles_api_error(self, mock_jira, capsys, tmp_path) -> None:
         """Handles API errors gracefully."""
         from zaira.info import fields_command
         import argparse
@@ -788,7 +790,7 @@ class TestFieldsCommand:
 class TestInfoCommand:
     """Tests for info_command function."""
 
-    def test_calls_info_func(self, mock_jira, capsys, tmp_path):
+    def test_calls_info_func(self, mock_jira, capsys, tmp_path) -> None:
         """Calls info_func when present on args."""
         from zaira.info import info_command
         import argparse
@@ -804,7 +806,7 @@ class TestInfoCommand:
 
         assert called == [True]
 
-    def test_shows_usage_when_no_subcommand(self, mock_jira, capsys):
+    def test_shows_usage_when_no_subcommand(self, mock_jira, capsys) -> None:
         """Shows usage when no subcommand specified."""
         from zaira.info import info_command
         import argparse
@@ -824,7 +826,7 @@ class TestInfoCommand:
 class TestGetFieldNameAutoFetch:
     """Tests for get_field_name auto-fetch behavior."""
 
-    def test_auto_fetches_when_no_fields_cached(self, mock_jira, tmp_path):
+    def test_auto_fetches_when_no_fields_cached(self, mock_jira, tmp_path) -> None:
         """Auto-fetches fields from API when not cached."""
         schema_file = tmp_path / "schema.json"
         schema = {"version": 2, "statuses": {}}  # No 'fields' key
@@ -847,7 +849,7 @@ class TestGetFieldNameAutoFetch:
         assert result == "Story Points"
         mock_jira.fields.assert_called_once()
 
-    def test_auto_fetches_when_no_schema_file(self, mock_jira, tmp_path):
+    def test_auto_fetches_when_no_schema_file(self, mock_jira, tmp_path) -> None:
         """Auto-fetches fields when schema file doesn't exist."""
         schema_file = tmp_path / "nonexistent.json"
 
@@ -867,7 +869,7 @@ class TestGetFieldNameAutoFetch:
 
         assert result == "Epic Link"
 
-    def test_returns_none_when_auto_fetch_fails(self, mock_jira, tmp_path):
+    def test_returns_none_when_auto_fetch_fails(self, mock_jira, tmp_path) -> None:
         """Returns None when auto-fetch raises an exception."""
         schema_file = tmp_path / "nonexistent.json"
         mock_jira.fields.side_effect = Exception("API Error")
@@ -877,7 +879,9 @@ class TestGetFieldNameAutoFetch:
 
         assert result is None
 
-    def test_returns_none_when_field_not_in_fetched_data(self, mock_jira, tmp_path):
+    def test_returns_none_when_field_not_in_fetched_data(
+        self, mock_jira, tmp_path
+    ) -> None:
         """Returns None when field not found even after auto-fetch."""
         schema_file = tmp_path / "nonexistent.json"
 
@@ -897,7 +901,7 @@ class TestGetFieldNameAutoFetch:
 
         assert result is None
 
-    def test_does_not_fetch_when_fields_cached(self, mock_jira, tmp_path):
+    def test_does_not_fetch_when_fields_cached(self, mock_jira, tmp_path) -> None:
         """Does not call API when fields are already cached."""
         schema_file = tmp_path / "schema.json"
         schema = {
@@ -929,7 +933,7 @@ class TestFieldCommand:
         path = tmp_path / f"editmeta_{project}_{issue_type}.yaml"
         path.write_text(_yaml.dump(data))
 
-    def test_suggests_similar_field_names(self, capsys, tmp_path):
+    def test_suggests_similar_field_names(self, capsys, tmp_path) -> None:
         """Shows 'did you mean' suggestions for close matches."""
         from zaira.info import field_command
         import argparse
@@ -957,7 +961,9 @@ class TestFieldCommand:
         assert "Did you mean" in captured.out
         assert "Story Points" in captured.out
 
-    def test_no_suggestions_for_completely_different_name(self, capsys, tmp_path):
+    def test_no_suggestions_for_completely_different_name(
+        self, capsys, tmp_path
+    ) -> None:
         """Falls back to plain 'not found' when nothing is close."""
         from zaira.info import field_command
         import argparse

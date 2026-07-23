@@ -20,27 +20,27 @@ from zaira.types import Attachment
 class TestNormalizeTitle:
     """Tests for normalize_title function."""
 
-    def test_lowercase_and_slugify(self):
+    def test_lowercase_and_slugify(self) -> None:
         """Converts to lowercase and replaces non-alphanumeric with dashes."""
         assert normalize_title("Hello World") == "hello-world"
         assert normalize_title("My Test Title") == "my-test-title"
 
-    def test_removes_special_characters(self):
+    def test_removes_special_characters(self) -> None:
         """Removes special characters."""
         assert normalize_title("Test: Special!") == "test-special"
         assert normalize_title("Feature (new)") == "feature-new"
 
-    def test_collapses_multiple_dashes(self):
+    def test_collapses_multiple_dashes(self) -> None:
         """Collapses multiple consecutive dashes."""
         assert normalize_title("Test---Multiple") == "test-multiple"
         assert normalize_title("A   B   C") == "a-b-c"
 
-    def test_strips_leading_trailing_dashes(self):
+    def test_strips_leading_trailing_dashes(self) -> None:
         """Strips leading and trailing dashes."""
         assert normalize_title("---Test---") == "test"
         assert normalize_title("!Test!") == "test"
 
-    def test_truncates_long_titles(self):
+    def test_truncates_long_titles(self) -> None:
         """Truncates titles longer than 50 characters at word boundary."""
         long_title = "This is a very long title that exceeds fifty characters easily"
         result = normalize_title(long_title)
@@ -48,11 +48,11 @@ class TestNormalizeTitle:
         # Should truncate at last dash before 50 chars
         assert not result.endswith("-")
 
-    def test_handles_empty_string(self):
+    def test_handles_empty_string(self) -> None:
         """Handles empty string."""
         assert normalize_title("") == ""
 
-    def test_handles_numbers(self):
+    def test_handles_numbers(self) -> None:
         """Preserves numbers in title."""
         assert normalize_title("Version 2.0 Release") == "version-2-0-release"
 
@@ -60,19 +60,19 @@ class TestNormalizeTitle:
 class TestExtractDescription:
     """Tests for extract_description function."""
 
-    def test_returns_no_description_for_none(self):
+    def test_returns_no_description_for_none(self) -> None:
         """Returns 'No description' for None input."""
         assert extract_description(None) == "No description"
 
-    def test_returns_no_description_for_empty_dict(self):
+    def test_returns_no_description_for_empty_dict(self) -> None:
         """Returns 'No description' for empty dict."""
         assert extract_description({}) == "No description"
 
-    def test_returns_string_as_is(self):
+    def test_returns_string_as_is(self) -> None:
         """Returns string input unchanged."""
         assert extract_description("Hello world") == "Hello world"
 
-    def test_extracts_text_from_adf(self):
+    def test_extracts_text_from_adf(self) -> None:
         """Extracts text from Atlassian Document Format."""
         adf = {
             "type": "doc",
@@ -88,7 +88,7 @@ class TestExtractDescription:
         }
         assert extract_description(adf) == "Hello world"
 
-    def test_handles_hard_break(self):
+    def test_handles_hard_break(self) -> None:
         """Handles hardBreak nodes."""
         adf = {
             "type": "paragraph",
@@ -100,7 +100,7 @@ class TestExtractDescription:
         }
         assert extract_description(adf) == "Line 1\nLine 2"
 
-    def test_handles_inline_card(self):
+    def test_handles_inline_card(self) -> None:
         """Handles inlineCard nodes (URLs)."""
         adf = {
             "type": "paragraph",
@@ -111,7 +111,7 @@ class TestExtractDescription:
         }
         assert extract_description(adf) == "See https://example.com"
 
-    def test_handles_nested_content(self):
+    def test_handles_nested_content(self) -> None:
         """Handles nested content structures."""
         adf = {
             "type": "doc",
@@ -134,7 +134,7 @@ class TestExtractDescription:
         }
         assert extract_description(adf) == "Item 1"
 
-    def test_handles_list_input(self):
+    def test_handles_list_input(self) -> None:
         """Handles list of content items."""
         content = [
             {"type": "text", "text": "First "},
@@ -146,18 +146,18 @@ class TestExtractDescription:
 class TestExtractCustomFieldValue:
     """Tests for extract_custom_field_value function."""
 
-    def test_returns_none_for_none(self):
+    def test_returns_none_for_none(self) -> None:
         """Returns None for None input."""
         assert extract_custom_field_value(None) is None
 
-    def test_returns_primitives_unchanged(self):
+    def test_returns_primitives_unchanged(self) -> None:
         """Returns primitive types unchanged."""
         assert extract_custom_field_value("string") == "string"
         assert extract_custom_field_value(42) == 42
         assert extract_custom_field_value(3.14) == 3.14
         assert extract_custom_field_value(True) is True
 
-    def test_extracts_value_attribute(self):
+    def test_extracts_value_attribute(self) -> None:
         """Extracts .value attribute from objects."""
         obj = MagicMock()
         obj.value = "extracted"
@@ -165,7 +165,7 @@ class TestExtractCustomFieldValue:
         del obj.key
         assert extract_custom_field_value(obj) == "extracted"
 
-    def test_extracts_name_attribute(self):
+    def test_extracts_name_attribute(self) -> None:
         """Extracts .name attribute when no .value."""
         obj = MagicMock()
         del obj.value
@@ -173,7 +173,7 @@ class TestExtractCustomFieldValue:
         del obj.key
         assert extract_custom_field_value(obj) == "named"
 
-    def test_extracts_key_attribute(self):
+    def test_extracts_key_attribute(self) -> None:
         """Extracts .key attribute when no .value or .name."""
         obj = MagicMock()
         del obj.value
@@ -181,15 +181,15 @@ class TestExtractCustomFieldValue:
         obj.key = "keyed"
         assert extract_custom_field_value(obj) == "keyed"
 
-    def test_handles_dict_with_value(self):
+    def test_handles_dict_with_value(self) -> None:
         """Extracts 'value' key from dict."""
         assert extract_custom_field_value({"value": "dict_value"}) == "dict_value"
 
-    def test_handles_dict_with_name(self):
+    def test_handles_dict_with_name(self) -> None:
         """Extracts 'name' key from dict when no 'value'."""
         assert extract_custom_field_value({"name": "dict_name"}) == "dict_name"
 
-    def test_handles_list_recursively(self):
+    def test_handles_list_recursively(self) -> None:
         """Recursively extracts values from lists."""
         obj1 = MagicMock()
         obj1.value = "first"
@@ -203,7 +203,7 @@ class TestExtractCustomFieldValue:
         result = extract_custom_field_value([obj1, obj2])
         assert result == ["first", "second"]
 
-    def test_converts_unknown_to_string(self):
+    def test_converts_unknown_to_string(self) -> None:
         """Converts unknown types to string."""
         obj = object()
         result = extract_custom_field_value(obj)
@@ -213,21 +213,21 @@ class TestExtractCustomFieldValue:
 class TestIsPlaceholderValue:
     """Tests for is_placeholder_value function."""
 
-    def test_none_is_placeholder(self):
+    def test_none_is_placeholder(self) -> None:
         """None is a placeholder."""
         assert is_placeholder_value(None) is True
 
-    def test_zero_number_is_placeholder(self):
+    def test_zero_number_is_placeholder(self) -> None:
         """Zero is a placeholder for numeric values."""
         assert is_placeholder_value(0) is True
         assert is_placeholder_value(0.0) is True
 
-    def test_empty_string_is_placeholder(self):
+    def test_empty_string_is_placeholder(self) -> None:
         """Empty or whitespace-only strings are placeholders."""
         assert is_placeholder_value("") is True
         assert is_placeholder_value("   ") is True
 
-    def test_known_placeholder_patterns(self):
+    def test_known_placeholder_patterns(self) -> None:
         """Known placeholder patterns are detected."""
         assert is_placeholder_value("?") is True
         assert is_placeholder_value("N/A") is True
@@ -237,19 +237,19 @@ class TestIsPlaceholderValue:
         assert is_placeholder_value("pending") is True
         assert is_placeholder_value("not applicable") is True
 
-    def test_real_values_not_placeholder(self):
+    def test_real_values_not_placeholder(self) -> None:
         """Real values are not placeholders."""
         assert is_placeholder_value("High") is False
         assert is_placeholder_value("Some description") is False
         assert is_placeholder_value(5) is False
         assert is_placeholder_value(3.14) is False
 
-    def test_list_with_only_na_values_is_placeholder(self):
+    def test_list_with_only_na_values_is_placeholder(self) -> None:
         """Lists with only N/A values are placeholders."""
         assert is_placeholder_value(["N/A", "none", ""]) is True
         assert is_placeholder_value([]) is True
 
-    def test_list_with_real_values_not_placeholder(self):
+    def test_list_with_real_values_not_placeholder(self) -> None:
         """Lists with real values are not placeholders."""
         assert is_placeholder_value(["N/A", "Real value"]) is False
         assert is_placeholder_value(["item1", "item2"]) is False
@@ -258,7 +258,7 @@ class TestIsPlaceholderValue:
 class TestIsNaValue:
     """Tests for _is_na_value function."""
 
-    def test_na_patterns(self):
+    def test_na_patterns(self) -> None:
         """Detects N/A patterns."""
         assert _is_na_value("N/A") is True
         assert _is_na_value("n/a") is True
@@ -267,12 +267,12 @@ class TestIsNaValue:
         assert _is_na_value("unknown") is True
         assert _is_na_value("") is True
 
-    def test_real_values(self):
+    def test_real_values(self) -> None:
         """Real values are not N/A."""
         assert _is_na_value("High") is False
         assert _is_na_value("123") is False
 
-    def test_non_string_values(self):
+    def test_non_string_values(self) -> None:
         """Non-string values return False."""
         assert _is_na_value(123) is False
         assert _is_na_value(None) is False
@@ -281,27 +281,27 @@ class TestIsNaValue:
 class TestIsBogusFieldName:
     """Tests for _is_bogus_field_name function."""
 
-    def test_warning_fields_are_bogus(self):
+    def test_warning_fields_are_bogus(self) -> None:
         """Fields starting with 'warning' are bogus."""
         assert _is_bogus_field_name("Warning Message") is True
         assert _is_bogus_field_name("warning: something") is True
 
-    def test_rank_fields_are_bogus(self):
+    def test_rank_fields_are_bogus(self) -> None:
         """Fields starting with 'rank' are bogus."""
         assert _is_bogus_field_name("Rank") is True
         assert _is_bogus_field_name("rank (global)") is True
 
-    def test_comment_fields_are_bogus(self):
+    def test_comment_fields_are_bogus(self) -> None:
         """Fields containing 'comment' are bogus."""
         assert _is_bogus_field_name("Comment") is True
         assert _is_bogus_field_name("Latest Comment") is True
 
-    def test_checklist_fields_are_bogus(self):
+    def test_checklist_fields_are_bogus(self) -> None:
         """Fields starting with 'checklist' are bogus."""
         assert _is_bogus_field_name("Checklist") is True
         assert _is_bogus_field_name("Checklist Progress") is True
 
-    def test_valid_fields_not_bogus(self):
+    def test_valid_fields_not_bogus(self) -> None:
         """Valid field names are not bogus."""
         assert _is_bogus_field_name("Story Points") is False
         assert _is_bogus_field_name("Sprint") is False
@@ -311,30 +311,30 @@ class TestIsBogusFieldName:
 class TestFormatCustomFieldValue:
     """Tests for format_custom_field_value function."""
 
-    def test_null_value(self):
+    def test_null_value(self) -> None:
         """None formats as 'null'."""
         assert format_custom_field_value(None) == "null"
 
-    def test_boolean_values(self):
+    def test_boolean_values(self) -> None:
         """Booleans format as lowercase strings."""
         assert format_custom_field_value(True) == "true"
         assert format_custom_field_value(False) == "false"
 
-    def test_numeric_values(self):
+    def test_numeric_values(self) -> None:
         """Numbers format as strings."""
         assert format_custom_field_value(42) == "42"
         assert format_custom_field_value(3.14) == "3.14"
 
-    def test_empty_list(self):
+    def test_empty_list(self) -> None:
         """Empty list formats as '[]'."""
         assert format_custom_field_value([]) == "[]"
 
-    def test_list_values(self):
+    def test_list_values(self) -> None:
         """Lists format as bracketed, comma-separated values."""
         result = format_custom_field_value(["a", "b", "c"])
         assert result == "[a, b, c]"
 
-    def test_string_values(self):
+    def test_string_values(self) -> None:
         """Strings are quoted for YAML."""
         result = format_custom_field_value("hello world")
         # Should be quoted
@@ -344,7 +344,7 @@ class TestFormatCustomFieldValue:
 class TestFormatTicketMarkdown:
     """Tests for format_ticket_markdown function."""
 
-    def test_basic_ticket_format(self):
+    def test_basic_ticket_format(self) -> None:
         """Formats a basic ticket correctly."""
         from zaira.export import format_ticket_markdown
 
@@ -375,7 +375,7 @@ class TestFormatTicketMarkdown:
         assert "_No links_" in result
         assert "_No comments_" in result
 
-    def test_ticket_with_comments(self):
+    def test_ticket_with_comments(self) -> None:
         """Formats ticket with comments."""
         from zaira.export import format_ticket_markdown
         from zaira.types import Comment
@@ -408,7 +408,7 @@ class TestFormatTicketMarkdown:
         assert "### Bob (2024-01-16)" in result
         assert "Second comment" in result
 
-    def test_ticket_with_links(self):
+    def test_ticket_with_links(self) -> None:
         """Formats ticket with issue links."""
         from zaira.export import format_ticket_markdown
 
@@ -445,7 +445,7 @@ class TestFormatTicketMarkdown:
         assert "Blocks: TEST-100 - Blocked ticket" in result
         assert "Relates (inward): TEST-200 - Related ticket" in result
 
-    def test_ticket_with_parent(self):
+    def test_ticket_with_parent(self) -> None:
         """Formats ticket with parent reference."""
         from zaira.export import format_ticket_markdown
 
@@ -468,7 +468,7 @@ class TestFormatTicketMarkdown:
 
         assert "parent: TEST-PARENT" in result
 
-    def test_ticket_with_attachments(self):
+    def test_ticket_with_attachments(self) -> None:
         """Formats ticket with attachments."""
         from zaira.export import format_ticket_markdown
 
@@ -501,7 +501,7 @@ class TestFormatTicketMarkdown:
         assert "screenshot.png" in result
         assert "100 KB" in result  # 102400 bytes / 1024
 
-    def test_ticket_with_pull_requests(self):
+    def test_ticket_with_pull_requests(self) -> None:
         """Formats ticket with linked PRs."""
         from zaira.export import format_ticket_markdown
 
@@ -537,7 +537,7 @@ class TestFormatTicketMarkdown:
 class TestFormatTicketJson:
     """Tests for format_ticket_json function."""
 
-    def test_basic_json_format(self):
+    def test_basic_json_format(self) -> None:
         """Formats ticket as valid JSON."""
         import json
         from zaira.export import format_ticket_json
@@ -565,7 +565,7 @@ class TestFormatTicketJson:
         assert len(data["comments"]) == 1
         assert data["comments"][0]["author"] == "Alice"
 
-    def test_json_preserves_all_fields(self):
+    def test_json_preserves_all_fields(self) -> None:
         """JSON output preserves all ticket fields."""
         import json
         from zaira.export import format_ticket_json
@@ -589,7 +589,7 @@ class TestFormatTicketJson:
 class TestTicketMarkdownCustomFields:
     """Tests for format_ticket_markdown with custom fields."""
 
-    def test_includes_custom_fields(self):
+    def test_includes_custom_fields(self) -> None:
         """Includes custom fields in YAML front matter."""
         from zaira.export import format_ticket_markdown
 
@@ -617,7 +617,7 @@ class TestTicketMarkdownCustomFields:
         assert "Story Points: 5" in result
         assert "Sprint: Sprint 10" in result
 
-    def test_handles_empty_description(self):
+    def test_handles_empty_description(self) -> None:
         """Handles empty/None description."""
         from zaira.export import format_ticket_markdown
 
@@ -640,7 +640,7 @@ class TestTicketMarkdownCustomFields:
 
         assert "No description" in result
 
-    def test_formats_components_and_labels(self):
+    def test_formats_components_and_labels(self) -> None:
         """Formats components and labels lists."""
         from zaira.export import format_ticket_markdown
 
@@ -671,7 +671,7 @@ class TestTicketMarkdownCustomFields:
 class TestExtractDescriptionEdgeCases:
     """Additional edge cases for extract_description."""
 
-    def test_handles_empty_content_list(self):
+    def test_handles_empty_content_list(self) -> None:
         """Handles ADF with empty content list."""
         from zaira.export import extract_description
 
@@ -679,7 +679,7 @@ class TestExtractDescriptionEdgeCases:
         result = extract_description(adf)
         assert result == ""
 
-    def test_handles_deeply_nested_content(self):
+    def test_handles_deeply_nested_content(self) -> None:
         """Handles deeply nested ADF content."""
         from zaira.export import extract_description
 
@@ -706,7 +706,7 @@ class TestExtractDescriptionEdgeCases:
 class TestGetTicket:
     """Tests for get_ticket function."""
 
-    def test_returns_ticket_data(self, mock_jira):
+    def test_returns_ticket_data(self, mock_jira) -> None:
         """Returns formatted ticket data."""
         from zaira.export import get_ticket
 
@@ -738,7 +738,7 @@ class TestGetTicket:
         assert result["status"] == "Open"
         assert result["labels"] == ["bug"]
 
-    def test_returns_none_on_error(self, mock_jira, capsys):
+    def test_returns_none_on_error(self, mock_jira, capsys) -> None:
         """Returns None when ticket fetch fails."""
         from zaira.export import get_ticket
 
@@ -750,7 +750,7 @@ class TestGetTicket:
         captured = capsys.readouterr()
         assert "Error fetching" in captured.out
 
-    def test_includes_parent_info(self, mock_jira):
+    def test_includes_parent_info(self, mock_jira) -> None:
         """Includes parent information when present."""
         from zaira.export import get_ticket
 
@@ -786,7 +786,7 @@ class TestGetTicket:
         assert parent["key"] == "EPIC-1"
         assert parent["summary"] == "Epic ticket"
 
-    def test_includes_issue_links(self, mock_jira):
+    def test_includes_issue_links(self, mock_jira) -> None:
         """Includes issue link information."""
         from zaira.export import get_ticket
 
@@ -827,7 +827,7 @@ class TestGetTicket:
         assert result["issuelinks"][0]["key"] == "TEST-2"
         assert result["issuelinks"][0]["direction"] == "outward"
 
-    def test_includes_custom_fields(self, mock_jira):
+    def test_includes_custom_fields(self, mock_jira) -> None:
         """Includes custom fields when requested."""
         from zaira.export import get_ticket
         from unittest.mock import patch
@@ -860,7 +860,7 @@ class TestGetTicket:
         assert "custom_fields" in result
         assert result["custom_fields"]["Story Points"] == 5
 
-    def test_includes_full_fields_for_json(self, mock_jira):
+    def test_includes_full_fields_for_json(self, mock_jira) -> None:
         """Includes extra fields when full=True."""
         from zaira.export import get_ticket
 
@@ -901,7 +901,7 @@ class TestGetTicket:
         assert result["votes"] == 5
         assert result["watches"] == 3
 
-    def test_includes_attachments(self, mock_jira):
+    def test_includes_attachments(self, mock_jira) -> None:
         """Includes attachment metadata when requested."""
         from zaira.export import get_ticket
 
@@ -945,7 +945,7 @@ class TestGetTicket:
 class TestGetComments:
     """Tests for get_comments function."""
 
-    def test_returns_comments(self, mock_jira):
+    def test_returns_comments(self, mock_jira) -> None:
         """Returns formatted comment list."""
         from zaira.export import get_comments
 
@@ -965,7 +965,7 @@ class TestGetComments:
         assert result[0].author == "Alice"
         assert result[0].body == "This is a comment"
 
-    def test_returns_empty_on_error(self, mock_jira):
+    def test_returns_empty_on_error(self, mock_jira) -> None:
         """Returns empty list on error."""
         from zaira.export import get_comments
 
@@ -975,7 +975,7 @@ class TestGetComments:
 
         assert result == []
 
-    def test_handles_adf_body(self, mock_jira):
+    def test_handles_adf_body(self, mock_jira) -> None:
         """Handles ADF format comment body."""
         from zaira.export import get_comments
 
@@ -1009,7 +1009,7 @@ class TestGetComments:
 class TestGetPullRequests:
     """Tests for get_pull_requests function."""
 
-    def test_returns_pull_requests(self, mock_jira):
+    def test_returns_pull_requests(self, mock_jira) -> None:
         """Returns formatted PR list."""
         from zaira.export import get_pull_requests
 
@@ -1040,7 +1040,7 @@ class TestGetPullRequests:
         assert result[0]["name"] == "Fix bug"
         assert result[0]["status"] == "MERGED"
 
-    def test_returns_empty_on_error(self, mock_jira):
+    def test_returns_empty_on_error(self, mock_jira) -> None:
         """Returns empty list on error."""
         from zaira.export import get_pull_requests
 
@@ -1054,7 +1054,7 @@ class TestGetPullRequests:
 class TestDownloadAttachment:
     """Tests for download_attachment function."""
 
-    def test_downloads_file(self, mock_jira, tmp_path):
+    def test_downloads_file(self, mock_jira, tmp_path) -> None:
         """Downloads attachment to specified directory."""
         from zaira.export import download_attachment
 
@@ -1080,7 +1080,7 @@ class TestDownloadAttachment:
         assert (output_dir / "test.txt").exists()
         assert (output_dir / "test.txt").read_bytes() == b"file content"
 
-    def test_skips_large_files(self, mock_jira, tmp_path, capsys):
+    def test_skips_large_files(self, mock_jira, tmp_path, capsys) -> None:
         """Skips files larger than 10MB."""
         from zaira.export import download_attachment
 
@@ -1101,7 +1101,7 @@ class TestDownloadAttachment:
         assert "Skipping" in captured.out
         assert "10 MB limit" in captured.out
 
-    def test_handles_download_error(self, mock_jira, tmp_path, capsys):
+    def test_handles_download_error(self, mock_jira, tmp_path, capsys) -> None:
         """Handles download errors gracefully."""
         from zaira.export import download_attachment
 
@@ -1135,7 +1135,7 @@ class TestGetAttachmentCommand:
             "attachments": attachments,
         }
 
-    def test_downloads_matching_attachments(self, mock_jira, tmp_path, capsys):
+    def test_downloads_matching_attachments(self, mock_jira, tmp_path, capsys) -> None:
         """Downloads attachments that match the pattern."""
         from zaira.export import get_attachment_command
 
@@ -1164,7 +1164,7 @@ class TestGetAttachmentCommand:
         assert (tmp_path / "summary.pdf").exists()
         assert not (tmp_path / "image.png").exists()
 
-    def test_no_match_lists_available(self, mock_jira, capsys):
+    def test_no_match_lists_available(self, mock_jira, capsys) -> None:
         """Shows available attachments when none match."""
         from zaira.export import get_attachment_command
 
@@ -1182,7 +1182,7 @@ class TestGetAttachmentCommand:
         assert "No attachments matching '*.pdf'" in captured.out
         assert "data.csv" in captured.out
 
-    def test_no_attachments(self, mock_jira, capsys):
+    def test_no_attachments(self, mock_jira, capsys) -> None:
         """Handles ticket with no attachments."""
         from zaira.export import get_attachment_command
 
@@ -1195,7 +1195,7 @@ class TestGetAttachmentCommand:
         captured = capsys.readouterr()
         assert "No attachments on TEST-123" in captured.out
 
-    def test_ticket_fetch_error(self, mock_jira, capsys):
+    def test_ticket_fetch_error(self, mock_jira, capsys) -> None:
         """Exits on ticket fetch failure."""
         from zaira.export import get_attachment_command
 
@@ -1207,7 +1207,9 @@ class TestGetAttachmentCommand:
 
         assert exc_info.value.code == 1
 
-    def test_defaults_to_current_dir(self, mock_jira, tmp_path, capsys, monkeypatch):
+    def test_defaults_to_current_dir(
+        self, mock_jira, tmp_path, capsys, monkeypatch
+    ) -> None:
         """Uses current directory when no output specified."""
         from zaira.export import get_attachment_command
 
@@ -1234,7 +1236,7 @@ class TestGetAttachmentCommand:
 class TestSearchTickets:
     """Tests for search_tickets function (export module version)."""
 
-    def test_returns_ticket_keys(self, mock_jira):
+    def test_returns_ticket_keys(self, mock_jira) -> None:
         """Returns list of ticket keys."""
         from zaira.export import search_tickets
 
@@ -1249,7 +1251,7 @@ class TestSearchTickets:
 
         assert result == ["TEST-1", "TEST-2"]
 
-    def test_returns_empty_on_error(self, mock_jira, capsys):
+    def test_returns_empty_on_error(self, mock_jira, capsys) -> None:
         """Returns empty list on error."""
         from zaira.export import search_tickets
 
@@ -1265,7 +1267,7 @@ class TestSearchTickets:
 class TestExportTicket:
     """Tests for export_ticket function."""
 
-    def test_exports_markdown(self, mock_jira, tmp_path, capsys):
+    def test_exports_markdown(self, mock_jira, tmp_path, capsys) -> None:
         """Exports ticket to markdown file."""
         from zaira.export import export_ticket
         from unittest.mock import patch
@@ -1302,7 +1304,7 @@ class TestExportTicket:
         assert "key: TEST-1" in content
         assert "# TEST-1: Test ticket" in content
 
-    def test_exports_json(self, mock_jira, tmp_path):
+    def test_exports_json(self, mock_jira, tmp_path) -> None:
         """Exports ticket to JSON file."""
         from zaira.export import export_ticket
         from unittest.mock import patch
@@ -1348,7 +1350,7 @@ class TestExportTicket:
         data = json.loads(files[0].read_text())
         assert data["key"] == "TEST-2"
 
-    def test_returns_false_on_fetch_error(self, mock_jira, tmp_path, capsys):
+    def test_returns_false_on_fetch_error(self, mock_jira, tmp_path, capsys) -> None:
         """Returns False when ticket fetch fails."""
         from zaira.export import export_ticket
 
@@ -1358,7 +1360,7 @@ class TestExportTicket:
 
         assert result is False
 
-    def test_creates_component_symlinks(self, mock_jira, tmp_path):
+    def test_creates_component_symlinks(self, mock_jira, tmp_path) -> None:
         """Creates symlinks by component."""
         from zaira.export import export_ticket
         from unittest.mock import patch
@@ -1401,7 +1403,7 @@ class TestExportTicket:
 class TestExportToStdout:
     """Tests for export_to_stdout function."""
 
-    def test_outputs_markdown_to_stdout(self, mock_jira, capsys):
+    def test_outputs_markdown_to_stdout(self, mock_jira, capsys) -> None:
         """Outputs markdown to stdout."""
         from zaira.export import export_to_stdout
         from unittest.mock import patch
@@ -1435,7 +1437,7 @@ class TestExportToStdout:
         assert "key: TEST-1" in captured.out
         assert "# TEST-1: Stdout test" in captured.out
 
-    def test_outputs_json_to_stdout(self, mock_jira, capsys):
+    def test_outputs_json_to_stdout(self, mock_jira, capsys) -> None:
         """Outputs JSON to stdout."""
         from zaira.export import export_to_stdout
         from unittest.mock import patch
@@ -1479,7 +1481,7 @@ class TestExportToStdout:
         data = json.loads(captured.out)
         assert data["key"] == "TEST-2"
 
-    def test_returns_false_on_error(self, mock_jira, capsys):
+    def test_returns_false_on_error(self, mock_jira, capsys) -> None:
         """Returns False when ticket fetch fails."""
         from zaira.export import export_to_stdout
 
@@ -1491,7 +1493,7 @@ class TestExportToStdout:
         captured = capsys.readouterr()
         assert "Error: Could not fetch" in captured.err
 
-    def test_body_field_promotes_paragraph_field(self, mock_jira, capsys):
+    def test_body_field_promotes_paragraph_field(self, mock_jira, capsys) -> None:
         """--field promotes a paragraph (textarea) field to body with field: in front matter."""
         from zaira.export import export_to_stdout
         from unittest.mock import patch
@@ -1533,7 +1535,7 @@ class TestExportToStdout:
         # Body should contain the promoted field content as description
         assert "Solution content" in captured.out
 
-    def test_body_field_minimal_output(self, mock_jira, capsys):
+    def test_body_field_minimal_output(self, mock_jira, capsys) -> None:
         """--field with --min emits field: in front matter."""
         from zaira.export import export_to_stdout
         from unittest.mock import patch
@@ -1572,7 +1574,7 @@ class TestExportToStdout:
         assert "field: My Field" in captured.out
         assert "Field body" in captured.out
 
-    def test_body_field_not_found_warns(self, mock_jira, capsys):
+    def test_body_field_not_found_warns(self, mock_jira, capsys) -> None:
         """--field with unknown field name warns but still outputs."""
         from zaira.export import export_to_stdout
         from unittest.mock import patch
@@ -1610,7 +1612,7 @@ class TestExportToStdout:
 class TestExportCommand:
     """Tests for export_command function."""
 
-    def test_exports_to_stdout_by_default(self, mock_jira, capsys):
+    def test_exports_to_stdout_by_default(self, mock_jira, capsys) -> None:
         """Exports to stdout by default."""
         from zaira.export import export_command
         from unittest.mock import patch
@@ -1655,7 +1657,7 @@ class TestExportCommand:
         captured = capsys.readouterr()
         assert "TEST-1" in captured.out
 
-    def test_exports_to_files(self, mock_jira, tmp_path, capsys):
+    def test_exports_to_files(self, mock_jira, tmp_path, capsys) -> None:
         """Exports to files when --files is set."""
         from zaira.export import export_command
         from unittest.mock import patch
@@ -1701,7 +1703,9 @@ class TestExportCommand:
         files = list(tmp_path.glob("TEST-1*.md"))
         assert len(files) == 1
 
-    def test_uses_tickets_dir_from_config(self, mock_jira, tmp_path, monkeypatch):
+    def test_uses_tickets_dir_from_config(
+        self, mock_jira, tmp_path, monkeypatch
+    ) -> None:
         """Uses tickets_dir from zproject.toml when no -o given."""
         from zaira.export import export_command
         from unittest.mock import patch
@@ -1751,7 +1755,7 @@ class TestExportCommand:
         files = list(custom_dir.glob("TEST-1*.md"))
         assert len(files) == 1
 
-    def test_searches_with_jql(self, mock_jira, capsys):
+    def test_searches_with_jql(self, mock_jira, capsys) -> None:
         """Searches for tickets using JQL."""
         from zaira.export import export_command
         from unittest.mock import patch
@@ -1800,7 +1804,7 @@ class TestExportCommand:
         captured = capsys.readouterr()
         assert "TEST-1" in captured.out
 
-    def test_exits_when_no_tickets(self, mock_jira, capsys):
+    def test_exits_when_no_tickets(self, mock_jira, capsys) -> None:
         """Exits when no tickets specified or found."""
         from zaira.export import export_command
         import argparse
@@ -1824,7 +1828,7 @@ class TestExportCommand:
         captured = capsys.readouterr()
         assert "No tickets specified" in captured.out
 
-    def test_uses_board_jql(self, mock_jira, capsys):
+    def test_uses_board_jql(self, mock_jira, capsys) -> None:
         """Uses board to generate JQL."""
         from zaira.export import export_command
         from unittest.mock import patch
@@ -1876,7 +1880,7 @@ class TestExportCommand:
         captured = capsys.readouterr()
         assert "TEST-1" in captured.out
 
-    def test_uses_sprint_jql(self, mock_jira, capsys):
+    def test_uses_sprint_jql(self, mock_jira, capsys) -> None:
         """Uses sprint to generate JQL."""
         from zaira.export import export_command
         from unittest.mock import patch

@@ -11,7 +11,7 @@ from zaira.errors import CredentialsNotConfigured
 class TestGetSchemaPath:
     """Tests for get_schema_path function."""
 
-    def test_returns_path(self):
+    def test_returns_path(self) -> None:
         """Returns schema path."""
         result = jira_client.get_schema_path()
 
@@ -21,7 +21,7 @@ class TestGetSchemaPath:
 class TestGetProjectSchemaPath:
     """Tests for get_project_schema_path function."""
 
-    def test_returns_path_with_project(self):
+    def test_returns_path_with_project(self) -> None:
         """Returns schema path with project."""
         result = jira_client.get_project_schema_path("PROJ")
 
@@ -31,7 +31,7 @@ class TestGetProjectSchemaPath:
 class TestGetServerFromConfig:
     """Tests for get_server_from_config function."""
 
-    def test_returns_site_from_credentials(self, tmp_path, monkeypatch):
+    def test_returns_site_from_credentials(self, tmp_path, monkeypatch) -> None:
         """Returns site from credentials file."""
         with patch.object(
             jira_client,
@@ -42,7 +42,7 @@ class TestGetServerFromConfig:
 
         assert result == "https://example.atlassian.net"
 
-    def test_adds_https_prefix(self, tmp_path, monkeypatch):
+    def test_adds_https_prefix(self, tmp_path, monkeypatch) -> None:
         """Adds https:// prefix when missing."""
         with patch.object(
             jira_client, "load_credentials", return_value={"site": "jira.example.com"}
@@ -51,7 +51,7 @@ class TestGetServerFromConfig:
 
         assert result == "https://jira.example.com"
 
-    def test_preserves_https_prefix(self, tmp_path, monkeypatch):
+    def test_preserves_https_prefix(self, tmp_path, monkeypatch) -> None:
         """Preserves https:// prefix when present."""
         with patch.object(
             jira_client,
@@ -62,7 +62,7 @@ class TestGetServerFromConfig:
 
         assert result == "https://jira.example.com"
 
-    def test_returns_none_when_no_site(self, tmp_path, monkeypatch):
+    def test_returns_none_when_no_site(self, tmp_path, monkeypatch) -> None:
         """Returns None when no site configured."""
         monkeypatch.chdir(tmp_path)
 
@@ -75,7 +75,7 @@ class TestGetServerFromConfig:
 class TestLoadCredentials:
     """Tests for load_credentials function."""
 
-    def test_loads_credentials_file(self, tmp_path, monkeypatch):
+    def test_loads_credentials_file(self, tmp_path, monkeypatch) -> None:
         """Loads and parses credentials file."""
         creds_dir = tmp_path / "config"
         creds_dir.mkdir()
@@ -88,7 +88,7 @@ class TestLoadCredentials:
         assert result["email"] == "user@example.com"
         assert result["api_token"] == "secret"
 
-    def test_returns_empty_dict_when_missing(self, tmp_path, monkeypatch):
+    def test_returns_empty_dict_when_missing(self, tmp_path, monkeypatch) -> None:
         """Returns empty dict when credentials file doesn't exist."""
         creds_file = tmp_path / "nonexistent.toml"
 
@@ -101,7 +101,7 @@ class TestLoadCredentials:
 class TestGetCredentials:
     """Tests for complete credential loading."""
 
-    def test_raises_application_error_when_credentials_are_missing(self):
+    def test_raises_application_error_when_credentials_are_missing(self) -> None:
         """Missing credentials do not terminate programmatic callers."""
         with (
             patch.object(jira_client, "get_server_from_config", return_value=None),
@@ -117,7 +117,7 @@ class TestGetCredentials:
 class TestGetJiraSite:
     """Tests for get_jira_site function."""
 
-    def test_returns_site_without_protocol(self, tmp_path, monkeypatch):
+    def test_returns_site_without_protocol(self, tmp_path, monkeypatch) -> None:
         """Returns site name without https://."""
         with patch.object(
             jira_client,
@@ -128,7 +128,7 @@ class TestGetJiraSite:
 
         assert result == "example.atlassian.net"
 
-    def test_strips_http_protocol(self, tmp_path, monkeypatch):
+    def test_strips_http_protocol(self, tmp_path, monkeypatch) -> None:
         """Strips http:// from site."""
         with patch.object(
             jira_client,
@@ -139,7 +139,7 @@ class TestGetJiraSite:
 
         assert result == "jira.example.com"
 
-    def test_returns_site_as_is_without_protocol(self, tmp_path, monkeypatch):
+    def test_returns_site_as_is_without_protocol(self, tmp_path, monkeypatch) -> None:
         """Returns site as-is when no protocol."""
         with patch.object(
             jira_client, "load_credentials", return_value={"site": "jira.example.com"}
@@ -152,7 +152,7 @@ class TestGetJiraSite:
 class TestJiraClientInjection:
     """Tests for JIRA client injection (mock support)."""
 
-    def test_set_jira_injects_client(self):
+    def test_set_jira_injects_client(self) -> None:
         """set_jira injects a mock client."""
         mock = MagicMock()
         jira_client.set_jira(mock)
@@ -163,7 +163,7 @@ class TestJiraClientInjection:
         finally:
             jira_client.reset_jira()
 
-    def test_reset_jira_clears_injection(self):
+    def test_reset_jira_clears_injection(self) -> None:
         """reset_jira clears the injected client."""
         mock = MagicMock()
         jira_client.set_jira(mock)
@@ -172,7 +172,7 @@ class TestJiraClientInjection:
         # Can't test get_jira() without credentials, but we can verify the global is None
         assert jira_client._jira_client is None
 
-    def test_set_jira_none_clears_injection(self):
+    def test_set_jira_none_clears_injection(self) -> None:
         """set_jira(None) clears the injected client."""
         mock = MagicMock()
         jira_client.set_jira(mock)

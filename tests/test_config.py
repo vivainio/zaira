@@ -10,14 +10,14 @@ from zaira import config
 class TestFindProjectRoot:
     """Tests for find_project_root function."""
 
-    def test_finds_root_in_current_dir(self, tmp_path):
+    def test_finds_root_in_current_dir(self, tmp_path) -> None:
         """Finds project root when zproject.toml is in current directory."""
         (tmp_path / "zproject.toml").touch()
         with patch.object(Path, "cwd", return_value=tmp_path):
             result = config.find_project_root()
         assert result == tmp_path
 
-    def test_finds_root_in_parent_dir(self, tmp_path):
+    def test_finds_root_in_parent_dir(self, tmp_path) -> None:
         """Finds project root when zproject.toml is in parent directory."""
         (tmp_path / "zproject.toml").touch()
         subdir = tmp_path / "src" / "module"
@@ -26,7 +26,7 @@ class TestFindProjectRoot:
             result = config.find_project_root()
         assert result == tmp_path
 
-    def test_returns_none_when_not_found(self, tmp_path):
+    def test_returns_none_when_not_found(self, tmp_path) -> None:
         """Returns None when no zproject.toml found."""
         subdir = tmp_path / "src"
         subdir.mkdir()
@@ -40,7 +40,7 @@ class TestFindProjectRoot:
 class TestGetProjectDir:
     """Tests for get_project_dir function."""
 
-    def test_returns_subdir_of_project_root(self, tmp_path):
+    def test_returns_subdir_of_project_root(self, tmp_path) -> None:
         """Returns subdirectory under project root when found."""
         (tmp_path / "zproject.toml").touch()
         with patch.object(Path, "cwd", return_value=tmp_path):
@@ -48,7 +48,7 @@ class TestGetProjectDir:
                 result = config.get_project_dir("tickets")
         assert result == tmp_path / "tickets"
 
-    def test_returns_subdir_of_cwd_when_no_project(self, tmp_path):
+    def test_returns_subdir_of_cwd_when_no_project(self, tmp_path) -> None:
         """Returns subdirectory under cwd when no project root found."""
         with patch.object(Path, "cwd", return_value=tmp_path):
             with patch("zaira.config.find_project_root", return_value=None):
@@ -59,7 +59,7 @@ class TestGetProjectDir:
 class TestRuntimeDirectories:
     """Tests for paths that must follow the active working directory."""
 
-    def test_reports_dir_is_resolved_at_call_time(self, tmp_path):
+    def test_reports_dir_is_resolved_at_call_time(self, tmp_path) -> None:
         """Changing project context after import changes the reports path."""
         first = tmp_path / "first"
         second = tmp_path / "second"
@@ -82,7 +82,7 @@ class TestRuntimeDirectories:
 class TestFindProjectRootEdgeCases:
     """Edge cases for find_project_root function."""
 
-    def test_handles_permission_error(self, tmp_path, monkeypatch):
+    def test_handles_permission_error(self, tmp_path, monkeypatch) -> None:
         """Handles permission denied when traversing directories."""
         # Create a directory structure
         subdir = tmp_path / "restricted" / "deep"
@@ -104,7 +104,7 @@ class TestFindProjectRootEdgeCases:
         # Function should handle the error gracefully
         assert result is None or isinstance(result, Path)
 
-    def test_stops_at_filesystem_root(self, monkeypatch):
+    def test_stops_at_filesystem_root(self, monkeypatch) -> None:
         """Stops searching when reaching filesystem root."""
         # Mock cwd to be at root with no zproject.toml
         root = Path("/")
@@ -115,7 +115,7 @@ class TestFindProjectRootEdgeCases:
 
         assert result is None
 
-    def test_returns_none_for_empty_directory(self, tmp_path):
+    def test_returns_none_for_empty_directory(self, tmp_path) -> None:
         """Returns None when directory is empty."""
         empty_dir = tmp_path / "empty"
         empty_dir.mkdir()
@@ -125,7 +125,7 @@ class TestFindProjectRootEdgeCases:
 
         assert result is None
 
-    def test_handles_deeply_nested_directory(self, tmp_path):
+    def test_handles_deeply_nested_directory(self, tmp_path) -> None:
         """Finds project root in deeply nested directory structure."""
         (tmp_path / "zproject.toml").touch()
 
@@ -144,7 +144,7 @@ class TestFindProjectRootEdgeCases:
 class TestGetProjectDirEdgeCases:
     """Edge cases for get_project_dir function."""
 
-    def test_handles_special_characters_in_subdir(self, tmp_path):
+    def test_handles_special_characters_in_subdir(self, tmp_path) -> None:
         """Handles special characters in subdirectory names."""
         (tmp_path / "zproject.toml").touch()
 
@@ -154,7 +154,7 @@ class TestGetProjectDirEdgeCases:
 
         assert result == tmp_path / "my-tickets_2024"
 
-    def test_returns_path_even_if_not_exists(self, tmp_path):
+    def test_returns_path_even_if_not_exists(self, tmp_path) -> None:
         """Returns path even if the subdirectory doesn't exist yet."""
         (tmp_path / "zproject.toml").touch()
 

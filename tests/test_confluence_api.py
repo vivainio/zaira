@@ -8,7 +8,7 @@ from zaira import confluence_api
 class TestApiOverrides:
     """Tests for API override mechanism."""
 
-    def test_set_api_stores_override(self):
+    def test_set_api_stores_override(self) -> None:
         """set_api stores function override."""
 
         def mock_fn() -> str:
@@ -21,7 +21,7 @@ class TestApiOverrides:
         finally:
             confluence_api.reset_api()
 
-    def test_reset_api_clears_overrides(self):
+    def test_reset_api_clears_overrides(self) -> None:
         """reset_api clears all overrides."""
         confluence_api.set_api("func1", lambda: 1)
         confluence_api.set_api("func2", lambda: 2)
@@ -34,7 +34,7 @@ class TestApiOverrides:
 class TestFetchPage:
     """Tests for fetch_page with mock overrides."""
 
-    def test_uses_override_when_set(self, mock_confluence):
+    def test_uses_override_when_set(self, mock_confluence) -> None:
         """Uses override function when set."""
         confluence_api.set_api(
             "fetch_page", lambda page_id, expand: {"id": page_id, "title": "Mocked"}
@@ -50,7 +50,7 @@ class TestFetchPage:
 class TestCreatePage:
     """Tests for create_page with mock overrides."""
 
-    def test_uses_override_when_set(self, mock_confluence):
+    def test_uses_override_when_set(self, mock_confluence) -> None:
         """Uses override function when set."""
         confluence_api.set_api(
             "create_page",
@@ -72,7 +72,7 @@ class TestCreatePage:
 class TestUpdatePage:
     """Tests for update_page with mock overrides."""
 
-    def test_uses_override_when_set(self, mock_confluence):
+    def test_uses_override_when_set(self, mock_confluence) -> None:
         """Uses override function when set."""
         confluence_api.set_api(
             "update_page",
@@ -94,7 +94,7 @@ class TestUpdatePage:
 class TestDeletePage:
     """Tests for delete_page with mock overrides."""
 
-    def test_uses_override_when_set(self, mock_confluence):
+    def test_uses_override_when_set(self, mock_confluence) -> None:
         """Uses override function when set."""
         confluence_api.set_api("delete_page", lambda page_id: True)
 
@@ -106,7 +106,7 @@ class TestDeletePage:
 class TestGetChildPages:
     """Tests for get_child_pages with mock overrides."""
 
-    def test_uses_override_when_set(self, mock_confluence):
+    def test_uses_override_when_set(self, mock_confluence) -> None:
         """Uses override function when set."""
         confluence_api.set_api(
             "get_child_pages",
@@ -125,7 +125,7 @@ class TestGetChildPages:
 class TestSearchPages:
     """Tests for search_pages with mock overrides."""
 
-    def test_uses_override_when_set(self, mock_confluence):
+    def test_uses_override_when_set(self, mock_confluence) -> None:
         """Uses override function when set."""
         confluence_api.set_api(
             "search_pages",
@@ -144,7 +144,7 @@ class TestSearchPages:
 class TestGetPageLabels:
     """Tests for get_page_labels with mock overrides."""
 
-    def test_uses_override_when_set(self, mock_confluence):
+    def test_uses_override_when_set(self, mock_confluence) -> None:
         """Uses override function when set."""
         confluence_api.set_api(
             "get_page_labels", lambda page_id: ["label1", "label2", "label3"]
@@ -158,7 +158,7 @@ class TestGetPageLabels:
 class TestAddPageLabels:
     """Tests for add_page_labels with mock overrides."""
 
-    def test_uses_override_when_set(self, mock_confluence):
+    def test_uses_override_when_set(self, mock_confluence) -> None:
         """Uses override function when set."""
         confluence_api.set_api("add_page_labels", lambda page_id, labels: True)
 
@@ -166,7 +166,7 @@ class TestAddPageLabels:
 
         assert result is True
 
-    def test_returns_true_for_empty_labels(self, mock_confluence):
+    def test_returns_true_for_empty_labels(self, mock_confluence) -> None:
         """Returns True immediately for empty labels list."""
         # No override needed - function handles this internally
         result = confluence_api.add_page_labels("123", [])
@@ -177,7 +177,7 @@ class TestAddPageLabels:
 class TestSetPageLabels:
     """Tests for set_page_labels with mock overrides."""
 
-    def test_uses_override_when_set(self, mock_confluence):
+    def test_uses_override_when_set(self, mock_confluence) -> None:
         """Uses override function when set."""
         confluence_api.set_api("set_page_labels", lambda page_id, labels: True)
 
@@ -189,7 +189,7 @@ class TestSetPageLabels:
 class TestGetAttachments:
     """Tests for get_attachments with mock overrides."""
 
-    def test_uses_override_when_set(self, mock_confluence):
+    def test_uses_override_when_set(self, mock_confluence) -> None:
         """Uses override function when set."""
         confluence_api.set_api(
             "get_attachments",
@@ -205,7 +205,7 @@ class TestGetAttachments:
 class TestUploadAttachment:
     """Tests for upload_attachment with mock overrides."""
 
-    def test_uses_override_when_set(self, mock_confluence, tmp_path):
+    def test_uses_override_when_set(self, mock_confluence, tmp_path) -> None:
         """Uses override function when set."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("content")
@@ -228,7 +228,7 @@ class TestUploadAttachment:
 class TestGetPageProperty:
     """Tests for get_page_property with mock overrides."""
 
-    def test_uses_override_when_set(self, mock_confluence):
+    def test_uses_override_when_set(self, mock_confluence) -> None:
         """Uses override function when set."""
         confluence_api.set_api(
             "get_page_property",
@@ -249,7 +249,7 @@ class TestGetPageProperty:
 class TestSetPageProperty:
     """Tests for set_page_property with mock overrides."""
 
-    def test_uses_override_when_set(self, mock_confluence):
+    def test_uses_override_when_set(self, mock_confluence) -> None:
         """Uses override function when set."""
         confluence_api.set_api("set_page_property", lambda page_id, key, value: True)
 
@@ -261,7 +261,7 @@ class TestSetPageProperty:
 class TestRemovePageLabel:
     """Tests for remove_page_label with mock overrides."""
 
-    def test_uses_override_when_set(self, mock_confluence):
+    def test_uses_override_when_set(self, mock_confluence) -> None:
         """Uses override function when set."""
         confluence_api.set_api("remove_page_label", lambda page_id, label: True)
 
@@ -273,7 +273,7 @@ class TestRemovePageLabel:
 class TestUpdatePageProperties:
     """Tests for update_page_properties with mock overrides."""
 
-    def test_uses_override_when_set(self, mock_confluence):
+    def test_uses_override_when_set(self, mock_confluence) -> None:
         """Uses override function when set."""
         confluence_api.set_api(
             "update_page_properties",
@@ -297,7 +297,7 @@ class TestUpdatePageProperties:
 class TestUpdateAttachment:
     """Tests for update_attachment with mock overrides."""
 
-    def test_uses_override_when_set(self, mock_confluence, tmp_path):
+    def test_uses_override_when_set(self, mock_confluence, tmp_path) -> None:
         """Uses override function when set."""
         test_file = tmp_path / "updated.txt"
         test_file.write_text("new content")
@@ -320,7 +320,7 @@ class TestUpdateAttachment:
 class TestDownloadAttachment:
     """Tests for download_attachment with mock overrides."""
 
-    def test_uses_override_when_set(self, mock_confluence, tmp_path):
+    def test_uses_override_when_set(self, mock_confluence, tmp_path) -> None:
         """Uses override function when set."""
         dest = tmp_path / "downloaded.txt"
 
@@ -336,7 +336,7 @@ class TestDownloadAttachment:
 class TestGetAuth:
     """Tests for _get_auth function."""
 
-    def test_raises_when_no_credentials(self, mock_confluence):
+    def test_raises_when_no_credentials(self, mock_confluence) -> None:
         """Raises ValueError when credentials not configured."""
         from unittest.mock import patch
 
@@ -349,7 +349,7 @@ class TestGetAuth:
 
         assert "Credentials not configured" in str(exc_info.value)
 
-    def test_raises_when_missing_email(self, mock_confluence):
+    def test_raises_when_missing_email(self, mock_confluence) -> None:
         """Raises ValueError when email missing."""
         from unittest.mock import patch
 
@@ -368,7 +368,7 @@ class TestGetAuth:
 
         assert "Credentials not configured" in str(exc_info.value)
 
-    def test_returns_auth_tuple(self, mock_confluence):
+    def test_returns_auth_tuple(self, mock_confluence) -> None:
         """Returns base URL and auth when configured."""
         from unittest.mock import patch
 
@@ -392,7 +392,7 @@ class TestGetAuth:
 class TestFetchPageWithRequests:
     """Tests for fetch_page with mocked requests."""
 
-    def test_fetches_page_successfully(self, mock_confluence):
+    def test_fetches_page_successfully(self, mock_confluence) -> None:
         """Fetches page from API."""
         from unittest.mock import patch, MagicMock
 
@@ -422,7 +422,7 @@ class TestFetchPageWithRequests:
             == confluence_api.REQUEST_TIMEOUT_SECONDS
         )
 
-    def test_returns_none_on_error(self, mock_confluence):
+    def test_returns_none_on_error(self, mock_confluence) -> None:
         """Returns None when API request fails."""
         from unittest.mock import patch, MagicMock
 
@@ -444,7 +444,7 @@ class TestFetchPageWithRequests:
 class TestCreatePageWithRequests:
     """Tests for create_page with mocked requests."""
 
-    def test_creates_page_successfully(self, mock_confluence):
+    def test_creates_page_successfully(self, mock_confluence) -> None:
         """Creates page via API."""
         from unittest.mock import patch, MagicMock
 
@@ -468,7 +468,7 @@ class TestCreatePageWithRequests:
         assert result["id"] == "99999"
         mock_post.assert_called_once()
 
-    def test_creates_page_with_parent(self, mock_confluence):
+    def test_creates_page_with_parent(self, mock_confluence) -> None:
         """Creates page with parent ID."""
         from unittest.mock import patch, MagicMock
 
@@ -491,7 +491,7 @@ class TestCreatePageWithRequests:
         call_kwargs = mock_post.call_args[1]
         assert "ancestors" in call_kwargs["json"]
 
-    def test_returns_none_on_error(self, mock_confluence):
+    def test_returns_none_on_error(self, mock_confluence) -> None:
         """Returns None when creation fails."""
         from unittest.mock import patch, MagicMock
 
@@ -513,7 +513,7 @@ class TestCreatePageWithRequests:
 class TestUpdatePageWithRequests:
     """Tests for update_page with mocked requests."""
 
-    def test_updates_page_successfully(self, mock_confluence):
+    def test_updates_page_successfully(self, mock_confluence) -> None:
         """Updates page via API."""
         from unittest.mock import patch, MagicMock
 
@@ -538,7 +538,7 @@ class TestUpdatePageWithRequests:
         assert result["version"]["number"] == 6
         mock_put.assert_called_once()
 
-    def test_returns_none_on_error(self, mock_confluence):
+    def test_returns_none_on_error(self, mock_confluence) -> None:
         """Returns None when update fails."""
         from unittest.mock import patch, MagicMock
 
@@ -560,7 +560,7 @@ class TestUpdatePageWithRequests:
 class TestDeletePageWithRequests:
     """Tests for delete_page with mocked requests."""
 
-    def test_deletes_page_successfully(self, mock_confluence):
+    def test_deletes_page_successfully(self, mock_confluence) -> None:
         """Deletes page via API."""
         from unittest.mock import patch, MagicMock
 
@@ -578,7 +578,7 @@ class TestDeletePageWithRequests:
 
         assert result is True
 
-    def test_returns_false_on_error(self, mock_confluence):
+    def test_returns_false_on_error(self, mock_confluence) -> None:
         """Returns False when deletion fails."""
         from unittest.mock import patch, MagicMock
 
@@ -600,7 +600,7 @@ class TestDeletePageWithRequests:
 class TestGetChildPagesWithRequests:
     """Tests for get_child_pages with mocked requests."""
 
-    def test_gets_children_successfully(self, mock_confluence):
+    def test_gets_children_successfully(self, mock_confluence) -> None:
         """Gets child pages via API."""
         from unittest.mock import patch, MagicMock
 
@@ -624,7 +624,7 @@ class TestGetChildPagesWithRequests:
 
         assert len(result) == 2
 
-    def test_returns_empty_on_error(self, mock_confluence):
+    def test_returns_empty_on_error(self, mock_confluence) -> None:
         """Returns empty list when request fails."""
         from unittest.mock import patch, MagicMock
 
@@ -646,7 +646,7 @@ class TestGetChildPagesWithRequests:
 class TestSearchPagesWithRequests:
     """Tests for search_pages with mocked requests."""
 
-    def test_searches_successfully(self, mock_confluence):
+    def test_searches_successfully(self, mock_confluence) -> None:
         """Searches pages via API."""
         from unittest.mock import patch, MagicMock
 
@@ -668,7 +668,7 @@ class TestSearchPagesWithRequests:
 
         assert len(result["results"]) == 1
 
-    def test_returns_error_info_on_failure(self, mock_confluence):
+    def test_returns_error_info_on_failure(self, mock_confluence) -> None:
         """Returns error info when search fails."""
         from unittest.mock import patch, MagicMock
 
@@ -694,7 +694,7 @@ class TestSearchPagesWithRequests:
 class TestGetPageLabelsWithRequests:
     """Tests for get_page_labels with mocked requests."""
 
-    def test_gets_labels_successfully(self, mock_confluence):
+    def test_gets_labels_successfully(self, mock_confluence) -> None:
         """Gets page labels via API."""
         from unittest.mock import patch, MagicMock
 
@@ -718,7 +718,7 @@ class TestGetPageLabelsWithRequests:
 
         assert result == ["label1", "label2"]
 
-    def test_returns_empty_on_error(self, mock_confluence):
+    def test_returns_empty_on_error(self, mock_confluence) -> None:
         """Returns empty list when request fails."""
         from unittest.mock import patch, MagicMock
 
@@ -740,7 +740,7 @@ class TestGetPageLabelsWithRequests:
 class TestAddPageLabelsWithRequests:
     """Tests for add_page_labels with mocked requests."""
 
-    def test_adds_labels_successfully(self, mock_confluence):
+    def test_adds_labels_successfully(self, mock_confluence) -> None:
         """Adds labels via API."""
         from unittest.mock import patch, MagicMock
 
@@ -758,7 +758,7 @@ class TestAddPageLabelsWithRequests:
 
         assert result is True
 
-    def test_returns_false_on_error(self, mock_confluence):
+    def test_returns_false_on_error(self, mock_confluence) -> None:
         """Returns False when adding labels fails."""
         from unittest.mock import patch, MagicMock
 
@@ -780,7 +780,7 @@ class TestAddPageLabelsWithRequests:
 class TestSetPageLabelsWithRequests:
     """Tests for set_page_labels with actual logic."""
 
-    def test_adds_and_removes_labels(self, mock_confluence):
+    def test_adds_and_removes_labels(self, mock_confluence) -> None:
         """Adds new labels and removes old ones."""
 
         # Mock current labels
@@ -812,7 +812,7 @@ class TestSetPageLabelsWithRequests:
 class TestGetAttachmentsWithRequests:
     """Tests for get_attachments with mocked requests."""
 
-    def test_gets_attachments_successfully(self, mock_confluence):
+    def test_gets_attachments_successfully(self, mock_confluence) -> None:
         """Gets attachments via API."""
         from unittest.mock import patch, MagicMock
 
@@ -833,7 +833,7 @@ class TestGetAttachmentsWithRequests:
 
         assert len(result["results"]) == 1
 
-    def test_returns_empty_on_error(self, mock_confluence):
+    def test_returns_empty_on_error(self, mock_confluence) -> None:
         """Returns empty results when request fails."""
         from unittest.mock import patch, MagicMock
 
@@ -855,7 +855,7 @@ class TestGetAttachmentsWithRequests:
 class TestUploadAttachmentWithRequests:
     """Tests for upload_attachment with mocked requests."""
 
-    def test_uploads_successfully(self, mock_confluence, tmp_path):
+    def test_uploads_successfully(self, mock_confluence, tmp_path) -> None:
         """Uploads attachment via API."""
         from unittest.mock import patch, MagicMock
 
@@ -880,7 +880,7 @@ class TestUploadAttachmentWithRequests:
         assert result is not None
         assert result["id"] == "att123"
 
-    def test_returns_none_on_error(self, mock_confluence, tmp_path):
+    def test_returns_none_on_error(self, mock_confluence, tmp_path) -> None:
         """Returns None when upload fails."""
         from unittest.mock import patch, MagicMock
 
@@ -905,7 +905,7 @@ class TestUploadAttachmentWithRequests:
 class TestGetPagePropertyWithRequests:
     """Tests for get_page_property with mocked requests."""
 
-    def test_gets_property_successfully(self, mock_confluence):
+    def test_gets_property_successfully(self, mock_confluence) -> None:
         """Gets page property via API."""
         from unittest.mock import patch, MagicMock
 
@@ -929,7 +929,7 @@ class TestGetPagePropertyWithRequests:
         assert result is not None
         assert result["key"] == "my-prop"
 
-    def test_returns_none_when_not_found(self, mock_confluence):
+    def test_returns_none_when_not_found(self, mock_confluence) -> None:
         """Returns None when property doesn't exist."""
         from unittest.mock import patch, MagicMock
 
@@ -951,7 +951,7 @@ class TestGetPagePropertyWithRequests:
 class TestSetPagePropertyWithRequests:
     """Tests for set_page_property with mocked requests."""
 
-    def test_creates_new_property(self, mock_confluence):
+    def test_creates_new_property(self, mock_confluence) -> None:
         """Creates new property when it doesn't exist."""
         from unittest.mock import patch, MagicMock
 
@@ -976,7 +976,7 @@ class TestSetPagePropertyWithRequests:
         assert result is True
         mock_post.assert_called_once()
 
-    def test_updates_existing_property(self, mock_confluence):
+    def test_updates_existing_property(self, mock_confluence) -> None:
         """Updates existing property."""
         from unittest.mock import patch, MagicMock
 
@@ -1012,7 +1012,7 @@ class TestSetPagePropertyWithRequests:
 class TestUpdatePagePropertiesWithRequests:
     """Tests for update_page_properties with mocked requests."""
 
-    def test_updates_properties_successfully(self, mock_confluence):
+    def test_updates_properties_successfully(self, mock_confluence) -> None:
         """Updates page properties via API."""
         from unittest.mock import patch, MagicMock
 
@@ -1042,7 +1042,7 @@ class TestUpdatePagePropertiesWithRequests:
         assert "space" in call_kwargs["json"]
         assert "ancestors" in call_kwargs["json"]
 
-    def test_returns_none_on_error(self, mock_confluence):
+    def test_returns_none_on_error(self, mock_confluence) -> None:
         """Returns None when update fails."""
         from unittest.mock import patch, MagicMock
 
@@ -1064,7 +1064,7 @@ class TestUpdatePagePropertiesWithRequests:
 class TestDownloadAttachmentWithRequests:
     """Tests for download_attachment with mocked requests."""
 
-    def test_downloads_successfully(self, mock_confluence, tmp_path):
+    def test_downloads_successfully(self, mock_confluence, tmp_path) -> None:
         """Downloads attachment via API."""
         from unittest.mock import patch, MagicMock
 
@@ -1088,7 +1088,7 @@ class TestDownloadAttachmentWithRequests:
         assert result is True
         assert dest.read_bytes() == b"file content"
 
-    def test_returns_false_on_error(self, mock_confluence, tmp_path):
+    def test_returns_false_on_error(self, mock_confluence, tmp_path) -> None:
         """Returns False when download fails."""
         from unittest.mock import patch, MagicMock
 
@@ -1114,7 +1114,7 @@ class TestDownloadAttachmentWithRequests:
 class TestUpdateAttachmentWithRequests:
     """Tests for update_attachment with mocked requests."""
 
-    def test_updates_successfully(self, mock_confluence, tmp_path):
+    def test_updates_successfully(self, mock_confluence, tmp_path) -> None:
         """Updates attachment via API."""
         from unittest.mock import patch, MagicMock
 
@@ -1137,7 +1137,7 @@ class TestUpdateAttachmentWithRequests:
         assert result is not None
         assert result["id"] == "att456"
 
-    def test_returns_none_on_error(self, mock_confluence, tmp_path):
+    def test_returns_none_on_error(self, mock_confluence, tmp_path) -> None:
         """Returns None when update fails."""
         from unittest.mock import patch, MagicMock
 
@@ -1162,7 +1162,7 @@ class TestUpdateAttachmentWithRequests:
 class TestRemovePageLabelWithRequests:
     """Tests for remove_page_label with mocked requests."""
 
-    def test_removes_successfully(self, mock_confluence):
+    def test_removes_successfully(self, mock_confluence) -> None:
         """Removes label via API."""
         from unittest.mock import patch, MagicMock
 
@@ -1180,7 +1180,7 @@ class TestRemovePageLabelWithRequests:
 
         assert result is True
 
-    def test_returns_false_on_error(self, mock_confluence):
+    def test_returns_false_on_error(self, mock_confluence) -> None:
         """Returns False when removal fails."""
         from unittest.mock import patch, MagicMock
 
@@ -1202,7 +1202,7 @@ class TestRemovePageLabelWithRequests:
 class TestResolveFolderPathFromParent:
     """Tests for resolve_folder_path_from_parent function."""
 
-    def test_uses_override_when_set(self, mock_confluence):
+    def test_uses_override_when_set(self, mock_confluence) -> None:
         """Uses override function when set."""
         confluence_api.set_api(
             "resolve_folder_path_from_parent",
@@ -1215,7 +1215,7 @@ class TestResolveFolderPathFromParent:
 
         assert result == "resolved-folder-id"
 
-    def test_returns_parent_id_for_empty_path(self, mock_confluence):
+    def test_returns_parent_id_for_empty_path(self, mock_confluence) -> None:
         """Returns parent_id when folder_path is empty."""
         confluence_api.set_api("get_child_folders", lambda pid, limit=100: [])
 
@@ -1225,7 +1225,7 @@ class TestResolveFolderPathFromParent:
 
         assert result == "parent-123"
 
-    def test_returns_parent_id_for_whitespace_only_path(self, mock_confluence):
+    def test_returns_parent_id_for_whitespace_only_path(self, mock_confluence) -> None:
         """Returns parent_id when folder_path has only whitespace."""
         confluence_api.set_api("get_child_folders", lambda pid, limit=100: [])
 
@@ -1235,7 +1235,7 @@ class TestResolveFolderPathFromParent:
 
         assert result == "parent-123"
 
-    def test_finds_existing_folder(self, mock_confluence):
+    def test_finds_existing_folder(self, mock_confluence) -> None:
         """Finds existing folder by title."""
         confluence_api.set_api(
             "get_child_folders",
@@ -1248,7 +1248,7 @@ class TestResolveFolderPathFromParent:
 
         assert result == "sub-id"
 
-    def test_traverses_multi_level_path(self, mock_confluence):
+    def test_traverses_multi_level_path(self, mock_confluence) -> None:
         """Traverses multiple folder levels."""
         folder_children = {
             "parent-123": [{"id": "level1-id", "title": "level1"}],
@@ -1265,7 +1265,7 @@ class TestResolveFolderPathFromParent:
 
         assert result == "level2-id"
 
-    def test_returns_none_when_folder_not_found(self, mock_confluence):
+    def test_returns_none_when_folder_not_found(self, mock_confluence) -> None:
         """Returns None when folder doesn't exist and create_missing is False."""
         confluence_api.set_api("get_child_folders", lambda pid, limit=100: [])
 
@@ -1275,7 +1275,7 @@ class TestResolveFolderPathFromParent:
 
         assert result is None
 
-    def test_creates_missing_folders(self, mock_confluence, capsys):
+    def test_creates_missing_folders(self, mock_confluence, capsys) -> None:
         """Creates folders when create_missing is True."""
         created_folders = []
 
@@ -1298,7 +1298,7 @@ class TestResolveFolderPathFromParent:
         assert created_folders[0] == ("SPACE", "new", "parent-123")
         assert created_folders[1] == ("SPACE", "nested", "created-new")
 
-    def test_returns_none_when_create_fails(self, mock_confluence):
+    def test_returns_none_when_create_fails(self, mock_confluence) -> None:
         """Returns None when folder creation fails."""
         confluence_api.set_api("get_child_folders", lambda pid, limit=100: [])
         confluence_api.set_api("create_folder", lambda s, t, p: None)

@@ -11,7 +11,7 @@ from zaira.put import parse_description, put_command
 class TestParseDescription:
     """Tests for parse_description function."""
 
-    def test_extracts_between_description_and_links(self):
+    def test_extracts_between_description_and_links(self) -> None:
         body = (
             "# FOO-123: Title\n\n"
             "## Description\n\n"
@@ -21,7 +21,7 @@ class TestParseDescription:
         )
         assert parse_description(body) == "The description."
 
-    def test_preserves_subheadings_in_description(self):
+    def test_preserves_subheadings_in_description(self) -> None:
         body = (
             "## Description\n\n"
             "Intro text.\n\n"
@@ -35,15 +35,15 @@ class TestParseDescription:
             "Intro text.\n\n## Requirements\n\n- Item 1\n- Item 2"
         )
 
-    def test_captures_to_end_when_no_links(self):
+    def test_captures_to_end_when_no_links(self) -> None:
         body = "## Description\n\nSome text.\n\n## Notes\n\nMore text.\n"
         assert parse_description(body) == "Some text.\n\n## Notes\n\nMore text."
 
-    def test_returns_none_when_no_description_heading(self):
+    def test_returns_none_when_no_description_heading(self) -> None:
         assert parse_description("Just some text.") is None
         assert parse_description("## Links\n\n- foo") is None
 
-    def test_empty_description_section(self):
+    def test_empty_description_section(self) -> None:
         body = "## Description\n\n## Links\n\n- foo"
         assert parse_description(body) == ""
 
@@ -63,7 +63,9 @@ class TestPutCommand:
             file=file, dry_run=dry_run, raw=raw, force=force, field=field
         )
 
-    def test_full_format_updates_summary_and_description(self, mock_jira, capsys):
+    def test_full_format_updates_summary_and_description(
+        self, mock_jira, capsys
+    ) -> None:
         content = (
             "---\nkey: FOO-123\nsummary: New title\nstatus: Open\n---\n\n"
             "## Description\n\nNew desc.\n\n## Links\n\n- foo\n"
@@ -85,7 +87,7 @@ class TestPutCommand:
         captured = capsys.readouterr()
         assert "Updated FOO-123" in captured.out
 
-    def test_minimal_format_uses_body_as_description(self, mock_jira, capsys):
+    def test_minimal_format_uses_body_as_description(self, mock_jira, capsys) -> None:
         content = "---\nkey: FOO-123\n---\nNew description body."
         mock_issue = MagicMock()
         mock_issue.fields.summary = "Title"
@@ -102,7 +104,7 @@ class TestPutCommand:
             fields={"description": "New description body."}
         )
 
-    def test_minimal_format_with_summary_updates_both(self, mock_jira, capsys):
+    def test_minimal_format_with_summary_updates_both(self, mock_jira, capsys) -> None:
         content = "---\nkey: FOO-123\nsummary: New title\n---\nNew description body."
         mock_issue = MagicMock()
         mock_issue.fields.summary = "Old title"
@@ -119,7 +121,7 @@ class TestPutCommand:
             fields={"summary": "New title", "description": "New description body."}
         )
 
-    def test_full_format_does_not_fallback_to_body(self, mock_jira, capsys):
+    def test_full_format_does_not_fallback_to_body(self, mock_jira, capsys) -> None:
         """Full export without ## Description should not push the entire body."""
         content = (
             "---\nkey: FOO-123\nsummary: Same title\nstatus: Open\n---\n\n"
@@ -136,7 +138,7 @@ class TestPutCommand:
         captured = capsys.readouterr()
         assert "No changes" in captured.out
 
-    def test_no_changes(self, mock_jira, capsys):
+    def test_no_changes(self, mock_jira, capsys) -> None:
         content = (
             "---\nkey: FOO-123\nsummary: Same\nstatus: Open\n---\n\n"
             "## Description\n\nSame desc.\n\n## Links\n"
@@ -152,7 +154,7 @@ class TestPutCommand:
         captured = capsys.readouterr()
         assert "No changes" in captured.out
 
-    def test_dry_run(self, mock_jira, capsys):
+    def test_dry_run(self, mock_jira, capsys) -> None:
         content = "---\nkey: FOO-123\nsummary: New\nstatus: Open\n---\n\n## Description\n\nNew desc.\n"
         mock_issue = MagicMock()
         mock_issue.fields.summary = "Old"
@@ -167,7 +169,7 @@ class TestPutCommand:
         assert "Dry run" in captured.out
         assert "summary" in captured.out
 
-    def test_missing_key_errors(self, capsys):
+    def test_missing_key_errors(self, capsys) -> None:
         content = "---\nsummary: No key\n---\nBody."
         with patch("sys.stdin", MagicMock(read=lambda: content)):
             with pytest.raises(SystemExit):
@@ -175,7 +177,7 @@ class TestPutCommand:
         captured = capsys.readouterr()
         assert "key" in captured.err
 
-    def test_reads_from_file(self, mock_jira, tmp_path, capsys):
+    def test_reads_from_file(self, mock_jira, tmp_path, capsys) -> None:
         ticket_file = tmp_path / "ticket.md"
         ticket_file.write_text("---\nkey: FOO-1\n---\nNew desc.")
         mock_issue = MagicMock()
@@ -188,13 +190,13 @@ class TestPutCommand:
 
         mock_issue.update.assert_called_once_with(fields={"description": "New desc."})
 
-    def test_file_not_found(self, capsys):
+    def test_file_not_found(self, capsys) -> None:
         with pytest.raises(SystemExit):
             put_command(self._make_args(file="/nonexistent/ticket.md"))
         captured = capsys.readouterr()
         assert "not found" in captured.err
 
-    def test_converts_markdown_to_jira_wiki(self, mock_jira, capsys):
+    def test_converts_markdown_to_jira_wiki(self, mock_jira, capsys) -> None:
         content = "---\nkey: FOO-1\n---\n## Heading\n\n**bold** text"
         mock_issue = MagicMock()
         mock_issue.fields.summary = "Title"
@@ -211,7 +213,7 @@ class TestPutCommand:
         assert "##" not in call_fields["description"]
         assert "h2." in call_fields["description"]
 
-    def test_logs_activity(self, mock_jira, capsys):
+    def test_logs_activity(self, mock_jira, capsys) -> None:
         content = "---\nkey: FOO-1\n---\nNew desc."
         mock_issue = MagicMock()
         mock_issue.fields.summary = "Title"
@@ -227,7 +229,7 @@ class TestPutCommand:
 
         mock_record.assert_called_once_with("put", "FOO-1", "description")
 
-    def test_force_pushes_unchanged_content(self, mock_jira, capsys):
+    def test_force_pushes_unchanged_content(self, mock_jira, capsys) -> None:
         """--force pushes even when content matches remote."""
         content = (
             "---\nkey: FOO-123\nsummary: Same\nstatus: Open\n---\n\n"
@@ -248,7 +250,7 @@ class TestPutCommand:
         captured = capsys.readouterr()
         assert "Updated FOO-123" in captured.out
 
-    def test_raw_skips_markdown_conversion(self, mock_jira, capsys):
+    def test_raw_skips_markdown_conversion(self, mock_jira, capsys) -> None:
         """--raw sends wiki markup as-is without converting."""
         content = "---\nkey: FOO-1\n---\nh2. Wiki Heading\n\n*bold* text"
         mock_issue = MagicMock()
@@ -265,7 +267,7 @@ class TestPutCommand:
         call_fields = mock_issue.update.call_args[1]["fields"]
         assert call_fields["description"] == "h2. Wiki Heading\n\n*bold* text"
 
-    def test_field_from_front_matter(self, mock_jira, capsys):
+    def test_field_from_front_matter(self, mock_jira, capsys) -> None:
         """field: in front matter routes body to that custom field."""
         content = "---\nkey: FOO-1\nfield: Solution Section\n---\nNew solution."
         mock_issue = MagicMock()
@@ -289,7 +291,7 @@ class TestPutCommand:
         captured = capsys.readouterr()
         assert "Solution Section" in captured.out
 
-    def test_field_flag_overrides_front_matter(self, mock_jira, capsys):
+    def test_field_flag_overrides_front_matter(self, mock_jira, capsys) -> None:
         """--field flag takes precedence over front matter field:."""
         content = "---\nkey: FOO-1\nfield: Ignored Field\n---\nBody text."
         mock_issue = MagicMock()
@@ -308,7 +310,7 @@ class TestPutCommand:
             fields={"customfield_11111": "Body text."}
         )
 
-    def test_field_unknown_errors(self, mock_jira, capsys):
+    def test_field_unknown_errors(self, mock_jira, capsys) -> None:
         """Unknown field name should exit with error."""
         content = "---\nkey: FOO-1\nfield: Nonexistent\n---\nBody."
 
@@ -322,7 +324,7 @@ class TestPutCommand:
         captured = capsys.readouterr()
         assert "Could not resolve" in captured.err
 
-    def test_field_no_changes(self, mock_jira, capsys):
+    def test_field_no_changes(self, mock_jira, capsys) -> None:
         """No update when custom field content matches remote."""
         content = "---\nkey: FOO-1\nfield: My Field\n---\nSame content."
         mock_issue = MagicMock()

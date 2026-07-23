@@ -39,7 +39,7 @@ def _mock_worklog(
 class TestListWorklogs:
     """Tests for list_worklogs function."""
 
-    def test_returns_worklogs(self, mock_jira):
+    def test_returns_worklogs(self, mock_jira) -> None:
         """Returns list of Worklog entries."""
         mock_jira.worklogs.return_value = [
             _mock_worklog(time_spent="2h", comment="Code review"),
@@ -55,7 +55,7 @@ class TestListWorklogs:
         assert result[1].comment is None
         mock_jira.worklogs.assert_called_once_with("TEST-123")
 
-    def test_returns_empty_on_error(self, mock_jira, capsys):
+    def test_returns_empty_on_error(self, mock_jira, capsys) -> None:
         """Returns empty list on API error."""
         mock_jira.worklogs.side_effect = Exception("Not found")
 
@@ -65,7 +65,7 @@ class TestListWorklogs:
         captured = capsys.readouterr()
         assert "Error getting worklogs" in captured.err
 
-    def test_returns_empty_for_no_worklogs(self, mock_jira):
+    def test_returns_empty_for_no_worklogs(self, mock_jira) -> None:
         """Returns empty list when ticket has no worklogs."""
         mock_jira.worklogs.return_value = []
 
@@ -77,7 +77,7 @@ class TestListWorklogs:
 class TestAddWorklog:
     """Tests for add_worklog function."""
 
-    def test_adds_worklog_successfully(self, mock_jira):
+    def test_adds_worklog_successfully(self, mock_jira) -> None:
         """Returns True when worklog is added."""
         mock_jira.add_worklog.return_value = MagicMock()
 
@@ -86,7 +86,7 @@ class TestAddWorklog:
         assert result is True
         mock_jira.add_worklog.assert_called_once_with(issue="TEST-123", timeSpent="2h")
 
-    def test_adds_worklog_with_comment(self, mock_jira):
+    def test_adds_worklog_with_comment(self, mock_jira) -> None:
         """Passes comment to Jira API."""
         mock_jira.add_worklog.return_value = MagicMock()
 
@@ -97,7 +97,7 @@ class TestAddWorklog:
             issue="TEST-123", timeSpent="1h", comment="Code review"
         )
 
-    def test_adds_worklog_with_started_date(self, mock_jira):
+    def test_adds_worklog_with_started_date(self, mock_jira) -> None:
         """Passes started date to Jira API."""
         mock_jira.add_worklog.return_value = MagicMock()
         started = datetime(2026, 2, 5)
@@ -109,7 +109,7 @@ class TestAddWorklog:
             issue="TEST-123", timeSpent="3h", started=started
         )
 
-    def test_adds_worklog_with_all_options(self, mock_jira):
+    def test_adds_worklog_with_all_options(self, mock_jira) -> None:
         """Passes all options to Jira API."""
         mock_jira.add_worklog.return_value = MagicMock()
         started = datetime(2026, 2, 5)
@@ -121,7 +121,7 @@ class TestAddWorklog:
             issue="TEST-123", timeSpent="2h 30m", comment="Review", started=started
         )
 
-    def test_returns_false_on_error(self, mock_jira, capsys):
+    def test_returns_false_on_error(self, mock_jira, capsys) -> None:
         """Returns False and prints error on failure."""
         mock_jira.add_worklog.side_effect = Exception("Permission denied")
 
@@ -131,7 +131,7 @@ class TestAddWorklog:
         captured = capsys.readouterr()
         assert "Error logging work" in captured.err
 
-    def test_returns_false_when_none_returned(self, mock_jira):
+    def test_returns_false_when_none_returned(self, mock_jira) -> None:
         """Returns False when add_worklog returns None."""
         mock_jira.add_worklog.return_value = None
 
@@ -143,7 +143,7 @@ class TestAddWorklog:
 class TestLogCommand:
     """Tests for log_command function."""
 
-    def test_lists_worklogs(self, mock_jira, capsys):
+    def test_lists_worklogs(self, mock_jira, capsys) -> None:
         """Lists worklogs with --list flag."""
         mock_jira.worklogs.return_value = [
             _mock_worklog(time_spent="2h", comment="Code review"),
@@ -162,7 +162,7 @@ class TestLogCommand:
         assert "30m" in captured.out
         assert "Code review" in captured.out
 
-    def test_lists_worklogs_shows_total(self, mock_jira, capsys):
+    def test_lists_worklogs_shows_total(self, mock_jira, capsys) -> None:
         """Shows total hours when listing worklogs."""
         mock_jira.worklogs.return_value = [
             _mock_worklog(time_spent="2h"),
@@ -178,7 +178,7 @@ class TestLogCommand:
         captured = capsys.readouterr()
         assert "Total: 3.0h" in captured.out
 
-    def test_lists_no_worklogs(self, mock_jira, capsys):
+    def test_lists_no_worklogs(self, mock_jira, capsys) -> None:
         """Shows message when no worklogs found."""
         mock_jira.worklogs.return_value = []
 
@@ -191,7 +191,7 @@ class TestLogCommand:
         captured = capsys.readouterr()
         assert "No worklogs found" in captured.out
 
-    def test_exits_when_no_time_and_no_list(self, capsys):
+    def test_exits_when_no_time_and_no_list(self, capsys) -> None:
         """Exits with error when neither time nor --list provided."""
         args = argparse.Namespace(
             key="test-123", time=None, comment=None, date=None, list=False
@@ -205,7 +205,7 @@ class TestLogCommand:
         captured = capsys.readouterr()
         assert "Specify time spent or use --list" in captured.err
 
-    def test_logs_time_successfully(self, mock_jira, capsys):
+    def test_logs_time_successfully(self, mock_jira, capsys) -> None:
         """Logs time and shows success message."""
         mock_jira.add_worklog.return_value = MagicMock()
 
@@ -220,7 +220,7 @@ class TestLogCommand:
         assert "Logged 2h to TEST-123" in captured.out
         assert "jira.example.com" in captured.out
 
-    def test_logs_time_with_comment(self, mock_jira, capsys):
+    def test_logs_time_with_comment(self, mock_jira, capsys) -> None:
         """Passes comment when logging time."""
         mock_jira.add_worklog.return_value = MagicMock()
 
@@ -235,7 +235,7 @@ class TestLogCommand:
             issue="TEST-123", timeSpent="1h", comment="Code review"
         )
 
-    def test_logs_time_with_date(self, mock_jira, capsys):
+    def test_logs_time_with_date(self, mock_jira, capsys) -> None:
         """Parses date and passes started datetime."""
         mock_jira.add_worklog.return_value = MagicMock()
 
@@ -250,7 +250,7 @@ class TestLogCommand:
             issue="TEST-123", timeSpent="3h", started=datetime(2026, 2, 5)
         )
 
-    def test_exits_on_invalid_date(self, capsys):
+    def test_exits_on_invalid_date(self, capsys) -> None:
         """Exits with error on invalid date format."""
         args = argparse.Namespace(
             key="TEST-123", time="2h", comment=None, date="02/05/2026", list=False
@@ -265,7 +265,7 @@ class TestLogCommand:
         assert "Invalid date" in captured.err
         assert "YYYY-MM-DD" in captured.err
 
-    def test_exits_on_add_failure(self, mock_jira, capsys):
+    def test_exits_on_add_failure(self, mock_jira, capsys) -> None:
         """Exits with error when add_worklog fails."""
         mock_jira.add_worklog.side_effect = Exception("Permission denied")
 
@@ -279,7 +279,7 @@ class TestLogCommand:
 
         assert exc_info.value.code == 1
 
-    def test_uppercases_ticket_key(self, mock_jira, capsys):
+    def test_uppercases_ticket_key(self, mock_jira, capsys) -> None:
         """Converts ticket key to uppercase."""
         mock_jira.add_worklog.return_value = MagicMock()
 
@@ -296,84 +296,84 @@ class TestLogCommand:
 class TestParseTimeToHours:
     """Tests for _parse_time_to_hours helper."""
 
-    def test_hours(self):
+    def test_hours(self) -> None:
         assert _parse_time_to_hours("2h") == 2.0
 
-    def test_minutes(self):
+    def test_minutes(self) -> None:
         assert _parse_time_to_hours("30m") == 0.5
 
-    def test_days(self):
+    def test_days(self) -> None:
         assert _parse_time_to_hours("1d") == 8.0
 
-    def test_weeks(self):
+    def test_weeks(self) -> None:
         assert _parse_time_to_hours("1w") == 40.0
 
-    def test_compound(self):
+    def test_compound(self) -> None:
         assert _parse_time_to_hours("1h 30m") == 1.5
 
-    def test_empty_string(self):
+    def test_empty_string(self) -> None:
         assert _parse_time_to_hours("") == 0.0
 
-    def test_unknown_format(self):
+    def test_unknown_format(self) -> None:
         assert _parse_time_to_hours("unknown") == 0.0
 
 
 class TestRoundHalfHour:
     """Tests for _round_half_hour helper."""
 
-    def test_exact_hour(self):
+    def test_exact_hour(self) -> None:
         assert _round_half_hour(3.0) == 3.0
 
-    def test_exact_half(self):
+    def test_exact_half(self) -> None:
         assert _round_half_hour(2.5) == 2.5
 
-    def test_rounds_down(self):
+    def test_rounds_down(self) -> None:
         assert _round_half_hour(2.2) == 2.0
 
-    def test_rounds_up(self):
+    def test_rounds_up(self) -> None:
         assert _round_half_hour(2.3) == 2.5
 
-    def test_rounds_quarter_to_half(self):
+    def test_rounds_quarter_to_half(self) -> None:
         # Python banker's rounding: 2.25 * 2 = 4.5 rounds to 4
         assert _round_half_hour(2.25) == 2.0
         # 2.75 * 2 = 5.5 rounds to 6
         assert _round_half_hour(2.75) == 3.0
 
-    def test_zero(self):
+    def test_zero(self) -> None:
         assert _round_half_hour(0.0) == 0.0
 
 
 class TestDistributeRounded:
     """Tests for _distribute_rounded."""
 
-    def test_even_split(self):
+    def test_even_split(self) -> None:
         """16h / 4 days = 4h each."""
         result = _distribute_rounded(16.0, 4)
         assert result == [4.0, 4.0, 4.0, 4.0]
         assert sum(result) == 16.0
 
-    def test_remainder_handling(self):
+    def test_remainder_handling(self) -> None:
         """16h / 5 days = 3.2h each, rounds to mix of 3.0 and 3.5."""
         result = _distribute_rounded(16.0, 5)
         assert all(r % 0.5 == 0 for r in result)
         assert sum(result) == 16.0
         assert sorted(result) == [3.0, 3.0, 3.0, 3.5, 3.5]
 
-    def test_single_day(self):
+    def test_single_day(self) -> None:
         result = _distribute_rounded(2.5, 1)
         assert result == [2.5]
 
-    def test_zero_days(self):
+    def test_zero_days(self) -> None:
         result = _distribute_rounded(10.0, 0)
         assert result == []
 
-    def test_small_amount_many_days(self):
+    def test_small_amount_many_days(self) -> None:
         """1h across 3 days."""
         result = _distribute_rounded(1.0, 3)
         assert all(r % 0.5 == 0 for r in result)
         assert sum(result) == 1.0
 
-    def test_total_preserved_odd_split(self):
+    def test_total_preserved_odd_split(self) -> None:
         """7h across 3 days."""
         result = _distribute_rounded(7.0, 3)
         assert sum(result) == 7.0
@@ -383,25 +383,25 @@ class TestDistributeRounded:
 class TestParseSpread:
     """Tests for _parse_spread."""
 
-    def test_day_count(self):
+    def test_day_count(self) -> None:
         assert _parse_spread("5d") == 5
 
-    def test_day_count_single(self):
+    def test_day_count_single(self) -> None:
         assert _parse_spread("1d") == 1
 
-    def test_date_range(self):
+    def test_date_range(self) -> None:
         result = _parse_spread("2026-01-27,2026-01-31")
         assert result == ("2026-01-27", "2026-01-31")
 
-    def test_date_range_with_spaces(self):
+    def test_date_range_with_spaces(self) -> None:
         result = _parse_spread("2026-01-27, 2026-01-31")
         assert result == ("2026-01-27", "2026-01-31")
 
-    def test_invalid_format(self):
+    def test_invalid_format(self) -> None:
         with pytest.raises(ValueError, match="Invalid --spread"):
             _parse_spread("5")
 
-    def test_invalid_date(self):
+    def test_invalid_date(self) -> None:
         with pytest.raises(ValueError):
             _parse_spread("2026-13-01,2026-01-31")
 
@@ -409,7 +409,7 @@ class TestParseSpread:
 class TestSpreadHours:
     """Tests for spread_hours function."""
 
-    def test_spread_5_workdays(self):
+    def test_spread_5_workdays(self) -> None:
         """16h across 5 workdays from a known Friday."""
         # Use a date range for a known Mon-Fri week
         result = spread_hours("16h", ("2026-02-02", "2026-02-06"))
@@ -421,7 +421,7 @@ class TestSpreadHours:
             hrs = _parse_time_to_hours(dur)
             assert hrs % 0.5 == 0
 
-    def test_skips_weekends(self):
+    def test_skips_weekends(self) -> None:
         """Date range spanning a weekend skips Sat/Sun."""
         # 2026-02-06 is Fri, 2026-02-09 is Mon
         result = spread_hours("8h", ("2026-02-06", "2026-02-09"))
@@ -430,23 +430,23 @@ class TestSpreadHours:
         assert "2026-02-08" not in dates  # Sunday
         assert len(result) == 2  # Fri + Mon
 
-    def test_include_weekends(self):
+    def test_include_weekends(self) -> None:
         """With skip_weekends=False, includes Sat/Sun."""
         result = spread_hours("8h", ("2026-02-06", "2026-02-09"), skip_weekends=False)
         assert len(result) == 4  # Fri, Sat, Sun, Mon
 
-    def test_day_count_mode(self):
+    def test_day_count_mode(self) -> None:
         """Spread with int days counts back from today."""
         result = spread_hours("8h", 2)
         assert len(result) == 2
         total = sum(_parse_time_to_hours(dur) for _, dur in result)
         assert total == 8.0
 
-    def test_empty_for_zero_hours(self):
+    def test_empty_for_zero_hours(self) -> None:
         result = spread_hours("0h", 5)
         assert result == []
 
-    def test_format_durations(self):
+    def test_format_durations(self) -> None:
         """Durations formatted as 'Xh', 'Xh 30m', or '30m'."""
         result = spread_hours("16h", ("2026-02-02", "2026-02-06"))
         import re
@@ -454,19 +454,19 @@ class TestSpreadHours:
         for _, dur in result:
             assert re.match(r"^(\d+h( 30m)?|30m)$", dur), f"Bad format: {dur}"
 
-    def test_date_range_reversed(self):
+    def test_date_range_reversed(self) -> None:
         """Reversed date range still works."""
         result = spread_hours("8h", ("2026-02-06", "2026-02-02"))
         assert len(result) == 5
 
-    def test_single_day_range(self):
+    def test_single_day_range(self) -> None:
         """Range of one day."""
         result = spread_hours("4h", ("2026-02-03", "2026-02-03"))
         assert len(result) == 1
         assert result[0] == ("2026-02-03", "4h")
 
     @patch("zaira.worklog.get_max_hours_per_day", return_value=7.5)
-    def test_respects_existing_hours(self, _mock):
+    def test_respects_existing_hours(self, _mock) -> None:
         """Reduces allocation on days with existing worklogs."""
         existing = {"2026-02-03": 6.0}  # Mon already has 6h
         result = spread_hours(
@@ -481,7 +481,7 @@ class TestSpreadHours:
         assert total == 16.0
 
     @patch("zaira.worklog.get_max_hours_per_day", return_value=7.5)
-    def test_existing_hours_full_day_skipped(self, _mock):
+    def test_existing_hours_full_day_skipped(self, _mock) -> None:
         """Day with max hours already logged gets no allocation."""
         existing = {"2026-02-03": 7.5}
         result = spread_hours(
@@ -495,7 +495,7 @@ class TestSpreadHours:
         assert total == 8.0
 
     @patch("zaira.worklog.get_max_hours_per_day", return_value=7.5)
-    def test_raises_when_not_enough_capacity(self, _mock):
+    def test_raises_when_not_enough_capacity(self, _mock) -> None:
         """Raises ValueError when existing hours leave insufficient capacity."""
         existing = {
             "2026-02-02": 7.0,
@@ -520,7 +520,7 @@ class TestLogCommandSpread:
         return_value=_ExistingHours({}, {}),
     )
 
-    def test_spread_dry_run(self, mock_jira, capsys):
+    def test_spread_dry_run(self, mock_jira, capsys) -> None:
         """Shows preview and tells user to re-run with --yes."""
         args = argparse.Namespace(
             key="TEST-123",
@@ -545,7 +545,7 @@ class TestLogCommandSpread:
         assert "--yes" in captured.out
         mock_jira.add_worklog.assert_not_called()
 
-    def test_spread_yes_skips_prompt(self, mock_jira, capsys):
+    def test_spread_yes_skips_prompt(self, mock_jira, capsys) -> None:
         """--yes flag skips confirmation."""
         mock_jira.add_worklog.return_value = MagicMock()
         args = argparse.Namespace(
@@ -567,7 +567,7 @@ class TestLogCommandSpread:
 
         assert mock_jira.add_worklog.call_count == 5
 
-    def test_spread_invalid_format(self, capsys):
+    def test_spread_invalid_format(self, capsys) -> None:
         """Exits on invalid --spread value."""
         args = argparse.Namespace(
             key="TEST-123",
@@ -588,7 +588,7 @@ class TestLogCommandSpread:
         captured = capsys.readouterr()
         assert "Invalid --spread" in captured.err
 
-    def test_spread_shows_day_names(self, mock_jira, capsys):
+    def test_spread_shows_day_names(self, mock_jira, capsys) -> None:
         """Preview shows day names like Mon, Tue."""
         mock_jira.add_worklog.return_value = MagicMock()
         args = argparse.Namespace(
@@ -612,7 +612,7 @@ class TestLogCommandSpread:
         assert "(Mon)" in captured.out
         assert "(Fri)" in captured.out
 
-    def test_spread_shows_existing_tickets(self, mock_jira, capsys):
+    def test_spread_shows_existing_tickets(self, mock_jira, capsys) -> None:
         """Preview shows existing ticket details."""
         mock_jira.add_worklog.return_value = MagicMock()
         args = argparse.Namespace(

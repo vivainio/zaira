@@ -23,7 +23,7 @@ from zaira.wiki import (
 class TestParseFrontMatter:
     """Tests for parse_front_matter function."""
 
-    def test_no_front_matter(self):
+    def test_no_front_matter(self) -> None:
         """Returns empty dict and full content when no front matter."""
         content = "# Title\n\nBody content"
         front_matter, body = parse_front_matter(content)
@@ -31,7 +31,7 @@ class TestParseFrontMatter:
         assert front_matter == {}
         assert body == content
 
-    def test_parses_front_matter(self):
+    def test_parses_front_matter(self) -> None:
         """Parses YAML front matter correctly."""
         content = """---
 title: My Page
@@ -46,7 +46,7 @@ confluence: 12345
         assert front_matter["confluence"] == 12345
         assert "# Body here" in body
 
-    def test_handles_labels_list(self):
+    def test_handles_labels_list(self) -> None:
         """Handles list values in front matter."""
         content = """---
 title: Tagged Page
@@ -59,7 +59,7 @@ Content
 
         assert front_matter["labels"] == ["bug", "urgent"]
 
-    def test_invalid_yaml_returns_content(self):
+    def test_invalid_yaml_returns_content(self) -> None:
         """Returns original content on invalid YAML."""
         content = """---
 invalid: yaml: content: here
@@ -73,7 +73,7 @@ Body
         # Should return empty front matter and original content
         assert front_matter == {}
 
-    def test_missing_closing_delimiter(self):
+    def test_missing_closing_delimiter(self) -> None:
         """Returns content when closing --- is missing."""
         content = """---
 title: No closing
@@ -87,14 +87,14 @@ title: No closing
 class TestWriteFrontMatter:
     """Tests for write_front_matter function."""
 
-    def test_empty_front_matter(self):
+    def test_empty_front_matter(self) -> None:
         """Returns body unchanged when front matter is empty."""
         body = "# Title\n\nContent"
         result = write_front_matter({}, body)
 
         assert result == body
 
-    def test_writes_front_matter(self):
+    def test_writes_front_matter(self) -> None:
         """Writes front matter with body."""
         front_matter = {"title": "My Page", "confluence": 12345}
         body = "# Content here"
@@ -106,7 +106,7 @@ class TestWriteFrontMatter:
         assert "confluence: 12345" in result
         assert "---\n\n# Content here" in result
 
-    def test_lists_inline(self):
+    def test_lists_inline(self) -> None:
         """Lists are written inline."""
         front_matter = {"labels": ["a", "b", "c"]}
         body = "Content"
@@ -116,7 +116,7 @@ class TestWriteFrontMatter:
         # Should be inline list format
         assert "[a, b, c]" in result
 
-    def test_strips_leading_whitespace_from_body(self):
+    def test_strips_leading_whitespace_from_body(self) -> None:
         """Strips leading whitespace from body."""
         front_matter = {"title": "Test"}
         body = "\n\n\n# Content"
@@ -129,27 +129,27 @@ class TestWriteFrontMatter:
 class TestParsePageId:
     """Tests for parse_page_id function."""
 
-    def test_numeric_id(self):
+    def test_numeric_id(self) -> None:
         """Returns numeric ID as-is."""
         assert parse_page_id("12345") == "12345"
         assert parse_page_id("1") == "1"
 
-    def test_extracts_from_pages_url(self):
+    def test_extracts_from_pages_url(self) -> None:
         """Extracts ID from /pages/ID URL pattern."""
         url = "https://site.atlassian.net/wiki/spaces/SPACE/pages/123456/Title"
         assert parse_page_id(url) == "123456"
 
-    def test_extracts_from_viewpage_url(self):
+    def test_extracts_from_viewpage_url(self) -> None:
         """Extracts ID from viewpage.action URL pattern."""
         url = "https://site.atlassian.net/wiki/pages/viewpage.action?pageId=789012"
         assert parse_page_id(url) == "789012"
 
-    def test_extracts_from_pages_url_without_title(self):
+    def test_extracts_from_pages_url_without_title(self) -> None:
         """Extracts ID from URL without title."""
         url = "https://site.atlassian.net/wiki/spaces/TEST/pages/555555"
         assert parse_page_id(url) == "555555"
 
-    def test_returns_input_if_not_matching(self):
+    def test_returns_input_if_not_matching(self) -> None:
         """Returns input if no pattern matches."""
         assert parse_page_id("some-identifier") == "some-identifier"
 
@@ -157,42 +157,42 @@ class TestParsePageId:
 class TestSlugify:
     """Tests for slugify function."""
 
-    def test_basic_slugify(self):
+    def test_basic_slugify(self) -> None:
         """Converts title to lowercase slug."""
         assert slugify("Hello World") == "hello-world"
         assert slugify("My Page Title") == "my-page-title"
 
-    def test_removes_special_characters(self):
+    def test_removes_special_characters(self) -> None:
         """Removes special characters."""
         assert slugify("Test: Special!") == "test-special"
         assert slugify("Page (v2)") == "page-v2"
 
-    def test_collapses_multiple_hyphens(self):
+    def test_collapses_multiple_hyphens(self) -> None:
         """Collapses multiple hyphens."""
         assert slugify("Test   Multiple   Spaces") == "test-multiple-spaces"
         assert slugify("A - B - C") == "a-b-c"
 
-    def test_strips_leading_trailing_hyphens(self):
+    def test_strips_leading_trailing_hyphens(self) -> None:
         """Strips leading and trailing hyphens."""
         assert slugify("---Test---") == "test"
         assert slugify("!Test!") == "test"
 
-    def test_truncates_long_titles(self):
+    def test_truncates_long_titles(self) -> None:
         """Truncates titles longer than 80 characters."""
         long_title = "A" * 100
         result = slugify(long_title)
         assert len(result) <= 80
 
-    def test_preserves_numbers(self):
+    def test_preserves_numbers(self) -> None:
         """Preserves numbers in slug."""
         assert slugify("Version 2.0") == "version-20"
         assert slugify("Sprint 123") == "sprint-123"
 
-    def test_handles_empty_string(self):
+    def test_handles_empty_string(self) -> None:
         """Handles empty string."""
         assert slugify("") == ""
 
-    def test_handles_unicode(self):
+    def test_handles_unicode(self) -> None:
         """Handles unicode characters by removing them."""
         # Unicode letters should be kept as word characters
         result = slugify("Café Menu")
@@ -202,7 +202,7 @@ class TestSlugify:
 class TestParseFrontMatterRoundTrip:
     """Tests for round-trip parsing and writing."""
 
-    def test_round_trip(self):
+    def test_round_trip(self) -> None:
         """Front matter survives round-trip."""
         original_fm = {"title": "Test Page", "confluence": 12345}
         original_body = "# Content\n\nBody text"
@@ -214,7 +214,7 @@ class TestParseFrontMatterRoundTrip:
         assert parsed_fm["confluence"] == original_fm["confluence"]
         assert "# Content" in parsed_body
 
-    def test_round_trip_with_labels(self):
+    def test_round_trip_with_labels(self) -> None:
         """Front matter with lists survives round-trip."""
         original_fm = {"title": "Tagged", "labels": ["a", "b"]}
         original_body = "Content"
@@ -228,18 +228,18 @@ class TestParseFrontMatterRoundTrip:
 class TestSlugifyEdgeCases:
     """Additional edge cases for slugify function."""
 
-    def test_all_special_chars(self):
+    def test_all_special_chars(self) -> None:
         """Handles string of only special characters."""
         result = slugify("!@#$%^&*()")
         assert result == ""
 
-    def test_mixed_unicode_ascii(self):
+    def test_mixed_unicode_ascii(self) -> None:
         """Handles mixed unicode and ASCII."""
         result = slugify("Test Seite")
         assert "test" in result
         assert "seite" in result
 
-    def test_multiple_spaces_and_hyphens(self):
+    def test_multiple_spaces_and_hyphens(self) -> None:
         """Collapses multiple spaces and hyphens."""
         assert slugify("a   -   b") == "a-b"
         assert slugify("test--case") == "test-case"
@@ -248,17 +248,17 @@ class TestSlugifyEdgeCases:
 class TestParsePageIdEdgeCases:
     """Additional edge cases for parse_page_id."""
 
-    def test_url_with_trailing_slash(self):
+    def test_url_with_trailing_slash(self) -> None:
         """Handles URL with trailing slash."""
         url = "https://site.atlassian.net/wiki/spaces/SPACE/pages/123456/"
         assert parse_page_id(url) == "123456"
 
-    def test_url_with_query_params(self):
+    def test_url_with_query_params(self) -> None:
         """Handles URL with query parameters."""
         url = "https://site.atlassian.net/wiki/spaces/SPACE/pages/123456?param=value"
         assert parse_page_id(url) == "123456"
 
-    def test_url_must_have_lowercase_pages(self):
+    def test_url_must_have_lowercase_pages(self) -> None:
         """URL must have lowercase /pages/ to match."""
         # URL with uppercase Pages won't match the pattern
         url = "https://SITE.atlassian.net/wiki/SPACES/TEST/Pages/999999/Title"
@@ -273,7 +273,7 @@ class TestParsePageIdEdgeCases:
 class TestWriteFrontMatterEdgeCases:
     """Additional edge cases for write_front_matter."""
 
-    def test_nested_dict_values(self):
+    def test_nested_dict_values(self) -> None:
         """Handles nested dict values."""
         fm = {"meta": {"key": "value"}}
         body = "Content"
@@ -283,7 +283,7 @@ class TestWriteFrontMatterEdgeCases:
         assert "meta:" in result
         assert "key:" in result
 
-    def test_numeric_values(self):
+    def test_numeric_values(self) -> None:
         """Handles numeric values."""
         fm = {"page_id": 12345, "version": 3.14}
         body = "Content"
@@ -293,7 +293,7 @@ class TestWriteFrontMatterEdgeCases:
         assert "12345" in result
         assert "3.14" in result
 
-    def test_boolean_values(self):
+    def test_boolean_values(self) -> None:
         """Handles boolean values."""
         fm = {"draft": True, "published": False}
         body = "Content"
@@ -307,7 +307,7 @@ class TestWriteFrontMatterEdgeCases:
 class TestComputeFileHash:
     """Tests for compute_file_hash function."""
 
-    def test_computes_sha256(self, tmp_path):
+    def test_computes_sha256(self, tmp_path) -> None:
         """Computes SHA256 hash of file."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("hello world")
@@ -318,7 +318,7 @@ class TestComputeFileHash:
         assert len(result) == 64
         assert all(c in "0123456789abcdef" for c in result)
 
-    def test_same_content_same_hash(self, tmp_path):
+    def test_same_content_same_hash(self, tmp_path) -> None:
         """Same content produces same hash."""
         file1 = tmp_path / "file1.txt"
         file2 = tmp_path / "file2.txt"
@@ -327,7 +327,7 @@ class TestComputeFileHash:
 
         assert compute_file_hash(file1) == compute_file_hash(file2)
 
-    def test_different_content_different_hash(self, tmp_path):
+    def test_different_content_different_hash(self, tmp_path) -> None:
         """Different content produces different hash."""
         file1 = tmp_path / "file1.txt"
         file2 = tmp_path / "file2.txt"
@@ -340,7 +340,7 @@ class TestComputeFileHash:
 class TestGetSyncProperty:
     """Tests for get_sync_property function."""
 
-    def test_returns_property_value(self, mock_confluence):
+    def test_returns_property_value(self, mock_confluence) -> None:
         """Returns value from property."""
         from zaira import confluence_api
 
@@ -353,7 +353,7 @@ class TestGetSyncProperty:
 
         assert result == {"source_hash": "abc123"}
 
-    def test_returns_none_when_not_found(self, mock_confluence):
+    def test_returns_none_when_not_found(self, mock_confluence) -> None:
         """Returns None when property not found."""
         from zaira import confluence_api
 
@@ -367,7 +367,7 @@ class TestGetSyncProperty:
 class TestSetSyncProperty:
     """Tests for set_sync_property function."""
 
-    def test_sets_property(self, mock_confluence):
+    def test_sets_property(self, mock_confluence) -> None:
         """Sets property and returns True."""
         from zaira import confluence_api
 
@@ -391,7 +391,7 @@ class TestSetSyncProperty:
 class TestCheckImagesChanged:
     """Tests for check_images_changed function."""
 
-    def test_returns_false_no_images(self, tmp_path):
+    def test_returns_false_no_images(self, tmp_path) -> None:
         """Returns False when no images in content."""
         md_file = tmp_path / "test.md"
         md_file.write_text("No images here")
@@ -400,7 +400,7 @@ class TestCheckImagesChanged:
 
         assert result is False
 
-    def test_returns_true_for_new_image(self, tmp_path):
+    def test_returns_true_for_new_image(self, tmp_path) -> None:
         """Returns True when image not in stored hashes."""
         # Create markdown file with image reference
         md_file = tmp_path / "test.md"
@@ -413,7 +413,7 @@ class TestCheckImagesChanged:
 
         assert result is True
 
-    def test_returns_false_for_unchanged_image(self, tmp_path):
+    def test_returns_false_for_unchanged_image(self, tmp_path) -> None:
         """Returns False when image hash matches stored hash."""
         md_file = tmp_path / "test.md"
         content = "![Alt](./image.png)"
@@ -429,7 +429,7 @@ class TestCheckImagesChanged:
 
         assert result is False
 
-    def test_returns_true_for_changed_image(self, tmp_path):
+    def test_returns_true_for_changed_image(self, tmp_path) -> None:
         """Returns True when image hash differs from stored."""
         md_file = tmp_path / "test.md"
         content = "![Alt](./image.png)"
@@ -441,7 +441,7 @@ class TestCheckImagesChanged:
 
         assert result is True
 
-    def test_skips_missing_images(self, tmp_path):
+    def test_skips_missing_images(self, tmp_path) -> None:
         """Skips images that don't exist."""
         md_file = tmp_path / "test.md"
         content = "![Alt](./missing.png)"
@@ -456,7 +456,7 @@ class TestCheckImagesChanged:
 class TestGetChildren:
     """Tests for _get_children function."""
 
-    def test_returns_empty_for_no_children(self, mock_confluence):
+    def test_returns_empty_for_no_children(self, mock_confluence) -> None:
         """Returns empty list when page has no children."""
         from zaira.wiki import _get_children
         from zaira import confluence_api
@@ -467,7 +467,7 @@ class TestGetChildren:
 
         assert result == []
 
-    def test_returns_child_ids(self, mock_confluence):
+    def test_returns_child_ids(self, mock_confluence) -> None:
         """Returns list of child page IDs."""
         from zaira.wiki import _get_children
         from zaira import confluence_api
@@ -483,7 +483,7 @@ class TestGetChildren:
 
         assert result == ["111", "222"]
 
-    def test_returns_nested_children(self, mock_confluence):
+    def test_returns_nested_children(self, mock_confluence) -> None:
         """Recursively fetches nested children."""
         from zaira.wiki import _get_children
         from zaira import confluence_api
@@ -505,7 +505,7 @@ class TestGetChildren:
 class TestFetchPage:
     """Tests for _fetch_page function."""
 
-    def test_returns_page_dict(self, mock_confluence):
+    def test_returns_page_dict(self, mock_confluence) -> None:
         """Returns page dict on success."""
         from zaira.wiki import _fetch_page
         from zaira import confluence_api
@@ -517,7 +517,7 @@ class TestFetchPage:
 
         assert result == page_data
 
-    def test_returns_none_on_error(self, mock_confluence, capsys):
+    def test_returns_none_on_error(self, mock_confluence, capsys) -> None:
         """Returns None when fetch fails."""
         from zaira.wiki import _fetch_page
         from zaira import confluence_api
@@ -534,7 +534,7 @@ class TestFetchPage:
 class TestFetchLabels:
     """Tests for _fetch_labels function."""
 
-    def test_returns_labels(self, mock_confluence):
+    def test_returns_labels(self, mock_confluence) -> None:
         """Returns list of labels."""
         from zaira.wiki import _fetch_labels
         from zaira import confluence_api
@@ -549,7 +549,7 @@ class TestFetchLabels:
 class TestGetPageInfo:
     """Tests for _get_page_info function."""
 
-    def test_returns_page_info(self, mock_confluence):
+    def test_returns_page_info(self, mock_confluence) -> None:
         """Returns parent_id and space_key."""
         from zaira.wiki import _get_page_info
         from zaira import confluence_api
@@ -568,7 +568,7 @@ class TestGetPageInfo:
 
         assert result == PageInfo(parent_id="222", space_key="TEST")
 
-    def test_returns_none_on_error(self, mock_confluence):
+    def test_returns_none_on_error(self, mock_confluence) -> None:
         """Returns None when page not found."""
         from zaira.wiki import _get_page_info
         from zaira import confluence_api
@@ -579,7 +579,7 @@ class TestGetPageInfo:
 
         assert result is None
 
-    def test_returns_none_parent_at_root(self, mock_confluence):
+    def test_returns_none_parent_at_root(self, mock_confluence) -> None:
         """Returns None parent_id when page is at space root."""
         from zaira.wiki import _get_page_info
         from zaira import confluence_api
@@ -599,7 +599,7 @@ class TestGetPageInfo:
 class TestSyncImages:
     """Tests for sync_images function."""
 
-    def test_returns_empty_for_no_images(self, tmp_path, mock_confluence):
+    def test_returns_empty_for_no_images(self, tmp_path, mock_confluence) -> None:
         """Returns empty dict when no images in content."""
         from zaira.wiki import sync_images
 
@@ -610,7 +610,7 @@ class TestSyncImages:
 
         assert result == {}
 
-    def test_uploads_new_image(self, tmp_path, mock_confluence, capsys):
+    def test_uploads_new_image(self, tmp_path, mock_confluence, capsys) -> None:
         """Uploads new image and returns hash."""
         from zaira.wiki import sync_images
         from zaira import confluence_api
@@ -634,7 +634,7 @@ class TestSyncImages:
         captured = capsys.readouterr()
         assert "Uploaded image: image.png" in captured.out
 
-    def test_updates_existing_image(self, tmp_path, mock_confluence, capsys):
+    def test_updates_existing_image(self, tmp_path, mock_confluence, capsys) -> None:
         """Updates existing attachment when image changed."""
         from zaira.wiki import sync_images
         from zaira import confluence_api
@@ -658,7 +658,7 @@ class TestSyncImages:
         captured = capsys.readouterr()
         assert "Updated image: image.png" in captured.out
 
-    def test_skips_unchanged_image(self, tmp_path, mock_confluence, capsys):
+    def test_skips_unchanged_image(self, tmp_path, mock_confluence, capsys) -> None:
         """Skips upload when image unchanged."""
         from zaira.wiki import sync_images, compute_file_hash
         from zaira import confluence_api
@@ -680,7 +680,7 @@ class TestSyncImages:
         assert "Uploaded" not in captured.out
         assert "Updated" not in captured.out
 
-    def test_warns_for_missing_image(self, tmp_path, mock_confluence, capsys):
+    def test_warns_for_missing_image(self, tmp_path, mock_confluence, capsys) -> None:
         """Warns when referenced image doesn't exist."""
         from zaira.wiki import sync_images
         from zaira import confluence_api
@@ -702,7 +702,9 @@ class TestSyncImages:
 class TestDownloadImages:
     """Tests for download_images function."""
 
-    def test_downloads_nothing_when_no_attachments(self, tmp_path, mock_confluence):
+    def test_downloads_nothing_when_no_attachments(
+        self, tmp_path, mock_confluence
+    ) -> None:
         """Does nothing when page has no attachments."""
         from zaira.wiki import download_images
         from zaira import confluence_api
@@ -716,7 +718,9 @@ class TestDownloadImages:
 
         assert not (tmp_path / "images").exists()
 
-    def test_downloads_image_attachments(self, tmp_path, mock_confluence, capsys):
+    def test_downloads_image_attachments(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """Downloads image attachments to images directory."""
         from zaira.wiki import download_images
         from zaira import confluence_api
@@ -742,7 +746,9 @@ class TestDownloadImages:
         captured = capsys.readouterr()
         assert "Downloaded image: image.png" in captured.out
 
-    def test_skips_non_image_attachments(self, tmp_path, mock_confluence, capsys):
+    def test_skips_non_image_attachments(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """Skips non-image file extensions."""
         from zaira.wiki import download_images
         from zaira import confluence_api
@@ -770,7 +776,7 @@ class TestDownloadImages:
 class TestPrintPageTree:
     """Tests for _print_page_tree function."""
 
-    def test_prints_single_page(self, mock_confluence, capsys):
+    def test_prints_single_page(self, mock_confluence, capsys) -> None:
         """Prints single page without children."""
         from zaira.wiki import _print_page_tree
         from zaira import confluence_api
@@ -792,7 +798,7 @@ class TestPrintPageTree:
         assert "Test Page" in captured.out
         assert "12345" in captured.out
 
-    def test_returns_zero_on_error(self, mock_confluence, capsys):
+    def test_returns_zero_on_error(self, mock_confluence, capsys) -> None:
         """Returns 0 when page fetch fails."""
         from zaira.wiki import _print_page_tree
         from zaira import confluence_api
@@ -805,7 +811,7 @@ class TestPrintPageTree:
         captured = capsys.readouterr()
         assert "Error" in captured.err
 
-    def test_prints_children(self, mock_confluence, capsys):
+    def test_prints_children(self, mock_confluence, capsys) -> None:
         """Prints page with children."""
         from zaira.wiki import _print_page_tree
         from zaira import confluence_api
@@ -836,7 +842,7 @@ class TestPrintPageTree:
 class TestWikiCommand:
     """Tests for wiki_command function."""
 
-    def test_calls_wiki_func(self):
+    def test_calls_wiki_func(self) -> None:
         """Calls wiki_func when present."""
         from zaira.wiki import wiki_command
         import argparse
@@ -848,7 +854,7 @@ class TestWikiCommand:
 
         assert len(called) == 1
 
-    def test_prints_usage_without_func(self, capsys):
+    def test_prints_usage_without_func(self, capsys) -> None:
         """Prints usage when wiki_func not present."""
         from zaira.wiki import wiki_command
         import argparse
@@ -866,7 +872,7 @@ class TestWikiCommand:
 class TestExportPageToFile:
     """Tests for _export_page_to_file function."""
 
-    def test_exports_page(self, tmp_path, mock_confluence, capsys):
+    def test_exports_page(self, tmp_path, mock_confluence, capsys) -> None:
         """Exports page to markdown file."""
         from zaira.wiki import _export_page_to_file
         from zaira import confluence_api
@@ -898,7 +904,7 @@ class TestExportPageToFile:
 class TestSearchCommand:
     """Tests for search_command function."""
 
-    def test_search_with_query(self, mock_confluence, capsys):
+    def test_search_with_query(self, mock_confluence, capsys) -> None:
         """Searches with text query."""
         from zaira.wiki import search_command
         from zaira import confluence_api
@@ -938,7 +944,7 @@ class TestSearchCommand:
         assert "Found Page" in captured.out
         assert "TEST" in captured.out
 
-    def test_search_json_format(self, mock_confluence, capsys):
+    def test_search_json_format(self, mock_confluence, capsys) -> None:
         """Returns JSON format when requested."""
         from zaira.wiki import search_command
         from zaira import confluence_api
@@ -964,7 +970,7 @@ class TestSearchCommand:
         output = json.loads(captured.out)
         assert "results" in output
 
-    def test_search_url_format(self, mock_confluence, capsys):
+    def test_search_url_format(self, mock_confluence, capsys) -> None:
         """Returns URL-only format when requested."""
         from zaira.wiki import search_command
         from zaira import confluence_api
@@ -996,7 +1002,7 @@ class TestSearchCommand:
         captured = capsys.readouterr()
         assert "https://site.atlassian.net/wiki/spaces/TEST/pages/12345" in captured.out
 
-    def test_search_id_format(self, mock_confluence, capsys):
+    def test_search_id_format(self, mock_confluence, capsys) -> None:
         """Returns ID-only format when requested."""
         from zaira.wiki import search_command
         from zaira import confluence_api
@@ -1028,7 +1034,7 @@ class TestSearchCommand:
         captured = capsys.readouterr()
         assert captured.out.strip() == "12345"
 
-    def test_search_no_results(self, mock_confluence, capsys):
+    def test_search_no_results(self, mock_confluence, capsys) -> None:
         """Exits gracefully when no results."""
         from zaira.wiki import search_command
         from zaira import confluence_api
@@ -1055,7 +1061,7 @@ class TestSearchCommand:
         captured = capsys.readouterr()
         assert "No results found" in captured.err
 
-    def test_search_error(self, mock_confluence, capsys):
+    def test_search_error(self, mock_confluence, capsys) -> None:
         """Handles API errors."""
         from zaira.wiki import search_command
         from zaira import confluence_api
@@ -1086,7 +1092,7 @@ class TestSearchCommand:
         captured = capsys.readouterr()
         assert "Error" in captured.err
 
-    def test_search_with_space_filter(self, mock_confluence, capsys):
+    def test_search_with_space_filter(self, mock_confluence, capsys) -> None:
         """Filters by space."""
         from zaira.wiki import search_command
         from zaira import confluence_api
@@ -1120,7 +1126,7 @@ class TestSearchCommand:
 
         assert 'space = "MYSPACE"' in cql_received[0]
 
-    def test_search_with_creator_filter(self, mock_confluence, capsys):
+    def test_search_with_creator_filter(self, mock_confluence, capsys) -> None:
         """Filters by creator."""
         from zaira.wiki import search_command
         from zaira import confluence_api
@@ -1154,7 +1160,7 @@ class TestSearchCommand:
 
         assert 'creator.fullname ~ "John Doe"' in cql_received[0]
 
-    def test_search_with_label_filter(self, mock_confluence, capsys):
+    def test_search_with_label_filter(self, mock_confluence, capsys) -> None:
         """Filters by label, with the value quoted.
 
         Confluence's CQL parser silently fails ("could not parse cql") on
@@ -1193,7 +1199,7 @@ class TestSearchCommand:
 
         assert 'label = "aws-services"' in cql_received[0]
 
-    def test_search_with_space_and_label_filter(self, mock_confluence, capsys):
+    def test_search_with_space_and_label_filter(self, mock_confluence, capsys) -> None:
         """Combines space and label filters with AND, both quoted."""
         from zaira.wiki import search_command
         from zaira import confluence_api
@@ -1234,7 +1240,7 @@ class TestSearchCommand:
 class TestGetCommand:
     """Tests for get_command function."""
 
-    def test_get_no_pages_error(self, capsys):
+    def test_get_no_pages_error(self, capsys) -> None:
         """Errors when no pages specified."""
         from zaira.wiki import get_command
         import argparse
@@ -1248,7 +1254,7 @@ class TestGetCommand:
         captured = capsys.readouterr()
         assert "No pages specified" in captured.err
 
-    def test_get_list_mode(self, mock_confluence, capsys):
+    def test_get_list_mode(self, mock_confluence, capsys) -> None:
         """Lists page tree when --list is used."""
         from zaira.wiki import get_command
         from zaira import confluence_api
@@ -1281,7 +1287,7 @@ class TestGetCommand:
         assert "Root Page" in captured.out
         assert "1 page(s)" in captured.out
 
-    def test_get_single_page_stdout_markdown(self, mock_confluence, capsys):
+    def test_get_single_page_stdout_markdown(self, mock_confluence, capsys) -> None:
         """Gets single page in markdown format to stdout."""
         from zaira.wiki import get_command
         from zaira import confluence_api
@@ -1313,7 +1319,7 @@ class TestGetCommand:
         assert "confluence: 12345" in captured.out
         assert "title: Test Page" in captured.out
 
-    def test_get_single_page_stdout_json(self, mock_confluence, capsys):
+    def test_get_single_page_stdout_json(self, mock_confluence, capsys) -> None:
         """Gets single page in JSON format to stdout."""
         from zaira.wiki import get_command
         from zaira import confluence_api
@@ -1343,7 +1349,7 @@ class TestGetCommand:
         output = json.loads(captured.out)
         assert output["id"] == "12345"
 
-    def test_get_single_page_stdout_html(self, mock_confluence, capsys):
+    def test_get_single_page_stdout_html(self, mock_confluence, capsys) -> None:
         """Gets single page in HTML format to stdout."""
         from zaira.wiki import get_command
         from zaira import confluence_api
@@ -1374,7 +1380,7 @@ class TestGetCommand:
         assert "Title: Test Page" in captured.out
         assert "<p>Hello</p>" in captured.out
 
-    def test_get_multiple_pages_requires_output(self, mock_confluence, capsys):
+    def test_get_multiple_pages_requires_output(self, mock_confluence, capsys) -> None:
         """Multiple pages require output directory."""
         from zaira.wiki import get_command
         import argparse
@@ -1394,7 +1400,7 @@ class TestGetCommand:
         captured = capsys.readouterr()
         assert "require -o/--output directory" in captured.err
 
-    def test_get_multiple_pages_to_dir(self, tmp_path, mock_confluence, capsys):
+    def test_get_multiple_pages_to_dir(self, tmp_path, mock_confluence, capsys) -> None:
         """Gets multiple pages to output directory."""
         from zaira.wiki import get_command
         from zaira import confluence_api
@@ -1433,7 +1439,7 @@ class TestGetCommand:
         captured = capsys.readouterr()
         assert "Exported 2 page(s)" in captured.out
 
-    def test_get_with_children(self, mock_confluence, capsys, tmp_path):
+    def test_get_with_children(self, mock_confluence, capsys, tmp_path) -> None:
         """Gets page with children expanded."""
         from zaira.wiki import get_command
         from zaira import confluence_api
@@ -1478,7 +1484,7 @@ class TestGetCommand:
         captured = capsys.readouterr()
         assert "Found 1 child page(s)" in captured.err
 
-    def test_get_page_fetch_error(self, mock_confluence, capsys):
+    def test_get_page_fetch_error(self, mock_confluence, capsys) -> None:
         """Handles page fetch error."""
         from zaira.wiki import get_command
         from zaira import confluence_api
@@ -1503,7 +1509,9 @@ class TestGetCommand:
 class TestCreateCommand:
     """Tests for create_command function."""
 
-    def test_create_page_with_markdown(self, mock_confluence, capsys, monkeypatch):
+    def test_create_page_with_markdown(
+        self, mock_confluence, capsys, monkeypatch
+    ) -> None:
         """Creates page with markdown body."""
         from zaira.wiki import create_command
         from zaira import confluence_api
@@ -1535,7 +1543,7 @@ class TestCreateCommand:
         captured = capsys.readouterr()
         assert "Created page 12345" in captured.out
 
-    def test_create_page_empty_body_error(self, capsys, monkeypatch):
+    def test_create_page_empty_body_error(self, capsys, monkeypatch) -> None:
         """Errors when stdin is empty."""
         from zaira.wiki import create_command
         import argparse
@@ -1556,7 +1564,7 @@ class TestCreateCommand:
         captured = capsys.readouterr()
         assert "No content on stdin" in captured.err
 
-    def test_create_page_requires_space_or_parent(self, capsys, monkeypatch):
+    def test_create_page_requires_space_or_parent(self, capsys, monkeypatch) -> None:
         """Errors when neither space nor parent specified."""
         from zaira.wiki import create_command
         import argparse
@@ -1579,7 +1587,7 @@ class TestCreateCommand:
 
     def test_create_page_infers_space_from_parent(
         self, mock_confluence, capsys, monkeypatch
-    ):
+    ) -> None:
         """Infers space from parent page."""
         from zaira.wiki import create_command
         from zaira import confluence_api
@@ -1618,7 +1626,7 @@ class TestCreateCommand:
         captured = capsys.readouterr()
         assert "Created page 12345" in captured.out
 
-    def test_create_page_api_error(self, mock_confluence, capsys, monkeypatch):
+    def test_create_page_api_error(self, mock_confluence, capsys, monkeypatch) -> None:
         """Handles API error on create."""
         from zaira.wiki import create_command
         from zaira import confluence_api
@@ -1642,7 +1650,9 @@ class TestCreateCommand:
         captured = capsys.readouterr()
         assert "Error creating page" in captured.err
 
-    def test_create_page_reads_from_stdin(self, mock_confluence, capsys, monkeypatch):
+    def test_create_page_reads_from_stdin(
+        self, mock_confluence, capsys, monkeypatch
+    ) -> None:
         """Reads body from stdin."""
         from zaira.wiki import create_command
         from zaira import confluence_api
@@ -1678,7 +1688,7 @@ class TestCreateCommand:
 class TestAttachCommand:
     """Tests for attach_command function."""
 
-    def test_attach_uploads_file(self, tmp_path, mock_confluence, capsys):
+    def test_attach_uploads_file(self, tmp_path, mock_confluence, capsys) -> None:
         """Uploads file as attachment."""
         from zaira.wiki import attach_command
         from zaira import confluence_api
@@ -1704,7 +1714,7 @@ class TestAttachCommand:
         assert "Uploaded: test.png" in captured.out
         assert "ac:image" in captured.out
 
-    def test_attach_replaces_existing(self, tmp_path, mock_confluence, capsys):
+    def test_attach_replaces_existing(self, tmp_path, mock_confluence, capsys) -> None:
         """Replaces existing attachment when --replace is used."""
         from zaira.wiki import attach_command
         from zaira import confluence_api
@@ -1732,7 +1742,7 @@ class TestAttachCommand:
         captured = capsys.readouterr()
         assert "Updated: test.png" in captured.out
 
-    def test_attach_no_files_error(self, capsys):
+    def test_attach_no_files_error(self, capsys) -> None:
         """Errors when no files found."""
         from zaira.wiki import attach_command
         import argparse
@@ -1750,7 +1760,7 @@ class TestAttachCommand:
         captured = capsys.readouterr()
         assert "File not found" in captured.err
 
-    def test_attach_upload_error(self, tmp_path, mock_confluence, capsys):
+    def test_attach_upload_error(self, tmp_path, mock_confluence, capsys) -> None:
         """Handles upload error."""
         from zaira.wiki import attach_command
         from zaira import confluence_api
@@ -1781,7 +1791,7 @@ class TestAttachCommand:
 class TestDeleteCommand:
     """Tests for delete_command function."""
 
-    def test_delete_page_not_found(self, mock_confluence, capsys):
+    def test_delete_page_not_found(self, mock_confluence, capsys) -> None:
         """Errors when page not found."""
         from zaira.wiki import delete_command
         from zaira import confluence_api
@@ -1798,7 +1808,7 @@ class TestDeleteCommand:
         captured = capsys.readouterr()
         assert "Page not found" in captured.err
 
-    def test_delete_page_with_yes(self, mock_confluence, capsys):
+    def test_delete_page_with_yes(self, mock_confluence, capsys) -> None:
         """Deletes page when --yes is specified."""
         from zaira.wiki import delete_command
         from zaira import confluence_api
@@ -1820,7 +1830,7 @@ class TestDeleteCommand:
         captured = capsys.readouterr()
         assert "Deleted page 12345" in captured.out
 
-    def test_delete_page_api_error(self, mock_confluence, capsys):
+    def test_delete_page_api_error(self, mock_confluence, capsys) -> None:
         """Handles API error on delete."""
         from zaira.wiki import delete_command
         from zaira import confluence_api
@@ -1846,7 +1856,7 @@ class TestDeleteCommand:
 
     def test_delete_page_cancel_confirmation(
         self, mock_confluence, capsys, monkeypatch
-    ):
+    ) -> None:
         """Cancels when user doesn't confirm."""
         from zaira.wiki import delete_command
         from zaira import confluence_api
@@ -1875,7 +1885,7 @@ class TestDeleteCommand:
 class TestEditCommand:
     """Tests for edit_command function."""
 
-    def test_edit_page_not_found(self, mock_confluence, capsys):
+    def test_edit_page_not_found(self, mock_confluence, capsys) -> None:
         """Errors when page not found."""
         from zaira.wiki import edit_command
         from zaira import confluence_api
@@ -1898,7 +1908,7 @@ class TestEditCommand:
         captured = capsys.readouterr()
         assert "Page not found" in captured.err
 
-    def test_edit_page_title(self, mock_confluence, capsys):
+    def test_edit_page_title(self, mock_confluence, capsys) -> None:
         """Edits page title."""
         from zaira.wiki import edit_command
         from zaira import confluence_api
@@ -1933,7 +1943,7 @@ class TestEditCommand:
         assert "Old Title" in captured.out
         assert "New Title" in captured.out
 
-    def test_edit_page_labels(self, mock_confluence, capsys):
+    def test_edit_page_labels(self, mock_confluence, capsys) -> None:
         """Edits page labels."""
         from zaira.wiki import edit_command
         from zaira import confluence_api
@@ -1967,7 +1977,7 @@ class TestEditCommand:
         assert "label removed: old-label" in captured.out
         assert "label added:" in captured.out
 
-    def test_edit_no_changes(self, mock_confluence, capsys):
+    def test_edit_no_changes(self, mock_confluence, capsys) -> None:
         """Reports no changes when nothing changed."""
         from zaira.wiki import edit_command
         from zaira import confluence_api
@@ -1996,7 +2006,7 @@ class TestEditCommand:
         captured = capsys.readouterr()
         assert "No changes made" in captured.out
 
-    def test_edit_page_parent(self, mock_confluence, capsys):
+    def test_edit_page_parent(self, mock_confluence, capsys) -> None:
         """Edits page parent."""
         from zaira.wiki import edit_command
         from zaira import confluence_api
@@ -2030,7 +2040,7 @@ class TestEditCommand:
         assert "Updated page 12345" in captured.out
         assert "parent:" in captured.out
 
-    def test_edit_page_space(self, mock_confluence, capsys):
+    def test_edit_page_space(self, mock_confluence, capsys) -> None:
         """Edits page space."""
         from zaira.wiki import edit_command
         from zaira import confluence_api
@@ -2064,7 +2074,7 @@ class TestEditCommand:
         assert "Updated page 12345" in captured.out
         assert "space:" in captured.out
 
-    def test_edit_update_properties_error(self, mock_confluence, capsys):
+    def test_edit_update_properties_error(self, mock_confluence, capsys) -> None:
         """Handles error when updating properties."""
         from zaira.wiki import edit_command
         from zaira import confluence_api
@@ -2103,7 +2113,7 @@ class TestEditCommand:
 class TestPutOneFile:
     """Tests for _put_one_file function."""
 
-    def test_put_file_not_found(self, tmp_path, capsys):
+    def test_put_file_not_found(self, tmp_path, capsys) -> None:
         """Errors when file not found."""
         from zaira.wiki import _put_one_file
 
@@ -2115,7 +2125,7 @@ class TestPutOneFile:
         captured = capsys.readouterr()
         assert "File not found" in captured.err
 
-    def test_put_empty_file(self, tmp_path, capsys):
+    def test_put_empty_file(self, tmp_path, capsys) -> None:
         """Errors when file is empty."""
         from zaira.wiki import _put_one_file
 
@@ -2128,7 +2138,7 @@ class TestPutOneFile:
         captured = capsys.readouterr()
         assert "File is empty" in captured.err
 
-    def test_put_no_page_id(self, tmp_path, capsys):
+    def test_put_no_page_id(self, tmp_path, capsys) -> None:
         """Skips file without confluence front matter."""
         from zaira.wiki import _put_one_file
 
@@ -2141,7 +2151,7 @@ class TestPutOneFile:
         captured = capsys.readouterr()
         assert "no 'confluence:'" in captured.err
 
-    def test_put_status_mode(self, tmp_path, mock_confluence, capsys):
+    def test_put_status_mode(self, tmp_path, mock_confluence, capsys) -> None:
         """Shows status when --status is used."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -2178,7 +2188,7 @@ class TestPutOneFile:
         assert "Page ID: 12345" in captured.out
         assert "Remote version: 2" in captured.out
 
-    def test_put_diff_mode(self, tmp_path, mock_confluence, capsys):
+    def test_put_diff_mode(self, tmp_path, mock_confluence, capsys) -> None:
         """Shows diff when --diff is used."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -2205,7 +2215,7 @@ class TestPutOneFile:
         captured = capsys.readouterr()
         assert "Diff for" in captured.out
 
-    def test_put_pull_mode(self, tmp_path, mock_confluence, capsys):
+    def test_put_pull_mode(self, tmp_path, mock_confluence, capsys) -> None:
         """Pulls content from remote when --pull is used."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -2240,7 +2250,7 @@ class TestPutOneFile:
         assert "Remote Title" in content
         assert "remote-label" in content
 
-    def test_put_conflict_detection(self, tmp_path, mock_confluence, capsys):
+    def test_put_conflict_detection(self, tmp_path, mock_confluence, capsys) -> None:
         """Detects conflict when local and remote both changed."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -2275,7 +2285,7 @@ class TestPutOneFile:
         captured = capsys.readouterr()
         assert "Conflict" in captured.err
 
-    def test_put_already_synced(self, tmp_path, mock_confluence, capsys):
+    def test_put_already_synced(self, tmp_path, mock_confluence, capsys) -> None:
         """Reports already in sync."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -2315,7 +2325,7 @@ class TestPutOneFile:
         captured = capsys.readouterr()
         assert "already in sync" in captured.out
 
-    def test_put_push_success(self, tmp_path, mock_confluence, capsys):
+    def test_put_push_success(self, tmp_path, mock_confluence, capsys) -> None:
         """Successfully pushes content."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -2354,7 +2364,9 @@ class TestPutOneFile:
         assert "version 1 -> 2" in captured.out
         assert "title:" in captured.out
 
-    def test_put_with_mermaid_rendering(self, tmp_path, mock_confluence, capsys):
+    def test_put_with_mermaid_rendering(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """Pushes content with mermaid blocks rendered to PNG attachments."""
         import shutil
 
@@ -2424,7 +2436,7 @@ class TestPutOneFile:
         captured = capsys.readouterr()
         assert "Pushed" in captured.out
 
-    def test_put_with_labels(self, tmp_path, mock_confluence, capsys):
+    def test_put_with_labels(self, tmp_path, mock_confluence, capsys) -> None:
         """Pushes content with labels."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -2464,7 +2476,7 @@ class TestPutOneFile:
         captured = capsys.readouterr()
         assert "Pushed" in captured.out
 
-    def test_put_update_error(self, tmp_path, mock_confluence, capsys):
+    def test_put_update_error(self, tmp_path, mock_confluence, capsys) -> None:
         """Handles update error."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -2497,7 +2509,7 @@ class TestPutOneFile:
         captured = capsys.readouterr()
         assert "Error updating" in captured.err
 
-    def test_put_page_fetch_error(self, tmp_path, mock_confluence, capsys):
+    def test_put_page_fetch_error(self, tmp_path, mock_confluence, capsys) -> None:
         """Handles page fetch error."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -2513,7 +2525,7 @@ class TestPutOneFile:
         captured = capsys.readouterr()
         assert "Error fetching" in captured.err
 
-    def test_put_force_overwrite(self, tmp_path, mock_confluence, capsys):
+    def test_put_force_overwrite(self, tmp_path, mock_confluence, capsys) -> None:
         """Force overwrites conflict."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -2560,7 +2572,7 @@ class TestPutOneFile:
 class TestPutCommand:
     """Tests for put_command function."""
 
-    def test_put_no_files_error(self, capsys):
+    def test_put_no_files_error(self, capsys) -> None:
         """Errors when no files specified."""
         from zaira.wiki import put_command
         import argparse
@@ -2585,7 +2597,7 @@ class TestPutCommand:
         captured = capsys.readouterr()
         assert "No files specified" in captured.err
 
-    def test_put_single_file(self, tmp_path, mock_confluence, capsys):
+    def test_put_single_file(self, tmp_path, mock_confluence, capsys) -> None:
         """Processes single file."""
         from zaira.wiki import put_command
         from zaira import confluence_api
@@ -2633,7 +2645,7 @@ class TestPutCommand:
         captured = capsys.readouterr()
         assert "Pushed" in captured.out
 
-    def test_put_directory(self, tmp_path, mock_confluence, capsys):
+    def test_put_directory(self, tmp_path, mock_confluence, capsys) -> None:
         """Processes directory of markdown files."""
         from zaira.wiki import put_command
         from zaira import confluence_api
@@ -2684,7 +2696,7 @@ class TestPutCommand:
         captured = capsys.readouterr()
         assert "Processed 2 file(s)" in captured.out
 
-    def test_put_unlinked_file_skipped(self, tmp_path, mock_confluence, capsys):
+    def test_put_unlinked_file_skipped(self, tmp_path, mock_confluence, capsys) -> None:
         """Skips files without confluence front matter."""
         from zaira.wiki import put_command
         import argparse
@@ -2711,7 +2723,7 @@ class TestPutCommand:
         assert "Skipping" in captured.err
         assert "Use --create" in captured.err
 
-    def test_put_create_new_page(self, tmp_path, mock_confluence, capsys):
+    def test_put_create_new_page(self, tmp_path, mock_confluence, capsys) -> None:
         """Creates new page for unlinked file with --create."""
         from zaira.wiki import put_command
         from zaira import confluence_api
@@ -2774,7 +2786,7 @@ class TestPutCommand:
 
     def test_create_resolves_my_space_alias(
         self, tmp_path, mock_confluence, capsys, monkeypatch
-    ):
+    ) -> None:
         """put --create resolves the 'my' space alias before creating a page.
 
         Regression: previously put's create path passed the literal "my" to the
@@ -2831,7 +2843,9 @@ class TestPutCommand:
 class TestCreatePageForFile:
     """Tests for _create_page_for_file function."""
 
-    def test_creates_page_with_heading_title(self, tmp_path, mock_confluence, capsys):
+    def test_creates_page_with_heading_title(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """Uses first heading as title."""
         from zaira.wiki import _create_page_for_file
         from zaira import confluence_api
@@ -2859,7 +2873,9 @@ class TestCreatePageForFile:
         content = md_file.read_text()
         assert "confluence: 12345" in content
 
-    def test_creates_page_with_filename_title(self, tmp_path, mock_confluence, capsys):
+    def test_creates_page_with_filename_title(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """Uses filename as title when no heading."""
         from zaira.wiki import _create_page_for_file
         from zaira import confluence_api
@@ -2883,7 +2899,7 @@ class TestCreatePageForFile:
 
         assert result is True
 
-    def test_create_page_api_error(self, tmp_path, mock_confluence, capsys):
+    def test_create_page_api_error(self, tmp_path, mock_confluence, capsys) -> None:
         """Handles API error on create."""
         from zaira.wiki import _create_page_for_file
         from zaira import confluence_api
@@ -2899,7 +2915,9 @@ class TestCreatePageForFile:
         captured = capsys.readouterr()
         assert "Error creating page" in captured.err
 
-    def test_creates_page_with_title_prefix(self, tmp_path, mock_confluence, capsys):
+    def test_creates_page_with_title_prefix(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """Applies title_prefix to page title."""
         from zaira.wiki import _create_page_for_file
         from zaira import confluence_api
@@ -2929,7 +2947,9 @@ class TestCreatePageForFile:
         assert len(created_titles) == 1
         assert created_titles[0] == "Demo - My Page"
 
-    def test_creates_page_without_title_prefix(self, tmp_path, mock_confluence, capsys):
+    def test_creates_page_without_title_prefix(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """Creates page normally when title_prefix is empty."""
         from zaira.wiki import _create_page_for_file
         from zaira import confluence_api
@@ -2961,7 +2981,7 @@ class TestCreatePageForFile:
 class TestPutOneFileStatusCases:
     """Additional status cases for _put_one_file."""
 
-    def test_status_local_ahead(self, tmp_path, mock_confluence, capsys):
+    def test_status_local_ahead(self, tmp_path, mock_confluence, capsys) -> None:
         """Shows Local ahead status."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -2997,7 +3017,7 @@ class TestPutOneFileStatusCases:
         captured = capsys.readouterr()
         assert "Status: Local ahead" in captured.out
 
-    def test_status_remote_ahead(self, tmp_path, mock_confluence, capsys):
+    def test_status_remote_ahead(self, tmp_path, mock_confluence, capsys) -> None:
         """Shows Remote ahead status."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -3037,7 +3057,7 @@ class TestPutOneFileStatusCases:
         captured = capsys.readouterr()
         assert "Status: Remote ahead" in captured.out
 
-    def test_status_in_sync(self, tmp_path, mock_confluence, capsys):
+    def test_status_in_sync(self, tmp_path, mock_confluence, capsys) -> None:
         """Shows In sync status."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -3077,7 +3097,7 @@ class TestPutOneFileStatusCases:
         captured = capsys.readouterr()
         assert "Status: In sync" in captured.out
 
-    def test_status_no_sync_metadata(self, tmp_path, mock_confluence, capsys):
+    def test_status_no_sync_metadata(self, tmp_path, mock_confluence, capsys) -> None:
         """Shows No sync metadata status."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -3104,7 +3124,7 @@ class TestPutOneFileStatusCases:
         captured = capsys.readouterr()
         assert "Status: No sync metadata" in captured.out
 
-    def test_status_conflict(self, tmp_path, mock_confluence, capsys):
+    def test_status_conflict(self, tmp_path, mock_confluence, capsys) -> None:
         """Shows CONFLICT status."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -3140,7 +3160,7 @@ class TestPutOneFileStatusCases:
         captured = capsys.readouterr()
         assert "Status: CONFLICT" in captured.out
 
-    def test_diff_no_differences(self, tmp_path, mock_confluence, capsys):
+    def test_diff_no_differences(self, tmp_path, mock_confluence, capsys) -> None:
         """Shows no differences message."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -3168,7 +3188,7 @@ class TestPutOneFileStatusCases:
         captured = capsys.readouterr()
         assert "no content differences" in captured.out
 
-    def test_pull_removes_labels(self, tmp_path, mock_confluence, capsys):
+    def test_pull_removes_labels(self, tmp_path, mock_confluence, capsys) -> None:
         """Pull removes labels when not in remote."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -3208,7 +3228,9 @@ class TestPutOneFileStatusCases:
 class TestPutCommandEdgeCases:
     """Additional edge cases for put_command."""
 
-    def test_put_create_no_parent_error(self, tmp_path, mock_confluence, capsys):
+    def test_put_create_no_parent_error(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """Errors when --create used without parent available."""
         from zaira.wiki import put_command
         import argparse
@@ -3236,7 +3258,7 @@ class TestPutCommandEdgeCases:
         captured = capsys.readouterr()
         assert "No linked files to determine parent from" in captured.err
 
-    def test_put_create_parent_error(self, tmp_path, mock_confluence, capsys):
+    def test_put_create_parent_error(self, tmp_path, mock_confluence, capsys) -> None:
         """Errors when parent page info cannot be fetched."""
         from zaira.wiki import put_command
         from zaira import confluence_api
@@ -3267,7 +3289,9 @@ class TestPutCommandEdgeCases:
         captured = capsys.readouterr()
         assert "Could not get info for parent page" in captured.err
 
-    def test_put_file_not_exists_warning(self, tmp_path, mock_confluence, capsys):
+    def test_put_file_not_exists_warning(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """Warns when file doesn't exist in batch."""
         from zaira.wiki import put_command
         from zaira import confluence_api
@@ -3315,7 +3339,7 @@ class TestPutCommandEdgeCases:
         captured = capsys.readouterr()
         assert "Warning: File not found" in captured.err
 
-    def test_put_labels_as_string(self, tmp_path, mock_confluence, capsys):
+    def test_put_labels_as_string(self, tmp_path, mock_confluence, capsys) -> None:
         """Handles labels as comma-separated string."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -3356,7 +3380,7 @@ class TestPutCommandEdgeCases:
 class TestSyncImagesErrors:
     """Error handling for sync_images."""
 
-    def test_upload_error(self, tmp_path, mock_confluence, capsys):
+    def test_upload_error(self, tmp_path, mock_confluence, capsys) -> None:
         """Handles upload error."""
         from zaira.wiki import sync_images
         from zaira import confluence_api
@@ -3383,7 +3407,9 @@ class TestSyncImagesErrors:
 class TestGetCommandEdgeCases:
     """Additional edge cases for get_command."""
 
-    def test_get_multiple_pages_failed_export(self, tmp_path, mock_confluence, capsys):
+    def test_get_multiple_pages_failed_export(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """Continues when one page export fails."""
         from zaira.wiki import get_command
         from zaira import confluence_api
@@ -3421,7 +3447,7 @@ class TestGetCommandEdgeCases:
         captured = capsys.readouterr()
         assert "Exported 1 page(s)" in captured.out
 
-    def test_get_page_with_labels(self, mock_confluence, capsys):
+    def test_get_page_with_labels(self, mock_confluence, capsys) -> None:
         """Gets page with labels in markdown output."""
         from zaira.wiki import get_command
         from zaira import confluence_api
@@ -3457,7 +3483,7 @@ class TestGetCommandEdgeCases:
 class TestAttachCommandEdgeCases:
     """Additional edge cases for attach_command."""
 
-    def test_attach_glob_pattern(self, tmp_path, mock_confluence, capsys):
+    def test_attach_glob_pattern(self, tmp_path, mock_confluence, capsys) -> None:
         """Processes glob patterns."""
         from zaira.wiki import attach_command
         from zaira import confluence_api
@@ -3489,7 +3515,7 @@ class TestCreateCommandEdgeCases:
 
     def test_create_parent_space_fetch_error(
         self, mock_confluence, capsys, monkeypatch
-    ):
+    ) -> None:
         """Errors when cannot get space from parent."""
         from zaira.wiki import create_command
         from zaira import confluence_api
@@ -3523,7 +3549,7 @@ class TestCreateCommandEdgeCases:
 class TestAttachCommandNoFilesToUpload:
     """Test attach command edge case with empty files."""
 
-    def test_attach_no_files_to_upload(self, capsys):
+    def test_attach_no_files_to_upload(self, capsys) -> None:
         """Errors when no files to upload after glob expansion."""
         from zaira.wiki import attach_command
         import argparse
@@ -3545,7 +3571,9 @@ class TestAttachCommandNoFilesToUpload:
 class TestPutCommandMoreCases:
     """More edge cases for put_command."""
 
-    def test_put_create_different_parents(self, tmp_path, mock_confluence, capsys):
+    def test_put_create_different_parents(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """Errors when linked files have different parents."""
         from zaira.wiki import put_command
         from zaira import confluence_api
@@ -3595,7 +3623,7 @@ class TestPutCommandMoreCases:
         captured = capsys.readouterr()
         assert "different parents" in captured.err
 
-    def test_put_create_pages_at_root(self, tmp_path, mock_confluence, capsys):
+    def test_put_create_pages_at_root(self, tmp_path, mock_confluence, capsys) -> None:
         """Errors when linked pages are at space root."""
         from zaira.wiki import put_command
         from zaira import confluence_api
@@ -3642,7 +3670,7 @@ class TestPutCommandMoreCases:
 
     def test_put_create_no_parents_determinable(
         self, tmp_path, mock_confluence, capsys
-    ):
+    ) -> None:
         """Errors when no parents can be determined from linked files."""
         from zaira.wiki import put_command
         from zaira import confluence_api
@@ -3677,7 +3705,7 @@ class TestPutCommandMoreCases:
         captured = capsys.readouterr()
         assert "Could not determine parent" in captured.err
 
-    def test_put_with_title_override(self, tmp_path, mock_confluence, capsys):
+    def test_put_with_title_override(self, tmp_path, mock_confluence, capsys) -> None:
         """Uses title override when provided."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -3712,7 +3740,7 @@ class TestPutCommandMoreCases:
         captured = capsys.readouterr()
         assert "title:" in captured.out
 
-    def test_put_invalid_labels_type(self, tmp_path, mock_confluence, capsys):
+    def test_put_invalid_labels_type(self, tmp_path, mock_confluence, capsys) -> None:
         """Handles invalid labels type."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -3748,7 +3776,7 @@ class TestPutCommandMoreCases:
 
         assert result is True
 
-    def test_put_glob_pattern_in_files(self, tmp_path, mock_confluence, capsys):
+    def test_put_glob_pattern_in_files(self, tmp_path, mock_confluence, capsys) -> None:
         """Handles glob patterns in files argument."""
         from zaira.wiki import put_command
         from zaira import confluence_api
@@ -3799,7 +3827,7 @@ class TestPutCommandMoreCases:
         captured = capsys.readouterr()
         assert "Processed 2 file(s)" in captured.out
 
-    def test_put_batch_with_failures(self, tmp_path, mock_confluence, capsys):
+    def test_put_batch_with_failures(self, tmp_path, mock_confluence, capsys) -> None:
         """Reports failures in batch mode."""
         from zaira.wiki import put_command
         from zaira import confluence_api
@@ -3852,7 +3880,9 @@ class TestPutCommandMoreCases:
         captured = capsys.readouterr()
         assert "1 failed" in captured.out
 
-    def test_put_create_with_parent_info(self, tmp_path, mock_confluence, capsys):
+    def test_put_create_with_parent_info(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """Creates page using parent info when --parent specified."""
         from zaira.wiki import put_command
         from zaira import confluence_api
@@ -3902,7 +3932,7 @@ class TestPutCommandMoreCases:
 class TestPutCommandStdinMode:
     """Tests for put_command stdin mode."""
 
-    def test_put_stdin_empty_error(self, mock_confluence, capsys, monkeypatch):
+    def test_put_stdin_empty_error(self, mock_confluence, capsys, monkeypatch) -> None:
         """Errors when stdin is empty."""
         from zaira.wiki import put_command
         import argparse
@@ -3930,7 +3960,9 @@ class TestPutCommandStdinMode:
         captured = capsys.readouterr()
         assert "Empty input from stdin" in captured.err
 
-    def test_put_stdin_no_page_id_error(self, mock_confluence, capsys, monkeypatch):
+    def test_put_stdin_no_page_id_error(
+        self, mock_confluence, capsys, monkeypatch
+    ) -> None:
         """Errors when no page ID and no front matter."""
         from zaira.wiki import put_command
         import argparse
@@ -3958,7 +3990,7 @@ class TestPutCommandStdinMode:
         captured = capsys.readouterr()
         assert "No page ID" in captured.err
 
-    def test_put_stdin_with_page_id(self, mock_confluence, capsys, monkeypatch):
+    def test_put_stdin_with_page_id(self, mock_confluence, capsys, monkeypatch) -> None:
         """Processes stdin with page ID from front matter."""
         from zaira.wiki import put_command
         from zaira import confluence_api
@@ -4007,7 +4039,7 @@ class TestPutCommandStdinMode:
 
         assert exc_info.value.code == 0
 
-    def test_put_body_not_a_file_error(self, capsys):
+    def test_put_body_not_a_file_error(self, capsys) -> None:
         """Errors when -b argument is not a file."""
         from zaira.wiki import put_command
         import argparse
@@ -4032,7 +4064,7 @@ class TestPutCommandStdinMode:
         captured = capsys.readouterr()
         assert "Not a file" in captured.err
 
-    def test_put_body_as_file(self, tmp_path, mock_confluence, capsys):
+    def test_put_body_as_file(self, tmp_path, mock_confluence, capsys) -> None:
         """Processes -b argument as file path."""
         from zaira.wiki import put_command
         from zaira import confluence_api
@@ -4084,7 +4116,9 @@ class TestPutCommandStdinMode:
 class TestCreateCommandStdinMode:
     """Tests for create_command stdin mode."""
 
-    def test_create_reads_from_stdin(self, mock_confluence, capsys, monkeypatch):
+    def test_create_reads_from_stdin(
+        self, mock_confluence, capsys, monkeypatch
+    ) -> None:
         """Reads body from stdin."""
         from zaira.wiki import create_command
         from zaira import confluence_api
@@ -4122,7 +4156,7 @@ class TestCreateCommandStdinMode:
 class TestPutNoMarkdownFilesFound:
     """Test when no markdown files are found after processing."""
 
-    def test_put_directory_no_markdown_files(self, tmp_path, capsys):
+    def test_put_directory_no_markdown_files(self, tmp_path, capsys) -> None:
         """Errors when directory has no markdown files."""
         from zaira.wiki import put_command
         import argparse
@@ -4156,7 +4190,9 @@ class TestPutNoMarkdownFilesFound:
 class TestPutCreateModeFailure:
     """Test failure in create mode for unlinked files."""
 
-    def test_put_create_unlinked_file_failure(self, tmp_path, mock_confluence, capsys):
+    def test_put_create_unlinked_file_failure(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """Reports failure when creating new page fails."""
         from zaira.wiki import put_command
         from zaira import confluence_api
@@ -4217,20 +4253,20 @@ class TestPutCreateModeFailure:
 class TestBuildFolderPath:
     """Tests for _build_folder_path function."""
 
-    def test_no_ancestors(self):
+    def test_no_ancestors(self) -> None:
         """Returns None for empty ancestors."""
         from zaira.wiki import _build_folder_path
 
         assert _build_folder_path([]) is None
 
-    def test_only_homepage(self):
+    def test_only_homepage(self) -> None:
         """Returns None when only homepage ancestor (no folders)."""
         from zaira.wiki import _build_folder_path
 
         ancestors = [{"id": "1", "title": "Home", "type": "page"}]
         assert _build_folder_path(ancestors) is None
 
-    def test_single_folder(self):
+    def test_single_folder(self) -> None:
         """Returns single folder name."""
         from zaira.wiki import _build_folder_path
 
@@ -4240,7 +4276,7 @@ class TestBuildFolderPath:
         ]
         assert _build_folder_path(ancestors) == "dochub"
 
-    def test_nested_folders(self):
+    def test_nested_folders(self) -> None:
         """Returns slash-separated path for nested folders."""
         from zaira.wiki import _build_folder_path
 
@@ -4251,7 +4287,7 @@ class TestBuildFolderPath:
         ]
         assert _build_folder_path(ancestors) == "dochub/docs"
 
-    def test_skips_page_ancestors(self):
+    def test_skips_page_ancestors(self) -> None:
         """Only includes folder-type ancestors in path."""
         from zaira.wiki import _build_folder_path
 
@@ -4266,7 +4302,7 @@ class TestBuildFolderPath:
 class TestExportPageToFileWithFolders:
     """Tests for space/folder front matter in _export_page_to_file."""
 
-    def test_exports_with_space_and_folder(self, tmp_path, mock_confluence):
+    def test_exports_with_space_and_folder(self, tmp_path, mock_confluence) -> None:
         """Exports page with space: and folder: in front matter."""
         from zaira.wiki import _export_page_to_file
         from zaira import confluence_api
@@ -4300,7 +4336,7 @@ class TestExportPageToFileWithFolders:
         assert "space: ENG" in content
         assert "folder: dochub/docs" in content
 
-    def test_exports_without_folder_at_root(self, tmp_path, mock_confluence):
+    def test_exports_without_folder_at_root(self, tmp_path, mock_confluence) -> None:
         """Exports root page without folder: in front matter."""
         from zaira.wiki import _export_page_to_file
         from zaira import confluence_api
@@ -4336,7 +4372,7 @@ class TestCreatePageFromFrontMatterFolder:
 
     def test_creates_page_with_folder_front_matter(
         self, tmp_path, mock_confluence, capsys
-    ):
+    ) -> None:
         """Creates page using space: and folder: from front matter."""
         from zaira.wiki import put_command
         from zaira import confluence_api
@@ -4395,7 +4431,7 @@ class TestCreatePageFromFrontMatterFolder:
         assert created_pages[0]["title"] == "My New Page"
         assert created_pages[0]["parent"] == "200"
 
-    def test_creates_missing_folders(self, tmp_path, mock_confluence, capsys):
+    def test_creates_missing_folders(self, tmp_path, mock_confluence, capsys) -> None:
         """Creates folders that don't exist when resolving path."""
         from zaira.wiki import put_command
         from zaira import confluence_api
@@ -4456,7 +4492,7 @@ class TestCreatePageFromFrontMatterFolder:
         assert len(created_pages) == 1
         assert created_pages[0]["parent"] == "300"
 
-    def test_error_without_space(self, tmp_path, mock_confluence, capsys):
+    def test_error_without_space(self, tmp_path, mock_confluence, capsys) -> None:
         """Reports error when folder: is present but space: is missing."""
         from zaira.wiki import put_command
         import argparse
@@ -4483,7 +4519,7 @@ class TestCreatePageFromFrontMatterFolder:
         captured = capsys.readouterr()
         assert "no 'space:'" in captured.err
 
-    def test_title_from_front_matter(self, tmp_path, mock_confluence, capsys):
+    def test_title_from_front_matter(self, tmp_path, mock_confluence, capsys) -> None:
         """Uses title from front matter over heading and filename."""
         from zaira.wiki import _create_page_for_file
         from zaira import confluence_api
@@ -4511,7 +4547,9 @@ class TestCreatePageFromFrontMatterFolder:
 class TestGetCommandFolderFrontMatter:
     """Tests for space:/folder: in get command output."""
 
-    def test_get_single_page_includes_space_and_folder(self, mock_confluence, capsys):
+    def test_get_single_page_includes_space_and_folder(
+        self, mock_confluence, capsys
+    ) -> None:
         """Single page stdout includes space: and folder: in front matter."""
         from zaira.wiki import get_command
         from zaira import confluence_api
@@ -4547,7 +4585,7 @@ class TestGetCommandFolderFrontMatter:
         assert "space: ENG" in captured.out
         assert "folder: projects" in captured.out
 
-    def test_get_root_page_no_folder(self, mock_confluence, capsys):
+    def test_get_root_page_no_folder(self, mock_confluence, capsys) -> None:
         """Root page has space: but no folder: in front matter."""
         from zaira.wiki import get_command
         from zaira import confluence_api
@@ -4586,7 +4624,9 @@ class TestGetCommandFolderFrontMatter:
 class TestPullWithFolderFrontMatter:
     """Tests for --pull populating space:/folder: in front matter."""
 
-    def test_pull_adds_space_and_folder(self, tmp_path, mock_confluence, capsys):
+    def test_pull_adds_space_and_folder(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """Pull updates front matter with space: and folder:."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -4627,7 +4667,7 @@ class TestPullWithFolderFrontMatter:
 class TestLsCommand:
     """Tests for wiki ls command."""
 
-    def test_ls_shows_folders_and_pages(self, mock_confluence, capsys):
+    def test_ls_shows_folders_and_pages(self, mock_confluence, capsys) -> None:
         """Lists folders and pages in a space."""
         from zaira.wiki import ls_command
         from zaira import confluence_api
@@ -4660,7 +4700,7 @@ class TestLsCommand:
         assert "[folder] docs" in captured.out
         assert "Homepage" in captured.out
 
-    def test_ls_parses_url(self, mock_confluence, capsys):
+    def test_ls_parses_url(self, mock_confluence, capsys) -> None:
         """Parses space key from URL."""
         from zaira.wiki import ls_command
         from zaira import confluence_api
@@ -4692,7 +4732,7 @@ class TestLsCommand:
         captured = capsys.readouterr()
         assert "Home" in captured.out
 
-    def test_ls_empty_space(self, mock_confluence, capsys):
+    def test_ls_empty_space(self, mock_confluence, capsys) -> None:
         """Exits with error for empty space."""
         from zaira.wiki import ls_command
         from zaira import confluence_api
@@ -4712,7 +4752,9 @@ class TestLsCommand:
 class TestPutMovesFolder:
     """Tests for wiki put moving pages when folder: changes."""
 
-    def test_put_moves_page_to_new_folder(self, tmp_path, mock_confluence, capsys):
+    def test_put_moves_page_to_new_folder(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """Moves page when local folder: differs from remote ancestors."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -4765,7 +4807,9 @@ class TestPutMovesFolder:
         assert len(move_calls) == 1
         assert move_calls[0]["parent_id"] == "300"
 
-    def test_put_no_move_when_folder_unchanged(self, tmp_path, mock_confluence, capsys):
+    def test_put_no_move_when_folder_unchanged(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """Does not move page when folder: matches remote."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -4812,7 +4856,7 @@ class TestPutMovesFolder:
         assert result is True
         assert len(move_calls) == 0
 
-    def test_put_moves_page_to_root(self, tmp_path, mock_confluence, capsys):
+    def test_put_moves_page_to_root(self, tmp_path, mock_confluence, capsys) -> None:
         """Moves page to space root when folder: is removed."""
         from zaira.wiki import _put_one_file
         from zaira import confluence_api
@@ -4863,7 +4907,7 @@ class TestPutMovesFolder:
 class TestEditParentFolderPath:
     """Tests for wiki edit --parent with folder paths."""
 
-    def test_edit_parent_with_folder_path(self, mock_confluence, capsys):
+    def test_edit_parent_with_folder_path(self, mock_confluence, capsys) -> None:
         """Resolves folder path for --parent."""
         from zaira.wiki import edit_command
         from zaira import confluence_api
@@ -4903,7 +4947,7 @@ class TestEditParentFolderPath:
         assert len(update_calls) == 1
         assert update_calls[0]["parent_id"] == "500"
 
-    def test_edit_parent_folder_path_not_found(self, mock_confluence, capsys):
+    def test_edit_parent_folder_path_not_found(self, mock_confluence, capsys) -> None:
         """Errors when folder path cannot be resolved."""
         from zaira.wiki import edit_command
         from zaira import confluence_api
@@ -4937,7 +4981,9 @@ class TestEditParentFolderPath:
         captured = capsys.readouterr()
         assert "Could not resolve folder path" in captured.err
 
-    def test_edit_parent_folder_uses_target_space(self, mock_confluence, capsys):
+    def test_edit_parent_folder_uses_target_space(
+        self, mock_confluence, capsys
+    ) -> None:
         """Uses --space for folder resolution when provided."""
         from zaira.wiki import edit_command
         from zaira import confluence_api
@@ -4980,7 +5026,7 @@ class TestEditParentFolderPath:
 class TestMirrorPreprocessing:
     """Tests for --mirror flag preprocessing in put_command."""
 
-    def test_mirror_derives_folder_from_relative_path(self, tmp_path):
+    def test_mirror_derives_folder_from_relative_path(self, tmp_path) -> None:
         """Mirror sets folder: based on file's relative path to input directory."""
         # Create nested structure
         sub = tmp_path / "team" / "backend"
@@ -5024,7 +5070,7 @@ class TestMirrorPreprocessing:
         assert fm["space"] == "ENG"
         assert fm["folder"] == "team/backend"
 
-    def test_mirror_with_parent_uses_relative_folder(self, tmp_path):
+    def test_mirror_with_parent_uses_relative_folder(self, tmp_path) -> None:
         """Mirror with --parent stores relative folder path (parent is used during resolution)."""
         sub = tmp_path / "api"
         sub.mkdir()
@@ -5066,7 +5112,7 @@ class TestMirrorPreprocessing:
         # With new behavior, folder is just the relative path (parent ID used during resolution)
         assert fm["folder"] == "api"
 
-    def test_mirror_root_files_get_no_folder(self, tmp_path):
+    def test_mirror_root_files_get_no_folder(self, tmp_path) -> None:
         """Files at root of input dir get no folder: set."""
         f = tmp_path / "readme.md"
         f.write_text("---\ntitle: Readme\n---\n\n# Readme\n")
@@ -5105,7 +5151,7 @@ class TestMirrorPreprocessing:
         assert fm["space"] == "ENG"
         assert "folder" not in fm
 
-    def test_mirror_linked_files_get_updated_folder(self, tmp_path):
+    def test_mirror_linked_files_get_updated_folder(self, tmp_path) -> None:
         """Already-linked files get folder: updated (triggers move on push)."""
         sub = tmp_path / "new-location"
         sub.mkdir()
@@ -5146,7 +5192,7 @@ class TestMirrorPreprocessing:
         assert fm["folder"] == "new-location"
         assert fm["space"] == "ENG"
 
-    def test_mirror_without_space_errors(self, tmp_path):
+    def test_mirror_without_space_errors(self, tmp_path) -> None:
         """--mirror without --space errors when files lack space:."""
         f = tmp_path / "page.md"
         f.write_text("---\ntitle: Page\n---\n\n# Page\n")
@@ -5169,7 +5215,7 @@ class TestMirrorPreprocessing:
         with pytest.raises(SystemExit):
             put_command(args)
 
-    def test_mirror_recursive_glob(self, tmp_path):
+    def test_mirror_recursive_glob(self, tmp_path) -> None:
         """Mirror picks up nested files via rglob."""
         (tmp_path / "a").mkdir()
         (tmp_path / "a" / "b").mkdir()
@@ -5216,7 +5262,7 @@ class TestMirrorPreprocessing:
         assert mid_fm["folder"] == "a"
         assert deep_fm["folder"] == "a/b"
 
-    def test_mirror_root_with_parent_no_folder(self, tmp_path):
+    def test_mirror_root_with_parent_no_folder(self, tmp_path) -> None:
         """Root files with --parent don't get folder in front matter (parent ID used during resolution)."""
         f = tmp_path / "page.md"
         f.write_text("---\ntitle: Page\n---\n\n# Page\n")
@@ -5260,7 +5306,9 @@ class TestMirrorPreprocessing:
 class TestResolveParentFromFrontMatter:
     """Tests for _resolve_parent_from_front_matter function."""
 
-    def test_returns_mirror_parent_when_no_folder(self, tmp_path, mock_confluence):
+    def test_returns_mirror_parent_when_no_folder(
+        self, tmp_path, mock_confluence
+    ) -> None:
         """Returns mirror_parent_id when file has no folder in front matter."""
         from zaira.wiki import _resolve_parent_from_front_matter
 
@@ -5276,7 +5324,7 @@ class TestResolveParentFromFrontMatter:
 
     def test_returns_none_parent_when_no_folder_no_mirror(
         self, tmp_path, mock_confluence
-    ):
+    ) -> None:
         """Returns None parent when no folder and no mirror_parent_id."""
         from zaira.wiki import _resolve_parent_from_front_matter
 
@@ -5288,7 +5336,9 @@ class TestResolveParentFromFrontMatter:
         assert parent_id is None
         assert space == "ENG"
 
-    def test_applies_name_prefix_to_folder_segments(self, tmp_path, mock_confluence):
+    def test_applies_name_prefix_to_folder_segments(
+        self, tmp_path, mock_confluence
+    ) -> None:
         """Applies name_prefix to each folder segment."""
         from zaira.wiki import _resolve_parent_from_front_matter
         from zaira import confluence_api
@@ -5315,7 +5365,7 @@ class TestResolveParentFromFrontMatter:
 
     def test_uses_resolve_folder_path_from_parent_with_mirror(
         self, tmp_path, mock_confluence
-    ):
+    ) -> None:
         """Uses resolve_folder_path_from_parent when mirror_parent_id is set."""
         from zaira.wiki import _resolve_parent_from_front_matter
         from zaira import confluence_api
@@ -5346,7 +5396,7 @@ class TestResolveParentFromFrontMatter:
         assert resolve_calls[0][2] == "sub"
         assert resolve_calls[0][3] is True
 
-    def test_combines_mirror_parent_and_prefix(self, tmp_path, mock_confluence):
+    def test_combines_mirror_parent_and_prefix(self, tmp_path, mock_confluence) -> None:
         """Combines mirror_parent_id and name_prefix correctly."""
         from zaira.wiki import _resolve_parent_from_front_matter
         from zaira import confluence_api
@@ -5374,7 +5424,9 @@ class TestResolveParentFromFrontMatter:
         # Should apply prefix to each segment
         assert resolve_calls[0][2] == "Test - docs/Test - api"
 
-    def test_returns_none_when_no_space(self, tmp_path, mock_confluence, capsys):
+    def test_returns_none_when_no_space(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """Returns None, None when no space in front matter or default."""
         from zaira.wiki import _resolve_parent_from_front_matter
 
@@ -5390,7 +5442,7 @@ class TestResolveParentFromFrontMatter:
 
     def test_uses_default_space_when_not_in_front_matter(
         self, tmp_path, mock_confluence
-    ):
+    ) -> None:
         """Uses default_space when not specified in front matter."""
         from zaira.wiki import _resolve_parent_from_front_matter
 
@@ -5405,7 +5457,7 @@ class TestResolveParentFromFrontMatter:
 
     def test_returns_none_when_folder_resolution_fails(
         self, tmp_path, mock_confluence, capsys
-    ):
+    ) -> None:
         """Returns None, None when folder resolution fails."""
         from zaira.wiki import _resolve_parent_from_front_matter
         from zaira import confluence_api
@@ -5426,17 +5478,17 @@ class TestResolveParentFromFrontMatter:
 class TestAppendSectionSlug:
     """Tests for _append_section_slug function."""
 
-    def test_simple_id_unchanged(self):
+    def test_simple_id_unchanged(self) -> None:
         from zaira.wiki import _append_section_slug
 
         assert _append_section_slug("ci-status") == "ci-status"
 
-    def test_sanitizes_special_characters(self):
+    def test_sanitizes_special_characters(self) -> None:
         from zaira.wiki import _append_section_slug
 
         assert _append_section_slug("CI Status: build#42") == "CI-Status-build-42"
 
-    def test_empty_falls_back_to_default(self):
+    def test_empty_falls_back_to_default(self) -> None:
         from zaira.wiki import _append_section_slug
 
         assert _append_section_slug("   ") == "default"
@@ -5462,7 +5514,9 @@ class TestAppendCommand:
             file_arg = str(f)
         return argparse.Namespace(page=page, section=section, file=file_arg, raw=raw)
 
-    def test_appends_when_no_previous_property(self, tmp_path, mock_confluence, capsys):
+    def test_appends_when_no_previous_property(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """First run appends to end of body and records the property."""
         from zaira.wiki import append_command
         from zaira import confluence_api
@@ -5512,7 +5566,9 @@ class TestAppendCommand:
             in captured.out
         )
 
-    def test_replaces_previous_block_in_place(self, tmp_path, mock_confluence, capsys):
+    def test_replaces_previous_block_in_place(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """Replaces the previously tracked block instead of duplicating."""
         from zaira.wiki import append_command
         from zaira import confluence_api
@@ -5552,7 +5608,7 @@ class TestAppendCommand:
 
     def test_falls_back_to_append_when_previous_block_edited_away(
         self, tmp_path, mock_confluence, capsys
-    ):
+    ) -> None:
         """If tracked block no longer matches remote content, appends instead."""
         from zaira.wiki import append_command
         from zaira import confluence_api
@@ -5590,7 +5646,9 @@ class TestAppendCommand:
         captured = capsys.readouterr()
         assert "Appended section 'ci-status'" in captured.out
 
-    def test_markdown_conversion_applied_without_raw(self, tmp_path, mock_confluence):
+    def test_markdown_conversion_applied_without_raw(
+        self, tmp_path, mock_confluence
+    ) -> None:
         """Content is converted from markdown to storage format unless --raw."""
         from zaira.wiki import append_command
         from zaira import confluence_api
@@ -5623,7 +5681,9 @@ class TestAppendCommand:
 
         assert update_calls[0] == "<p>Hello world</p>"
 
-    def test_reads_content_from_stdin(self, tmp_path, mock_confluence, monkeypatch):
+    def test_reads_content_from_stdin(
+        self, tmp_path, mock_confluence, monkeypatch
+    ) -> None:
         """Reads content from stdin when file is '-'."""
         import io
         from zaira.wiki import append_command
@@ -5653,7 +5713,7 @@ class TestAppendCommand:
         args = self._args(tmp_path, "", raw=True, use_stdin=True)
         append_command(args)
 
-    def test_errors_on_missing_file(self, tmp_path, capsys):
+    def test_errors_on_missing_file(self, tmp_path, capsys) -> None:
         """Errors and exits when file does not exist."""
         from zaira.wiki import append_command
 
@@ -5670,7 +5730,7 @@ class TestAppendCommand:
         captured = capsys.readouterr()
         assert "File not found" in captured.err
 
-    def test_errors_on_empty_content(self, tmp_path, mock_confluence, capsys):
+    def test_errors_on_empty_content(self, tmp_path, mock_confluence, capsys) -> None:
         """Errors and exits when content is empty/whitespace."""
         from zaira.wiki import append_command
 
@@ -5687,7 +5747,9 @@ class TestAppendCommand:
         captured = capsys.readouterr()
         assert "empty content" in captured.err
 
-    def test_errors_when_page_fetch_fails(self, tmp_path, mock_confluence, capsys):
+    def test_errors_when_page_fetch_fails(
+        self, tmp_path, mock_confluence, capsys
+    ) -> None:
         """Errors and exits when the page cannot be fetched."""
         from zaira.wiki import append_command
         from zaira import confluence_api
@@ -5702,7 +5764,7 @@ class TestAppendCommand:
         captured = capsys.readouterr()
         assert "Error fetching page" in captured.err
 
-    def test_accepts_page_url(self, tmp_path, mock_confluence):
+    def test_accepts_page_url(self, tmp_path, mock_confluence) -> None:
         """Resolves a page URL to its numeric id via parse_page_id."""
         from zaira.wiki import append_command
         from zaira import confluence_api
@@ -5741,7 +5803,7 @@ class TestAppendCommand:
 
     def test_plain_append_without_section_skips_property_tracking(
         self, tmp_path, mock_confluence, capsys
-    ):
+    ) -> None:
         """Without --section, always appends and never touches page properties."""
         from zaira.wiki import append_command
         from zaira import confluence_api
@@ -5783,7 +5845,7 @@ class TestAppendCommand:
         captured = capsys.readouterr()
         assert "Appended to page 12345 (version 3 -> 4)" in captured.out
 
-    def test_plain_append_duplicates_on_rerun(self, tmp_path, mock_confluence):
+    def test_plain_append_duplicates_on_rerun(self, tmp_path, mock_confluence) -> None:
         """Without --section, re-running duplicates content instead of replacing it."""
         from zaira.wiki import append_command
         from zaira import confluence_api

@@ -11,7 +11,7 @@ from zaira.transition import get_transitions, transition_ticket, transition_comm
 class TestGetTransitions:
     """Tests for get_transitions function with mocked Jira."""
 
-    def test_returns_transitions(self, mock_jira):
+    def test_returns_transitions(self, mock_jira) -> None:
         """Returns list of transitions."""
         mock_jira.transitions.return_value = [
             {"id": "1", "name": "Start Progress", "to": {"name": "In Progress"}},
@@ -24,7 +24,7 @@ class TestGetTransitions:
         assert result[0]["name"] == "Start Progress"
         mock_jira.transitions.assert_called_once_with("TEST-123")
 
-    def test_returns_empty_on_error(self, mock_jira, capsys):
+    def test_returns_empty_on_error(self, mock_jira, capsys) -> None:
         """Returns empty list on error."""
         mock_jira.transitions.side_effect = Exception("Not found")
 
@@ -38,7 +38,7 @@ class TestGetTransitions:
 class TestTransitionTicket:
     """Tests for transition_ticket function with mocked Jira."""
 
-    def test_transitions_by_name(self, mock_jira):
+    def test_transitions_by_name(self, mock_jira) -> None:
         """Transitions ticket by transition name."""
         mock_jira.transitions.return_value = [
             {"id": "1", "name": "Start Progress", "to": {"name": "In Progress"}},
@@ -52,7 +52,7 @@ class TestTransitionTicket:
             "TEST-123", "1", fields={}, comment=None
         )
 
-    def test_transitions_by_target_status(self, mock_jira):
+    def test_transitions_by_target_status(self, mock_jira) -> None:
         """Transitions ticket by target status name."""
         mock_jira.transitions.return_value = [
             {"id": "1", "name": "Start Progress", "to": {"name": "In Progress"}},
@@ -65,7 +65,7 @@ class TestTransitionTicket:
             "TEST-123", "1", fields={}, comment=None
         )
 
-    def test_case_insensitive_match(self, mock_jira):
+    def test_case_insensitive_match(self, mock_jira) -> None:
         """Matches status case-insensitively."""
         mock_jira.transitions.return_value = [
             {"id": "1", "name": "Done", "to": {"name": "Done"}},
@@ -75,7 +75,7 @@ class TestTransitionTicket:
 
         assert result is True
 
-    def test_returns_false_for_invalid_status(self, mock_jira, capsys):
+    def test_returns_false_for_invalid_status(self, mock_jira, capsys) -> None:
         """Returns False and shows available transitions."""
         mock_jira.transitions.return_value = [
             {"id": "1", "name": "Start", "to": {"name": "In Progress"}},
@@ -89,7 +89,7 @@ class TestTransitionTicket:
         assert "Available transitions:" in captured.err
         assert "Start → In Progress" in captured.err
 
-    def test_passes_fields_to_api(self, mock_jira):
+    def test_passes_fields_to_api(self, mock_jira) -> None:
         """Passes fields dict to transition_issue."""
         mock_jira.transitions.return_value = [
             {"id": "2", "name": "Done", "to": {"name": "Done"}},
@@ -103,7 +103,7 @@ class TestTransitionTicket:
             "TEST-123", "2", fields={"resolution": {"name": "Done"}}, comment=None
         )
 
-    def test_returns_false_on_api_error(self, mock_jira, capsys):
+    def test_returns_false_on_api_error(self, mock_jira, capsys) -> None:
         """Returns False on API error."""
         mock_jira.transitions.return_value = [
             {"id": "1", "name": "Done", "to": {"name": "Done"}},
@@ -120,7 +120,7 @@ class TestTransitionTicket:
 class TestTransitionCommand:
     """Tests for transition_command function."""
 
-    def test_lists_transitions(self, mock_jira, capsys):
+    def test_lists_transitions(self, mock_jira, capsys) -> None:
         """Lists available transitions with --list flag."""
         mock_jira.transitions.return_value = [
             {"id": "1", "name": "Start Progress", "to": {"name": "In Progress"}},
@@ -137,7 +137,7 @@ class TestTransitionCommand:
         assert "Start Progress → In Progress" in captured.out
         assert "Resolve → Done" in captured.out
 
-    def test_exits_when_no_status_and_no_list(self, capsys):
+    def test_exits_when_no_status_and_no_list(self, capsys) -> None:
         """Exits with error when neither status nor --list provided."""
         args = argparse.Namespace(key="test-123", list=False, status=None, field=None)
 
@@ -149,7 +149,7 @@ class TestTransitionCommand:
         captured = capsys.readouterr()
         assert "Specify a status or use --list" in captured.err
 
-    def test_transitions_successfully(self, mock_jira, capsys):
+    def test_transitions_successfully(self, mock_jira, capsys) -> None:
         """Transitions ticket and shows success message."""
         mock_jira.transitions.return_value = [
             {"id": "1", "name": "Done", "to": {"name": "Done"}},
@@ -164,7 +164,7 @@ class TestTransitionCommand:
         assert "Transitioned TEST-123" in captured.out
         assert "jira.example.com" in captured.out
 
-    def test_exits_on_transition_failure(self, mock_jira, capsys):
+    def test_exits_on_transition_failure(self, mock_jira, capsys) -> None:
         """Exits with error when transition fails."""
         mock_jira.transitions.return_value = [
             {"id": "1", "name": "Start", "to": {"name": "In Progress"}},
@@ -180,7 +180,7 @@ class TestTransitionCommand:
 
         assert exc_info.value.code == 1
 
-    def test_transitions_with_fields(self, mock_jira, capsys):
+    def test_transitions_with_fields(self, mock_jira, capsys) -> None:
         """Passes --field args to transition."""
         mock_jira.transitions.return_value = [
             {"id": "2", "name": "Done", "to": {"name": "Done"}},
@@ -209,7 +209,7 @@ class TestTransitionCommand:
         call_args = mock_jira.transition_issue.call_args
         assert call_args[1]["fields"]["resolution"] == {"name": "Done"}
 
-    def test_uppercases_ticket_key(self, mock_jira, capsys):
+    def test_uppercases_ticket_key(self, mock_jira, capsys) -> None:
         """Converts ticket key to uppercase."""
         mock_jira.transitions.return_value = [
             {"id": "1", "name": "Done", "to": {"name": "Done"}},

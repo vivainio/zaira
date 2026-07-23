@@ -43,19 +43,19 @@ def _mock_worklog(
 class TestDaysRange:
     """Tests for _days_range function."""
 
-    def test_single_day(self):
+    def test_single_day(self) -> None:
         """1 day returns today-today."""
         start, end = _days_range(1)
         assert start == end
 
-    def test_seven_days(self):
+    def test_seven_days(self) -> None:
         """7 days spans 6 days back from today."""
         start, end = _days_range(7)
         start_dt = datetime.strptime(start, "%Y-%m-%d")
         end_dt = datetime.strptime(end, "%Y-%m-%d")
         assert (end_dt - start_dt).days == 6
 
-    def test_end_is_today(self):
+    def test_end_is_today(self) -> None:
         """End date is always today."""
         _, end = _days_range(14)
         assert end == datetime.now().strftime("%Y-%m-%d")
@@ -64,7 +64,7 @@ class TestDaysRange:
 class TestQueryHours:
     """Tests for query_hours function."""
 
-    def test_returns_empty_when_no_issues(self, mock_jira):
+    def test_returns_empty_when_no_issues(self, mock_jira) -> None:
         """Returns empty dicts when no issues found."""
         mock_jira.search_issues.return_value = []
 
@@ -73,7 +73,7 @@ class TestQueryHours:
         assert daily == {}
         assert totals == {}
 
-    def test_aggregates_worklogs(self, mock_jira):
+    def test_aggregates_worklogs(self, mock_jira) -> None:
         """Aggregates worklogs by day and ticket."""
         mock_jira.search_issues.return_value = [
             _mock_issue("FOO-1", "Feature one"),
@@ -92,7 +92,7 @@ class TestQueryHours:
         assert "2026-02-04" in daily
         assert totals["FOO-1"] == pytest.approx(5.0)
 
-    def test_filters_by_date_range(self, mock_jira):
+    def test_filters_by_date_range(self, mock_jira) -> None:
         """Excludes worklogs outside the date range."""
         mock_jira.search_issues.return_value = [
             _mock_issue("FOO-1", "Feature one"),
@@ -110,7 +110,7 @@ class TestQueryHours:
         assert "2026-02-03" in daily
         assert totals["FOO-1"] == pytest.approx(1.0)
 
-    def test_filters_by_author(self, mock_jira):
+    def test_filters_by_author(self, mock_jira) -> None:
         """Excludes worklogs by other users."""
         mock_jira.search_issues.return_value = [
             _mock_issue("FOO-1", "Feature one"),
@@ -125,7 +125,7 @@ class TestQueryHours:
 
         assert totals["FOO-1"] == pytest.approx(1.0)
 
-    def test_multiple_tickets(self, mock_jira):
+    def test_multiple_tickets(self, mock_jira) -> None:
         """Handles worklogs across multiple tickets."""
         mock_jira.search_issues.return_value = [
             _mock_issue("FOO-1", "Feature one"),
@@ -147,12 +147,12 @@ class TestQueryHours:
 class TestFormatHours:
     """Tests for format_hours function."""
 
-    def test_no_data(self):
+    def test_no_data(self) -> None:
         """Shows message when no worklogs found."""
         result = format_hours({}, {}, "2026-02-02", "2026-02-06")
         assert "No worklogs found" in result
 
-    def test_daily_breakdown(self):
+    def test_daily_breakdown(self) -> None:
         """Shows daily breakdown with totals."""
         daily: dict[str, list[tuple[str, str, float, str | None]]] = {
             "2026-02-03": [
@@ -172,7 +172,7 @@ class TestFormatHours:
         assert "FOO-1" in result
         assert "(Morning)" in result
 
-    def test_summary_only(self):
+    def test_summary_only(self) -> None:
         """Shows only totals when summary_only=True."""
         daily = {
             "2026-02-03": [("FOO-1", "Feature", 2.0, None)],
@@ -191,7 +191,7 @@ class TestFormatHours:
 class TestHoursCommand:
     """Tests for hours_command function."""
 
-    def test_default_is_last_7_days(self, mock_jira):
+    def test_default_is_last_7_days(self, mock_jira) -> None:
         """Defaults to last 7 days when no args."""
         mock_jira.search_issues.return_value = []
 
@@ -204,7 +204,7 @@ class TestHoursCommand:
         jql = mock_jira.search_issues.call_args[0][0]
         assert "worklogAuthor = currentUser()" in jql
 
-    def test_days_flag(self, mock_jira):
+    def test_days_flag(self, mock_jira) -> None:
         """Uses --days to look back N days."""
         mock_jira.search_issues.return_value = []
 
@@ -216,7 +216,7 @@ class TestHoursCommand:
 
         mock_jira.search_issues.assert_called_once()
 
-    def test_custom_date_range(self, mock_jira):
+    def test_custom_date_range(self, mock_jira) -> None:
         """Uses custom date range with --from/--to."""
         mock_jira.search_issues.return_value = []
 
@@ -234,7 +234,7 @@ class TestHoursCommand:
         assert "2026-01-20" in jql
         assert "2026-01-24" in jql
 
-    def test_exits_when_only_from(self, capsys):
+    def test_exits_when_only_from(self, capsys) -> None:
         """Exits with error when only --from is provided."""
         args = argparse.Namespace(
             tickets=[], date_from="2026-01-20", date_to=None, days=None, summary=False
@@ -247,7 +247,7 @@ class TestHoursCommand:
         captured = capsys.readouterr()
         assert "--from and --to must be used together" in captured.err
 
-    def test_exits_on_invalid_date(self, capsys):
+    def test_exits_on_invalid_date(self, capsys) -> None:
         """Exits with error on invalid date format."""
         args = argparse.Namespace(
             tickets=[],
@@ -264,7 +264,7 @@ class TestHoursCommand:
         captured = capsys.readouterr()
         assert "Invalid date" in captured.err
 
-    def test_ticket_mode(self, mock_jira, capsys):
+    def test_ticket_mode(self, mock_jira, capsys) -> None:
         """Shows hours by person when tickets are provided."""
         mock_jira.issue.return_value = _mock_issue("FOO-1", "Feature one")
         mock_jira.worklogs.return_value = [
@@ -287,7 +287,7 @@ class TestHoursCommand:
 class TestQueryTicketHours:
     """Tests for query_ticket_hours function."""
 
-    def test_aggregates_by_author(self, mock_jira):
+    def test_aggregates_by_author(self, mock_jira) -> None:
         """Groups hours by author per ticket."""
         mock_jira.worklogs.return_value = [
             _mock_worklog("alice@test.com", 7200, "2026-02-03T09:00:00"),
@@ -300,7 +300,7 @@ class TestQueryTicketHours:
         assert result["FOO-1"]["alice@test.com"] == pytest.approx(3.0)
         assert result["FOO-1"]["bob@test.com"] == pytest.approx(0.5)
 
-    def test_filters_by_date(self, mock_jira):
+    def test_filters_by_date(self, mock_jira) -> None:
         """Respects date filters."""
         mock_jira.worklogs.return_value = [
             _mock_worklog("alice@test.com", 3600, "2026-02-01T09:00:00"),
@@ -314,7 +314,7 @@ class TestQueryTicketHours:
 
         assert result["FOO-1"]["alice@test.com"] == pytest.approx(1.0)
 
-    def test_multiple_tickets(self, mock_jira):
+    def test_multiple_tickets(self, mock_jira) -> None:
         """Handles multiple tickets."""
         mock_jira.worklogs.side_effect = [
             [_mock_worklog("alice@test.com", 3600, "2026-02-03T09:00:00")],
@@ -326,7 +326,7 @@ class TestQueryTicketHours:
         assert result["FOO-1"]["alice@test.com"] == pytest.approx(1.0)
         assert result["FOO-2"]["bob@test.com"] == pytest.approx(2.0)
 
-    def test_skips_empty_tickets(self, mock_jira):
+    def test_skips_empty_tickets(self, mock_jira) -> None:
         """Omits tickets with no worklogs."""
         mock_jira.worklogs.return_value = []
 
@@ -334,7 +334,7 @@ class TestQueryTicketHours:
 
         assert result == {}
 
-    def test_handles_api_error(self, mock_jira, capsys):
+    def test_handles_api_error(self, mock_jira, capsys) -> None:
         """Continues on API error for a ticket."""
         mock_jira.worklogs.side_effect = Exception("Not found")
 
@@ -348,12 +348,12 @@ class TestQueryTicketHours:
 class TestFormatTicketHours:
     """Tests for format_ticket_hours function."""
 
-    def test_no_data(self):
+    def test_no_data(self) -> None:
         """Shows message when no worklogs found."""
         result = format_ticket_hours({}, {})
         assert "No worklogs found" in result
 
-    def test_shows_per_ticket_breakdown(self):
+    def test_shows_per_ticket_breakdown(self) -> None:
         """Shows authors and subtotals per ticket."""
         ticket_hours = {
             "FOO-1": {"alice@test.com": 5.0, "bob@test.com": 2.0},
@@ -374,12 +374,12 @@ class TestFormatTicketHours:
 class TestFormatTicketHoursCsv:
     """Tests for format_ticket_hours_csv function."""
 
-    def test_csv_header(self):
+    def test_csv_header(self) -> None:
         """CSV output has header row."""
         result = format_ticket_hours_csv({}, {})
         assert result == "ticket,summary,author,hours"
 
-    def test_csv_rows(self):
+    def test_csv_rows(self) -> None:
         """CSV output has correct rows."""
         ticket_hours = {
             "FOO-1": {"alice@test.com": 5.0, "bob@test.com": 2.0},
@@ -393,7 +393,7 @@ class TestFormatTicketHoursCsv:
         assert lines[1] == 'FOO-1,"Feature one",alice@test.com,5.0'
         assert lines[2] == 'FOO-1,"Feature one",bob@test.com,2.0'
 
-    def test_csv_escapes_quotes(self):
+    def test_csv_escapes_quotes(self) -> None:
         """Escapes double quotes in summary."""
         ticket_hours = {"FOO-1": {"alice@test.com": 1.0}}
         summaries = {"FOO-1": 'Fix "broken" thing'}
@@ -402,7 +402,7 @@ class TestFormatTicketHoursCsv:
 
         assert '""broken""' in result
 
-    def test_csv_multiple_tickets(self):
+    def test_csv_multiple_tickets(self) -> None:
         """CSV includes rows for all tickets."""
         ticket_hours = {
             "FOO-1": {"alice@test.com": 3.0},
@@ -421,7 +421,7 @@ class TestFormatTicketHoursCsv:
 class TestWorkdaysInRange:
     """Tests for _workdays_in_range function."""
 
-    def test_returns_only_weekdays(self):
+    def test_returns_only_weekdays(self) -> None:
         """Only Mon-Fri dates are returned."""
         # 2026-02-09 is Mon, 2026-02-15 is Sun
         days = _workdays_in_range("2026-02-09", "2026-02-15")
@@ -429,18 +429,18 @@ class TestWorkdaysInRange:
         assert days[0] == "2026-02-09"  # Mon
         assert days[-1] == "2026-02-13"  # Fri
 
-    def test_single_weekday(self):
+    def test_single_weekday(self) -> None:
         """Single weekday returns one date."""
         days = _workdays_in_range("2026-02-10", "2026-02-10")
         assert days == ["2026-02-10"]
 
-    def test_weekend_only_returns_empty(self):
+    def test_weekend_only_returns_empty(self) -> None:
         """Weekend-only range returns empty list."""
         # 2026-02-14 is Sat, 2026-02-15 is Sun
         days = _workdays_in_range("2026-02-14", "2026-02-15")
         assert days == []
 
-    def test_two_weeks(self):
+    def test_two_weeks(self) -> None:
         """Two full weeks returns 10 workdays."""
         # 2026-02-02 (Mon) to 2026-02-13 (Fri)
         days = _workdays_in_range("2026-02-02", "2026-02-13")
@@ -451,7 +451,7 @@ class TestFormatHoursMissing:
     """Tests for format_hours with show_missing=True."""
 
     @patch("zaira.hours.get_max_hours_per_day", return_value=7.5)
-    def test_shows_missing_days(self, _mock_max):
+    def test_shows_missing_days(self, _mock_max) -> None:
         """Shows days with insufficient hours."""
         # 2026-02-09 (Mon) to 2026-02-13 (Fri) = 5 workdays
         daily = {
@@ -478,7 +478,7 @@ class TestFormatHoursMissing:
         )
 
     @patch("zaira.hours.get_max_hours_per_day", return_value=7.5)
-    def test_no_missing_when_all_full(self, _mock_max):
+    def test_no_missing_when_all_full(self, _mock_max) -> None:
         """No missing section when all days have full hours."""
         # 2026-02-09 (Mon) to 2026-02-09 (Mon) = 1 workday
         daily = {
@@ -493,7 +493,7 @@ class TestFormatHoursMissing:
         assert "Missing hours:" not in result
 
     @patch("zaira.hours.get_max_hours_per_day", return_value=7.5)
-    def test_shows_missing_with_no_worklogs(self, _mock_max):
+    def test_shows_missing_with_no_worklogs(self, _mock_max) -> None:
         """Shows missing days even when there are zero worklogs."""
         result = format_hours({}, {}, "2026-02-09", "2026-02-09", show_missing=True)
 
@@ -505,7 +505,7 @@ class TestHoursCommandMissing:
     """Tests for hours_command with --missing flag."""
 
     @patch("zaira.hours.get_max_hours_per_day", return_value=7.5)
-    def test_missing_flag(self, _mock_max, mock_jira, capsys):
+    def test_missing_flag(self, _mock_max, mock_jira, capsys) -> None:
         """--missing flag shows missing hours section."""
         mock_jira.search_issues.return_value = []
 
@@ -530,7 +530,7 @@ class TestHoursCommandFill:
     """Tests for hours_command with --fill flag."""
 
     @patch("zaira.hours.get_max_hours_per_day", return_value=7.5)
-    def test_fill_preview(self, _mock_max, mock_jira, capsys):
+    def test_fill_preview(self, _mock_max, mock_jira, capsys) -> None:
         """--fill without --yes shows preview."""
         mock_jira.search_issues.return_value = [
             _mock_issue("FOO-1", "Feature"),
@@ -565,7 +565,7 @@ class TestFillMissing:
 
     @patch("zaira.hours.get_max_hours_per_day", return_value=7.5)
     @patch("zaira.worklog.add_worklog", return_value=True)
-    def test_fill_with_yes(self, mock_add, _mock_max, capsys):
+    def test_fill_with_yes(self, mock_add, _mock_max, capsys) -> None:
         """fill_missing with yes=True logs worklogs."""
         daily = {
             "2026-02-09": [("FOO-1", "Feature", 7.5, None)],
@@ -582,7 +582,7 @@ class TestFillMissing:
         assert "Done" in captured.out
 
     @patch("zaira.hours.get_max_hours_per_day", return_value=7.5)
-    def test_fill_no_gaps(self, _mock_max, capsys):
+    def test_fill_no_gaps(self, _mock_max, capsys) -> None:
         """fill_missing with full hours does nothing."""
         daily = {
             "2026-02-09": [("FOO-1", "Feature", 7.5, None)],
@@ -597,7 +597,7 @@ class TestFillMissing:
 class TestHoursCommandCsv:
     """Tests for hours_command with --format csv."""
 
-    def test_ticket_mode_csv(self, mock_jira, capsys):
+    def test_ticket_mode_csv(self, mock_jira, capsys) -> None:
         """Outputs CSV in ticket mode with --format csv."""
         mock_jira.issue.return_value = _mock_issue("FOO-1", "Feature one")
         mock_jira.worklogs.return_value = [

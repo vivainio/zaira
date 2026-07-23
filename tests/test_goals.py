@@ -37,7 +37,7 @@ def _reset_cloud_id_cache() -> object:
 
 
 class TestParseGoalsUrl:
-    def test_parses_cloud_id_tql_org_id(self):
+    def test_parses_cloud_id_tql_org_id(self) -> None:
         url = (
             "https://home.atlassian.com/o/org123/goals"
             "?cloudId=cloud456&tql=archived%20%3D%20false"
@@ -47,40 +47,40 @@ class TestParseGoalsUrl:
         assert result["tql"] == "archived = false"
         assert result["org_id"] == "org123"
 
-    def test_missing_params_omitted(self):
+    def test_missing_params_omitted(self) -> None:
         result = parse_goals_url("https://home.atlassian.com/o/org123/goals")
         assert "cloud_id" not in result
         assert "tql" not in result
         assert result["org_id"] == "org123"
 
-    def test_no_org_segment(self):
+    def test_no_org_segment(self) -> None:
         result = parse_goals_url("https://home.atlassian.com/goals?cloudId=abc")
         assert result["cloud_id"] == "abc"
         assert "org_id" not in result
 
 
 class TestStatusLabel:
-    def test_known_status(self):
+    def test_known_status(self) -> None:
         assert _status_label({"value": "on_track"}) == "On track"
 
-    def test_unknown_status_passthrough(self):
+    def test_unknown_status_passthrough(self) -> None:
         assert _status_label({"value": "mystery"}) == "mystery"
 
-    def test_none_status(self):
+    def test_none_status(self) -> None:
         assert _status_label(None) == ""
 
-    def test_missing_value(self):
+    def test_missing_value(self) -> None:
         assert _status_label({}) == ""
 
 
 class TestAdfToText:
-    def test_none(self):
+    def test_none(self) -> None:
         assert _adf_to_text(None) == ""
 
-    def test_plain_string_passthrough_on_bad_json(self):
+    def test_plain_string_passthrough_on_bad_json(self) -> None:
         assert _adf_to_text("not json") == "not json"
 
-    def test_string_json_doc(self):
+    def test_string_json_doc(self) -> None:
         doc = json.dumps(
             {
                 "type": "doc",
@@ -94,7 +94,7 @@ class TestAdfToText:
         )
         assert _adf_to_text(doc) == "Hello"
 
-    def test_heading(self):
+    def test_heading(self) -> None:
         node = {
             "type": "heading",
             "attrs": {"level": 2},
@@ -102,7 +102,7 @@ class TestAdfToText:
         }
         assert _adf_to_text(node) == "## Title\n"
 
-    def test_bullet_list(self):
+    def test_bullet_list(self) -> None:
         node = {
             "type": "bulletList",
             "content": [
@@ -130,7 +130,7 @@ class TestAdfToText:
         assert "- one" in result
         assert "- two" in result
 
-    def test_ordered_list(self):
+    def test_ordered_list(self) -> None:
         node = {
             "type": "orderedList",
             "content": [
@@ -147,11 +147,11 @@ class TestAdfToText:
         }
         assert "1. first" in _adf_to_text(node)
 
-    def test_text_marks(self):
+    def test_text_marks(self) -> None:
         node = {"type": "text", "text": "bold", "marks": [{"type": "strong"}]}
         assert _adf_to_text(node) == "**bold**"
 
-    def test_link_mark(self):
+    def test_link_mark(self) -> None:
         node = {
             "type": "text",
             "text": "click",
@@ -159,11 +159,11 @@ class TestAdfToText:
         }
         assert _adf_to_text(node) == "[click](https://example.com)"
 
-    def test_code_block(self):
+    def test_code_block(self) -> None:
         node = {"type": "codeBlock", "content": [{"type": "text", "text": "x = 1"}]}
         assert _adf_to_text(node) == "```\nx = 1\n```\n"
 
-    def test_blockquote(self):
+    def test_blockquote(self) -> None:
         node = {
             "type": "blockquote",
             "content": [
@@ -172,52 +172,52 @@ class TestAdfToText:
         }
         assert _adf_to_text(node) == "> quoted\n"
 
-    def test_hard_break(self):
+    def test_hard_break(self) -> None:
         assert _adf_to_text({"type": "hardBreak"}) == "\n"
 
-    def test_rule(self):
+    def test_rule(self) -> None:
         assert _adf_to_text({"type": "rule"}) == "---\n"
 
-    def test_list_of_nodes(self):
+    def test_list_of_nodes(self) -> None:
         nodes = [{"type": "text", "text": "a"}, {"type": "text", "text": "b"}]
         assert _adf_to_text(nodes) == "ab"
 
 
 class TestIndent:
-    def test_indents_each_line(self):
+    def test_indents_each_line(self) -> None:
         assert _indent("a\nb") == "  a\n  b"
 
-    def test_custom_prefix(self):
+    def test_custom_prefix(self) -> None:
         assert _indent("a\nb", prefix="> ") == "> a\n> b"
 
-    def test_strips_trailing_whitespace(self):
+    def test_strips_trailing_whitespace(self) -> None:
         assert _indent("a\n") == "  a"
 
 
 class TestCell:
-    def test_empty(self):
+    def test_empty(self) -> None:
         assert _cell("") == ""
         assert _cell(None) == ""
 
-    def test_escapes_pipe(self):
+    def test_escapes_pipe(self) -> None:
         assert _cell("a|b") == "a\\|b"
 
-    def test_converts_newline_to_br(self):
+    def test_converts_newline_to_br(self) -> None:
         assert _cell("a\nb") == "a<br>b"
 
-    def test_strips_carriage_return(self):
+    def test_strips_carriage_return(self) -> None:
         assert _cell("a\r\nb") == "a<br>b"
 
 
 class TestToTable:
-    def test_header_row(self):
+    def test_header_row(self) -> None:
         result = _to_table([])
         assert (
             "| Key | Name | Owner | Status | Target | Description | "
             "Latest update | Open risks |" in result
         )
 
-    def test_goal_row(self):
+    def test_goal_row(self) -> None:
         goal = {
             "key": "TEAM-1",
             "name": "Ship it",
@@ -235,7 +235,7 @@ class TestToTable:
         assert "Q1" in result
         assert "Risk 1" in result
 
-    def test_resolved_risks_excluded(self):
+    def test_resolved_risks_excluded(self) -> None:
         goal = {
             "key": "TEAM-1",
             "name": "Ship it",
@@ -250,18 +250,18 @@ class TestToTable:
 
 
 class TestToMarkdown:
-    def test_basic_goal(self):
+    def test_basic_goal(self) -> None:
         goal = {"name": "Ship it", "key": "TEAM-1", "url": "https://example.com/TEAM-1"}
         result = _to_markdown([goal])
         assert "# Goals export (1)" in result
         assert "## Ship it  `TEAM-1`" in result
         assert "URL: https://example.com/TEAM-1" in result
 
-    def test_unnamed_goal(self):
+    def test_unnamed_goal(self) -> None:
         result = _to_markdown([{}])
         assert "(unnamed)" in result
 
-    def test_includes_owner_status_target(self):
+    def test_includes_owner_status_target(self) -> None:
         goal = {
             "name": "Ship it",
             "status": {"value": "at_risk"},
@@ -273,11 +273,11 @@ class TestToMarkdown:
         assert "Owner: Bob" in result
         assert "Target: Q2" in result
 
-    def test_archived_flag(self):
+    def test_archived_flag(self) -> None:
         result = _to_markdown([{"name": "Old goal", "isArchived": True}])
         assert "Archived: true" in result
 
-    def test_sub_goals_listed(self):
+    def test_sub_goals_listed(self) -> None:
         goal = {
             "name": "Parent",
             "subGoals": {"edges": [{"node": {"name": "Child", "key": "TEAM-2"}}]},
@@ -286,7 +286,7 @@ class TestToMarkdown:
         assert "Sub-goals: 1" in result
         assert "Child (TEAM-2)" in result
 
-    def test_description_rendered(self):
+    def test_description_rendered(self) -> None:
         goal = {
             "name": "Goal",
             "description": {
@@ -305,11 +305,11 @@ class TestToMarkdown:
 
 
 class TestUpdatesToMarkdown:
-    def test_header_count(self):
+    def test_header_count(self) -> None:
         result = _updates_to_markdown("TEAM-1", [])
         assert "# Updates for TEAM-1 (0)" in result
 
-    def test_transition_and_creator(self):
+    def test_transition_and_creator(self) -> None:
         update = {
             "creationDate": "2026-01-15T10:00:00Z",
             "oldState": {"value": "on_track"},
@@ -320,12 +320,12 @@ class TestUpdatesToMarkdown:
         result = _updates_to_markdown("TEAM-1", [update])
         assert "## 2026-01-15  On track → At risk  — Alice" in result
 
-    def test_missed_update_flag(self):
+    def test_missed_update_flag(self) -> None:
         update = {"creationDate": "2026-01-15T10:00:00Z", "missedUpdate": True}
         result = _updates_to_markdown("TEAM-1", [update])
         assert "_missed update_" in result
 
-    def test_live_notes_included_archived_excluded(self):
+    def test_live_notes_included_archived_excluded(self) -> None:
         update = {
             "creationDate": "2026-01-15T10:00:00Z",
             "updateNotes": {
@@ -355,7 +355,7 @@ class TestUpdatesToMarkdown:
 class TestGetCloudId:
     @patch("zaira.goals.requests.get")
     @patch("zaira.goals.get_jira_site", return_value="foo.atlassian.net")
-    def test_fetches_and_caches(self, _mock_site, mock_get):
+    def test_fetches_and_caches(self, _mock_site, mock_get) -> None:
         resp = MagicMock()
         resp.json.return_value = {"cloudId": "abc-123"}
         mock_get.return_value = resp
@@ -369,7 +369,7 @@ class TestGetCloudId:
 
     @patch("zaira.goals.requests.get")
     @patch("zaira.goals.get_jira_site", return_value="foo.atlassian.net")
-    def test_caches_result(self, _mock_site, mock_get):
+    def test_caches_result(self, _mock_site, mock_get) -> None:
         resp = MagicMock()
         resp.json.return_value = {"cloudId": "abc-123"}
         mock_get.return_value = resp
@@ -381,7 +381,7 @@ class TestGetCloudId:
 
     @patch("zaira.goals.requests.get")
     @patch("zaira.goals.get_jira_site", return_value="foo.atlassian.net")
-    def test_missing_cloud_id_raises(self, _mock_site, mock_get):
+    def test_missing_cloud_id_raises(self, _mock_site, mock_get) -> None:
         resp = MagicMock()
         resp.json.return_value = {}
         mock_get.return_value = resp
@@ -400,7 +400,9 @@ class TestPostGraphql:
         "zaira.goals.get_credentials",
         return_value=("https://foo.atlassian.net", "me@test.com", "tok"),
     )
-    def test_returns_data_on_success(self, _mock_creds, mock_post, _mock_endpoint):
+    def test_returns_data_on_success(
+        self, _mock_creds, mock_post, _mock_endpoint
+    ) -> None:
         resp = MagicMock()
         resp.status_code = 200
         resp.json.return_value = {"data": {"foo": "bar"}}
@@ -422,7 +424,7 @@ class TestPostGraphql:
         "zaira.goals.get_credentials",
         return_value=("https://foo.atlassian.net", "me@test.com", "tok"),
     )
-    def test_raises_on_http_error(self, _mock_creds, mock_post, _mock_endpoint):
+    def test_raises_on_http_error(self, _mock_creds, mock_post, _mock_endpoint) -> None:
         resp = MagicMock()
         resp.status_code = 500
         resp.text = "server error"
@@ -440,7 +442,9 @@ class TestPostGraphql:
         "zaira.goals.get_credentials",
         return_value=("https://foo.atlassian.net", "me@test.com", "tok"),
     )
-    def test_raises_on_graphql_errors(self, _mock_creds, mock_post, _mock_endpoint):
+    def test_raises_on_graphql_errors(
+        self, _mock_creds, mock_post, _mock_endpoint
+    ) -> None:
         resp = MagicMock()
         resp.status_code = 200
         resp.json.return_value = {"errors": [{"message": "bad query"}], "data": None}
@@ -452,7 +456,7 @@ class TestPostGraphql:
 
 class TestSearchGoals:
     @patch("zaira.goals._post_graphql")
-    def test_single_page(self, mock_post):
+    def test_single_page(self, mock_post) -> None:
         mock_post.return_value = {
             "goals_search": {
                 "edges": [{"node": {"key": "TEAM-1"}}, {"node": {"key": "TEAM-2"}}],
@@ -466,7 +470,7 @@ class TestSearchGoals:
         mock_post.assert_called_once()
 
     @patch("zaira.goals._post_graphql")
-    def test_pagination(self, mock_post):
+    def test_pagination(self, mock_post) -> None:
         mock_post.side_effect = [
             {
                 "goals_search": {
@@ -488,7 +492,7 @@ class TestSearchGoals:
         assert mock_post.call_count == 2
 
     @patch("zaira.goals._post_graphql")
-    def test_full_fields_includes_extra_query_fields(self, mock_post):
+    def test_full_fields_includes_extra_query_fields(self, mock_post) -> None:
         mock_post.return_value = {
             "goals_search": {"edges": [], "pageInfo": {"hasNextPage": False}}
         }
@@ -499,7 +503,7 @@ class TestSearchGoals:
         assert "isPrivate" in query  # only present in FULL_FIELDS
 
     @patch("zaira.goals._post_graphql")
-    def test_with_updates_appends_update_fields(self, mock_post):
+    def test_with_updates_appends_update_fields(self, mock_post) -> None:
         mock_post.return_value = {
             "goals_search": {"edges": [], "pageInfo": {"hasNextPage": False}}
         }
@@ -510,7 +514,7 @@ class TestSearchGoals:
         assert "updates(first: 20)" in query
 
     @patch("zaira.goals._post_graphql")
-    def test_empty_result(self, mock_post):
+    def test_empty_result(self, mock_post) -> None:
         mock_post.return_value = {}
 
         result = search_goals("cloud-1")
@@ -520,7 +524,7 @@ class TestSearchGoals:
 
 class TestGetGoal:
     @patch("zaira.goals._post_graphql")
-    def test_by_key(self, mock_post):
+    def test_by_key(self, mock_post) -> None:
         mock_post.return_value = {"goals_byKey": {"key": "TEAM-1", "name": "Ship it"}}
 
         result = get_goal("TEAM-1", cloud_id="cloud-1")
@@ -533,7 +537,7 @@ class TestGetGoal:
         }
 
     @patch("zaira.goals._post_graphql")
-    def test_by_ari(self, mock_post):
+    def test_by_ari(self, mock_post) -> None:
         mock_post.return_value = {"goals_byId": {"id": "ari:cloud:townsquare::goal/1"}}
 
         result = get_goal("ari:cloud:townsquare::goal/1")
@@ -544,7 +548,7 @@ class TestGetGoal:
 
     @patch("zaira.goals.get_cloud_id", return_value="auto-cloud")
     @patch("zaira.goals._post_graphql")
-    def test_resolves_cloud_id_when_missing(self, mock_post, _mock_cloud):
+    def test_resolves_cloud_id_when_missing(self, mock_post, _mock_cloud) -> None:
         mock_post.return_value = {"goals_byKey": {"key": "TEAM-1"}}
 
         get_goal("TEAM-1")
@@ -555,7 +559,7 @@ class TestGetGoal:
 
 class TestBatchGetGoals:
     @patch("zaira.goals.search_goals")
-    def test_plain_keys_found(self, mock_search):
+    def test_plain_keys_found(self, mock_search) -> None:
         mock_search.return_value = [{"key": "TEAM-1"}, {"key": "TEAM-2"}]
 
         goals_out, missing = _batch_get_goals(
@@ -566,7 +570,7 @@ class TestBatchGetGoals:
         assert missing == []
 
     @patch("zaira.goals.search_goals")
-    def test_missing_keys_reported(self, mock_search):
+    def test_missing_keys_reported(self, mock_search) -> None:
         mock_search.return_value = [{"key": "TEAM-1"}]
 
         goals_out, missing = _batch_get_goals(
@@ -576,7 +580,7 @@ class TestBatchGetGoals:
         assert missing == ["TEAM-2"]
 
     @patch("zaira.goals._post_graphql")
-    def test_ari_keys_use_goals_by_ids(self, mock_post):
+    def test_ari_keys_use_goals_by_ids(self, mock_post) -> None:
         mock_post.return_value = {"goals_byIds": [{"id": "ari:1"}]}
 
         goals_out, missing = _batch_get_goals(["ari:1"], full=False, cloud_id="cloud-1")
@@ -585,7 +589,7 @@ class TestBatchGetGoals:
         assert missing == []
 
     @patch("zaira.goals._post_graphql")
-    def test_missing_ari_reported(self, mock_post):
+    def test_missing_ari_reported(self, mock_post) -> None:
         mock_post.return_value = {"goals_byIds": []}
 
         goals_out, missing = _batch_get_goals(["ari:1"], full=False, cloud_id="cloud-1")
@@ -595,7 +599,7 @@ class TestBatchGetGoals:
 
 class TestGetGoalUpdates:
     @patch("zaira.goals._post_graphql")
-    def test_by_key(self, mock_post):
+    def test_by_key(self, mock_post) -> None:
         mock_post.return_value = {
             "goals_byKey": {"updates": {"edges": [{"node": {"uuid": "u1"}}]}}
         }
@@ -605,7 +609,7 @@ class TestGetGoalUpdates:
         assert result == [{"uuid": "u1"}]
 
     @patch("zaira.goals._post_graphql")
-    def test_by_ari(self, mock_post):
+    def test_by_ari(self, mock_post) -> None:
         mock_post.return_value = {
             "goals_byId": {"updates": {"edges": [{"node": {"uuid": "u2"}}]}}
         }
@@ -615,7 +619,7 @@ class TestGetGoalUpdates:
         assert result == [{"uuid": "u2"}]
 
     @patch("zaira.goals._post_graphql")
-    def test_no_updates(self, mock_post):
+    def test_no_updates(self, mock_post) -> None:
         mock_post.return_value = {"goals_byKey": {}}
 
         result = get_goal_updates("TEAM-1", cloud_id="cloud-1")
@@ -624,7 +628,7 @@ class TestGetGoalUpdates:
 
 
 class TestGoalsCommand:
-    def test_dispatches_to_goals_func(self):
+    def test_dispatches_to_goals_func(self) -> None:
         called = {}
 
         def fake_func(args: argparse.Namespace) -> None:
@@ -634,7 +638,7 @@ class TestGoalsCommand:
 
         assert called["ran"] is True
 
-    def test_no_subcommand_prints_usage(self, capsys):
+    def test_no_subcommand_prints_usage(self, capsys) -> None:
         with pytest.raises(SystemExit) as exc_info:
             goals_command(argparse.Namespace())
 
@@ -645,7 +649,7 @@ class TestGoalsCommand:
 
 class TestExportCommand:
     @patch("zaira.goals.search_goals")
-    def test_requires_cloud_id(self, mock_search, capsys):
+    def test_requires_cloud_id(self, mock_search, capsys) -> None:
         args = argparse.Namespace(
             cloud_id=None, tql=None, url=None, full=False, format=None, output=None
         )
@@ -659,7 +663,7 @@ class TestExportCommand:
         mock_search.assert_not_called()
 
     @patch("zaira.goals.search_goals")
-    def test_defaults_tql_when_missing(self, mock_search):
+    def test_defaults_tql_when_missing(self, mock_search) -> None:
         mock_search.return_value = []
         args = argparse.Namespace(
             cloud_id="cloud-1",
@@ -676,7 +680,7 @@ class TestExportCommand:
         assert kwargs["tql"] == "archived = false"
 
     @patch("zaira.goals.search_goals")
-    def test_url_supplies_cloud_id_and_tql(self, mock_search):
+    def test_url_supplies_cloud_id_and_tql(self, mock_search) -> None:
         mock_search.return_value = []
         args = argparse.Namespace(
             cloud_id=None,
@@ -697,7 +701,7 @@ class TestExportCommand:
         assert kwargs["tql"] == "archived = false"
 
     @patch("zaira.goals.search_goals")
-    def test_table_format_output(self, mock_search, capsys):
+    def test_table_format_output(self, mock_search, capsys) -> None:
         mock_search.return_value = [{"key": "TEAM-1", "name": "Ship it"}]
         args = argparse.Namespace(
             cloud_id="cloud-1",
@@ -715,7 +719,7 @@ class TestExportCommand:
         assert "TEAM-1" in captured.out
 
     @patch("zaira.goals.search_goals")
-    def test_writes_to_file(self, mock_search, tmp_path, capsys):
+    def test_writes_to_file(self, mock_search, tmp_path, capsys) -> None:
         mock_search.return_value = [{"key": "TEAM-1", "name": "Ship it"}]
         out_file = tmp_path / "goals.md"
         args = argparse.Namespace(
@@ -735,7 +739,7 @@ class TestExportCommand:
         assert "Wrote 1 goals" in captured.out
 
     @patch("zaira.goals.search_goals", side_effect=RuntimeError("boom"))
-    def test_error_exits(self, _mock_search, capsys):
+    def test_error_exits(self, _mock_search, capsys) -> None:
         args = argparse.Namespace(
             cloud_id="cloud-1", tql=None, url=None, full=False, format=None, output=None
         )
@@ -750,7 +754,7 @@ class TestExportCommand:
 
 class TestGetCommand:
     @patch("zaira.goals.get_goal")
-    def test_single_key_found(self, mock_get_goal, capsys):
+    def test_single_key_found(self, mock_get_goal, capsys) -> None:
         mock_get_goal.return_value = {"key": "TEAM-1", "name": "Ship it"}
         args = argparse.Namespace(
             keys=["TEAM-1"], format="json", output=None, minimal=False, cloud_id=None
@@ -763,7 +767,7 @@ class TestGetCommand:
         assert "TEAM-1" in captured.out
 
     @patch("zaira.goals.get_goal")
-    def test_single_key_missing_exits(self, mock_get_goal, capsys):
+    def test_single_key_missing_exits(self, mock_get_goal, capsys) -> None:
         mock_get_goal.return_value = None
         args = argparse.Namespace(
             keys=["TEAM-9"], format="json", output=None, minimal=False, cloud_id=None
@@ -777,7 +781,7 @@ class TestGetCommand:
         assert "Goal not found: TEAM-9" in captured.err
 
     @patch("zaira.goals._batch_get_goals")
-    def test_multiple_keys(self, mock_batch, capsys):
+    def test_multiple_keys(self, mock_batch, capsys) -> None:
         mock_batch.return_value = ([{"key": "TEAM-1"}, {"key": "TEAM-2"}], [])
         args = argparse.Namespace(
             keys=["TEAM-1", "TEAM-2"],
@@ -794,7 +798,7 @@ class TestGetCommand:
         assert "TEAM-2" in captured.out
 
     @patch("zaira.goals._batch_get_goals")
-    def test_writes_to_directory(self, mock_batch, tmp_path):
+    def test_writes_to_directory(self, mock_batch, tmp_path) -> None:
         mock_batch.return_value = (
             [{"key": "TEAM-1", "name": "A"}, {"key": "TEAM-2", "name": "B"}],
             [],
@@ -814,7 +818,7 @@ class TestGetCommand:
         assert (out_dir / "TEAM-2.md").exists()
 
     @patch("zaira.goals.get_goal")
-    def test_error_exits(self, mock_get_goal, capsys):
+    def test_error_exits(self, mock_get_goal, capsys) -> None:
         mock_get_goal.side_effect = RuntimeError("network fail")
         args = argparse.Namespace(
             keys=["TEAM-1"], format="json", output=None, minimal=False, cloud_id=None
@@ -830,7 +834,7 @@ class TestGetCommand:
 
 class TestUpdatesCommand:
     @patch("zaira.goals.get_goal_updates")
-    def test_prints_markdown_by_default(self, mock_updates, capsys):
+    def test_prints_markdown_by_default(self, mock_updates, capsys) -> None:
         mock_updates.return_value = [
             {"creationDate": "2026-01-15T10:00:00Z", "creator": {"name": "Alice"}}
         ]
@@ -844,7 +848,7 @@ class TestUpdatesCommand:
         assert "# Updates for TEAM-1" in captured.out
 
     @patch("zaira.goals.get_goal_updates")
-    def test_json_format(self, mock_updates, capsys):
+    def test_json_format(self, mock_updates, capsys) -> None:
         mock_updates.return_value = [{"uuid": "u1"}]
         args = argparse.Namespace(
             key="TEAM-1", cloud_id=None, limit=50, format="json", output=None
@@ -856,7 +860,7 @@ class TestUpdatesCommand:
         assert '"uuid": "u1"' in captured.out
 
     @patch("zaira.goals.get_goal_updates")
-    def test_writes_to_file(self, mock_updates, tmp_path, capsys):
+    def test_writes_to_file(self, mock_updates, tmp_path, capsys) -> None:
         mock_updates.return_value = [
             {"uuid": "u1", "creationDate": "2026-01-15T10:00:00Z"}
         ]
@@ -872,7 +876,7 @@ class TestUpdatesCommand:
         assert "Wrote 1 updates" in captured.out
 
     @patch("zaira.goals.get_goal_updates", side_effect=RuntimeError("nope"))
-    def test_error_exits(self, _mock_updates, capsys):
+    def test_error_exits(self, _mock_updates, capsys) -> None:
         args = argparse.Namespace(
             key="TEAM-1", cloud_id=None, limit=50, format=None, output=None
         )

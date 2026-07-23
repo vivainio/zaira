@@ -24,7 +24,7 @@ def _mock_issue(key: str, summary: str, status_name: str = "Open") -> object:
 class TestRecentCommand:
     """Tests for recent_command (Jira recently-viewed tickets)."""
 
-    def test_prints_recent_tickets(self, mock_jira, capsys):
+    def test_prints_recent_tickets(self, mock_jira, capsys) -> None:
         mock_jira.search_issues.return_value = [
             _mock_issue("FOO-1", "Feature one", "In Progress"),
             _mock_issue("FOO-22", "Bug fix", "Done"),
@@ -38,7 +38,7 @@ class TestRecentCommand:
         assert "In Progress" in captured.out
         assert "Done" in captured.out
 
-    def test_default_limit_is_20(self, mock_jira):
+    def test_default_limit_is_20(self, mock_jira) -> None:
         mock_jira.search_issues.return_value = []
 
         recent_command(argparse.Namespace(limit=None))
@@ -46,7 +46,7 @@ class TestRecentCommand:
         _, kwargs = mock_jira.search_issues.call_args
         assert kwargs["maxResults"] == 20
 
-    def test_custom_limit(self, mock_jira):
+    def test_custom_limit(self, mock_jira) -> None:
         mock_jira.search_issues.return_value = []
 
         recent_command(argparse.Namespace(limit=5))
@@ -54,7 +54,7 @@ class TestRecentCommand:
         _, kwargs = mock_jira.search_issues.call_args
         assert kwargs["maxResults"] == 5
 
-    def test_uses_issue_history_jql(self, mock_jira):
+    def test_uses_issue_history_jql(self, mock_jira) -> None:
         mock_jira.search_issues.return_value = []
 
         recent_command(argparse.Namespace(limit=None))
@@ -62,7 +62,7 @@ class TestRecentCommand:
         jql = mock_jira.search_issues.call_args[0][0]
         assert "issueHistory()" in jql
 
-    def test_no_issues(self, mock_jira, capsys):
+    def test_no_issues(self, mock_jira, capsys) -> None:
         mock_jira.search_issues.return_value = []
 
         recent_command(argparse.Namespace(limit=None))
@@ -70,7 +70,7 @@ class TestRecentCommand:
         captured = capsys.readouterr()
         assert "No recently viewed tickets." in captured.out
 
-    def test_missing_status_shows_placeholder(self, mock_jira, capsys):
+    def test_missing_status_shows_placeholder(self, mock_jira, capsys) -> None:
         mock_jira.search_issues.return_value = [
             _mock_issue("FOO-1", "No status ticket", status_name=None),
         ]
@@ -81,7 +81,7 @@ class TestRecentCommand:
         assert "FOO-1" in captured.out
         assert "?" in captured.out
 
-    def test_truncates_long_summary(self, mock_jira, capsys):
+    def test_truncates_long_summary(self, mock_jira, capsys) -> None:
         long_summary = "x" * 120
         mock_jira.search_issues.return_value = [
             _mock_issue("FOO-1", long_summary, "Open"),
@@ -93,7 +93,7 @@ class TestRecentCommand:
         assert ("x" * 87 + "...") in captured.out
         assert long_summary not in captured.out
 
-    def test_myself_error_exits(self, mock_jira, capsys):
+    def test_myself_error_exits(self, mock_jira, capsys) -> None:
         mock_jira.myself.side_effect = JIRAError(status_code=401, text="Unauthorized")
 
         with pytest.raises(SystemExit) as exc_info:
@@ -104,7 +104,7 @@ class TestRecentCommand:
         assert "Unauthorized" in captured.err
         mock_jira.search_issues.assert_not_called()
 
-    def test_search_error_exits(self, mock_jira, capsys):
+    def test_search_error_exits(self, mock_jira, capsys) -> None:
         mock_jira.search_issues.side_effect = JIRAError(status_code=500, text="Boom")
 
         with pytest.raises(SystemExit) as exc_info:
@@ -122,7 +122,9 @@ class TestWikiRecentCommand:
         "zaira.recent.get_server_from_config", return_value="https://foo.atlassian.net"
     )
     @patch("zaira.recent.load_credentials")
-    def test_missing_credentials_exits(self, mock_load_creds, _mock_server, capsys):
+    def test_missing_credentials_exits(
+        self, mock_load_creds, _mock_server, capsys
+    ) -> None:
         mock_load_creds.return_value = {}
 
         with pytest.raises(SystemExit) as exc_info:
@@ -139,7 +141,7 @@ class TestWikiRecentCommand:
     @patch("zaira.recent.load_credentials")
     def test_request_failure_exits(
         self, mock_load_creds, _mock_server, mock_get, capsys
-    ):
+    ) -> None:
         mock_load_creds.return_value = {"email": "me@test.com", "api_token": "tok"}
         response = MagicMock()
         response.ok = False
@@ -160,7 +162,7 @@ class TestWikiRecentCommand:
         "zaira.recent.get_server_from_config", return_value="https://foo.atlassian.net"
     )
     @patch("zaira.recent.load_credentials")
-    def test_no_items(self, mock_load_creds, _mock_server, mock_get, capsys):
+    def test_no_items(self, mock_load_creds, _mock_server, mock_get, capsys) -> None:
         mock_load_creds.return_value = {"email": "me@test.com", "api_token": "tok"}
         response = MagicMock()
         response.ok = True
@@ -179,7 +181,7 @@ class TestWikiRecentCommand:
     @patch("zaira.recent.load_credentials")
     def test_prints_pages_with_absolute_url(
         self, mock_load_creds, _mock_server, mock_get, capsys
-    ):
+    ) -> None:
         mock_load_creds.return_value = {"email": "me@test.com", "api_token": "tok"}
         response = MagicMock()
         response.ok = True
@@ -207,7 +209,7 @@ class TestWikiRecentCommand:
     @patch("zaira.recent.load_credentials")
     def test_prefixes_relative_url_without_wiki(
         self, mock_load_creds, _mock_server, mock_get, capsys
-    ):
+    ) -> None:
         mock_load_creds.return_value = {"email": "me@test.com", "api_token": "tok"}
         response = MagicMock()
         response.ok = True
@@ -233,7 +235,7 @@ class TestWikiRecentCommand:
     @patch("zaira.recent.load_credentials")
     def test_respects_limit_slicing(
         self, mock_load_creds, _mock_server, mock_get, capsys
-    ):
+    ) -> None:
         mock_load_creds.return_value = {"email": "me@test.com", "api_token": "tok"}
         response = MagicMock()
         response.ok = True

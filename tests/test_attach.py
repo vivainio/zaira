@@ -11,7 +11,7 @@ from zaira.attach import attach_file, attach_command
 class TestAttachFile:
     """Tests for attach_file function with mocked Jira."""
 
-    def test_uploads_file_successfully(self, mock_jira, tmp_path):
+    def test_uploads_file_successfully(self, mock_jira, tmp_path) -> None:
         """Returns True when file is uploaded."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test content")
@@ -24,7 +24,7 @@ class TestAttachFile:
         assert call_args[0][0] == "TEST-123"
         assert call_args[1]["filename"] == "test.txt"
 
-    def test_returns_false_on_error(self, mock_jira, tmp_path, capsys):
+    def test_returns_false_on_error(self, mock_jira, tmp_path, capsys) -> None:
         """Returns False and prints error on failure."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test content")
@@ -40,7 +40,7 @@ class TestAttachFile:
 class TestAttachCommand:
     """Tests for attach_command function."""
 
-    def test_exits_on_missing_file(self, tmp_path, capsys):
+    def test_exits_on_missing_file(self, tmp_path, capsys) -> None:
         """Exits with error when file doesn't exist."""
         args = argparse.Namespace(
             key="test-123",
@@ -54,7 +54,9 @@ class TestAttachCommand:
         captured = capsys.readouterr()
         assert "File not found" in captured.err
 
-    def test_uploads_multiple_files_successfully(self, mock_jira, tmp_path, capsys):
+    def test_uploads_multiple_files_successfully(
+        self, mock_jira, tmp_path, capsys
+    ) -> None:
         """Uploads multiple files and reports success."""
         file1 = tmp_path / "file1.txt"
         file2 = tmp_path / "file2.txt"
@@ -74,7 +76,7 @@ class TestAttachCommand:
         assert "Uploaded 2/2 files" in captured.out
         assert "jira.example.com" in captured.out
 
-    def test_reports_partial_failure(self, mock_jira, tmp_path, capsys):
+    def test_reports_partial_failure(self, mock_jira, tmp_path, capsys) -> None:
         """Reports partial failure when some uploads fail."""
         file1 = tmp_path / "file1.txt"
         file2 = tmp_path / "file2.txt"
@@ -97,7 +99,7 @@ class TestAttachCommand:
         captured = capsys.readouterr()
         assert "Uploaded 1/2 files" in captured.out
 
-    def test_uppercases_ticket_key(self, mock_jira, tmp_path, capsys):
+    def test_uppercases_ticket_key(self, mock_jira, tmp_path, capsys) -> None:
         """Converts ticket key to uppercase."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("content")

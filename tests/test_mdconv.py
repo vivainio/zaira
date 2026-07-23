@@ -40,7 +40,7 @@ from tests.jira_wiki_samples import (
 class TestExtractLocalImages:
     """Tests for extract_local_images function."""
 
-    def test_extracts_local_images(self):
+    def test_extracts_local_images(self) -> None:
         """Extracts local image references."""
         md = "![Alt text](./images/photo.png)\n![Another](path/to/image.jpg)"
         result = extract_local_images(md)
@@ -49,7 +49,7 @@ class TestExtractLocalImages:
         assert ("Alt text", "./images/photo.png") in result
         assert ("Another", "path/to/image.jpg") in result
 
-    def test_skips_http_urls(self):
+    def test_skips_http_urls(self) -> None:
         """Skips HTTP/HTTPS URLs."""
         md = "![Web](https://example.com/image.png)\n![Local](./local.png)"
         result = extract_local_images(md)
@@ -57,21 +57,21 @@ class TestExtractLocalImages:
         assert len(result) == 1
         assert ("Local", "./local.png") in result
 
-    def test_skips_protocol_relative_urls(self):
+    def test_skips_protocol_relative_urls(self) -> None:
         """Skips protocol-relative URLs."""
         md = "![Image](//cdn.example.com/img.png)"
         result = extract_local_images(md)
 
         assert len(result) == 0
 
-    def test_handles_empty_alt_text(self):
+    def test_handles_empty_alt_text(self) -> None:
         """Handles images with empty alt text."""
         md = "![](image.png)"
         result = extract_local_images(md)
 
         assert result == [("", "image.png")]
 
-    def test_no_images(self):
+    def test_no_images(self) -> None:
         """Returns empty list when no images."""
         md = "Just text, no images"
         result = extract_local_images(md)
@@ -82,28 +82,28 @@ class TestExtractLocalImages:
 class TestConvertImagesToAttachments:
     """Tests for convert_images_to_attachments function."""
 
-    def test_converts_local_images(self):
+    def test_converts_local_images(self) -> None:
         """Converts local image paths to attachment references."""
         md = "![Alt](./images/photo.png)"
         result = convert_images_to_attachments(md)
 
         assert result == "![Alt](attachment:photo.png)"
 
-    def test_preserves_urls(self):
+    def test_preserves_urls(self) -> None:
         """Preserves HTTP/HTTPS URLs."""
         md = "![Web](https://example.com/image.png)"
         result = convert_images_to_attachments(md)
 
         assert result == md
 
-    def test_preserves_protocol_relative_urls(self):
+    def test_preserves_protocol_relative_urls(self) -> None:
         """Preserves protocol-relative URLs."""
         md = "![Img](//cdn.example.com/img.png)"
         result = convert_images_to_attachments(md)
 
         assert result == md
 
-    def test_handles_nested_paths(self):
+    def test_handles_nested_paths(self) -> None:
         """Extracts just filename from nested paths."""
         md = "![Img](path/to/deep/image.png)"
         result = convert_images_to_attachments(md)
@@ -114,28 +114,28 @@ class TestConvertImagesToAttachments:
 class TestConvertAttachmentsToImages:
     """Tests for convert_attachments_to_images function."""
 
-    def test_converts_attachment_references(self):
+    def test_converts_attachment_references(self) -> None:
         """Converts attachment references to local paths."""
         md = "![Alt](attachment:photo.png)"
         result = convert_attachments_to_images(md)
 
         assert result == "![Alt](./images/photo.png)"
 
-    def test_custom_image_dir(self):
+    def test_custom_image_dir(self) -> None:
         """Uses custom image directory."""
         md = "![Alt](attachment:photo.png)"
         result = convert_attachments_to_images(md, image_dir="./assets")
 
         assert result == "![Alt](./assets/photo.png)"
 
-    def test_preserves_non_attachment_refs(self):
+    def test_preserves_non_attachment_refs(self) -> None:
         """Preserves non-attachment image references."""
         md = "![Alt](./local/image.png)"
         result = convert_attachments_to_images(md)
 
         assert result == md
 
-    def test_preserves_urls(self):
+    def test_preserves_urls(self) -> None:
         """Preserves HTTP URLs."""
         md = "![Web](https://example.com/img.png)"
         result = convert_attachments_to_images(md)
@@ -146,32 +146,32 @@ class TestConvertAttachmentsToImages:
 class TestMarkdownToStorage:
     """Tests for markdown_to_storage function."""
 
-    def test_headers(self):
+    def test_headers(self) -> None:
         md = "# H1\n## H2\n### H3"
         html = markdown_to_storage(md)
         assert "<h1>H1</h1>" in html
         assert "<h2>H2</h2>" in html
         assert "<h3>H3</h3>" in html
 
-    def test_bold_italic(self):
+    def test_bold_italic(self) -> None:
         md = "This is **bold** and *italic*"
         html = markdown_to_storage(md)
         assert "<strong>bold</strong>" in html
         assert "<em>italic</em>" in html
 
-    def test_links(self):
+    def test_links(self) -> None:
         md = "[link text](https://example.com)"
         html = markdown_to_storage(md)
         assert '<a href="https://example.com">link text</a>' in html
 
-    def test_code_block_with_language(self):
+    def test_code_block_with_language(self) -> None:
         md = "```python\nprint('hello')\n```"
         html = markdown_to_storage(md)
         assert '<ac:structured-macro ac:name="code">' in html
         assert '<ac:parameter ac:name="language">python</ac:parameter>' in html
         assert "print('hello')" in html
 
-    def test_code_block_language_mapping(self):
+    def test_code_block_language_mapping(self) -> None:
         """Test that language aliases are mapped correctly."""
         test_cases = [
             ("js", "javascript"),
@@ -189,37 +189,37 @@ class TestMarkdownToStorage:
                 in html
             )
 
-    def test_code_block_without_language(self):
+    def test_code_block_without_language(self) -> None:
         md = "```\nplain code\n```"
         html = markdown_to_storage(md)
         assert '<ac:parameter ac:name="language">none</ac:parameter>' in html
 
-    def test_code_block_html_entities(self):
+    def test_code_block_html_entities(self) -> None:
         """Test that HTML in code blocks is preserved."""
         md = '```html\n<div class="foo">text</div>\n```'
         html = markdown_to_storage(md)
         assert '<div class="foo">text</div>' in html
 
-    def test_toc(self):
+    def test_toc(self) -> None:
         md = "# Title\n\n[TOC]\n\n## Section"
         html = markdown_to_storage(md)
         assert '<ac:structured-macro ac:name="toc"/>' in html
         assert "[TOC]" not in html
 
-    def test_unordered_list(self):
+    def test_unordered_list(self) -> None:
         md = "- Item 1\n- Item 2"
         html = markdown_to_storage(md)
         assert "<ul>" in html
         assert "<li>Item 1</li>" in html
         assert "<li>Item 2</li>" in html
 
-    def test_ordered_list(self):
+    def test_ordered_list(self) -> None:
         md = "1. First\n2. Second"
         html = markdown_to_storage(md)
         assert "<ol>" in html
         assert "<li>First</li>" in html
 
-    def test_nested_list_2_space_indent(self):
+    def test_nested_list_2_space_indent(self) -> None:
         """Test that 2-space indented nested lists work."""
         md = "- Item 1\n  - Nested A\n  - Nested B\n- Item 2"
         html = markdown_to_storage(md)
@@ -227,19 +227,19 @@ class TestMarkdownToStorage:
         assert html.count("<ul>") == 2
         assert html.count("</ul>") == 2
 
-    def test_nested_list_deep(self):
+    def test_nested_list_deep(self) -> None:
         """Test deeply nested lists with 2-space indent."""
         md = "- Item 1\n  - Nested A\n    - Deep\n  - Nested B\n- Item 2"
         html = markdown_to_storage(md)
         assert html.count("<ul>") == 3  # Top level + 2 nested levels
 
-    def test_ordered_list_continuation(self):
+    def test_ordered_list_continuation(self) -> None:
         """Test sane_lists extension preserves list start number."""
         md = "1. First\n2. Second\n\nParagraph\n\n3. Third\n4. Fourth"
         html = markdown_to_storage(md)
         assert 'start="3"' in html
 
-    def test_table(self):
+    def test_table(self) -> None:
         md = "| A | B |\n|---|---|\n| 1 | 2 |"
         html = markdown_to_storage(md)
         assert "<table>" in html
@@ -250,24 +250,24 @@ class TestMarkdownToStorage:
 class TestStorageToMarkdown:
     """Tests for storage_to_markdown function."""
 
-    def test_headers(self):
+    def test_headers(self) -> None:
         html = "<h1>Title</h1><h2>Section</h2>"
         md = storage_to_markdown(html)
         assert "# Title" in md
         assert "## Section" in md
 
-    def test_bold_italic(self):
+    def test_bold_italic(self) -> None:
         html = "<p>This is <strong>bold</strong> and <em>italic</em></p>"
         md = storage_to_markdown(html)
         assert "**bold**" in md
         assert "*italic*" in md
 
-    def test_links(self):
+    def test_links(self) -> None:
         html = '<a href="https://example.com">link</a>'
         md = storage_to_markdown(html)
         assert "[link](https://example.com)" in md
 
-    def test_code_macro(self):
+    def test_code_macro(self) -> None:
         html = (
             '<ac:structured-macro ac:name="code">'
             '<ac:parameter ac:name="language">python</ac:parameter>'
@@ -279,7 +279,7 @@ class TestStorageToMarkdown:
         assert 'print("hello")' in md
         assert "```" in md
 
-    def test_code_macro_language_mapping(self):
+    def test_code_macro_language_mapping(self) -> None:
         """Test reverse language mapping."""
         html = (
             '<ac:structured-macro ac:name="code">'
@@ -290,7 +290,7 @@ class TestStorageToMarkdown:
         md = storage_to_markdown(html)
         assert "```xml" in md
 
-    def test_code_macro_none_language(self):
+    def test_code_macro_none_language(self) -> None:
         html = (
             '<ac:structured-macro ac:name="code">'
             '<ac:parameter ac:name="language">none</ac:parameter>'
@@ -301,37 +301,37 @@ class TestStorageToMarkdown:
         # Should have empty language (just ```)
         assert "```\n" in md
 
-    def test_toc_macro(self):
+    def test_toc_macro(self) -> None:
         html = '<ac:structured-macro ac:name="toc"/>'
         md = storage_to_markdown(html)
         assert "[TOC]" in md
 
-    def test_unordered_list(self):
+    def test_unordered_list(self) -> None:
         html = "<ul><li>Item 1</li><li>Item 2</li></ul>"
         md = storage_to_markdown(html)
         assert "- Item 1" in md
         assert "- Item 2" in md
 
-    def test_ordered_list(self):
+    def test_ordered_list(self) -> None:
         html = "<ol><li>First</li><li>Second</li></ol>"
         md = storage_to_markdown(html)
         assert "1. First" in md
         assert "2. Second" in md
 
-    def test_ordered_list_start(self):
+    def test_ordered_list_start(self) -> None:
         html = '<ol start="3"><li>Third</li><li>Fourth</li></ol>'
         md = storage_to_markdown(html)
         assert "3. Third" in md
         assert "4. Fourth" in md
 
-    def test_nested_list(self):
+    def test_nested_list(self) -> None:
         html = "<ul><li>Item 1<ul><li>Nested</li></ul></li><li>Item 2</li></ul>"
         md = storage_to_markdown(html)
         assert "- Item 1" in md
         assert "  - Nested" in md
         assert "- Item 2" in md
 
-    def test_table(self):
+    def test_table(self) -> None:
         html = (
             "<table><thead><tr><th>A</th><th>B</th></tr></thead>"
             "<tbody><tr><td>1</td><td>2</td></tr></tbody></table>"
@@ -345,89 +345,89 @@ class TestStorageToMarkdown:
 class TestMarkdownToJiraWiki:
     """Tests for markdown_to_jira_wiki function."""
 
-    def test_headers(self):
+    def test_headers(self) -> None:
         assert markdown_to_jira_wiki("## Section") == "h2. Section"
         assert markdown_to_jira_wiki("### Sub") == "h3. Sub"
 
-    def test_h1_not_converted(self):
+    def test_h1_not_converted(self) -> None:
         """Single # is Jira numbered list — not converted to h1."""
         assert markdown_to_jira_wiki("# Title") == "# Title"
 
-    def test_bold(self):
+    def test_bold(self) -> None:
         result = markdown_to_jira_wiki("This is **bold** text")
         assert result == "This is *bold* text"
 
-    def test_italic_single_star_unchanged(self):
+    def test_italic_single_star_unchanged(self) -> None:
         """Single *text* is valid Jira bold — left as-is to avoid mangling."""
         result = markdown_to_jira_wiki("This is *italic* text")
         assert result == "This is *italic* text"
 
-    def test_bold_double_underscore(self):
+    def test_bold_double_underscore(self) -> None:
         result = markdown_to_jira_wiki("This is __bold__ text")
         assert result == "This is *bold* text"
 
-    def test_inline_code(self):
+    def test_inline_code(self) -> None:
         result = markdown_to_jira_wiki("Use `print()` here")
         assert result == "Use {{print()}} here"
 
-    def test_link(self):
+    def test_link(self) -> None:
         result = markdown_to_jira_wiki("[click here](https://example.com)")
         assert result == "[click here|https://example.com]"
 
-    def test_image(self):
+    def test_image(self) -> None:
         result = markdown_to_jira_wiki("![alt text](image.png)")
         assert result == "!image.png!"
 
-    def test_image_before_link(self):
+    def test_image_before_link(self) -> None:
         """Images are processed before links to avoid double-conversion."""
         result = markdown_to_jira_wiki("![alt](img.png) and [link](url)")
         assert result == "!img.png! and [link|url]"
 
-    def test_fenced_code_block(self):
+    def test_fenced_code_block(self) -> None:
         md = "```python\nprint('hello')\n```"
         result = markdown_to_jira_wiki(md)
         assert result == "{code:language=python}\nprint('hello')\n{code}"
 
-    def test_fenced_code_block_no_lang(self):
+    def test_fenced_code_block_no_lang(self) -> None:
         md = "```\nplain code\n```"
         result = markdown_to_jira_wiki(md)
         assert result == "{code}\nplain code\n{code}"
 
-    def test_fenced_code_block_lang_alias(self):
+    def test_fenced_code_block_lang_alias(self) -> None:
         md = "```py\ncode\n```"
         result = markdown_to_jira_wiki(md)
         assert "{code:language=python}" in result
 
-    def test_bullet_list(self):
+    def test_bullet_list(self) -> None:
         md = "- Item 1\n- Item 2"
         result = markdown_to_jira_wiki(md)
         assert result == "* Item 1\n* Item 2"
 
-    def test_nested_bullet_list(self):
+    def test_nested_bullet_list(self) -> None:
         md = "- Item 1\n  - Nested\n- Item 2"
         result = markdown_to_jira_wiki(md)
         assert "* Item 1" in result
         assert "** Nested" in result
         assert "* Item 2" in result
 
-    def test_numbered_list(self):
+    def test_numbered_list(self) -> None:
         md = "1. First\n2. Second"
         result = markdown_to_jira_wiki(md)
         assert result == "# First\n# Second"
 
-    def test_blockquote(self):
+    def test_blockquote(self) -> None:
         result = markdown_to_jira_wiki("> This is a quote")
         assert result == "bq. This is a quote"
 
-    def test_horizontal_rule(self):
+    def test_horizontal_rule(self) -> None:
         assert markdown_to_jira_wiki("---") == "----"
         assert markdown_to_jira_wiki("***") == "----"
 
-    def test_strikethrough(self):
+    def test_strikethrough(self) -> None:
         result = markdown_to_jira_wiki("~~deleted~~")
         assert result == "-deleted-"
 
-    def test_jira_wiki_passthrough(self):
+    def test_jira_wiki_passthrough(self) -> None:
         """Jira wiki syntax passes through unchanged."""
         jira = "h2. Heading\n\n*bold* and _italic_\n\n[link|https://example.com]"
         result = markdown_to_jira_wiki(jira)
@@ -435,7 +435,7 @@ class TestMarkdownToJiraWiki:
         assert "h2. Heading" in result
         assert "[link|https://example.com]" in result
 
-    def test_full_document(self):
+    def test_full_document(self) -> None:
         md = "## Overview\n\nThis is **important** and uses [the API](https://api.example.com).\n\n- Step 1\n- Step 2\n\n```python\ncode()\n```"
         result = markdown_to_jira_wiki(md)
         assert "h2. Overview" in result
@@ -475,7 +475,7 @@ class TestMarkdownToJiraWikiSymmetry:
         "## Heading\n\n**bold** and *italic* with [a link](https://x.com).\n\n- item\n\n```py\ncode()\n```",
     ]
 
-    def test_converted_output_not_detected_as_markdown(self):
+    def test_converted_output_not_detected_as_markdown(self) -> None:
         """Each converted result must not trigger detect_markdown."""
         from zaira.create import detect_markdown
 
@@ -487,7 +487,7 @@ class TestMarkdownToJiraWikiSymmetry:
                 f"  Output: {result!r}"
             )
 
-    def test_idempotent_under_pipeline(self):
+    def test_idempotent_under_pipeline(self) -> None:
         """Converting already-converted Jira wiki does not change it further."""
         from zaira.create import detect_markdown
 
@@ -509,28 +509,28 @@ class TestMarkdownToJiraWikiSymmetry:
 class TestRoundTrip:
     """Test that markdown survives round-trip conversion."""
 
-    def test_simple_document(self):
+    def test_simple_document(self) -> None:
         md = "# Title\n\nParagraph with **bold**."
         storage = markdown_to_storage(md)
         back = storage_to_markdown(storage)
         storage2 = markdown_to_storage(back)
         assert storage == storage2
 
-    def test_code_blocks(self):
+    def test_code_blocks(self) -> None:
         md = "```python\ndef foo():\n    pass\n```"
         storage = markdown_to_storage(md)
         back = storage_to_markdown(storage)
         storage2 = markdown_to_storage(back)
         assert storage == storage2
 
-    def test_nested_lists(self):
+    def test_nested_lists(self) -> None:
         md = "- Item 1\n  - Nested A\n  - Nested B\n- Item 2"
         storage = markdown_to_storage(md)
         back = storage_to_markdown(storage)
         storage2 = markdown_to_storage(back)
         assert storage == storage2
 
-    def test_nested_lists_deep(self):
+    def test_nested_lists_deep(self) -> None:
         md = (
             "- First item\n"
             "- Second item\n"
@@ -550,28 +550,28 @@ class TestRoundTrip:
         storage2 = markdown_to_storage(back)
         assert storage == storage2
 
-    def test_ordered_lists(self):
+    def test_ordered_lists(self) -> None:
         md = "1. First\n  1. Sub 1\n  2. Sub 2\n2. Second"
         storage = markdown_to_storage(md)
         back = storage_to_markdown(storage)
         storage2 = markdown_to_storage(back)
         assert storage == storage2
 
-    def test_table(self):
+    def test_table(self) -> None:
         md = "| A | B |\n|---|---|\n| 1 | 2 |"
         storage = markdown_to_storage(md)
         back = storage_to_markdown(storage)
         storage2 = markdown_to_storage(back)
         assert storage == storage2
 
-    def test_toc(self):
+    def test_toc(self) -> None:
         md = "# Doc\n\n[TOC]\n\n## Section"
         storage = markdown_to_storage(md)
         back = storage_to_markdown(storage)
         storage2 = markdown_to_storage(back)
         assert storage == storage2
 
-    def test_comprehensive_document(self):
+    def test_comprehensive_document(self) -> None:
         md = """# Document
 
 [TOC]
@@ -611,82 +611,82 @@ def hello():
 class TestJiraWikiToMarkdown:
     """Tests for jira_wiki_to_markdown function."""
 
-    def test_headers(self):
+    def test_headers(self) -> None:
         assert jira_wiki_to_markdown("h2. Section") == "## Section"
         assert jira_wiki_to_markdown("h3. Sub") == "### Sub"
         assert jira_wiki_to_markdown("h1. Title") == "# Title"
 
-    def test_bold(self):
+    def test_bold(self) -> None:
         result = jira_wiki_to_markdown("This is *bold* text")
         assert result == "This is **bold** text"
 
-    def test_italic(self):
+    def test_italic(self) -> None:
         result = jira_wiki_to_markdown("This is _italic_ text")
         assert result == "This is *italic* text"
 
-    def test_strikethrough(self):
+    def test_strikethrough(self) -> None:
         result = jira_wiki_to_markdown("This is -deleted- text")
         assert result == "This is ~~deleted~~ text"
 
-    def test_inline_code(self):
+    def test_inline_code(self) -> None:
         result = jira_wiki_to_markdown("Use {{print()}} here")
         assert result == "Use `print()` here"
 
-    def test_link(self):
+    def test_link(self) -> None:
         result = jira_wiki_to_markdown("[click here|https://example.com]")
         assert result == "[click here](https://example.com)"
 
-    def test_image(self):
+    def test_image(self) -> None:
         result = jira_wiki_to_markdown("!image.png!")
         assert result == "![](image.png)"
 
-    def test_code_block_with_language(self):
+    def test_code_block_with_language(self) -> None:
         wiki = "{code:language=python}\nprint('hello')\n{code}"
         result = jira_wiki_to_markdown(wiki)
         assert result == "```python\nprint('hello')\n```"
 
-    def test_code_block_no_language(self):
+    def test_code_block_no_language(self) -> None:
         wiki = "{code}\nplain code\n{code}"
         result = jira_wiki_to_markdown(wiki)
         assert result == "```\nplain code\n```"
 
-    def test_code_block_short_language(self):
+    def test_code_block_short_language(self) -> None:
         wiki = "{code:python}\ncode\n{code}"
         result = jira_wiki_to_markdown(wiki)
         assert result == "```python\ncode\n```"
 
-    def test_bullet_list(self):
+    def test_bullet_list(self) -> None:
         wiki = "* Item 1\n* Item 2"
         result = jira_wiki_to_markdown(wiki)
         assert result == "- Item 1\n- Item 2"
 
-    def test_nested_bullet_list(self):
+    def test_nested_bullet_list(self) -> None:
         wiki = "* Item 1\n** Nested\n* Item 2"
         result = jira_wiki_to_markdown(wiki)
         assert "- Item 1" in result
         assert "  - Nested" in result
         assert "- Item 2" in result
 
-    def test_numbered_list(self):
+    def test_numbered_list(self) -> None:
         wiki = "# First\n# Second"
         result = jira_wiki_to_markdown(wiki)
         assert result == "1. First\n1. Second"
 
-    def test_nested_numbered_list(self):
+    def test_nested_numbered_list(self) -> None:
         wiki = "# First\n## Nested\n# Second"
         result = jira_wiki_to_markdown(wiki)
         assert "1. First" in result
         assert "  1. Nested" in result
         assert "1. Second" in result
 
-    def test_blockquote(self):
+    def test_blockquote(self) -> None:
         result = jira_wiki_to_markdown("bq. This is a quote")
         assert result == "> This is a quote"
 
-    def test_horizontal_rule(self):
+    def test_horizontal_rule(self) -> None:
         assert jira_wiki_to_markdown("----") == "---"
 
-    def test_table(self):
+    def test_table(self) -> None:
         wiki = "||Name||Age||\n|Alice|30|\n|Bob|25|"
         result = jira_wiki_to_markdown(wiki)
         assert "| Name | Age |" in result
@@ -694,7 +694,7 @@ class TestJiraWikiToMarkdown:
         assert "| Alice | 30 |" in result
         assert "| Bob | 25 |" in result
 
-    def test_full_document(self):
+    def test_full_document(self) -> None:
         wiki = (
             "h2. Overview\n\n"
             "This is *important* and uses [the API|https://api.example.com].\n\n"
@@ -711,17 +711,17 @@ class TestJiraWikiToMarkdown:
         assert "code()" in result
         assert "```" in result
 
-    def test_strikethrough_not_in_words(self):
+    def test_strikethrough_not_in_words(self) -> None:
         """Hyphens inside words should not be treated as strikethrough."""
         result = jira_wiki_to_markdown("well-known")
         assert result == "well-known"
 
-    def test_noformat_block(self):
+    def test_noformat_block(self) -> None:
         wiki = "{noformat}\nsome preformatted text\n{noformat}"
         result = jira_wiki_to_markdown(wiki)
         assert result == "```\nsome preformatted text\n```"
 
-    def test_noformat_inline_start(self):
+    def test_noformat_inline_start(self) -> None:
         """Noformat starting on same line as content."""
         wiki = "{noformat}var x = 1;\nvar y = 2;\n{noformat}"
         result = jira_wiki_to_markdown(wiki)
@@ -729,13 +729,13 @@ class TestJiraWikiToMarkdown:
         assert "var x = 1;" in result
         assert "var y = 2;" in result
 
-    def test_noformat_single_line(self):
+    def test_noformat_single_line(self) -> None:
         """Noformat opening and closing on same line."""
         wiki = "{noformat}some code{noformat}"
         result = jira_wiki_to_markdown(wiki)
         assert result == "`some code`"
 
-    def test_plain_text_unchanged(self):
+    def test_plain_text_unchanged(self) -> None:
         result = jira_wiki_to_markdown("Just plain text here.")
         assert result == "Just plain text here."
 
@@ -743,37 +743,37 @@ class TestJiraWikiToMarkdown:
 class TestIsJiraWiki:
     """Tests for is_jira_wiki detection function."""
 
-    def test_detects_headers(self):
+    def test_detects_headers(self) -> None:
         assert is_jira_wiki("h2. Section title")
 
-    def test_detects_code_blocks(self):
+    def test_detects_code_blocks(self) -> None:
         assert is_jira_wiki("{code:language=python}\nprint()\n{code}")
 
-    def test_detects_table_headers(self):
+    def test_detects_table_headers(self) -> None:
         assert is_jira_wiki("||Name||Age||")
 
-    def test_detects_blockquote(self):
+    def test_detects_blockquote(self) -> None:
         assert is_jira_wiki("bq. Some quote")
 
-    def test_detects_inline_code(self):
+    def test_detects_inline_code(self) -> None:
         assert is_jira_wiki("Use {{print()}} here")
 
-    def test_detects_bold(self):
+    def test_detects_bold(self) -> None:
         assert is_jira_wiki("This is *bold* text")
 
-    def test_detects_noformat(self):
+    def test_detects_noformat(self) -> None:
         assert is_jira_wiki("{noformat}some text{noformat}")
 
-    def test_detects_links(self):
+    def test_detects_links(self) -> None:
         assert is_jira_wiki("[click here|https://example.com]")
 
-    def test_plain_text_not_detected(self):
+    def test_plain_text_not_detected(self) -> None:
         assert not is_jira_wiki("Just plain text.")
 
-    def test_markdown_not_detected(self):
+    def test_markdown_not_detected(self) -> None:
         assert not is_jira_wiki("## Heading\n\n**bold** and [link](url)")
 
-    def test_empty_string(self):
+    def test_empty_string(self) -> None:
         assert not is_jira_wiki("")
 
 
@@ -797,7 +797,7 @@ class TestJiraWikiRoundTrip:
         ("```\nplain\n```", "```\nplain\n```"),
     ]
 
-    def test_round_trip(self):
+    def test_round_trip(self) -> None:
         for md_input, expected in self.CASES:
             jira = markdown_to_jira_wiki(md_input)
             back = jira_wiki_to_markdown(jira)
@@ -837,7 +837,7 @@ class TestJiraWikiToMarkdownRoundTrip:
         ("||Name||Age||\n|Alice|30|", "| Name | Age |\n|---|---|\n| Alice | 30 |"),
     ]
 
-    def test_round_trip(self):
+    def test_round_trip(self) -> None:
         for wiki_input, expected in self.CASES:
             md = jira_wiki_to_markdown(wiki_input)
             back = markdown_to_jira_wiki(md)
@@ -849,7 +849,7 @@ class TestJiraWikiToMarkdownRoundTrip:
                 f"  Expected: {expected!r}"
             )
 
-    def test_real_ticket_description(self):
+    def test_real_ticket_description(self) -> None:
         """Round-trip a realistic Jira wiki description like AC-1538."""
         wiki = (
             "h2. Summary\n\n"
@@ -894,7 +894,7 @@ class TestAtlassianWikiSamples:
     @pytest.mark.parametrize(
         "wiki,expected", HEADINGS, ids=[f"h{i + 1}" for i in range(len(HEADINGS))]
     )
-    def test_headings(self, wiki, expected):
+    def test_headings(self, wiki, expected) -> None:
         assert jira_wiki_to_markdown(wiki) == expected
 
     @pytest.mark.parametrize(
@@ -902,25 +902,25 @@ class TestAtlassianWikiSamples:
         TEXT_EFFECTS,
         ids=[w[:30].replace(" ", "_") for w, _ in TEXT_EFFECTS],
     )
-    def test_text_effects(self, wiki, expected):
+    def test_text_effects(self, wiki, expected) -> None:
         assert jira_wiki_to_markdown(wiki) == expected
 
     @pytest.mark.parametrize("wiki,expected", COLOR, ids=[w[:30] for w, _ in COLOR])
-    def test_color(self, wiki, expected):
+    def test_color(self, wiki, expected) -> None:
         assert jira_wiki_to_markdown(wiki) == expected
 
     @pytest.mark.parametrize(
         "wiki,expected", TEXT_BREAKS, ids=[repr(w)[:30] for w, _ in TEXT_BREAKS]
     )
-    def test_text_breaks(self, wiki, expected):
+    def test_text_breaks(self, wiki, expected) -> None:
         assert jira_wiki_to_markdown(wiki) == expected
 
     @pytest.mark.parametrize("wiki,expected", LINKS, ids=[w[:40] for w, _ in LINKS])
-    def test_links(self, wiki, expected):
+    def test_links(self, wiki, expected) -> None:
         assert jira_wiki_to_markdown(wiki) == expected
 
     @pytest.mark.parametrize("wiki,expected", IMAGES, ids=[w[:40] for w, _ in IMAGES])
-    def test_images(self, wiki, expected):
+    def test_images(self, wiki, expected) -> None:
         assert jira_wiki_to_markdown(wiki) == expected
 
     @pytest.mark.parametrize(
@@ -928,7 +928,7 @@ class TestAtlassianWikiSamples:
         BULLET_LISTS,
         ids=[f"bullet_{i}" for i in range(len(BULLET_LISTS))],
     )
-    def test_bullet_lists(self, wiki, expected):
+    def test_bullet_lists(self, wiki, expected) -> None:
         assert jira_wiki_to_markdown(wiki) == expected
 
     @pytest.mark.parametrize(
@@ -936,7 +936,7 @@ class TestAtlassianWikiSamples:
         NUMBERED_LISTS,
         ids=[f"numbered_{i}" for i in range(len(NUMBERED_LISTS))],
     )
-    def test_numbered_lists(self, wiki, expected):
+    def test_numbered_lists(self, wiki, expected) -> None:
         assert jira_wiki_to_markdown(wiki) == expected
 
     @pytest.mark.parametrize(
@@ -944,40 +944,40 @@ class TestAtlassianWikiSamples:
         MIXED_LISTS,
         ids=[f"mixed_{i}" for i in range(len(MIXED_LISTS))],
     )
-    def test_mixed_lists(self, wiki, expected):
+    def test_mixed_lists(self, wiki, expected) -> None:
         assert jira_wiki_to_markdown(wiki) == expected
 
     @pytest.mark.parametrize(
         "wiki,expected", BLOCKQUOTES, ids=[f"bq_{i}" for i in range(len(BLOCKQUOTES))]
     )
-    def test_blockquotes(self, wiki, expected):
+    def test_blockquotes(self, wiki, expected) -> None:
         assert jira_wiki_to_markdown(wiki) == expected
 
     @pytest.mark.parametrize(
         "wiki,expected", TABLES, ids=[f"table_{i}" for i in range(len(TABLES))]
     )
-    def test_tables(self, wiki, expected):
+    def test_tables(self, wiki, expected) -> None:
         assert jira_wiki_to_markdown(wiki) == expected
 
     @pytest.mark.parametrize(
         "wiki,expected", CODE_BLOCKS, ids=[f"code_{i}" for i in range(len(CODE_BLOCKS))]
     )
-    def test_code_blocks(self, wiki, expected):
+    def test_code_blocks(self, wiki, expected) -> None:
         assert jira_wiki_to_markdown(wiki) == expected
 
     @pytest.mark.parametrize(
         "wiki,expected", NOFORMAT, ids=[f"noformat_{i}" for i in range(len(NOFORMAT))]
     )
-    def test_noformat(self, wiki, expected):
+    def test_noformat(self, wiki, expected) -> None:
         assert jira_wiki_to_markdown(wiki) == expected
 
     @pytest.mark.parametrize(
         "wiki,expected", PANELS, ids=[f"panel_{i}" for i in range(len(PANELS))]
     )
-    def test_panels(self, wiki, expected):
+    def test_panels(self, wiki, expected) -> None:
         assert jira_wiki_to_markdown(wiki) == expected
 
-    def test_full_document(self):
+    def test_full_document(self) -> None:
         wiki_input, expected = FULL_DOCUMENT
         assert jira_wiki_to_markdown(wiki_input) == expected
 
@@ -985,7 +985,7 @@ class TestAtlassianWikiSamples:
 class TestMixedWikiAndMarkdown:
     """Tests for mixed Confluence wiki markup and markdown syntax."""
 
-    def test_wiki_heading_with_markdown(self):
+    def test_wiki_heading_with_markdown(self) -> None:
         """Wiki h1. heading is converted alongside markdown."""
         md = "Regular markdown\n\nh1. Wiki Heading\n\nMore *markdown*"
         result = markdown_to_storage(md)
@@ -995,7 +995,7 @@ class TestMixedWikiAndMarkdown:
         # When wiki syntax is detected, *text* is treated as wiki bold (not markdown italic)
         assert "<strong>markdown</strong>" in result
 
-    def test_wiki_blockquote_with_markdown(self):
+    def test_wiki_blockquote_with_markdown(self) -> None:
         """Wiki bq. blockquote works with markdown."""
         md = "Start\n\nbq. Wiki quote\n\nEnd with _italic_"
         result = markdown_to_storage(md)
@@ -1005,7 +1005,7 @@ class TestMixedWikiAndMarkdown:
         # Wiki markup uses _italic_ for italics
         assert "<em>italic</em>" in result
 
-    def test_wiki_code_block_with_markdown(self):
+    def test_wiki_code_block_with_markdown(self) -> None:
         """Wiki {code} block alongside markdown code."""
         md = "Markdown code:\n\n```python\ncode1\n```\n\nWiki code:\n\n{code:language=java}\ncode2\n{code}"
         result = markdown_to_storage(md)
@@ -1019,7 +1019,7 @@ class TestMixedWikiAndMarkdown:
 class TestRawXMLPassthrough:
     """Tests for raw Confluence storage XML passthrough."""
 
-    def test_raw_macro_xml_passthrough(self):
+    def test_raw_macro_xml_passthrough(self) -> None:
         """Raw structured macro XML is preserved."""
         md = """Content
 
@@ -1033,7 +1033,7 @@ More content"""
         assert 'ac:name="status"' in result
         assert "colour" in result
 
-    def test_raw_html_elements_passthrough(self):
+    def test_raw_html_elements_passthrough(self) -> None:
         """Raw HTML elements are passed through."""
         md = "Text\n\n<blockquote><p>Raw quote</p></blockquote>\n\nMore"
         result = markdown_to_storage(md)
@@ -1041,7 +1041,7 @@ More content"""
         assert "<blockquote>" in result
         assert "Raw quote" in result
 
-    def test_raw_image_macro_passthrough(self):
+    def test_raw_image_macro_passthrough(self) -> None:
         """Raw image macro XML is preserved."""
         md = '<ac:image><ri:attachment ri:filename="test.png"/></ac:image>'
         result = markdown_to_storage(md)
@@ -1053,7 +1053,7 @@ More content"""
 class TestConfluenceMacros:
     """Tests for Confluence macro handling."""
 
-    def test_page_tree_macro_markdown_to_storage(self):
+    def test_page_tree_macro_markdown_to_storage(self) -> None:
         """Converts page-tree macro syntax to structured macro XML."""
         md = "Documentation\n\n{page-tree:root=@self}"
         result = markdown_to_storage(md)
@@ -1061,14 +1061,14 @@ class TestConfluenceMacros:
         assert '<ac:structured-macro ac:name="page-tree">' in result
         assert '<ac:parameter ac:name="root">@self</ac:parameter>' in result
 
-    def test_toc_macro_markdown_to_storage(self):
+    def test_toc_macro_markdown_to_storage(self) -> None:
         """Converts toc macro without params."""
         md = "Content\n\n{toc}"
         result = markdown_to_storage(md)
 
         assert '<ac:structured-macro ac:name="toc">' in result
 
-    def test_macro_with_multiple_params(self):
+    def test_macro_with_multiple_params(self) -> None:
         """Converts macros with multiple parameters."""
         md = "{info:title=Note|icon=true}"
         result = markdown_to_storage(md)
@@ -1077,7 +1077,7 @@ class TestConfluenceMacros:
         assert 'ac:name="title"' in result
         assert 'ac:name="icon"' in result
 
-    def test_macro_in_paragraph(self):
+    def test_macro_in_paragraph(self) -> None:
         """Preserves macro that appears in its own paragraph."""
         md = "Some text\n\n{page-tree:root=@self}\n\nMore text"
         result = markdown_to_storage(md)
@@ -1086,7 +1086,7 @@ class TestConfluenceMacros:
         assert "<p>Some text</p>" in result
         assert "<p>More text</p>" in result
 
-    def test_storage_to_markdown_page_tree(self):
+    def test_storage_to_markdown_page_tree(self) -> None:
         """Converts storage format back to macro markdown."""
         storage = (
             "<p>Documentation</p>"
@@ -1099,7 +1099,7 @@ class TestConfluenceMacros:
         assert "{page-tree:root=@self}" in result
         assert "Documentation" in result
 
-    def test_round_trip_page_tree(self):
+    def test_round_trip_page_tree(self) -> None:
         """Round-trip: markdown -> storage -> markdown preserves macro."""
         original_md = "Page listing\n\n{page-tree:root=@self}"
 
@@ -1115,7 +1115,7 @@ class TestConfluenceMacros:
         storage_again = markdown_to_storage(result_md)
         assert '<ac:structured-macro ac:name="page-tree">' in storage_again
 
-    def test_unknown_braces_not_converted_to_macro(self):
+    def test_unknown_braces_not_converted_to_macro(self) -> None:
         """Literal {word} that isn't a Confluence macro stays as text."""
         md = "GET /api/{documentId}/images/{imageId}"
         result = markdown_to_storage(md)
@@ -1125,7 +1125,7 @@ class TestConfluenceMacros:
         assert "{documentId}" in result
         assert "{imageId}" in result
 
-    def test_known_macro_still_converted(self):
+    def test_known_macro_still_converted(self) -> None:
         """Known macros like {toc} are still converted."""
         md = "Before\n\n{toc}\n\nAfter"
         result = markdown_to_storage(md)
@@ -1160,34 +1160,34 @@ class TestDiagramRendering:
 
         return FakeResult()
 
-    def test_no_renderers_returns_unchanged(self):
+    def test_no_renderers_returns_unchanged(self) -> None:
         """When renderers is None, content is returned unchanged."""
         md = "```mermaid\ngraph TD\n  A-->B\n```"
         result, temps = render_diagram_blocks(md, None)
         assert result == md
         assert temps == []
 
-    def test_empty_renderers_returns_unchanged(self):
+    def test_empty_renderers_returns_unchanged(self) -> None:
         """When renderers is empty list, content is returned unchanged."""
         md = "```mermaid\ngraph TD\n  A-->B\n```"
         result, temps = render_diagram_blocks(md, [])
         assert result == md
         assert temps == []
 
-    def test_unavailable_renderer_raises(self):
+    def test_unavailable_renderer_raises(self) -> None:
         """When the CLI tool is not installed, raises RuntimeError with install hint."""
         md = "```mermaid\ngraph TD\n  A-->B\n```"
         with patch("zaira.mdconv.shutil.which", return_value=None):
             with pytest.raises(RuntimeError, match="not found"):
                 render_diagram_blocks(md, ["mermaid"])
 
-    def test_unknown_renderer_raises(self):
+    def test_unknown_renderer_raises(self) -> None:
         """Unknown renderer name raises ValueError."""
         md = "```mermaid\ngraph TD\n  A-->B\n```"
         with pytest.raises(ValueError, match="Unknown renderer"):
             render_diagram_blocks(md, ["nosuchrenderer"])
 
-    def test_no_matching_blocks_returns_unchanged(self):
+    def test_no_matching_blocks_returns_unchanged(self) -> None:
         """Content without matching blocks is returned unchanged."""
         md = "# Hello\n\n```python\nprint('hi')\n```"
         with patch("zaira.mdconv.shutil.which", return_value="/usr/bin/mmdc"):
@@ -1195,7 +1195,7 @@ class TestDiagramRendering:
         assert result == md
         assert temps == []
 
-    def test_renders_mermaid_block(self):
+    def test_renders_mermaid_block(self) -> None:
         """Mermaid block is replaced by rendered image."""
         md = "Before\n\n```mermaid\ngraph TD\n  A-->B\n```\n\nAfter"
 
@@ -1212,7 +1212,7 @@ class TestDiagramRendering:
         assert "After" in result
         cleanup_render_temps(temps)
 
-    def test_renders_dot_block(self):
+    def test_renders_dot_block(self) -> None:
         """Dot/graphviz block is replaced by rendered image."""
         md = "```dot\ndigraph { A -> B }\n```"
 
@@ -1227,7 +1227,7 @@ class TestDiagramRendering:
         assert "![dot diagram](" in result
         cleanup_render_temps(temps)
 
-    def test_multiple_renderers(self):
+    def test_multiple_renderers(self) -> None:
         """Multiple renderer types can be active at once."""
         md = "```mermaid\ngraph TD\n  A-->B\n```\n\n```dot\ndigraph { X -> Y }\n```"
 
@@ -1242,7 +1242,7 @@ class TestDiagramRendering:
         assert "![dot diagram](" in result
         cleanup_render_temps(temps)
 
-    def test_multiple_blocks_same_type(self):
+    def test_multiple_blocks_same_type(self) -> None:
         """Multiple blocks of the same type are all rendered."""
         md = "```mermaid\ngraph TD\n  A-->B\n```\n\n```mermaid\ngraph LR\n  X-->Y\n```"
 
@@ -1256,7 +1256,7 @@ class TestDiagramRendering:
         assert result.count("![mermaid diagram](") == 2
         cleanup_render_temps(temps)
 
-    def test_failed_render_leaves_block(self):
+    def test_failed_render_leaves_block(self) -> None:
         """When render fails, the block is left as-is."""
         md = "```mermaid\ninvalid\n```"
 
@@ -1269,7 +1269,7 @@ class TestDiagramRendering:
         assert result == md
         assert temps == []
 
-    def test_deterministic_filename_from_content(self):
+    def test_deterministic_filename_from_content(self) -> None:
         """Same content produces the same filename across runs."""
         md = "```mermaid\ngraph TD\n  A-->B\n```"
 
@@ -1296,7 +1296,7 @@ class TestDiagramRendering:
 
         assert filenames[0] == filenames[1]
 
-    def test_only_requested_renderers_activate(self):
+    def test_only_requested_renderers_activate(self) -> None:
         """Blocks for unrequested renderers are not processed."""
         md = "```mermaid\ngraph TD\n  A-->B\n```\n\n```dot\ndigraph { X -> Y }\n```"
 
@@ -1311,7 +1311,7 @@ class TestDiagramRendering:
         assert "![dot diagram](" not in result
         cleanup_render_temps(temps)
 
-    def test_registry_has_expected_renderers(self):
+    def test_registry_has_expected_renderers(self) -> None:
         """Registry contains all documented renderers."""
         assert "mermaid" in RENDERERS
         assert "mermaid-slow" in RENDERERS
@@ -1321,7 +1321,7 @@ class TestDiagramRendering:
         assert "d2" in RENDERERS
         assert "ditaa" in RENDERERS
 
-    def test_renderer_build_command(self):
+    def test_renderer_build_command(self) -> None:
         """DiagramRenderer.build_command resolves placeholders."""
         r = RENDERERS["mermaid"]
         in_path = Path("/tmp/in.mmd")
@@ -1332,7 +1332,7 @@ class TestDiagramRendering:
         # Use str(Path()) to handle platform-specific separators
         assert cmd[1:] == ["-i", str(in_path), "-o", str(out_path), "-e", "svg"]
 
-    def test_mermaid_slow_build_command(self):
+    def test_mermaid_slow_build_command(self) -> None:
         """mermaid-slow renderer uses mmdc (legacy mermaid-cli)."""
         r = RENDERERS["mermaid-slow"]
         in_path = Path("/tmp/in.mmd")
@@ -1341,10 +1341,10 @@ class TestDiagramRendering:
         assert cmd[0] == "mmdc" or cmd[0].lower().endswith(("mmdc", "mmdc.cmd"))
         assert cmd[1:] == ["-i", str(in_path), "-o", str(out_path)]
 
-    def test_graphviz_aliases_to_dot(self):
+    def test_graphviz_aliases_to_dot(self) -> None:
         """'graphviz' renderer uses 'dot' command."""
         assert RENDERERS["graphviz"].cmd == "dot"
 
-    def test_cleanup_render_temps_noop_on_empty(self):
+    def test_cleanup_render_temps_noop_on_empty(self) -> None:
         """cleanup_render_temps does nothing with empty list."""
         cleanup_render_temps([])  # should not raise

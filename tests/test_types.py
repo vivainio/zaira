@@ -9,16 +9,16 @@ from zaira.types import get_user_identifier, yaml_quote
 class TestGetUserIdentifier:
     """Tests for get_user_identifier function."""
 
-    def test_returns_none_for_none(self):
+    def test_returns_none_for_none(self) -> None:
         """Returns None for None input."""
         assert get_user_identifier(None) is None
 
-    def test_returns_none_for_empty(self):
+    def test_returns_none_for_empty(self) -> None:
         """Returns None for empty/falsy input."""
         assert get_user_identifier("") is None
         assert get_user_identifier([]) is None
 
-    def test_prefers_email_address(self):
+    def test_prefers_email_address(self) -> None:
         """Prefers emailAddress over other attributes."""
         user = MagicMock()
         user.emailAddress = "user@example.com"
@@ -29,7 +29,7 @@ class TestGetUserIdentifier:
         result = get_user_identifier(user)
         assert result == "user@example.com"
 
-    def test_falls_back_to_display_name(self):
+    def test_falls_back_to_display_name(self) -> None:
         """Falls back to displayName when no email."""
         user = MagicMock()
         user.emailAddress = None
@@ -39,7 +39,7 @@ class TestGetUserIdentifier:
         result = get_user_identifier(user)
         assert result == "John Doe"
 
-    def test_falls_back_to_name(self):
+    def test_falls_back_to_name(self) -> None:
         """Falls back to name when no email or displayName."""
         user = MagicMock()
         user.emailAddress = None
@@ -49,7 +49,7 @@ class TestGetUserIdentifier:
         result = get_user_identifier(user)
         assert result == "jdoe"
 
-    def test_falls_back_to_account_id(self):
+    def test_falls_back_to_account_id(self) -> None:
         """Falls back to accountId when other fields unavailable."""
         user = MagicMock()
         user.emailAddress = None
@@ -60,7 +60,7 @@ class TestGetUserIdentifier:
         result = get_user_identifier(user)
         assert result == "5f1234567890abcdef123456"
 
-    def test_returns_unknown_when_no_attributes(self):
+    def test_returns_unknown_when_no_attributes(self) -> None:
         """Returns 'Unknown' when no attributes available."""
         user = MagicMock()
         user.emailAddress = None
@@ -71,7 +71,7 @@ class TestGetUserIdentifier:
         result = get_user_identifier(user)
         assert result == "Unknown"
 
-    def test_handles_attribute_errors(self):
+    def test_handles_attribute_errors(self) -> None:
         """Handles objects missing attributes gracefully."""
         user = object()  # Has no attributes
 
@@ -82,78 +82,78 @@ class TestGetUserIdentifier:
 class TestYamlQuote:
     """Tests for yaml_quote function."""
 
-    def test_simple_string_unchanged(self):
+    def test_simple_string_unchanged(self) -> None:
         """Simple strings without special characters are unchanged."""
         assert yaml_quote("hello") == "hello"
         assert yaml_quote("Simple text") == "Simple text"
         assert yaml_quote("NoSpecialChars123") == "NoSpecialChars123"
 
-    def test_quotes_colon(self):
+    def test_quotes_colon(self) -> None:
         """Strings with colons are quoted."""
         result = yaml_quote("key: value")
         assert result == '"key: value"'
 
-    def test_quotes_brackets(self):
+    def test_quotes_brackets(self) -> None:
         """Strings with brackets are quoted."""
         assert yaml_quote("[item]") == '"[item]"'
         assert yaml_quote("{key}") == '"{key}"'
 
-    def test_quotes_ampersand(self):
+    def test_quotes_ampersand(self) -> None:
         """Strings with ampersand are quoted."""
         assert yaml_quote("a & b") == '"a & b"'
 
-    def test_quotes_asterisk(self):
+    def test_quotes_asterisk(self) -> None:
         """Strings with asterisk are quoted."""
         assert yaml_quote("*important") == '"*important"'
 
-    def test_quotes_hash(self):
+    def test_quotes_hash(self) -> None:
         """Strings with hash are quoted."""
         assert yaml_quote("# comment") == '"# comment"'
 
-    def test_quotes_question_mark(self):
+    def test_quotes_question_mark(self) -> None:
         """Strings with question mark are quoted."""
         assert yaml_quote("is this?") == '"is this?"'
 
-    def test_quotes_pipe(self):
+    def test_quotes_pipe(self) -> None:
         """Strings with pipe are quoted."""
         assert yaml_quote("a | b") == '"a | b"'
 
-    def test_quotes_dash(self):
+    def test_quotes_dash(self) -> None:
         """Strings with dash are quoted."""
         assert yaml_quote("- item") == '"- item"'
 
-    def test_quotes_comparison_operators(self):
+    def test_quotes_comparison_operators(self) -> None:
         """Strings with comparison operators are quoted."""
         assert yaml_quote("a > b") == '"a > b"'
         assert yaml_quote("a < b") == '"a < b"'
         assert yaml_quote("a = b") == '"a = b"'
 
-    def test_quotes_exclamation(self):
+    def test_quotes_exclamation(self) -> None:
         """Strings with exclamation are quoted."""
         assert yaml_quote("!important") == '"!important"'
 
-    def test_quotes_percent(self):
+    def test_quotes_percent(self) -> None:
         """Strings with percent are quoted."""
         assert yaml_quote("50%") == '"50%"'
 
-    def test_quotes_at_symbol(self):
+    def test_quotes_at_symbol(self) -> None:
         """Strings with @ are quoted."""
         assert yaml_quote("@mention") == '"@mention"'
 
-    def test_quotes_backslash(self):
+    def test_quotes_backslash(self) -> None:
         """Strings with backslash are quoted."""
         assert yaml_quote("path\\to\\file") == '"path\\to\\file"'
 
-    def test_quotes_existing_quotes(self):
+    def test_quotes_existing_quotes(self) -> None:
         """Strings with quotes are quoted and escaped."""
         result = yaml_quote('say "hello"')
         assert result == '"say \\"hello\\""'
 
-    def test_quotes_newlines(self):
+    def test_quotes_newlines(self) -> None:
         """Strings with newlines are quoted."""
         result = yaml_quote("line1\nline2")
         assert result == '"line1\nline2"'
 
-    def test_empty_string_unchanged(self):
+    def test_empty_string_unchanged(self) -> None:
         """Empty string is unchanged."""
         assert yaml_quote("") == ""

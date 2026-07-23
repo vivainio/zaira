@@ -23,7 +23,7 @@ from zaira.report import (
 class TestGroupTicketsBy:
     """Tests for _group_tickets_by function."""
 
-    def test_group_by_status(self):
+    def test_group_by_status(self) -> None:
         """Groups tickets by status field."""
         tickets: list[ReportTicket] = [
             ReportTicket(key="T-1", status="Open"),
@@ -35,7 +35,7 @@ class TestGroupTicketsBy:
         assert len(result["Open"]) == 2
         assert len(result["Done"]) == 1
 
-    def test_group_by_labels_multi_value(self):
+    def test_group_by_labels_multi_value(self) -> None:
         """Groups tickets by labels (multi-value field)."""
         tickets: list[ReportTicket] = [
             ReportTicket(key="T-1", labels=["bug", "urgent"]),
@@ -48,7 +48,7 @@ class TestGroupTicketsBy:
         assert len(result["urgent"]) == 1
         assert len(result["(no label)"]) == 1
 
-    def test_group_by_components_multi_value(self):
+    def test_group_by_components_multi_value(self) -> None:
         """Groups tickets by components (multi-value field)."""
         tickets: list[ReportTicket] = [
             ReportTicket(key="T-1", components=["Backend", "API"]),
@@ -62,7 +62,7 @@ class TestGroupTicketsBy:
         assert len(result["Frontend"]) == 1
         assert len(result["(no component)"]) == 1
 
-    def test_group_by_parent(self):
+    def test_group_by_parent(self) -> None:
         """Groups tickets by parent."""
         tickets: list[ReportTicket] = [
             ReportTicket(
@@ -78,7 +78,7 @@ class TestGroupTicketsBy:
         assert len(result["EPIC-1: Epic One"]) == 2
         assert len(result["(no parent)"]) == 1
 
-    def test_group_by_unknown_field(self):
+    def test_group_by_unknown_field(self) -> None:
         """Groups by unknown field uses 'Unknown' as default."""
         tickets: list[ReportTicket] = [
             ReportTicket(key="T-1"),
@@ -92,22 +92,22 @@ class TestGroupTicketsBy:
 class TestHumanizeAge:
     """Tests for humanize_age function."""
 
-    def test_empty_timestamp(self):
+    def test_empty_timestamp(self) -> None:
         """Returns '-' for empty timestamp."""
         assert humanize_age("") == "-"
         assert humanize_age(None) == "-"
 
-    def test_invalid_timestamp(self):
+    def test_invalid_timestamp(self) -> None:
         """Returns '-' for invalid timestamp."""
         assert humanize_age("not-a-date") == "-"
 
-    def test_recent_seconds(self):
+    def test_recent_seconds(self) -> None:
         """Returns 'now' for very recent timestamps."""
         now = datetime.now(timezone.utc)
         ts = now.isoformat()
         assert humanize_age(ts) == "now"
 
-    def test_minutes_ago(self):
+    def test_minutes_ago(self) -> None:
         """Returns minutes for timestamps < 1 hour."""
         now = datetime.now(timezone.utc)
         ts = (now - timedelta(minutes=30)).isoformat()
@@ -115,35 +115,35 @@ class TestHumanizeAge:
         assert result.endswith("m")
         assert int(result[:-1]) >= 29  # Allow some tolerance
 
-    def test_hours_ago(self):
+    def test_hours_ago(self) -> None:
         """Returns hours for timestamps < 1 day."""
         now = datetime.now(timezone.utc)
         ts = (now - timedelta(hours=5)).isoformat()
         result = humanize_age(ts)
         assert result.endswith("h")
 
-    def test_days_ago(self):
+    def test_days_ago(self) -> None:
         """Returns days for timestamps < 1 week."""
         now = datetime.now(timezone.utc)
         ts = (now - timedelta(days=3)).isoformat()
         result = humanize_age(ts)
         assert result.endswith("d")
 
-    def test_weeks_ago(self):
+    def test_weeks_ago(self) -> None:
         """Returns weeks for timestamps < 1 month."""
         now = datetime.now(timezone.utc)
         ts = (now - timedelta(weeks=2)).isoformat()
         result = humanize_age(ts)
         assert result.endswith("w")
 
-    def test_months_ago(self):
+    def test_months_ago(self) -> None:
         """Returns months for timestamps < 1 year."""
         now = datetime.now(timezone.utc)
         ts = (now - timedelta(days=60)).isoformat()
         result = humanize_age(ts)
         assert result.endswith("mo")
 
-    def test_years_ago(self):
+    def test_years_ago(self) -> None:
         """Returns years for old timestamps."""
         now = datetime.now(timezone.utc)
         ts = (now - timedelta(days=400)).isoformat()
@@ -154,7 +154,7 @@ class TestHumanizeAge:
 class TestGenerateFrontMatter:
     """Tests for generate_front_matter function."""
 
-    def test_basic_front_matter(self):
+    def test_basic_front_matter(self) -> None:
         """Generates basic front matter."""
         result = generate_front_matter("Test Report")
 
@@ -163,43 +163,43 @@ class TestGenerateFrontMatter:
         assert "generated:" in result
         assert "refresh:" in result
 
-    def test_with_jql(self):
+    def test_with_jql(self) -> None:
         """Includes JQL in front matter."""
         result = generate_front_matter("Report", jql="project = TEST")
 
         assert 'jql: "project = TEST"' in result
 
-    def test_with_query_name(self):
+    def test_with_query_name(self) -> None:
         """Includes query name in front matter."""
         result = generate_front_matter("Report", query="backlog")
 
         assert "query: backlog" in result
 
-    def test_with_board(self):
+    def test_with_board(self) -> None:
         """Includes board in front matter."""
         result = generate_front_matter("Report", board=123)
 
         assert "board: 123" in result
 
-    def test_with_sprint(self):
+    def test_with_sprint(self) -> None:
         """Includes sprint in front matter."""
         result = generate_front_matter("Report", sprint=456)
 
         assert "sprint: 456" in result
 
-    def test_with_group_by(self):
+    def test_with_group_by(self) -> None:
         """Includes group_by in front matter."""
         result = generate_front_matter("Report", group_by="status")
 
         assert "group_by: status" in result
 
-    def test_with_label(self):
+    def test_with_label(self) -> None:
         """Includes label filter in front matter."""
         result = generate_front_matter("Report", label="urgent")
 
         assert "label: urgent" in result
 
-    def test_refresh_command(self):
+    def test_refresh_command(self) -> None:
         """Generates correct refresh command."""
         result = generate_front_matter("My Report", query="backlog", group_by="status")
 
@@ -212,12 +212,12 @@ class TestGenerateFrontMatter:
 class TestGenerateTable:
     """Tests for generate_table function."""
 
-    def test_empty_tickets(self):
+    def test_empty_tickets(self) -> None:
         """Returns no tickets message for empty list."""
         result = generate_table([])
         assert "_No tickets_" in result
 
-    def test_basic_table(self):
+    def test_basic_table(self) -> None:
         """Generates basic markdown table."""
         tickets: list[ReportTicket] = [
             ReportTicket(
@@ -235,7 +235,7 @@ class TestGenerateTable:
         assert "Bug" in result
         assert "Open" in result
 
-    def test_excludes_grouped_column(self):
+    def test_excludes_grouped_column(self) -> None:
         """Excludes grouped column from table."""
         tickets: list[ReportTicket] = [
             ReportTicket(
@@ -251,7 +251,7 @@ class TestGenerateTable:
         # Status column should be removed
         assert "| Status" not in result
 
-    def test_includes_parent_column(self):
+    def test_includes_parent_column(self) -> None:
         """Includes parent column when tickets have parents."""
         tickets: list[ReportTicket] = [
             ReportTicket(
@@ -268,7 +268,7 @@ class TestGenerateTable:
         assert "Parent" in result
         assert "EPIC-1" in result
 
-    def test_escapes_pipes_in_summary(self):
+    def test_escapes_pipes_in_summary(self) -> None:
         """Escapes pipe characters in summary."""
         tickets: list[ReportTicket] = [
             ReportTicket(
@@ -283,7 +283,7 @@ class TestGenerateTable:
 
         assert "\\|" in result
 
-    def test_truncates_long_summaries(self):
+    def test_truncates_long_summaries(self) -> None:
         """Truncates summaries longer than 200 characters."""
         tickets: list[ReportTicket] = [
             ReportTicket(
@@ -302,7 +302,7 @@ class TestGenerateTable:
 class TestGenerateReport:
     """Tests for generate_report function."""
 
-    def test_empty_report(self):
+    def test_empty_report(self) -> None:
         """Generates report with no tickets message."""
         result = generate_report([], "Empty Report")
 
@@ -310,7 +310,7 @@ class TestGenerateReport:
         assert "**Total:** 0 tickets" in result
         assert "_No tickets found._" in result
 
-    def test_report_with_tickets(self):
+    def test_report_with_tickets(self) -> None:
         """Generates report with tickets."""
         tickets: list[ReportTicket] = [
             ReportTicket(
@@ -327,7 +327,7 @@ class TestGenerateReport:
         assert "**Total:** 1 tickets" in result
         assert "T-1" in result
 
-    def test_report_with_grouping(self):
+    def test_report_with_grouping(self) -> None:
         """Generates grouped report."""
         tickets: list[ReportTicket] = [
             ReportTicket(
@@ -354,7 +354,7 @@ class TestGenerateReport:
 class TestGenerateJsonReport:
     """Tests for generate_json_report function."""
 
-    def test_valid_json(self):
+    def test_valid_json(self) -> None:
         """Generates valid JSON."""
         tickets: list[ReportTicket] = [ReportTicket(key="T-1", summary="Test")]
         result = generate_json_report(tickets, "Test Report")
@@ -364,7 +364,7 @@ class TestGenerateJsonReport:
         assert data["total"] == 1
         assert len(data["tickets"]) == 1
 
-    def test_includes_metadata(self):
+    def test_includes_metadata(self) -> None:
         """Includes query metadata."""
         tickets = []
         result = generate_json_report(
@@ -390,12 +390,12 @@ class TestGenerateJsonReport:
 class TestGenerateCsvReport:
     """Tests for generate_csv_report function."""
 
-    def test_empty_tickets(self):
+    def test_empty_tickets(self) -> None:
         """Returns empty string for no tickets."""
         result = generate_csv_report([])
         assert result == ""
 
-    def test_csv_header(self):
+    def test_csv_header(self) -> None:
         """Generates CSV with header."""
         tickets: list[ReportTicket] = [
             ReportTicket(
@@ -418,7 +418,7 @@ class TestGenerateCsvReport:
         assert "summary" in lines[0]
         assert "T-1" in lines[1]
 
-    def test_labels_joined(self):
+    def test_labels_joined(self) -> None:
         """Joins labels with comma."""
         tickets: list[ReportTicket] = [
             ReportTicket(
@@ -438,7 +438,7 @@ class TestGenerateCsvReport:
 
         assert "bug,urgent" in result
 
-    def test_parent_key_extracted(self):
+    def test_parent_key_extracted(self) -> None:
         """Extracts parent key from dict."""
         tickets: list[ReportTicket] = [
             ReportTicket(
@@ -462,7 +462,7 @@ class TestGenerateCsvReport:
 class TestSearchTickets:
     """Tests for search_tickets function with mocked Jira."""
 
-    def test_search_returns_tickets(self, mock_jira):
+    def test_search_returns_tickets(self, mock_jira) -> None:
         """Returns formatted ticket list."""
         # Create mock issue
         mock_issue = MagicMock()
@@ -491,7 +491,7 @@ class TestSearchTickets:
         assert result[0]["summary"] == "Test ticket"
         assert result[0]["status"] == "Open"
 
-    def test_search_handles_error(self, mock_jira, capsys):
+    def test_search_handles_error(self, mock_jira, capsys) -> None:
         """Handles search errors gracefully."""
         mock_jira.search_issues.side_effect = Exception("API Error")
 
@@ -505,7 +505,7 @@ class TestSearchTickets:
 class TestGetTicketDates:
     """Tests for get_ticket_dates function with mocked Jira."""
 
-    def test_returns_dates(self, mock_jira):
+    def test_returns_dates(self, mock_jira) -> None:
         """Returns created and updated dates."""
         mock_issue = MagicMock()
         mock_issue.fields.created = "2024-01-01T10:00:00"
@@ -517,7 +517,7 @@ class TestGetTicketDates:
         assert result["created"] == "2024-01-01T10:00:00"
         assert result["updated"] == "2024-01-02T15:00:00"
 
-    def test_handles_error(self, mock_jira):
+    def test_handles_error(self, mock_jira) -> None:
         """Returns empty strings on error."""
         mock_jira.issue.side_effect = Exception("Not found")
 
@@ -529,7 +529,7 @@ class TestGetTicketDates:
 class TestGenerateDashboardReport:
     """Tests for generate_dashboard_report function."""
 
-    def test_returns_empty_for_no_dashboard(self, mock_jira):
+    def test_returns_empty_for_no_dashboard(self, mock_jira) -> None:
         """Returns empty when dashboard not found."""
         from zaira.report import generate_dashboard_report
 
@@ -539,7 +539,7 @@ class TestGenerateDashboardReport:
         assert result == ""
         assert total == 0
 
-    def test_handles_dashboard_with_no_jql_gadgets(self, mock_jira):
+    def test_handles_dashboard_with_no_jql_gadgets(self, mock_jira) -> None:
         """Handles dashboard with no JQL gadgets."""
         from zaira.report import generate_dashboard_report
         from unittest.mock import MagicMock
@@ -557,7 +557,7 @@ class TestGenerateDashboardReport:
         assert "No gadgets with JQL queries found" in result
         assert total == 0
 
-    def test_generates_report_with_gadgets(self, mock_jira):
+    def test_generates_report_with_gadgets(self, mock_jira) -> None:
         """Generates full report from dashboard gadgets."""
         from zaira.report import generate_dashboard_report
         from unittest.mock import MagicMock
@@ -597,7 +597,7 @@ class TestGenerateDashboardReport:
         assert "TEST-1" in result
         assert total == 1
 
-    def test_handles_grouping(self, mock_jira):
+    def test_handles_grouping(self, mock_jira) -> None:
         """Generates grouped report from dashboard."""
         from zaira.report import generate_dashboard_report
         from unittest.mock import MagicMock
@@ -648,7 +648,7 @@ class TestGenerateDashboardReport:
 class TestReportCommand:
     """Tests for report_command function."""
 
-    def test_lists_reports_when_no_args(self, mock_jira, capsys):
+    def test_lists_reports_when_no_args(self, mock_jira, capsys) -> None:
         """Lists available reports when no arguments given."""
         from zaira.report import report_command
         import argparse
@@ -681,7 +681,7 @@ class TestReportCommand:
         assert "Available reports" in captured.out
         assert "backlog" in captured.out
 
-    def test_exits_when_no_reports_defined(self, mock_jira, capsys):
+    def test_exits_when_no_reports_defined(self, mock_jira, capsys) -> None:
         """Exits with message when no reports defined."""
         from zaira.report import report_command
         import argparse
@@ -708,7 +708,7 @@ class TestReportCommand:
         captured = capsys.readouterr()
         assert "No reports defined" in captured.out
 
-    def test_generates_report_with_jql(self, mock_jira, capsys, tmp_path):
+    def test_generates_report_with_jql(self, mock_jira, capsys, tmp_path) -> None:
         """Generates report from JQL query."""
         from zaira.report import report_command
         import argparse
@@ -745,7 +745,7 @@ class TestReportCommand:
         assert "Test Report" in captured.out
         assert "TEST-1" in captured.out
 
-    def test_exits_when_no_tickets_found(self, mock_jira, capsys):
+    def test_exits_when_no_tickets_found(self, mock_jira, capsys) -> None:
         """Exits with message when no tickets found."""
         from zaira.report import report_command
         import argparse
@@ -774,7 +774,7 @@ class TestReportCommand:
         captured = capsys.readouterr()
         assert "No tickets found" in captured.out
 
-    def test_generates_json_format(self, mock_jira, capsys):
+    def test_generates_json_format(self, mock_jira, capsys) -> None:
         """Generates JSON format report."""
         from zaira.report import report_command
         import argparse
@@ -806,7 +806,7 @@ class TestReportCommand:
         assert data["title"] == "JSON Report"
         assert len(data["tickets"]) == 1
 
-    def test_generates_csv_format(self, mock_jira, capsys):
+    def test_generates_csv_format(self, mock_jira, capsys) -> None:
         """Generates CSV format report."""
         from zaira.report import report_command
         import argparse
@@ -847,7 +847,7 @@ class TestReportCommand:
         assert "key" in captured.out
         assert "TEST-1" in captured.out
 
-    def test_uses_named_query(self, mock_jira, capsys):
+    def test_uses_named_query(self, mock_jira, capsys) -> None:
         """Uses named query from project config."""
         from zaira.report import report_command
         import argparse
@@ -886,7 +886,7 @@ class TestReportCommand:
         captured = capsys.readouterr()
         assert "Backlog" in captured.out  # Title derived from query name
 
-    def test_exits_when_query_not_found(self, mock_jira, capsys):
+    def test_exits_when_query_not_found(self, mock_jira, capsys) -> None:
         """Exits when named query not found."""
         from zaira.report import report_command
         import argparse
@@ -913,7 +913,7 @@ class TestReportCommand:
 
         assert exc_info.value.code == 1
 
-    def test_uses_board_jql(self, mock_jira, capsys):
+    def test_uses_board_jql(self, mock_jira, capsys) -> None:
         """Uses board ID to generate JQL."""
         from zaira.report import report_command
         import argparse
@@ -952,7 +952,7 @@ class TestReportCommand:
         captured = capsys.readouterr()
         assert "T-1" in captured.out
 
-    def test_uses_sprint_jql(self, mock_jira, capsys):
+    def test_uses_sprint_jql(self, mock_jira, capsys) -> None:
         """Uses sprint ID to generate JQL."""
         from zaira.report import report_command
         import argparse
@@ -991,7 +991,7 @@ class TestReportCommand:
         captured = capsys.readouterr()
         assert "T-1" in captured.out
 
-    def test_adds_label_filter(self, mock_jira, capsys):
+    def test_adds_label_filter(self, mock_jira, capsys) -> None:
         """Adds label filter to JQL."""
         from zaira.report import report_command
         import argparse
@@ -1029,7 +1029,7 @@ class TestReportCommand:
             called_jql = mock_search.call_args[0][0]
             assert 'labels = "urgent"' in called_jql
 
-    def test_saves_to_file(self, mock_jira, tmp_path):
+    def test_saves_to_file(self, mock_jira, tmp_path) -> None:
         """Saves report to file."""
         from zaira.report import report_command
         import argparse
@@ -1068,7 +1068,7 @@ class TestReportCommand:
         assert "File Report" in content
         assert "T-1" in content
 
-    def test_exits_when_no_jql_source(self, mock_jira, capsys):
+    def test_exits_when_no_jql_source(self, mock_jira, capsys) -> None:
         """Exits when no JQL source provided."""
         from zaira.report import report_command
         import argparse
@@ -1105,7 +1105,7 @@ class TestReportCommand:
         captured = capsys.readouterr()
         assert "--query, --jql, --board, or --sprint is required" in captured.out
 
-    def test_handles_dashboard_report(self, mock_jira, capsys):
+    def test_handles_dashboard_report(self, mock_jira, capsys) -> None:
         """Handles dashboard report generation."""
         from zaira.report import report_command
         import argparse
@@ -1139,7 +1139,7 @@ class TestReportCommand:
         captured = capsys.readouterr()
         assert "Dashboard Report" in captured.out
 
-    def test_handles_dashboard_url(self, mock_jira, capsys):
+    def test_handles_dashboard_url(self, mock_jira, capsys) -> None:
         """Extracts dashboard ID from URL."""
         from zaira.report import report_command
         import argparse
@@ -1172,7 +1172,7 @@ class TestReportCommand:
 
         assert exc_info.value.code == 0
 
-    def test_exits_when_dashboard_not_found(self, mock_jira, capsys):
+    def test_exits_when_dashboard_not_found(self, mock_jira, capsys) -> None:
         """Exits when dashboard not found."""
         from zaira.report import report_command
         import argparse
@@ -1199,7 +1199,7 @@ class TestReportCommand:
 
         assert exc_info.value.code == 1
 
-    def test_uses_named_report(self, mock_jira, capsys):
+    def test_uses_named_report(self, mock_jira, capsys) -> None:
         """Uses named report from project config."""
         from zaira.report import report_command
         import argparse
@@ -1240,7 +1240,9 @@ class TestReportCommand:
         captured = capsys.readouterr()
         assert "My Report" in captured.out
 
-    def test_uses_output_from_report_def(self, mock_jira, tmp_path, monkeypatch):
+    def test_uses_output_from_report_def(
+        self, mock_jira, tmp_path, monkeypatch
+    ) -> None:
         """Named report output path from zproject.toml is used."""
         from zaira.report import report_command
         import argparse
@@ -1286,7 +1288,9 @@ class TestReportCommand:
         content = expected.read_text()
         assert "T-1" in content
 
-    def test_cli_output_overrides_report_def(self, mock_jira, tmp_path, monkeypatch):
+    def test_cli_output_overrides_report_def(
+        self, mock_jira, tmp_path, monkeypatch
+    ) -> None:
         """CLI -o flag takes precedence over report def output."""
         from zaira.report import report_command
         import argparse
@@ -1330,7 +1334,7 @@ class TestReportCommand:
         assert cli_out.exists()
         assert not (tmp_path / "def-output.md").exists()
 
-    def test_exits_when_named_report_not_found(self, mock_jira, capsys):
+    def test_exits_when_named_report_not_found(self, mock_jira, capsys) -> None:
         """Exits when named report not found."""
         from zaira.report import report_command
         import argparse
@@ -1358,7 +1362,7 @@ class TestReportCommand:
 
         assert exc_info.value.code == 1
 
-    def test_uses_board_name_from_config(self, mock_jira, capsys):
+    def test_uses_board_name_from_config(self, mock_jira, capsys) -> None:
         """Resolves board name from project config."""
         from zaira.report import report_command
         import argparse
@@ -1399,7 +1403,7 @@ class TestReportCommand:
         captured = capsys.readouterr()
         assert "T-1" in captured.out
 
-    def test_exits_when_board_not_found(self, mock_jira, capsys):
+    def test_exits_when_board_not_found(self, mock_jira, capsys) -> None:
         """Exits when board name not found in config."""
         from zaira.report import report_command
         import argparse

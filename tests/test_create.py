@@ -19,7 +19,7 @@ from zaira.create import (
 class TestDetectMarkdown:
     """Tests for detect_markdown function."""
 
-    def test_no_markdown_returns_false(self):
+    def test_no_markdown_returns_false(self) -> None:
         """Returns False for valid Jira markup."""
         text = """h2. Heading
 
@@ -29,27 +29,27 @@ class TestDetectMarkdown:
 """
         assert detect_markdown(text) is False
 
-    def test_detects_markdown_headings(self):
+    def test_detects_markdown_headings(self) -> None:
         """Detects markdown ## headings."""
         assert detect_markdown("## My Heading") is True
 
-    def test_allows_single_hash(self):
+    def test_allows_single_hash(self) -> None:
         """Single # is Jira numbered list syntax, not detected as markdown."""
         assert detect_markdown("# First item\n# Second item") is False
 
-    def test_detects_fenced_code_block(self):
+    def test_detects_fenced_code_block(self) -> None:
         """Detects fenced code blocks."""
         assert detect_markdown("```python\ncode\n```") is True
 
-    def test_detects_markdown_links(self):
+    def test_detects_markdown_links(self) -> None:
         """Detects markdown [text](url) links."""
         assert detect_markdown("Check out [this link](https://example.com)") is True
 
-    def test_detects_markdown_bold(self):
+    def test_detects_markdown_bold(self) -> None:
         """Detects markdown **bold** syntax."""
         assert detect_markdown("This is **bold** text") is True
 
-    def test_jira_wiki_not_detected(self):
+    def test_jira_wiki_not_detected(self) -> None:
         """Jira wiki syntax is not flagged as markdown."""
         text = "h1. Title\n\n*bold* and _italic_\n\n[link|https://example.com]\n\n{code:python}\ncode\n{code}"
         assert detect_markdown(text) is False
@@ -58,7 +58,7 @@ class TestDetectMarkdown:
 class TestParseContent:
     """Tests for parse_content function."""
 
-    def test_parses_front_matter(self):
+    def test_parses_front_matter(self) -> None:
         """Parses YAML front matter and body."""
         content = """---
 project: TEST
@@ -73,7 +73,7 @@ This is the description.
         assert front_matter["summary"] == "My ticket"
         assert body == "This is the description."
 
-    def test_parses_list_values(self):
+    def test_parses_list_values(self) -> None:
         """Parses list values in front matter."""
         content = """---
 labels:
@@ -90,14 +90,14 @@ Description
         assert front_matter["labels"] == ["bug", "urgent"]
         assert front_matter["components"] == ["Backend"]
 
-    def test_raises_on_no_front_matter(self):
+    def test_raises_on_no_front_matter(self) -> None:
         """Raises ValueError when no front matter."""
         content = "Just regular content"
 
         with pytest.raises(ValueError, match="No YAML front matter"):
             parse_content(content)
 
-    def test_raises_on_missing_closing_marker(self):
+    def test_raises_on_missing_closing_marker(self) -> None:
         """Raises ValueError when closing --- is missing."""
         content = """---
 project: TEST
@@ -106,7 +106,7 @@ summary: Incomplete
         with pytest.raises(ValueError):
             parse_content(content)
 
-    def test_empty_body(self):
+    def test_empty_body(self) -> None:
         """Handles empty body after front matter."""
         content = """---
 project: TEST
@@ -117,7 +117,7 @@ project: TEST
         assert front_matter["project"] == "TEST"
         assert body == ""
 
-    def test_multiline_body(self):
+    def test_multiline_body(self) -> None:
         """Preserves multiline description body."""
         content = """---
 project: TEST
@@ -139,7 +139,7 @@ Line 3
 class TestParseTicketFile:
     """Tests for parse_ticket_file function."""
 
-    def test_reads_and_parses_file(self, tmp_path):
+    def test_reads_and_parses_file(self, tmp_path) -> None:
         """Reads file and parses content."""
         ticket_file = tmp_path / "ticket.md"
         ticket_file.write_text("""---
@@ -159,7 +159,7 @@ Description body.
 class TestMapFields:
     """Tests for map_fields function."""
 
-    def test_maps_standard_fields(self):
+    def test_maps_standard_fields(self) -> None:
         """Maps standard fields correctly."""
         front_matter = {
             "project": "TEST",
@@ -176,7 +176,7 @@ class TestMapFields:
         assert fields["labels"] == ["bug", "urgent"]
         assert fields["description"] == "Description"
 
-    def test_maps_issuetype_alias(self):
+    def test_maps_issuetype_alias(self) -> None:
         """Maps 'type' to 'issuetype'."""
         front_matter = {"project": "TEST", "type": "Bug"}
 
@@ -184,7 +184,7 @@ class TestMapFields:
 
         assert fields["issuetype"] == {"name": "Bug"}
 
-    def test_maps_components_list(self):
+    def test_maps_components_list(self) -> None:
         """Maps components as list of dicts."""
         front_matter = {"project": "TEST", "components": ["Backend", "API"]}
 
@@ -192,7 +192,7 @@ class TestMapFields:
 
         assert fields["components"] == [{"name": "Backend"}, {"name": "API"}]
 
-    def test_maps_components_string(self):
+    def test_maps_components_string(self) -> None:
         """Maps comma-separated components string."""
         front_matter = {"project": "TEST", "components": "Backend, API"}
 
@@ -200,7 +200,7 @@ class TestMapFields:
 
         assert fields["components"] == [{"name": "Backend"}, {"name": "API"}]
 
-    def test_maps_labels_string(self):
+    def test_maps_labels_string(self) -> None:
         """Maps comma-separated labels string."""
         front_matter = {"project": "TEST", "labels": "bug, urgent"}
 
@@ -208,7 +208,7 @@ class TestMapFields:
 
         assert fields["labels"] == ["bug", "urgent"]
 
-    def test_skips_metadata_fields(self):
+    def test_skips_metadata_fields(self) -> None:
         """Skips metadata fields like key, url, synced."""
         front_matter = {
             "project": "TEST",
@@ -225,7 +225,7 @@ class TestMapFields:
         assert "synced" not in fields
         assert "status" not in fields
 
-    def test_maps_assignee(self):
+    def test_maps_assignee(self) -> None:
         """Maps assignee field."""
         front_matter = {"project": "TEST", "assignee": "jsmith"}
 
@@ -233,7 +233,7 @@ class TestMapFields:
 
         assert fields["assignee"] == {"name": "jsmith"}
 
-    def test_maps_none_assignee(self):
+    def test_maps_none_assignee(self) -> None:
         """Maps None assignee as None."""
         front_matter = {"project": "TEST", "assignee": None}
 
@@ -241,7 +241,7 @@ class TestMapFields:
 
         assert fields.get("assignee") is None
 
-    def test_maps_parent(self):
+    def test_maps_parent(self) -> None:
         """Maps parent field for subtasks."""
         front_matter = {"project": "TEST", "parent": "TEST-100"}
 
@@ -249,7 +249,7 @@ class TestMapFields:
 
         assert fields["parent"] == {"key": "TEST-100"}
 
-    def test_skips_none_parent(self):
+    def test_skips_none_parent(self) -> None:
         """Skips parent when set to None."""
         front_matter = {"project": "TEST", "parent": "None"}
 
@@ -257,7 +257,7 @@ class TestMapFields:
 
         assert "parent" not in fields
 
-    def test_maps_fix_versions(self):
+    def test_maps_fix_versions(self) -> None:
         """Maps fixVersions field."""
         front_matter = {"project": "TEST", "fixversions": ["1.0", "1.1"]}
 
@@ -265,7 +265,7 @@ class TestMapFields:
 
         assert fields["fixVersions"] == [{"name": "1.0"}, {"name": "1.1"}]
 
-    def test_warns_on_unknown_field(self, capsys):
+    def test_warns_on_unknown_field(self, capsys) -> None:
         """Warns when field is not recognized."""
         front_matter = {"project": "TEST", "unknownfield": "value"}
 
@@ -275,7 +275,7 @@ class TestMapFields:
         captured = capsys.readouterr()
         assert "Unknown field 'unknownfield'" in captured.err
 
-    def test_maps_custom_field(self):
+    def test_maps_custom_field(self) -> None:
         """Maps custom field when found in editmeta."""
         front_matter = {"project": "TEST", "Story Points": "5"}
 
@@ -297,7 +297,7 @@ class TestMapFields:
 class TestCreateTicket:
     """Tests for create_ticket function."""
 
-    def test_creates_ticket_successfully(self, mock_jira):
+    def test_creates_ticket_successfully(self, mock_jira) -> None:
         """Returns ticket key on success."""
         mock_issue = MagicMock()
         mock_issue.key = "TEST-456"
@@ -308,7 +308,7 @@ class TestCreateTicket:
         assert result == "TEST-456"
         mock_jira.create_issue.assert_called_once()
 
-    def test_returns_none_on_error(self, mock_jira, capsys):
+    def test_returns_none_on_error(self, mock_jira, capsys) -> None:
         """Returns None and prints error on failure."""
         mock_jira.create_issue.side_effect = Exception("Invalid field")
 
@@ -318,7 +318,7 @@ class TestCreateTicket:
         captured = capsys.readouterr()
         assert "Error creating ticket" in captured.err
 
-    def test_dry_run_mode(self, mock_jira, capsys):
+    def test_dry_run_mode(self, mock_jira, capsys) -> None:
         """Prints fields but doesn't create in dry run mode."""
         result = create_ticket(
             {"project": {"key": "TEST"}, "summary": "Test"},
@@ -340,7 +340,7 @@ class TestCreateCommand:
         with patch("zaira.info.ensure_editmeta_for_type", return_value=None):
             yield
 
-    def test_exits_when_file_not_found(self, tmp_path, capsys):
+    def test_exits_when_file_not_found(self, tmp_path, capsys) -> None:
         """Exits with error when file doesn't exist."""
         args = argparse.Namespace(file=str(tmp_path / "nonexistent.md"))
 
@@ -351,7 +351,7 @@ class TestCreateCommand:
         captured = capsys.readouterr()
         assert "File not found" in captured.err
 
-    def test_exits_when_no_project(self, tmp_path, capsys):
+    def test_exits_when_no_project(self, tmp_path, capsys) -> None:
         """Exits with error when project is missing."""
         ticket_file = tmp_path / "ticket.md"
         ticket_file.write_text("""---
@@ -370,7 +370,7 @@ Description.
         assert "missing required field(s)" in captured.err
         assert "project" in captured.err
 
-    def test_exits_when_no_summary(self, tmp_path, capsys):
+    def test_exits_when_no_summary(self, tmp_path, capsys) -> None:
         """Exits with error when summary is missing."""
         ticket_file = tmp_path / "ticket.md"
         ticket_file.write_text("""---
@@ -389,7 +389,9 @@ Description.
         assert "missing required field(s)" in captured.err
         assert "summary" in captured.err
 
-    def test_converts_markdown_in_description(self, tmp_path, capsys, mock_jira):
+    def test_converts_markdown_in_description(
+        self, tmp_path, capsys, mock_jira
+    ) -> None:
         """Auto-converts markdown to Jira wiki when description contains markdown."""
         ticket_file = tmp_path / "ticket.md"
         ticket_file.write_text("""---
@@ -414,7 +416,7 @@ With **bold** text.
         assert "h2." in call_fields["description"]
         assert "**" not in call_fields["description"]
 
-    def test_creates_ticket_successfully(self, tmp_path, capsys, mock_jira):
+    def test_creates_ticket_successfully(self, tmp_path, capsys, mock_jira) -> None:
         """Creates ticket and prints key."""
         ticket_file = tmp_path / "ticket.md"
         ticket_file.write_text("""---
@@ -435,7 +437,7 @@ Description.
         captured = capsys.readouterr()
         assert "Created TEST-789" in captured.out
 
-    def test_reads_from_stdin(self, monkeypatch, capsys, mock_jira):
+    def test_reads_from_stdin(self, monkeypatch, capsys, mock_jira) -> None:
         """Reads content from stdin when file is '-'."""
         content = """---
 project: TEST
@@ -456,7 +458,7 @@ Body from stdin.
         captured = capsys.readouterr()
         assert "Created TEST-111" in captured.out
 
-    def test_exits_on_stdin_parse_error(self, monkeypatch, capsys):
+    def test_exits_on_stdin_parse_error(self, monkeypatch, capsys) -> None:
         """Exits with error when stdin content can't be parsed."""
         monkeypatch.setattr(sys, "stdin", MagicMock(read=lambda: "no front matter"))
 
@@ -469,7 +471,7 @@ Body from stdin.
         captured = capsys.readouterr()
         assert "Error parsing stdin" in captured.err
 
-    def test_exits_on_file_parse_error(self, tmp_path, capsys):
+    def test_exits_on_file_parse_error(self, tmp_path, capsys) -> None:
         """Exits with error when file can't be parsed."""
         ticket_file = tmp_path / "ticket.md"
         ticket_file.write_text("no front matter here")

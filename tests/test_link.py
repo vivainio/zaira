@@ -11,7 +11,7 @@ from zaira.link import get_link_types, create_link, link_command
 class TestGetLinkTypes:
     """Tests for get_link_types function with mocked Jira."""
 
-    def test_returns_link_type_names(self, mock_jira):
+    def test_returns_link_type_names(self, mock_jira) -> None:
         """Returns list of link type names."""
         mock_lt1 = MagicMock()
         mock_lt1.name = "Blocks"
@@ -28,7 +28,7 @@ class TestGetLinkTypes:
 class TestCreateLink:
     """Tests for create_link function with mocked Jira."""
 
-    def test_creates_link_successfully(self, mock_jira):
+    def test_creates_link_successfully(self, mock_jira) -> None:
         """Returns True when link is created."""
         result = create_link("TEST-1", "TEST-2", "Blocks")
 
@@ -37,7 +37,7 @@ class TestCreateLink:
             "Blocks", "TEST-1", "TEST-2"
         )
 
-    def test_returns_false_on_error(self, mock_jira, capsys):
+    def test_returns_false_on_error(self, mock_jira, capsys) -> None:
         """Returns False on general error."""
         mock_jira.create_issue_link.side_effect = Exception("API Error")
 
@@ -47,7 +47,7 @@ class TestCreateLink:
         captured = capsys.readouterr()
         assert "Error creating link" in captured.err
 
-    def test_shows_valid_link_types_on_invalid_type(self, mock_jira, capsys):
+    def test_shows_valid_link_types_on_invalid_type(self, mock_jira, capsys) -> None:
         """Shows valid link types when type is invalid."""
         mock_jira.create_issue_link.side_effect = Exception(
             "No issue link type with name 'Invalid'"
@@ -68,7 +68,7 @@ class TestCreateLink:
 class TestLinkCommand:
     """Tests for link_command function."""
 
-    def test_creates_link_successfully(self, mock_jira, capsys):
+    def test_creates_link_successfully(self, mock_jira, capsys) -> None:
         """Creates link and shows success message."""
         args = argparse.Namespace(
             from_key="test-1",
@@ -84,7 +84,7 @@ class TestLinkCommand:
         assert "Link created: TEST-1 Blocks TEST-2" in captured.out
         assert "jira.example.com" in captured.out
 
-    def test_exits_on_failure(self, mock_jira, capsys):
+    def test_exits_on_failure(self, mock_jira, capsys) -> None:
         """Exits with error when link creation fails."""
         mock_jira.create_issue_link.side_effect = Exception("API Error")
 
@@ -100,7 +100,7 @@ class TestLinkCommand:
 
         assert exc_info.value.code == 1
 
-    def test_uppercases_ticket_keys(self, mock_jira, capsys):
+    def test_uppercases_ticket_keys(self, mock_jira, capsys) -> None:
         """Converts ticket keys to uppercase."""
         args = argparse.Namespace(
             from_key="test-1",

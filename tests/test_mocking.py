@@ -9,7 +9,7 @@ from zaira import confluence_api
 class TestJiraMocking:
     """Tests for JIRA client mocking."""
 
-    def test_mock_jira_injection(self, mock_jira):
+    def test_mock_jira_injection(self, mock_jira) -> None:
         """Test that mock JIRA client is properly injected."""
         # Configure mock
         mock_jira.search_issues.return_value = [
@@ -25,7 +25,7 @@ class TestJiraMocking:
         assert len(issues) == 1
         assert issues[0].key == "TEST-1"
 
-    def test_jira_reset_after_test(self):
+    def test_jira_reset_after_test(self) -> None:
         """Test that JIRA client is reset after test using fixture."""
         # After a test using mock_jira, get_jira should try to get real client
         # We can't actually test this without credentials, but we can verify
@@ -36,7 +36,7 @@ class TestJiraMocking:
 class TestConfluenceMocking:
     """Tests for Confluence API mocking."""
 
-    def test_mock_confluence_fetch_page(self, mock_confluence):
+    def test_mock_confluence_fetch_page(self, mock_confluence) -> None:
         """Test mocking fetch_page function."""
         # Set up mock
         confluence_api.set_api(
@@ -50,7 +50,7 @@ class TestConfluenceMocking:
         # Verify mock was used
         assert result == {"id": "12345", "title": "Mocked Page"}
 
-    def test_mock_confluence_multiple_functions(self, mock_confluence):
+    def test_mock_confluence_multiple_functions(self, mock_confluence) -> None:
         """Test mocking multiple Confluence functions."""
         # Set up mocks
         confluence_api.set_api(
@@ -70,7 +70,7 @@ class TestConfluenceMocking:
         assert page["title"] == "Test"
         assert labels == ["label1", "label2"]
 
-    def test_confluence_reset_after_test(self):
+    def test_confluence_reset_after_test(self) -> None:
         """Test that Confluence API is reset after test using fixture."""
         # After a test using mock_confluence, overrides should be cleared
         assert len(confluence_api._api_overrides) == 0

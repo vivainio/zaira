@@ -12,12 +12,12 @@ from zaira.comment import read_body, add_comment, comment_command
 class TestReadBody:
     """Tests for read_body function."""
 
-    def test_returns_body_unchanged(self):
+    def test_returns_body_unchanged(self) -> None:
         """Returns body text unchanged."""
         assert read_body("Hello world") == "Hello world"
         assert read_body("Multi\nline\ntext") == "Multi\nline\ntext"
 
-    def test_reads_from_stdin(self, monkeypatch):
+    def test_reads_from_stdin(self, monkeypatch) -> None:
         """Reads from stdin when body is '-'."""
         monkeypatch.setattr(sys, "stdin", MagicMock(read=lambda: "stdin content"))
 
@@ -29,7 +29,7 @@ class TestReadBody:
 class TestAddComment:
     """Tests for add_comment function with mocked Jira."""
 
-    def test_adds_comment_successfully(self, mock_jira):
+    def test_adds_comment_successfully(self, mock_jira) -> None:
         """Returns True when comment is added."""
         mock_jira.add_comment.return_value = MagicMock()
 
@@ -38,7 +38,7 @@ class TestAddComment:
         assert result is True
         mock_jira.add_comment.assert_called_once_with("TEST-123", "This is a comment")
 
-    def test_returns_false_on_error(self, mock_jira, capsys):
+    def test_returns_false_on_error(self, mock_jira, capsys) -> None:
         """Returns False and prints error on failure."""
         mock_jira.add_comment.side_effect = Exception("Permission denied")
 
@@ -48,7 +48,7 @@ class TestAddComment:
         captured = capsys.readouterr()
         assert "Error adding comment" in captured.err
 
-    def test_returns_false_when_no_comment_returned(self, mock_jira):
+    def test_returns_false_when_no_comment_returned(self, mock_jira) -> None:
         """Returns False when add_comment returns None."""
         mock_jira.add_comment.return_value = None
 
@@ -60,7 +60,7 @@ class TestAddComment:
 class TestCommentCommand:
     """Tests for comment_command function."""
 
-    def test_exits_on_empty_body(self, capsys):
+    def test_exits_on_empty_body(self, capsys) -> None:
         """Exits with error when comment body is empty."""
         args = argparse.Namespace(
             key="test-123", body="   ", list=False, edit=None, delete=None
@@ -73,7 +73,7 @@ class TestCommentCommand:
         captured = capsys.readouterr()
         assert "Comment body cannot be empty" in captured.err
 
-    def test_converts_markdown_syntax(self, mock_jira, capsys):
+    def test_converts_markdown_syntax(self, mock_jira, capsys) -> None:
         """Auto-converts markdown to Jira wiki before posting."""
         mock_jira.add_comment.return_value = MagicMock()
 
@@ -92,7 +92,7 @@ class TestCommentCommand:
         assert "h2." in posted_body
         assert "##" not in posted_body
 
-    def test_adds_comment_successfully(self, mock_jira, capsys):
+    def test_adds_comment_successfully(self, mock_jira, capsys) -> None:
         """Adds comment and shows success message."""
         mock_jira.add_comment.return_value = MagicMock()
 
@@ -111,7 +111,7 @@ class TestCommentCommand:
         assert "Comment added to TEST-123" in captured.out
         assert "jira.example.com" in captured.out
 
-    def test_exits_on_add_failure(self, mock_jira, capsys):
+    def test_exits_on_add_failure(self, mock_jira, capsys) -> None:
         """Exits with error when add_comment fails."""
         mock_jira.add_comment.side_effect = Exception("Permission denied")
 
@@ -125,7 +125,7 @@ class TestCommentCommand:
 
         assert exc_info.value.code == 1
 
-    def test_uppercases_ticket_key(self, mock_jira, capsys):
+    def test_uppercases_ticket_key(self, mock_jira, capsys) -> None:
         """Converts ticket key to uppercase."""
         mock_jira.add_comment.return_value = MagicMock()
 
@@ -138,7 +138,7 @@ class TestCommentCommand:
 
         mock_jira.add_comment.assert_called_once_with("TEST-123", "Comment")
 
-    def test_reads_body_from_stdin(self, mock_jira, monkeypatch, capsys):
+    def test_reads_body_from_stdin(self, mock_jira, monkeypatch, capsys) -> None:
         """Reads comment body from stdin when body is '-'."""
         monkeypatch.setattr(sys, "stdin", MagicMock(read=lambda: "stdin comment"))
         mock_jira.add_comment.return_value = MagicMock()
@@ -156,7 +156,7 @@ class TestCommentCommand:
 class TestSpecialCharacters:
     """Tests for special character handling in comments."""
 
-    def test_comment_with_quotes(self, mock_jira, capsys):
+    def test_comment_with_quotes(self, mock_jira, capsys) -> None:
         """Handles comments containing various quote characters."""
         mock_jira.add_comment.return_value = MagicMock()
 
@@ -177,7 +177,7 @@ class TestSpecialCharacters:
         captured = capsys.readouterr()
         assert "Comment added" in captured.out
 
-    def test_comment_with_newlines(self, mock_jira, capsys):
+    def test_comment_with_newlines(self, mock_jira, capsys) -> None:
         """Handles comments containing newline characters."""
         mock_jira.add_comment.return_value = MagicMock()
 
@@ -193,7 +193,7 @@ class TestSpecialCharacters:
         captured = capsys.readouterr()
         assert "Comment added" in captured.out
 
-    def test_comment_with_unicode(self, mock_jira, capsys):
+    def test_comment_with_unicode(self, mock_jira, capsys) -> None:
         """Handles comments containing unicode characters and emoji."""
         mock_jira.add_comment.return_value = MagicMock()
 
@@ -209,7 +209,7 @@ class TestSpecialCharacters:
         captured = capsys.readouterr()
         assert "Comment added" in captured.out
 
-    def test_comment_with_special_jira_chars(self, mock_jira, capsys):
+    def test_comment_with_special_jira_chars(self, mock_jira, capsys) -> None:
         """Handles comments with characters that have special meaning in Jira."""
         mock_jira.add_comment.return_value = MagicMock()
 
@@ -223,7 +223,7 @@ class TestSpecialCharacters:
 
         mock_jira.add_comment.assert_called_once_with("TEST-123", body)
 
-    def test_comment_with_backslashes(self, mock_jira, capsys):
+    def test_comment_with_backslashes(self, mock_jira, capsys) -> None:
         """Handles comments containing backslashes."""
         mock_jira.add_comment.return_value = MagicMock()
 

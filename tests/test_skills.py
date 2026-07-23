@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 
-def test_install_skills_copies_files(tmp_path):
+def test_install_skills_copies_files(tmp_path) -> None:
     """install_skills_command copies SKILL.md and CONFLUENCE.md to target dir."""
     from zaira.skills import install_skills_command
 
@@ -18,7 +18,7 @@ def test_install_skills_copies_files(tmp_path):
     assert (dest / "CONFLUENCE.md").exists()
 
 
-def test_install_skills_creates_target_dir(tmp_path):
+def test_install_skills_creates_target_dir(tmp_path) -> None:
     """install_skills_command creates the target directory if it doesn't exist."""
     from zaira.skills import install_skills_command
 
@@ -29,7 +29,7 @@ def test_install_skills_creates_target_dir(tmp_path):
     assert (target / "zaira" / "SKILL.md").exists()
 
 
-def test_install_skills_skill_md_has_name(tmp_path):
+def test_install_skills_skill_md_has_name(tmp_path) -> None:
     """Installed SKILL.md contains the skill name front matter."""
     from zaira.skills import install_skills_command
 
@@ -43,23 +43,23 @@ def test_install_skills_skill_md_has_name(tmp_path):
 class TestFrontmatterUpdated:
     """Tests for _frontmatter_updated function."""
 
-    def test_extracts_updated_field(self):
+    def test_extracts_updated_field(self) -> None:
         from zaira.skills import _frontmatter_updated
 
         text = "---\nupdated: 2026-07-16\n---\n\nbody"
         assert _frontmatter_updated(text) == "2026-07-16"
 
-    def test_returns_none_without_frontmatter(self):
+    def test_returns_none_without_frontmatter(self) -> None:
         from zaira.skills import _frontmatter_updated
 
         assert _frontmatter_updated("no frontmatter here") is None
 
-    def test_returns_none_without_closing_delimiter(self):
+    def test_returns_none_without_closing_delimiter(self) -> None:
         from zaira.skills import _frontmatter_updated
 
         assert _frontmatter_updated("---\nupdated: 2026-07-16\nno closing") is None
 
-    def test_returns_none_when_field_missing(self):
+    def test_returns_none_when_field_missing(self) -> None:
         from zaira.skills import _frontmatter_updated
 
         text = "---\nname: zaira\n---\n\nbody"
@@ -107,7 +107,9 @@ class TestCheckSkillStaleness:
 
         return skills
 
-    def test_prints_nudge_when_installed_is_older(self, tmp_path, monkeypatch, capsys):
+    def test_prints_nudge_when_installed_is_older(
+        self, tmp_path, monkeypatch, capsys
+    ) -> None:
         """Prints a note to stderr when the installed skill predates the bundled one."""
         skills = self._setup(
             tmp_path,
@@ -124,7 +126,7 @@ class TestCheckSkillStaleness:
         assert "latest: 2026-07-16" in captured.err
         assert "zaira install-skills" in captured.err
 
-    def test_silent_when_up_to_date(self, tmp_path, monkeypatch, capsys):
+    def test_silent_when_up_to_date(self, tmp_path, monkeypatch, capsys) -> None:
         """No output when installed and bundled dates match."""
         skills = self._setup(
             tmp_path,
@@ -138,7 +140,9 @@ class TestCheckSkillStaleness:
         captured = capsys.readouterr()
         assert captured.err == ""
 
-    def test_silent_when_installed_is_newer(self, tmp_path, monkeypatch, capsys):
+    def test_silent_when_installed_is_newer(
+        self, tmp_path, monkeypatch, capsys
+    ) -> None:
         """No output when the installed copy is somehow newer than bundled."""
         skills = self._setup(
             tmp_path,
@@ -152,7 +156,9 @@ class TestCheckSkillStaleness:
         captured = capsys.readouterr()
         assert captured.err == ""
 
-    def test_silent_when_no_installed_skill(self, tmp_path, monkeypatch, capsys):
+    def test_silent_when_no_installed_skill(
+        self, tmp_path, monkeypatch, capsys
+    ) -> None:
         """No output (and no crash) when the user hasn't installed the skill."""
         skills = self._setup(
             tmp_path,
@@ -169,7 +175,7 @@ class TestCheckSkillStaleness:
 
     def test_silent_when_bundled_has_no_updated_field(
         self, tmp_path, monkeypatch, capsys
-    ):
+    ) -> None:
         """No output when the bundled skill itself has no updated: field to compare against."""
         skills = self._setup(
             tmp_path,
@@ -185,7 +191,7 @@ class TestCheckSkillStaleness:
 
     def test_nudges_with_unknown_when_installed_has_no_updated_field(
         self, tmp_path, monkeypatch, capsys
-    ):
+    ) -> None:
         """Treats a missing installed updated: field as outdated, labeled 'unknown'."""
         skills = self._setup(
             tmp_path,
@@ -199,7 +205,7 @@ class TestCheckSkillStaleness:
         captured = capsys.readouterr()
         assert "installed: unknown" in captured.err
 
-    def test_throttled_to_once_per_day(self, tmp_path, monkeypatch, capsys):
+    def test_throttled_to_once_per_day(self, tmp_path, monkeypatch, capsys) -> None:
         """Only nudges once per day, even across repeated calls."""
         skills = self._setup(
             tmp_path,
@@ -216,7 +222,7 @@ class TestCheckSkillStaleness:
         second = capsys.readouterr()
         assert second.err == ""
 
-    def test_writes_marker_with_todays_date(self, tmp_path, monkeypatch):
+    def test_writes_marker_with_todays_date(self, tmp_path, monkeypatch) -> None:
         """Marker file records today's date after a check."""
         from datetime import date
 

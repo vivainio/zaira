@@ -26,12 +26,12 @@ from zaira.edit import (
 class TestReadInput:
     """Tests for read_input function."""
 
-    def test_returns_value_unchanged(self):
+    def test_returns_value_unchanged(self) -> None:
         """Returns value unchanged for normal input."""
         assert read_input("hello") == "hello"
         assert read_input("multi\nline") == "multi\nline"
 
-    def test_reads_from_stdin(self, monkeypatch):
+    def test_reads_from_stdin(self, monkeypatch) -> None:
         """Reads from stdin when value is '-'."""
         monkeypatch.setattr(sys, "stdin", MagicMock(read=lambda: "stdin content"))
 
@@ -39,7 +39,7 @@ class TestReadInput:
 
         assert result == "stdin content"
 
-    def test_exits_on_empty_stdin(self, monkeypatch, capsys):
+    def test_exits_on_empty_stdin(self, monkeypatch, capsys) -> None:
         """Exits with an error rather than silently returning '' on empty stdin."""
         monkeypatch.setattr(sys, "stdin", MagicMock(read=lambda: ""))
 
@@ -48,7 +48,7 @@ class TestReadInput:
 
         assert "no data was received on stdin" in capsys.readouterr().err
 
-    def test_exits_on_whitespace_only_stdin(self, monkeypatch, capsys):
+    def test_exits_on_whitespace_only_stdin(self, monkeypatch, capsys) -> None:
         """Whitespace-only stdin is treated as empty."""
         monkeypatch.setattr(sys, "stdin", MagicMock(read=lambda: "   \n  "))
 
@@ -59,27 +59,27 @@ class TestReadInput:
 class TestReadFileOrStdin:
     """Tests for read_file_or_stdin (used by --from)."""
 
-    def test_reads_file_contents(self, tmp_path):
+    def test_reads_file_contents(self, tmp_path) -> None:
         """Reads the contents of the given file path (not the path itself)."""
         f = tmp_path / "fields.yaml"
         f.write_text("summary: Hello\n", encoding="utf-8")
 
         assert read_file_or_stdin(str(f)) == "summary: Hello\n"
 
-    def test_reads_stdin_for_dash(self, monkeypatch):
+    def test_reads_stdin_for_dash(self, monkeypatch) -> None:
         """Reads stdin when path is '-'."""
         monkeypatch.setattr(sys, "stdin", MagicMock(read=lambda: "summary: X\n"))
 
         assert read_file_or_stdin("-") == "summary: X\n"
 
-    def test_exits_on_missing_file(self, tmp_path, capsys):
+    def test_exits_on_missing_file(self, tmp_path, capsys) -> None:
         """Exits with an error when the file does not exist."""
         with pytest.raises(SystemExit):
             read_file_or_stdin(str(tmp_path / "does-not-exist.yaml"))
 
         assert "cannot read --from file" in capsys.readouterr().err
 
-    def test_exits_on_empty_stdin(self, monkeypatch, capsys):
+    def test_exits_on_empty_stdin(self, monkeypatch, capsys) -> None:
         """Exits when '--from -' is given but stdin is empty."""
         monkeypatch.setattr(sys, "stdin", MagicMock(read=lambda: ""))
 
@@ -90,49 +90,49 @@ class TestReadFileOrStdin:
 class TestMapField:
     """Tests for map_field function."""
 
-    def test_maps_standard_fields(self):
+    def test_maps_standard_fields(self) -> None:
         """Maps standard field names."""
         field_id, value = map_field("summary", "My title")
         assert field_id == "summary"
         assert value == "My title"
 
-    def test_maps_title_alias(self):
+    def test_maps_title_alias(self) -> None:
         """Maps 'title' to 'summary'."""
         field_id, value = map_field("title", "My title")
         assert field_id == "summary"
         assert value == "My title"
 
-    def test_formats_priority(self):
+    def test_formats_priority(self) -> None:
         """Formats priority as dict with name."""
         field_id, value = map_field("priority", "High")
         assert field_id == "priority"
         assert value == {"name": "High"}
 
-    def test_formats_labels_string(self):
+    def test_formats_labels_string(self) -> None:
         """Formats comma-separated labels string."""
         field_id, value = map_field("labels", "bug, urgent, backend")
         assert field_id == "labels"
         assert value == ["bug", "urgent", "backend"]
 
-    def test_formats_labels_list(self):
+    def test_formats_labels_list(self) -> None:
         """Preserves labels list."""
         field_id, value = map_field("labels", ["bug", "urgent"])
         assert field_id == "labels"
         assert value == ["bug", "urgent"]
 
-    def test_formats_components_string(self):
+    def test_formats_components_string(self) -> None:
         """Formats comma-separated components string."""
         field_id, value = map_field("components", "Backend, API")
         assert field_id == "components"
         assert value == [{"name": "Backend"}, {"name": "API"}]
 
-    def test_formats_components_list(self):
+    def test_formats_components_list(self) -> None:
         """Formats components list."""
         field_id, value = map_field("components", ["Backend", "API"])
         assert field_id == "components"
         assert value == [{"name": "Backend"}, {"name": "API"}]
 
-    def test_custom_field_lookup(self):
+    def test_custom_field_lookup(self) -> None:
         """Looks up custom field by name via editmeta."""
         with patch(
             "zaira.edit.get_editmeta_field",
@@ -147,7 +147,7 @@ class TestMapField:
 
         assert field_id == "customfield_123"
 
-    def test_falls_back_to_name_as_id(self):
+    def test_falls_back_to_name_as_id(self) -> None:
         """Falls back to using name as-is when not found in editmeta."""
         with patch("zaira.edit.get_editmeta_field", return_value=None):
             field_id, value = map_field("customfield_999", "value")
@@ -158,7 +158,7 @@ class TestMapField:
 class TestParseFieldArgs:
     """Tests for parse_field_args function."""
 
-    def test_parses_simple_args(self):
+    def test_parses_simple_args(self) -> None:
         """Parses simple Name=value arguments."""
         with patch(
             "zaira.edit.map_field",
@@ -169,7 +169,7 @@ class TestParseFieldArgs:
         assert result["summary"] == "Test"
         assert result["priority"] == "High"
 
-    def test_handles_value_with_equals(self):
+    def test_handles_value_with_equals(self) -> None:
         """Handles values containing equals signs."""
         with patch(
             "zaira.edit.map_field",
@@ -179,7 +179,7 @@ class TestParseFieldArgs:
 
         assert result["description"] == "a=b=c"
 
-    def test_warns_on_invalid_format(self, capsys):
+    def test_warns_on_invalid_format(self, capsys) -> None:
         """Warns on arguments without equals sign."""
         with patch(
             "zaira.edit.map_field",
@@ -191,7 +191,7 @@ class TestParseFieldArgs:
         assert "Warning: Invalid field format" in captured.err
         assert result.get("valid") == "value"
 
-    def test_strips_whitespace(self):
+    def test_strips_whitespace(self) -> None:
         """Strips whitespace from name and value."""
         with patch(
             "zaira.edit.map_field",
@@ -201,7 +201,7 @@ class TestParseFieldArgs:
 
         assert result["summary"] == "Test Value"
 
-    def test_reads_stdin_for_dash_value(self):
+    def test_reads_stdin_for_dash_value(self) -> None:
         """Reads from stdin when value is '-'."""
         with (
             patch(
@@ -219,7 +219,7 @@ class TestParseFieldArgs:
 class TestParseYamlFields:
     """Tests for parse_yaml_fields function."""
 
-    def test_parses_yaml_content(self):
+    def test_parses_yaml_content(self) -> None:
         """Parses YAML content into fields dict."""
         content = """
 summary: Test Ticket
@@ -234,7 +234,7 @@ priority: High
         assert result["summary"] == "Test Ticket"
         assert result["priority"] == "High"
 
-    def test_parses_list_values(self):
+    def test_parses_list_values(self) -> None:
         """Parses list values in YAML."""
         content = """
 labels:
@@ -249,7 +249,7 @@ labels:
 
         assert result["labels"] == ["bug", "urgent"]
 
-    def test_returns_empty_for_non_dict(self):
+    def test_returns_empty_for_non_dict(self) -> None:
         """Returns empty dict for non-dict YAML."""
         content = "- item1\n- item2"
 
@@ -261,7 +261,7 @@ labels:
 class TestEditTicket:
     """Tests for edit_ticket function with mocked Jira."""
 
-    def test_updates_ticket_successfully(self, mock_jira):
+    def test_updates_ticket_successfully(self, mock_jira) -> None:
         """Returns True when update succeeds."""
         mock_issue = MagicMock()
         mock_jira.issue.return_value = mock_issue
@@ -271,14 +271,14 @@ class TestEditTicket:
         assert result is True
         mock_issue.update.assert_called_once_with(fields={"summary": "New title"})
 
-    def test_returns_true_for_empty_fields(self, mock_jira):
+    def test_returns_true_for_empty_fields(self, mock_jira) -> None:
         """Returns True immediately for empty fields."""
         result = edit_ticket("TEST-123", {})
 
         assert result is True
         mock_jira.issue.assert_not_called()
 
-    def test_returns_false_on_error(self, mock_jira, capsys):
+    def test_returns_false_on_error(self, mock_jira, capsys) -> None:
         """Returns False on update error."""
         mock_jira.issue.side_effect = Exception("Permission denied")
 
@@ -292,12 +292,12 @@ class TestEditTicket:
 class TestFormatAssignee:
     """Tests for _format_assignee function."""
 
-    def test_returns_none_for_empty(self, mock_jira):
+    def test_returns_none_for_empty(self, mock_jira) -> None:
         """Returns None for empty value."""
         assert _format_assignee(None) is None
         assert _format_assignee("") is None
 
-    def test_handles_me_value(self, mock_jira):
+    def test_handles_me_value(self, mock_jira) -> None:
         """Looks up current user for 'me' value."""
         mock_jira.myself.return_value = {"accountId": "abc123"}
 
@@ -306,7 +306,7 @@ class TestFormatAssignee:
         assert result == {"accountId": "abc123"}
         mock_jira.myself.assert_called_once()
 
-    def test_looks_up_user_by_name(self, mock_jira):
+    def test_looks_up_user_by_name(self, mock_jira) -> None:
         """Looks up user by name/email."""
         mock_user = MagicMock()
         mock_user.accountId = "user456"
@@ -317,7 +317,7 @@ class TestFormatAssignee:
         assert result == {"accountId": "user456"}
         mock_jira.search_users.assert_called_once_with(query="jsmith@example.com")
 
-    def test_falls_back_to_direct_value(self, mock_jira):
+    def test_falls_back_to_direct_value(self, mock_jira) -> None:
         """Falls back to using value as accountId when user not found."""
         mock_jira.search_users.return_value = []
 
@@ -329,17 +329,17 @@ class TestFormatAssignee:
 class TestParseNumber:
     """Tests for _parse_number function."""
 
-    def test_parses_integer(self):
+    def test_parses_integer(self) -> None:
         """Parses integer string."""
         assert _parse_number("42") == 42
         assert _parse_number("-5") == -5
 
-    def test_parses_float(self):
+    def test_parses_float(self) -> None:
         """Parses float string."""
         assert _parse_number("3.14") == 3.14
         assert _parse_number("-0.5") == -0.5
 
-    def test_returns_string_for_invalid(self):
+    def test_returns_string_for_invalid(self) -> None:
         """Returns original string for non-numeric values."""
         assert _parse_number("abc") == "abc"
         assert _parse_number("12abc") == "12abc"
@@ -348,22 +348,22 @@ class TestParseNumber:
 class TestFormatFieldValue:
     """Tests for format_field_value function."""
 
-    def test_returns_dict_unchanged(self):
+    def test_returns_dict_unchanged(self) -> None:
         """Returns dict values unchanged."""
         value = {"name": "Test"}
         assert format_field_value("field", value) == {"name": "Test"}
 
-    def test_returns_list_unchanged(self):
+    def test_returns_list_unchanged(self) -> None:
         """Returns list values unchanged."""
         value = ["a", "b"]
         assert format_field_value("field", value) == ["a", "b"]
 
-    def test_returns_number_unchanged(self):
+    def test_returns_number_unchanged(self) -> None:
         """Returns numeric values unchanged."""
         assert format_field_value("field", 42) == 42
         assert format_field_value("field", 3.14) == 3.14
 
-    def test_formats_option_field(self):
+    def test_formats_option_field(self) -> None:
         """Wraps option field value in dict."""
         with patch(
             "zaira.edit.get_editmeta_field",
@@ -378,7 +378,7 @@ class TestFormatFieldValue:
 
         assert result == {"value": "High"}
 
-    def test_formats_array_field(self):
+    def test_formats_array_field(self) -> None:
         """Formats array/multi-select field."""
         with patch(
             "zaira.edit.get_editmeta_field",
@@ -393,7 +393,7 @@ class TestFormatFieldValue:
 
         assert result == [{"value": "a"}, {"value": "b"}, {"value": "c"}]
 
-    def test_converts_number_field(self):
+    def test_converts_number_field(self) -> None:
         """Converts string to number for number field."""
         with patch(
             "zaira.edit.get_editmeta_field",
@@ -408,7 +408,7 @@ class TestFormatFieldValue:
 
         assert result == 42
 
-    def test_returns_string_for_unknown_type(self):
+    def test_returns_string_for_unknown_type(self) -> None:
         """Returns string value unchanged for unknown type."""
         with patch("zaira.edit.get_editmeta_field", return_value=None):
             result = format_field_value("customfield_999", "text")
@@ -419,7 +419,7 @@ class TestFormatFieldValue:
 class TestGetAllowedValues:
     """Tests for get_allowed_values function."""
 
-    def test_gets_values_from_editmeta(self, mock_jira):
+    def test_gets_values_from_editmeta(self, mock_jira) -> None:
         """Gets allowed values from editmeta API."""
         mock_jira._get_json.return_value = {
             "fields": {
@@ -436,7 +436,7 @@ class TestGetAllowedValues:
 
         assert result == {"customfield_123": ["Option A", "Option B"]}
 
-    def test_handles_name_key_in_values(self, mock_jira):
+    def test_handles_name_key_in_values(self, mock_jira) -> None:
         """Handles allowedValues with 'name' key instead of 'value'."""
         mock_jira._get_json.return_value = {
             "fields": {
@@ -453,7 +453,7 @@ class TestGetAllowedValues:
 
         assert result == {"priority": ["High", "Medium"]}
 
-    def test_handles_editmeta_error(self, mock_jira):
+    def test_handles_editmeta_error(self, mock_jira) -> None:
         """Handles error from editmeta gracefully."""
         mock_jira._get_json.side_effect = Exception("API Error")
 
@@ -465,7 +465,7 @@ class TestGetAllowedValues:
 class TestHandleUpdateError:
     """Tests for _handle_update_error function."""
 
-    def test_prints_simple_error(self, mock_jira, capsys):
+    def test_prints_simple_error(self, mock_jira, capsys) -> None:
         """Prints simple error message for basic exceptions."""
         error = Exception("Something went wrong")
 
@@ -474,7 +474,7 @@ class TestHandleUpdateError:
         captured = capsys.readouterr()
         assert "Error updating TEST-123" in captured.err
 
-    def test_parses_jira_error_response(self, mock_jira, capsys):
+    def test_parses_jira_error_response(self, mock_jira, capsys) -> None:
         """Parses and displays Jira error response."""
         error = MagicMock()
         error.response = MagicMock()
@@ -501,7 +501,7 @@ class TestEditCommand:
         with patch("zaira.info.ensure_editmeta", return_value=None):
             yield
 
-    def test_exits_when_no_fields_specified(self, mock_jira, capsys):
+    def test_exits_when_no_fields_specified(self, mock_jira, capsys) -> None:
         """Exits with error when no fields to update."""
         mock_issue = MagicMock()
         mock_issue.fields.issuetype.name = "Story"
@@ -522,7 +522,7 @@ class TestEditCommand:
         captured = capsys.readouterr()
         assert "No fields to update" in captured.err
 
-    def test_updates_title(self, mock_jira, capsys):
+    def test_updates_title(self, mock_jira, capsys) -> None:
         """Updates ticket title."""
         mock_issue = MagicMock()
         mock_jira.issue.return_value = mock_issue
@@ -542,7 +542,7 @@ class TestEditCommand:
         captured = capsys.readouterr()
         assert "Updated TEST-123" in captured.out
 
-    def test_updates_description(self, mock_jira, capsys):
+    def test_updates_description(self, mock_jira, capsys) -> None:
         """Updates ticket description."""
         mock_issue = MagicMock()
         mock_jira.issue.return_value = mock_issue
@@ -562,7 +562,7 @@ class TestEditCommand:
             fields={"description": "New description text"}
         )
 
-    def test_converts_markdown_description(self, mock_jira, capsys):
+    def test_converts_markdown_description(self, mock_jira, capsys) -> None:
         """Auto-converts markdown to Jira wiki in description."""
         mock_issue = MagicMock()
         mock_jira.issue.return_value = mock_issue
@@ -582,7 +582,7 @@ class TestEditCommand:
         assert "h2." in call_fields["description"]
         assert "##" not in call_fields["description"]
 
-    def test_updates_with_field_args(self, mock_jira, capsys):
+    def test_updates_with_field_args(self, mock_jira, capsys) -> None:
         """Updates ticket with --field arguments."""
         mock_issue = MagicMock()
         mock_jira.issue.return_value = mock_issue
@@ -607,7 +607,7 @@ class TestEditCommand:
 
         mock_issue.update.assert_called_once()
 
-    def test_reads_fields_from_yaml_file(self, mock_jira, capsys, tmp_path):
+    def test_reads_fields_from_yaml_file(self, mock_jira, capsys, tmp_path) -> None:
         """Updates ticket with fields from a YAML file passed to --from."""
         mock_issue = MagicMock()
         mock_jira.issue.return_value = mock_issue
@@ -635,7 +635,7 @@ class TestEditCommand:
 
         mock_issue.update.assert_called_once()
 
-    def test_exits_on_update_failure(self, mock_jira, capsys):
+    def test_exits_on_update_failure(self, mock_jira, capsys) -> None:
         """Exits with error when update fails."""
         mock_jira.issue.side_effect = Exception("Permission denied")
 
@@ -653,7 +653,7 @@ class TestEditCommand:
 
         assert exc_info.value.code == 1
 
-    def test_uppercases_ticket_key(self, mock_jira, capsys):
+    def test_uppercases_ticket_key(self, mock_jira, capsys) -> None:
         """Converts ticket key to uppercase."""
         mock_issue = MagicMock()
         mock_jira.issue.return_value = mock_issue
@@ -672,7 +672,7 @@ class TestEditCommand:
         # First call fetches issue type, second call is in edit_ticket
         assert mock_jira.issue.call_args_list[0] == call("TEST-123", fields="issuetype")
 
-    def test_reads_description_from_stdin(self, mock_jira, monkeypatch, capsys):
+    def test_reads_description_from_stdin(self, mock_jira, monkeypatch, capsys) -> None:
         """Reads description from stdin when value is '-'."""
         mock_issue = MagicMock()
         mock_jira.issue.return_value = mock_issue

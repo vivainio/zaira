@@ -10,7 +10,7 @@ from zaira.types import MyTicket
 class TestSearchMyTickets:
     """Tests for search_my_tickets function with mocked Jira."""
 
-    def test_returns_ticket_list(self, mock_jira):
+    def test_returns_ticket_list(self, mock_jira) -> None:
         """Returns list of ticket dicts."""
         mock_issue = MagicMock()
         mock_issue.key = "TEST-1"
@@ -27,7 +27,7 @@ class TestSearchMyTickets:
         assert result[0]["status"] == "Open"
         assert result[0]["summary"] == "Test ticket"
 
-    def test_handles_missing_status(self, mock_jira):
+    def test_handles_missing_status(self, mock_jira) -> None:
         """Handles tickets with missing status."""
         mock_issue = MagicMock()
         mock_issue.key = "TEST-2"
@@ -45,14 +45,14 @@ class TestSearchMyTickets:
 class TestPrintTable:
     """Tests for print_table function."""
 
-    def test_empty_tickets(self, capsys):
+    def test_empty_tickets(self, capsys) -> None:
         """Prints message when no tickets."""
         print_table([])
 
         captured = capsys.readouterr()
         assert "No open tickets" in captured.out
 
-    def test_groups_by_status(self, capsys):
+    def test_groups_by_status(self, capsys) -> None:
         """Groups tickets by status."""
         tickets: list[MyTicket] = [
             MyTicket(
@@ -84,7 +84,7 @@ class TestPrintTable:
         assert "T-2" in captured.out
         assert "T-3" in captured.out
 
-    def test_truncates_long_summaries(self, capsys):
+    def test_truncates_long_summaries(self, capsys) -> None:
         """Truncates summaries over 100 characters."""
         tickets: list[MyTicket] = [
             MyTicket(
@@ -102,7 +102,7 @@ class TestPrintTable:
         # Should not contain full 150 A's
         assert "A" * 150 not in captured.out
 
-    def test_sorts_by_created_date(self, capsys):
+    def test_sorts_by_created_date(self, capsys) -> None:
         """Sorts tickets by created date within groups."""
         tickets: list[MyTicket] = [
             MyTicket(
