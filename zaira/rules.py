@@ -4,13 +4,13 @@ import argparse
 import re
 import sys
 from pathlib import Path
-from typing import Any, Mapping, NamedTuple
+from typing import Any, Mapping, NamedTuple, cast
 
 import yaml
 
 from zaira.export import get_ticket
 from zaira.jira_client import CONFIG_DIR
-from zaira.types import FieldError
+from zaira.types import FieldError, RuleBlock, RulesConfig
 
 
 class Violation(NamedTuple):
@@ -39,12 +39,10 @@ def _find_rules_file(path: str | Path = "rules.yaml") -> Path | None:
     return None
 
 
-def _merge_rule_block(
-    base: Mapping[str, Any], override: Mapping[str, Any]
-) -> dict[str, Any]:
+def _merge_rule_block(base: RuleBlock, override: RuleBlock) -> RuleBlock:
     """Merge override rule block on top of base. Returns merged dict."""
-    result = dict(base)
-    for key, val in override.items():
+    result = cast(RuleBlock, dict(base))
+    for key, val in cast(dict[str, Any], override).items():
         if key in ("required", "non_empty", "subtask_types"):
             base_list = result.get(key, [])
             result[key] = list(dict.fromkeys(base_list + val))
@@ -76,13 +74,11 @@ def _merge_rule_block(
         elif key == "valid_transitions":
             result["valid_transitions"] = {**result.get("valid_transitions", {}), **val}
         else:
-            result[key] = val
+            cast(dict[str, Any], result)[key] = val
     return result
 
 
-def _merge_all_rules(
-    base: Mapping[str, Any], override: Mapping[str, Any]
-) -> dict[str, Any]:
+def _merge_all_rules(base: RulesConfig, override: RulesConfig) -> RulesConfig:
     """Merge override on top of base at the top level (issue-type keyed)."""
     result = dict(base)
     for issue_type, type_rules in override.items():
@@ -93,27 +89,30 @@ def _merge_all_rules(
     return result
 
 
-def _load_rules_file(path: Path, seen: frozenset[Path]) -> dict[str, Any]:
+def _load_rules_file(path: Path, seen: frozenset[Path]) -> RulesConfig:
     """Load a YAML rules file, following import chains with cycle detection."""
     abs_path = path.resolve()
     if abs_path in seen:
         raise ValueError(f"Import cycle detected: {path}")
     seen = seen | {abs_path}
     with open(path) as f:
-        data = yaml.safe_load(f) or {}
+        raw = yaml.safe_load(f) or {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"Rules file must contain a mapping: {path}")
+    data = cast(dict[str, Any], raw)
     import_str = data.pop("import", None)
     if import_str is None:
-        return data
+        return cast(RulesConfig, data)
     import_path = (path.parent / import_str).resolve()
     if not import_path.exists():
         raise FileNotFoundError(
             f"Import not found: {import_path} (imported from {path})"
         )
     base = _load_rules_file(import_path, seen)
-    return _merge_all_rules(base, data)
+    return _merge_all_rules(base, cast(RulesConfig, data))
 
 
-def load_rules(path: str | Path = "rules.yaml") -> dict[str, Any]:
+def load_rules(path: str | Path = "rules.yaml") -> RulesConfig:
     """Load YAML rules file. Returns dict keyed by issue type name."""
     from zaira.jira_client import CONFIG_DIR
 
@@ -151,9 +150,7 @@ def _get_field_value(ticket: Mapping[str, Any], field_name: str) -> tuple[bool, 
     return False, None
 
 
-def _apply_rules(
-    ticket: Mapping[str, Any], rule_block: Mapping[str, Any]
-) -> list[Violation]:
+def _apply_rules(ticket: Mapping[str, Any], rule_block: RuleBlock) -> list[Violation]:
     """Apply a single rule block and return violations.
 
     A rule block can contain: required, non_empty, contains, not_contains,
@@ -387,7 +384,7 @@ def _match_condition(
 
 def check_ticket(
     ticket: Mapping[str, Any],
-    rules: Mapping[str, Any],
+    rules: RuleBlock | Mapping[str, object],
     status: str | None = None,
 ) -> list[Violation]:
     """Check a ticket dict against rules. Returns list of Violation.
@@ -395,20 +392,22 @@ def check_ticket(
     If status is given, use it instead of ticket's current status (for
     validating a transition target before it happens).
     """
+    typed_rules = cast(RuleBlock, rules)
+
     if status is None:
         status = ticket.get("status", "")
 
     # Base rules
-    violations = _apply_rules(ticket, rules)
+    violations = _apply_rules(ticket, typed_rules)
 
     # when.<status> rules (sugar for status-conditional)
-    when = rules.get("when", {})
+    when = typed_rules.get("when", {})
     status_rules = when.get(status, {})
     if status_rules:
         violations.extend(_apply_rules(ticket, status_rules))
 
     # if/then rules
-    for cond in rules.get("if", []):
+    for cond in typed_rules.get("if", []):
         match = cond.get("match", {})
         then = cond.get("then", {})
         if match and _match_condition(ticket, match, status):
@@ -417,7 +416,7 @@ def check_ticket(
     return violations
 
 
-def try_load_rules(path: str | Path = "rules.yaml") -> dict[str, Any] | None:
+def try_load_rules(path: str | Path = "rules.yaml") -> RulesConfig | None:
     """Load rules file, returning None if it doesn't exist."""
     p = _find_rules_file(path)
     if not p:
@@ -485,7 +484,7 @@ def check_field_allowed(
 
 def validate_transition(
     ticket: Mapping[str, Any],
-    all_rules: Mapping[str, Any],
+    all_rules: RulesConfig | Mapping[str, object],
     target_status: str,
 ) -> list[Violation]:
     """Check ticket against rules for target_status.
@@ -493,9 +492,10 @@ def validate_transition(
     Returns list of Violation, or empty list if no rules apply.
     """
     issue_type = ticket.get("issuetype", "")
-    type_rules = all_rules.get(issue_type)
-    if not type_rules:
+    raw_type_rules = all_rules.get(issue_type)
+    if not isinstance(raw_type_rules, dict) or not raw_type_rules:
         return []
+    type_rules = cast(RuleBlock, raw_type_rules)
 
     violations = []
 

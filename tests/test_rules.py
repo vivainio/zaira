@@ -9,6 +9,7 @@ from zaira.rules import (
     _find_rules_file,
     load_rules,
 )
+from zaira.types import RulesConfig
 import zaira.jira_client as jira_client_mod
 
 
@@ -242,7 +243,7 @@ class TestStatusOverride:
 
 class TestValidateTransition:
     def test_returns_violations_for_target_status(self) -> None:
-        all_rules = {
+        all_rules: RulesConfig = {
             "Story": {
                 "when": {
                     "Done": {"required": ["Resolution"]},
@@ -255,12 +256,12 @@ class TestValidateTransition:
         assert v[0].field == "Resolution"
 
     def test_returns_empty_for_unknown_type(self) -> None:
-        all_rules = {"Story": {"required": ["summary"]}}
+        all_rules: RulesConfig = {"Story": {"required": ["summary"]}}
         ticket = _ticket(issuetype="Bug")
         assert validate_transition(ticket, all_rules, "Done") == []
 
     def test_includes_base_rules(self) -> None:
-        all_rules = {
+        all_rules: RulesConfig = {
             "Story": {
                 "required": ["assignee"],
                 "when": {
@@ -1026,7 +1027,7 @@ class TestSectionsPresent:
 
 
 class TestValidTransitions:
-    def _rules(self) -> dict[str, object]:
+    def _rules(self) -> RulesConfig:
         return {
             "Story": {
                 "valid_transitions": {
@@ -1057,14 +1058,16 @@ class TestValidTransitions:
         assert v == []
 
     def test_no_valid_transitions_key_skips_check(self) -> None:
-        all_rules = {"Story": {"when": {"Done": {"required": ["Resolution"]}}}}
+        all_rules: RulesConfig = {
+            "Story": {"when": {"Done": {"required": ["Resolution"]}}}
+        }
         ticket = _ticket(issuetype="Story", status="New")
         v = validate_transition(ticket, all_rules, "Done")
         assert len(v) == 1
         assert v[0].field == "Resolution"
 
     def test_field_violations_still_reported_on_forbidden_transition(self) -> None:
-        all_rules = {
+        all_rules: RulesConfig = {
             "Story": {
                 "valid_transitions": {"New": ["Backlog"]},
                 "when": {"Implementing": {"required": ["Story Points"]}},
