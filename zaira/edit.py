@@ -2,13 +2,13 @@
 
 import argparse
 import sys
-from typing import Any
 
 import yaml
+from jira import JIRA
 
 from zaira.info import get_editmeta_field
 from zaira.jira_client import format_jira_error, get_jira, get_jira_site
-from zaira.types import EditmetaFieldDef
+from zaira.types import EditmetaFieldDef, FieldValue
 
 
 # Standard field name mappings
@@ -68,7 +68,7 @@ def read_file_or_stdin(path: str) -> str:
         sys.exit(1)
 
 
-def _format_assignee(value: str | None) -> dict | None:
+def _format_assignee(value: str | None) -> dict[str, FieldValue] | None:
     """Format assignee value for Jira API.
 
     Supports "me" as a special value to assign to the current user.
@@ -116,7 +116,7 @@ def _resolve_component(name: str, project: str) -> dict:
 
 def map_field(
     name: str, value: str | list[str], project: str = "", issue_type: str = ""
-) -> tuple[str, Any]:
+) -> tuple[str, FieldValue]:
     """Map a field name to Jira field ID and format value.
 
     Args:
@@ -173,8 +173,8 @@ def map_field(
 
 
 def format_field_value(
-    field_id: str, value: Any, project: str = "", issue_type: str = ""
-) -> Any:
+    field_id: str, value: FieldValue, project: str = "", issue_type: str = ""
+) -> FieldValue:
     """Format value based on field type.
 
     Wraps option/select field values in {"value": ...} format.
@@ -255,7 +255,7 @@ def _parse_number(value: str) -> int | float | str:
 
 
 def _validate_field_value(
-    field_id: str, value: Any, editmeta_field: dict | EditmetaFieldDef
+    field_id: str, value: FieldValue, editmeta_field: EditmetaFieldDef
 ) -> None:
     """Validate value against editmeta allowedValues (warning only).
 
@@ -294,7 +294,7 @@ def _validate_field_value(
 
 def parse_field_args(
     field_args: list[str], project: str = "", issue_type: str = ""
-) -> dict:
+) -> dict[str, FieldValue]:
     """Parse --field arguments into a fields dict.
 
     Args:
@@ -322,7 +322,9 @@ def parse_field_args(
     return fields
 
 
-def parse_yaml_fields(content: str, project: str = "", issue_type: str = "") -> dict:
+def parse_yaml_fields(
+    content: str, project: str = "", issue_type: str = ""
+) -> dict[str, FieldValue]:
     """Parse YAML content into a fields dict.
 
     Args:
@@ -347,7 +349,7 @@ def parse_yaml_fields(content: str, project: str = "", issue_type: str = "") -> 
 
 
 def get_allowed_values(
-    jira: Any, key: str, field_ids: list[str], issue_type: str = ""
+    jira: JIRA, key: str, field_ids: list[str], issue_type: str = ""
 ) -> dict[str, list[str]]:
     """Get allowed values for fields.
 
@@ -439,7 +441,7 @@ def _print_allowed_values(
             print(f"  ... and {len(values) - 20} more", file=sys.stderr)
 
 
-def _handle_update_error(e: Exception, jira: Any, key: str) -> None:
+def _handle_update_error(e: Exception, jira: JIRA, key: str) -> None:
     """Handle and display Jira update errors with allowed values."""
     import json
 
@@ -480,7 +482,7 @@ def _handle_update_error(e: Exception, jira: Any, key: str) -> None:
         _print_allowed_values(allowed, errors)
 
 
-def edit_ticket(key: str, fields: dict) -> bool:
+def edit_ticket(key: str, fields: dict[str, FieldValue]) -> bool:
     """Edit a Jira ticket's fields.
 
     Args:

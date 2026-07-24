@@ -1,7 +1,12 @@
 """Type definitions for zaira."""
 
 from dataclasses import dataclass
-from typing import Any, TypedDict
+from typing import Any, TypeAlias, TypedDict
+
+
+FieldValue: TypeAlias = (
+    None | bool | int | float | str | list["FieldValue"] | dict[str, "FieldValue"]
+)
 
 
 # === Dataclasses (internal structures) ===
@@ -292,6 +297,7 @@ class EditmetaFieldDef(TypedDict, total=False):
     """
 
     id: str  # Jira field ID (e.g., "customfield_12345" or "summary")
+    name: str
     type: str
     required: bool
     allowedValues: list[str]
