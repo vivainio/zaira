@@ -88,9 +88,6 @@ zaira get FOO-1234 --format json
 # Include linked pull requests (GitHub only)
 zaira get FOO-1234 --with-prs
 
-# Include linked Xray tests, executions, and manual steps
-zaira get FOO-1234 --with-tests
-
 # Include custom fields (uses cached schema for name lookup)
 zaira get FOO-1234 --all-fields
 
@@ -103,27 +100,6 @@ zaira get FOO-1234 --min
 # Skip wiki-to-markdown conversion (preserve Jira wiki markup)
 zaira get FOO-1234 --raw
 ```
-
-Xray Cloud manual steps require a separate API key. Store its Client ID and
-Client Secret in the OS secret store (Windows Credential Manager through
-`wincred.exe` on WSL):
-
-```bash
-zaira init-xray
-```
-
-The credentials are stored under the distinct targets `zaira-xray-client-id`
-and `zaira-xray-client-secret`; they are never written to a configuration file.
-
-Extract Xray tests as standalone Markdown documents:
-
-```bash
-zaira xray get FOO-1234
-zaira xray get FOO-1234 FOO-5678 -o tests/
-```
-
-Manual test steps are written as a Markdown table. Cucumber tests use a fenced
-`gherkin` block, while generic tests use a Definition section.
 
 ### create
 
@@ -788,6 +764,47 @@ zaira info --save
 ```
 
 Instance schema is cached at `~/.cache/zaira/zschema_PROFILE.json` and project schemas at `~/.cache/zaira/zproject_PROFILE_PROJECT.json`.
+
+## Xray Cloud (optional)
+
+Xray support is an optional integration rather than part of Zaira's core Jira
+functionality. It requires a separate Xray Cloud API key in addition to the Jira
+credentials configured by `zaira init`.
+
+Create an Xray API key in **Xray Global Settings → API Keys**, then store its
+Client ID and Client Secret in the OS secret store:
+
+```bash
+zaira init-xray
+```
+
+On WSL, Zaira stores both values in Windows Credential Manager through
+`wincred.exe`. They use the distinct targets `zaira-xray-client-id` and
+`zaira-xray-client-secret` and are never written to a configuration file.
+
+Include linked Xray tests, executions, and manual steps in a normal Jira ticket
+export:
+
+```bash
+zaira get FOO-1234 --with-tests
+```
+
+Extract Xray tests as standalone Markdown documents:
+
+```bash
+# Print one or more tests to stdout
+zaira xray get FOO-1234
+zaira xray get FOO-1234 FOO-5678
+
+# Write one KEY.md file per test
+zaira xray get FOO-1234 FOO-5678 -o tests/
+```
+
+Output follows the Xray test kind:
+
+- Manual tests use a Markdown table with Action, Data, and Expected Result.
+- Cucumber tests use a fenced `gherkin` block.
+- Generic tests use a Definition section.
 
 ## Project Configuration (for project managers)
 
