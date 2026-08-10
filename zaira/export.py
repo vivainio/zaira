@@ -375,8 +375,9 @@ def get_linked_tests(key: str) -> list[dict]:
     """
     jira = get_jira()
     try:
-        issue = jira.issue(key, fields="issuelinks")
-        test_keys = []
+        issue = jira.issue(key, fields="issuetype,issuelinks")
+        issue_type = issue.fields.issuetype.name
+        test_keys = [key] if issue_type in ("Test", "Test Case", "Test Case 2") else []
         for link in getattr(issue.fields, "issuelinks", None) or []:
             if link.type.name != "Tests":
                 continue
@@ -443,6 +444,20 @@ def get_linked_tests(key: str) -> list[dict]:
         return tests
     except Exception:
         return []
+
+
+def get_xray_tests(key: str) -> list[dict]:
+    """Fetch linked Xray tests and add Cloud-hosted manual test steps."""
+    tests = get_linked_tests(key)
+    if not tests:
+        return tests
+    try:
+        from zaira.xray import add_steps
+
+        add_steps(tests)
+    except Exception as e:
+        print(f"Warning: could not fetch Xray test steps: {e}", file=sys.stderr)
+    return tests
 
 
 PROPS_SKIP_PREFIXES = (
@@ -746,6 +761,20 @@ url: https://{jira_site}/browse/{key}
                 md += f"  Also tests: {', '.join(t['alsoTests'])}\n"
             for ex in t.get("executions", []):
                 md += f"  - Execution {ex['key']}: {ex['summary']} ({ex['status']})\n"
+            steps = t.get("steps", [])
+            if steps:
+                md += "\n    | # | Action | Data | Expected Result |\n"
+                md += "    |---|--------|------|-----------------|\n"
+                for number, step in enumerate(steps, 1):
+                    values = [
+                        str(step.get(field) or "")
+                        .replace("|", "\\|")
+                        .replace("\n", " ")
+                        for field in ("action", "data", "result")
+                    ]
+                    md += (
+                        f"    | {number} | {values[0]} | {values[1]} | {values[2]} |\n"
+                    )
 
     pull_requests = ticket.get("pullRequests", [])
     if pull_requests:
@@ -861,7 +890,7 @@ def export_ticket(
     if with_prs:
         ticket["pullRequests"] = get_pull_requests(ticket["id"])
     if with_tests:
-        ticket["tests"] = get_linked_tests(key)
+        ticket["tests"] = get_xray_tests(key)
     if with_props:
         ticket["properties"] = get_issue_properties(ticket["id"])
 
@@ -998,7 +1027,7 @@ def export_to_stdout(
     if with_prs:
         ticket["pullRequests"] = get_pull_requests(ticket["id"])
     if with_tests:
-        ticket["tests"] = get_linked_tests(key)
+        ticket["tests"] = get_xray_tests(key)
     if with_props:
         ticket["properties"] = get_issue_properties(ticket["id"])
 

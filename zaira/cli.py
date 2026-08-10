@@ -60,6 +60,8 @@ from zaira.bundle import bundle_install_command, bundle_update_command
 from zaira.skills import install_skills_command
 from zaira.rules import check_command
 from zaira.activity_log import read_entries, format_entries
+from zaira.xray import extract_command as xray_extract_command
+from zaira.xray import init_xray_command
 
 
 class _SingleValueAction(argparse.Action):
@@ -350,6 +352,33 @@ def main() -> None:
     )
     init_parser.set_defaults(func=init_command)
 
+    init_xray_parser = subparsers.add_parser(
+        "init-xray",
+        help="Store Xray Cloud API credentials in the system secret store",
+    )
+    init_xray_parser.set_defaults(func=init_xray_command)
+
+    xray_parser = subparsers.add_parser(
+        "xray",
+        help="Extract Xray Cloud tests",
+    )
+    xray_subparsers = xray_parser.add_subparsers(dest="xray_command", required=True)
+    xray_get_parser = xray_subparsers.add_parser(
+        "get",
+        help="Extract standalone Xray Test Markdown",
+    )
+    xray_get_parser.add_argument(
+        "keys",
+        nargs="+",
+        help="Xray Test issue key(s)",
+    )
+    xray_get_parser.add_argument(
+        "-o",
+        "--output",
+        help="Output directory (writes KEY.md files instead of stdout)",
+    )
+    xray_get_parser.set_defaults(func=xray_extract_command)
+
     # Init-project command - generate zproject.toml
     init_project_parser = subparsers.add_parser(
         "init-project",
@@ -486,7 +515,7 @@ def main() -> None:
     get_parser.add_argument(
         "--with-tests",
         action="store_true",
-        help="Include linked Xray tests and test executions",
+        help="Include linked Xray tests, test executions, and Cloud test steps",
     )
     get_parser.add_argument(
         "--with-props",

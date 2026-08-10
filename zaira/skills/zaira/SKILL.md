@@ -1,7 +1,7 @@
 ---
 name: zaira
 description: Access Jira tickets offline using zaira CLI. Use when user needs to export, report, or refresh Jira tickets, or mentions "jira", "zaira", or ticket keys like "FOO-123".
-updated: 2026-07-16
+updated: 2026-08-10
 ---
 
 # Zaira - Jira CLI
@@ -34,7 +34,9 @@ zaira get --jql "project = FOO" -o tickets/ # Batch export by JQL
 zaira get --board 123 -o tickets/           # Export from board
 zaira get --sprint 456 -o tickets/          # Export from sprint
 zaira get FOO-1234 --with-prs              # Include linked GitHub PRs
-zaira get FOO-1234 --with-tests            # Include linked Xray tests and executions
+zaira init-xray                            # Store Xray Cloud credentials securely
+zaira get FOO-1234 --with-tests            # Include linked Xray tests, executions, and steps
+zaira xray get FOO-1234 -o tests/          # Extract a standalone Xray Test markdown file
 zaira get --jql "..." -o tickets/ --parallel  # Parallel export + attachment download
 
 # Reports (group-by: status, priority, issuetype, assignee, labels, components, parent)

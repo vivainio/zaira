@@ -533,6 +533,47 @@ class TestFormatTicketMarkdown:
         assert "[Fix bug #123](https://github.com/org/repo/pull/123)" in result
         assert "MERGED" in result
 
+    def test_ticket_with_xray_steps(self) -> None:
+        """Formats Xray manual steps as a markdown table."""
+        from zaira.export import format_ticket_markdown
+
+        ticket = {
+            "key": "STORY-1",
+            "summary": "With Xray steps",
+            "issuetype": "Story",
+            "status": "Open",
+            "priority": "Medium",
+            "assignee": "dev@example.com",
+            "reporter": "dev@example.com",
+            "description": "Has tests",
+            "components": [],
+            "labels": [],
+            "parent": None,
+            "issuelinks": [],
+            "tests": [
+                {
+                    "key": "TEST-1",
+                    "summary": "Manual test",
+                    "status": "Ready",
+                    "assignee": "qa@example.com",
+                    "executions": [],
+                    "alsoTests": [],
+                    "steps": [
+                        {
+                            "action": "Open | page",
+                            "data": "First\nline",
+                            "result": "Page opens",
+                        }
+                    ],
+                }
+            ],
+        }
+
+        result = format_ticket_markdown(ticket, [], "2024-01-17", "jira.example.com")
+
+        assert "| # | Action | Data | Expected Result |" in result
+        assert "| 1 | Open \\| page | First line | Page opens |" in result
+
 
 class TestFormatTicketJson:
     """Tests for format_ticket_json function."""
@@ -1004,6 +1045,39 @@ class TestGetComments:
 
         assert len(result) == 1
         assert "ADF comment" in result[0].body
+
+
+class TestGetLinkedTests:
+    """Tests for linked Xray issue discovery."""
+
+    def test_includes_requested_issue_when_it_is_a_test(self, mock_jira) -> None:
+        """A directly requested Xray Test is enriched like a linked Test."""
+        from zaira.export import get_linked_tests
+
+        initial = MagicMock()
+        initial.fields.issuetype.name = "Test"
+        initial.fields.issuelinks = []
+
+        full = MagicMock()
+        full.key = "TEST-1"
+        full.fields.summary = "Manual test"
+        full.fields.status.name = "Ready"
+        full.fields.assignee = None
+        full.fields.issuelinks = []
+        mock_jira.issue.side_effect = [initial, full]
+
+        result = get_linked_tests("TEST-1")
+
+        assert result == [
+            {
+                "key": "TEST-1",
+                "summary": "Manual test",
+                "status": "Ready",
+                "assignee": "Unassigned",
+                "executions": [],
+                "alsoTests": [],
+            }
+        ]
 
 
 class TestGetPullRequests:
