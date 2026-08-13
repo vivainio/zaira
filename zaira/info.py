@@ -524,20 +524,52 @@ def _fix_component_allowed_values(
             pass
 
 
+def _fetch_createmeta_fields(project: str, issue_type: str, jira: Any) -> dict:
+    """Fetch field metadata via createmeta, as a fallback source.
+
+    Some projects restrict what per-issue editmeta reveals (permission or screen
+    scheme lock-down) even though createmeta still exposes full field definitions
+    for new-issue creation — PR is one such project, where /issue/{key}/editmeta
+    returns zero fields for every issue regardless of status. createmeta lets us
+    still map custom fields (like "Work Categorization") by name there.
+    """
+    try:
+        meta = jira.createmeta(
+            projectKeys=project,
+            issuetypeNames=issue_type,
+            expand="projects.issuetypes.fields",
+        )
+        return meta["projects"][0]["issuetypes"][0]["fields"]
+    except Exception:
+        return {}
+
+
 def _fetch_and_save_editmeta(
     key: str, project: str, issue_type: str
 ) -> EditmetaSchema | None:
-    """Fetch editmeta from API for a specific issue and save to cache."""
+    """Fetch editmeta from API for a specific issue and save to cache.
+
+    Falls back to createmeta when editmeta reports no fields (see
+    _fetch_createmeta_fields) — better an approximate field map for editing
+    than none at all.
+    """
     jira = get_jira()
     server = jira._options["server"]
     assert jira._session is not None
     try:
         resp = jira._session.get(f"{server}/rest/api/3/issue/{key}/editmeta")
         resp.raise_for_status()
+        raw_fields = resp.json().get("fields", {})
     except Exception:
-        return None
+        raw_fields = {}
 
-    all_fields = _parse_editmeta_response(resp.json())
+    source = key
+    if not raw_fields:
+        raw_fields = _fetch_createmeta_fields(project, issue_type, jira)
+        if raw_fields:
+            source = f"{key} (via createmeta fallback)"
+
+    all_fields = _parse_editmeta_response({"fields": raw_fields})
     _fix_component_allowed_values(all_fields, project, jira)
     editmeta: EditmetaSchema = {
         "project": project,
@@ -550,7 +582,7 @@ def _fetch_and_save_editmeta(
     path = get_editmeta_path(project, issue_type)
     path.write_text(yaml.dump(editmeta, default_flow_style=False, sort_keys=False))
     print(
-        f"Learned {issue_type} editmeta from {key} ({len(all_fields)} fields)",
+        f"Learned {issue_type} editmeta from {source} ({len(all_fields)} fields)",
         file=sys.stderr,
     )
     return editmeta

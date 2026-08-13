@@ -89,26 +89,69 @@ def _format_assignee(value: str | None) -> dict[str, FieldValue] | None:
 
 
 def _get_project_components(project: str) -> list:
-    """Fetch project components from Jira, cached per process."""
+    """Fetch legacy (project-scoped) Jira components, cached per process."""
     if project not in _component_cache:
         jira = get_jira()
         _component_cache[project] = jira.project_components(project)
     return _component_cache[project]
 
 
+def _get_compass_components(project: str, issue_type: str) -> list:
+    """Fetch Compass-backed components via createmeta allowedValues, cached per process.
+
+    Unlike jira.project_components(), this is the only API that surfaces
+    Compass service components (they don't appear in /project/{key}/components).
+    Caveat: Jira caps allowedValues at 100 entries and the list isn't actually
+    scoped to `project` — it's the same global catalog for every project — so
+    this can miss a valid Compass component if the instance has >100 of them.
+    """
+    key = (project, issue_type)
+    if key not in _compass_component_cache:
+        jira = get_jira()
+        try:
+            meta = jira.createmeta(
+                projectKeys=project,
+                issuetypeNames=issue_type,
+                expand="projects.issuetypes.fields",
+            )
+            fields = meta["projects"][0]["issuetypes"][0]["fields"]
+            allowed = fields.get("components", {}).get("allowedValues", [])
+        except Exception:
+            allowed = []
+        _compass_component_cache[key] = allowed
+    return _compass_component_cache[key]
+
+
 _component_cache: dict = {}
+_compass_component_cache: dict = {}
 
 
-def _resolve_component(name: str, project: str) -> dict:
-    """Resolve component name case-insensitively to {"id": ...} using live project components."""
+def _resolve_component(name: str, project: str, issue_type: str = "") -> dict:
+    """Resolve component name case-insensitively to {"id": ...}.
+
+    Legacy (project-scoped) Jira components are checked first and take
+    priority; Compass-backed service components are only used as a fallback
+    when no legacy component matches, since Compass components can be
+    reorganized/archived independently of the project and a same-named
+    legacy component is the more stable, expected match.
+    """
     if not project:
         return {"name": name}
     name_lower = name.lower()
-    components = _get_project_components(project)
-    for comp in components:
+
+    legacy = _get_project_components(project)
+    for comp in legacy:
         if comp.name.lower() == name_lower:
             return {"id": comp.id}
-    valid = sorted(c.name for c in components)
+
+    compass = _get_compass_components(project, issue_type)
+    for comp in compass:
+        if comp["name"].lower() == name_lower:
+            return {"id": comp["id"]}
+
+    valid = sorted(c.name for c in legacy) + sorted(
+        c["name"] for c in compass if c["name"] not in {lc.name for lc in legacy}
+    )
     print(f"Error: component '{name}' not found in project {project}.", file=sys.stderr)
     print(f"Valid components: {', '.join(valid)}", file=sys.stderr)
     sys.exit(1)
@@ -149,7 +192,7 @@ def map_field(
                 if isinstance(value, list)
                 else [c.strip() for c in value.split(",")]
             )
-            return field_id, [_resolve_component(n, project) for n in names]
+            return field_id, [_resolve_component(n, project, issue_type) for n in names]
         if field_id == "description" and isinstance(value, str):
             from zaira.create import detect_markdown
             from zaira.mdconv import markdown_to_jira_wiki
@@ -365,9 +408,16 @@ def get_allowed_values(
     # Check editmeta cache first (fields keyed by name, search by ID)
     project = key.split("-")[0]
 
-    # For components, always use live project_components — editmeta returns an unreliable superset
+    # For components, always use live project_components — editmeta returns an unreliable superset.
+    # Compass-backed service components aren't in project_components, so merge those in too
+    # (legacy names first, matching the preference _resolve_component uses).
     if "components" in field_ids:
-        result["components"] = sorted(c.name for c in _get_project_components(project))
+        legacy = _get_project_components(project)
+        legacy_names = {c.name for c in legacy}
+        compass = _get_compass_components(project, issue_type) if issue_type else []
+        result["components"] = sorted(c.name for c in legacy) + sorted(
+            c["name"] for c in compass if c["name"] not in legacy_names
+        )
 
     editmeta = load_editmeta(project, issue_type) if issue_type else None
     if editmeta and "fields" in editmeta:
