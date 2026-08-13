@@ -150,7 +150,7 @@ def map_fields(
                     from zaira.edit import _resolve_component
 
                     fields["components"] = [
-                        _resolve_component(n, project) for n in names
+                        _resolve_component(n, project, issue_type) for n in names
                     ]
             elif jira_field == "labels":
                 if isinstance(value, list):
