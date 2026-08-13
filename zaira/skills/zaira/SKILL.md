@@ -1,7 +1,7 @@
 ---
 name: zaira
 description: Access Jira tickets offline using zaira CLI. Use when user needs to export, report, or refresh Jira tickets, or mentions "jira", "zaira", or ticket keys like "FOO-123".
-updated: 2026-08-10
+updated: 2026-08-13
 ---
 
 # Zaira - Jira CLI
@@ -96,6 +96,9 @@ zaira attach FOO-1234 file1.pdf file2.png    # Upload files to ticket
 
 # Other actions
 zaira comment FOO-1234 "Comment text"       # Add comment to ticket
+zaira comment FOO-1234 --list               # List comments and their IDs
+zaira comment FOO-1234 "Updated text" --edit 12345  # Edit a comment by ID
+zaira comment FOO-1234 --delete 12345       # Delete a comment by ID
 zaira link FOO-1234 FOO-5678 --type Blocks  # Link tickets
 zaira transition FOO-1234 "In Progress"     # Change ticket status
 zaira transition FOO-1234 --list            # List available transitions
