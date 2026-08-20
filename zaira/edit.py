@@ -205,6 +205,7 @@ def map_field(
     em = get_editmeta_field(project, issue_type, name)
     if em:
         field_id, field_def = em
+        value = _maybe_convert_markdown(value, field_def)
         formatted = format_field_value(
             field_id, value, project=project, issue_type=issue_type
         )
@@ -213,6 +214,39 @@ def map_field(
 
     # Fall back to using name as-is (might be a field ID)
     return name, format_field_value(name, value, project=project, issue_type=issue_type)
+
+
+def _maybe_convert_markdown(
+    value: FieldValue, field_def: EditmetaFieldDef
+) -> FieldValue:
+    """Convert Markdown to Jira wiki markup for plain-text custom fields.
+
+    Jira's own `description` field renders wiki markup, and callers have long
+    since expected Markdown pushed into any text-shaped custom field (a
+    "paragraph"-style field, reported by editmeta as a bare `string` type) to
+    render the same way. It doesn't — Jira shows the raw `##`/`**`/`-`
+    characters verbatim — so convert by default rather than requiring every
+    caller to remember to do it themselves.
+
+    Only applies to plain `string`-type fields with actual Markdown syntax in
+    them; every other field type (option, user, array, number, ...) is passed
+    through untouched, since a bare string there is a value, not prose.
+    """
+    if not isinstance(value, str):
+        return value
+    from zaira.info import _parse_field_type
+
+    type_str = field_def.get("type", "")
+    field_type, _item_type = _parse_field_type(type_str) if type_str else (None, None)
+    if field_type != "string":
+        return value
+
+    from zaira.create import detect_markdown
+    from zaira.mdconv import markdown_to_jira_wiki
+
+    if detect_markdown(value):
+        return markdown_to_jira_wiki(value)
+    return value
 
 
 def format_field_value(

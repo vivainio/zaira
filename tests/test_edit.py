@@ -154,6 +154,61 @@ class TestMapField:
 
         assert field_id == "customfield_999"
 
+    def test_custom_string_field_converts_markdown_by_default(self) -> None:
+        """Markdown in a plain-text ('string') custom field is converted to
+        Jira wiki markup by default, the same as the description field —
+        callers shouldn't have to remember to convert it themselves."""
+        with patch(
+            "zaira.edit.get_editmeta_field",
+            return_value=(
+                "customfield_20840",
+                {"id": "customfield_20840", "type": "string"},
+            ),
+        ):
+            field_id, value = map_field(
+                "customfield_20840",
+                "## Heading\n\n- item one\n- item two",
+                project="TEST",
+                issue_type="Spec Unit",
+            )
+
+        assert field_id == "customfield_20840"
+        assert "h2." in value
+        assert "##" not in value
+        assert "*" in value  # wiki bullet
+
+    def test_custom_string_field_without_markdown_is_untouched(self) -> None:
+        """Plain text with no Markdown syntax passes through unchanged."""
+        with patch(
+            "zaira.edit.get_editmeta_field",
+            return_value=(
+                "customfield_20840",
+                {"id": "customfield_20840", "type": "string"},
+            ),
+        ):
+            field_id, value = map_field(
+                "customfield_20840", "Just plain text.", project="TEST"
+            )
+
+        assert value == "Just plain text."
+
+    def test_non_string_custom_field_skips_markdown_conversion(self) -> None:
+        """Non-'string' field types (e.g. number) are never run through
+        Markdown conversion, even if the raw value happens to contain
+        Markdown-like characters."""
+        with patch(
+            "zaira.edit.get_editmeta_field",
+            return_value=(
+                "customfield_123",
+                {"id": "customfield_123", "type": "number"},
+            ),
+        ):
+            field_id, value = map_field(
+                "customfield_123", "5", project="TEST", issue_type="Story"
+            )
+
+        assert value == 5
+
 
 class TestParseFieldArgs:
     """Tests for parse_field_args function."""
