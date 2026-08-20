@@ -56,3 +56,6 @@ rules.yaml
 # Local specs symlink
 specs
 .githooks/
+
+# Generated docs site
+/site/
