@@ -173,6 +173,7 @@ class TestMapField:
             )
 
         assert field_id == "customfield_20840"
+        assert isinstance(value, str)
         assert "h2." in value
         assert "##" not in value
         assert "*" in value  # wiki bullet

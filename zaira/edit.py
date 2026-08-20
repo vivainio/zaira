@@ -217,8 +217,8 @@ def map_field(
 
 
 def _maybe_convert_markdown(
-    value: FieldValue, field_def: EditmetaFieldDef
-) -> FieldValue:
+    value: str | list[str], field_def: EditmetaFieldDef
+) -> str | list[str]:
     """Convert Markdown to Jira wiki markup for plain-text custom fields.
 
     Jira's own `description` field renders wiki markup, and callers have long
