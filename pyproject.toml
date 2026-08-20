@@ -38,7 +38,7 @@ zaira = "zaira.cli:main"
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",
-    "ty>=0.0.60",
+    "ty==0.0.73",
 ]
 
 [tool.uv]
