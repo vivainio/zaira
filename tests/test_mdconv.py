@@ -200,6 +200,18 @@ class TestMarkdownToStorage:
         html = markdown_to_storage(md)
         assert '<div class="foo">text</div>' in html
 
+    def test_code_block_no_trailing_blank_line(self) -> None:
+        """The HTML renderer's trailing newline before </code> shouldn't leak
+        into the Confluence macro as a stray blank line at the end."""
+        md = "```bash\necho hello\n```"
+        html = markdown_to_storage(md)
+        assert "<![CDATA[echo hello]]>" in html
+
+    def test_code_block_preserves_internal_blank_lines(self) -> None:
+        md = "```bash\nline1\n\nline2\n```"
+        html = markdown_to_storage(md)
+        assert "<![CDATA[line1\n\nline2]]>" in html
+
     def test_toc(self) -> None:
         md = "# Title\n\n[TOC]\n\n## Section"
         html = markdown_to_storage(md)

@@ -350,6 +350,10 @@ def _code_block_to_macro(match: re.Match) -> str:
         .replace("&amp;", "&")  # Must be last
     )
 
+    # The HTML renderer always emits a trailing newline before </code>;
+    # left in place it becomes a stray blank line inside the Confluence code macro.
+    code = code.removesuffix("\n")
+
     return (
         f'<ac:structured-macro ac:name="code">'
         f'<ac:parameter ac:name="language">{lang}</ac:parameter>'
