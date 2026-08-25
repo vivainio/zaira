@@ -111,6 +111,66 @@ class TestApi:
         assert tests[0]["steps"] == [{"id": "1"}]
         assert tests[1]["steps"] == [{"id": "2"}]
 
+    def test_fetch_test_run_uses_graphql_variables(self) -> None:
+        response = MagicMock()
+        response.json.return_value = {
+            "data": {
+                "getTestRun": {
+                    "status": {"name": "FAIL"},
+                    "steps": [
+                        {
+                            "status": {"name": "FAIL"},
+                            "actualResult": "Error shown",
+                            "comment": "Broke on step 2",
+                        }
+                    ],
+                }
+            }
+        }
+        with patch.object(xray.requests, "post", return_value=response) as post:
+            result = xray.fetch_test_run("10001", "10002", "jwt-token")
+
+        assert result["status"]["name"] == "FAIL"
+        request = post.call_args.kwargs
+        assert request["json"]["variables"] == {
+            "testIssueId": "10001",
+            "testExecIssueId": "10002",
+        }
+        assert request["headers"] == {"Authorization": "Bearer jwt-token"}
+
+    def test_add_test_run_results_enriches_executions(self) -> None:
+        tests = [
+            {
+                "id": "10001",
+                "key": "TEST-1",
+                "executions": [{"id": "10002", "key": "EXEC-1", "status": "Done"}],
+            }
+        ]
+        run = {
+            "status": {"name": "PASS"},
+            "steps": [
+                {"status": {"name": "PASS"}, "actualResult": "OK", "comment": ""}
+            ],
+        }
+        with (
+            patch.object(xray, "load_credentials", return_value=("id", "secret")),
+            patch.object(xray, "authenticate", return_value="token"),
+            patch.object(xray, "fetch_test_run", return_value=run) as fetch_test_run,
+        ):
+            xray.add_test_run_results(tests)
+
+        fetch_test_run.assert_called_once_with("10001", "10002", "token")
+        execution = tests[0]["executions"][0]
+        assert execution["runStatus"] == "PASS"
+        assert execution["steps"] == run["steps"]
+
+    def test_add_test_run_results_skips_tests_without_executions(self) -> None:
+        tests = [{"id": "10001", "key": "TEST-1", "executions": []}]
+        with patch.object(xray, "load_credentials") as load_credentials:
+            xray.add_test_run_results(tests)
+
+        load_credentials.assert_not_called()
+
 
 class TestInitCommand:
     def test_prompts_and_stores_credentials_on_wsl(self) -> None:
@@ -181,6 +241,34 @@ class TestMarkdown:
 
         assert "## Definition\n\nRun the automated test suite." in result
 
+    def test_includes_comments_when_no_manual_steps(self) -> None:
+        definition = {
+            "testType": {"name": "Manual", "kind": "Steps"},
+            "steps": [],
+        }
+        comment = MagicMock()
+        comment.author = "Alice"
+        comment.created = "2026-08-10"
+        comment.body = "Actual steps: open app, log in, verify dashboard."
+        with patch("zaira.jira_client.get_jira_site", return_value="jira.example.com"):
+            result = xray.format_test_markdown(
+                self.ticket, definition, "2026-08-10T12:00:00", [comment]
+            )
+
+        assert "_No manual steps._" in result
+        assert "## Comments" in result
+        assert "### Alice (2026-08-10)" in result
+        assert "Actual steps: open app, log in, verify dashboard." in result
+
+    def test_no_comments_placeholder(self) -> None:
+        definition = {"testType": {"name": "Manual", "kind": "Steps"}, "steps": []}
+        with patch("zaira.jira_client.get_jira_site", return_value="jira.example.com"):
+            result = xray.format_test_markdown(
+                self.ticket, definition, "2026-08-10T12:00:00"
+            )
+
+        assert "_No comments_" in result
+
 
 class TestExtractCommand:
     def test_writes_standalone_markdown_file(self, tmp_path) -> None:
@@ -203,6 +291,7 @@ class TestExtractCommand:
             patch.object(xray, "authenticate", return_value="token"),
             patch.object(xray, "fetch_test_definition", return_value=definition),
             patch("zaira.export.get_ticket", return_value=ticket),
+            patch("zaira.export.get_comments", return_value=[]),
             patch("zaira.jira_client.get_jira_site", return_value="jira.example.com"),
         ):
             xray.extract_command(args)
@@ -211,3 +300,4 @@ class TestExtractCommand:
         assert output.exists()
         assert "# TEST-1: Manual test" in output.read_text()
         assert "_No manual steps._" in output.read_text()
+        assert "_No comments_" in output.read_text()

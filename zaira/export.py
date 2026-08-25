@@ -417,6 +417,7 @@ def get_linked_tests(key: str) -> list[dict]:
                     if lt_name in ("Test Execution", "Sub Test Execution"):
                         executions.append(
                             {
+                                "id": linked.id,
                                 "key": linked.key,
                                 "summary": linked.fields.summary,
                                 "status": linked.fields.status.name,
@@ -431,6 +432,7 @@ def get_linked_tests(key: str) -> list[dict]:
 
                 tests.append(
                     {
+                        "id": t.id,
                         "key": t.key,
                         "summary": f.summary,
                         "status": f.status.name,
@@ -447,7 +449,7 @@ def get_linked_tests(key: str) -> list[dict]:
 
 
 def get_xray_tests(key: str) -> list[dict]:
-    """Fetch linked Xray tests and add Cloud-hosted manual test steps."""
+    """Fetch linked Xray tests and add Cloud-hosted manual steps and run results."""
     tests = get_linked_tests(key)
     if not tests:
         return tests
@@ -457,6 +459,12 @@ def get_xray_tests(key: str) -> list[dict]:
         add_steps(tests)
     except Exception as e:
         print(f"Warning: could not fetch Xray test steps: {e}", file=sys.stderr)
+    try:
+        from zaira.xray import add_test_run_results
+
+        add_test_run_results(tests)
+    except Exception as e:
+        print(f"Warning: could not fetch Xray test run results: {e}", file=sys.stderr)
     return tests
 
 
@@ -760,7 +768,24 @@ url: https://{jira_site}/browse/{key}
             if t.get("alsoTests"):
                 md += f"  Also tests: {', '.join(t['alsoTests'])}\n"
             for ex in t.get("executions", []):
-                md += f"  - Execution {ex['key']}: {ex['summary']} ({ex['status']})\n"
+                run_status = ex.get("runStatus")
+                run_suffix = f", run: {run_status}" if run_status else ""
+                md += f"  - Execution {ex['key']}: {ex['summary']} ({ex['status']}{run_suffix})\n"
+                run_steps = ex.get("steps", [])
+                if run_steps:
+                    md += "\n    | # | Status | Actual Result | Comment |\n"
+                    md += "    |---|--------|----------------|---------|\n"
+                    for number, rstep in enumerate(run_steps, 1):
+                        rvalues = [
+                            str((rstep.get("status") or {}).get("name") or ""),
+                            str(rstep.get("actualResult") or "")
+                            .replace("|", "\\|")
+                            .replace("\n", " "),
+                            str(rstep.get("comment") or "")
+                            .replace("|", "\\|")
+                            .replace("\n", " "),
+                        ]
+                        md += f"    | {number} | {rvalues[0]} | {rvalues[1]} | {rvalues[2]} |\n"
             steps = t.get("steps", [])
             if steps:
                 md += "\n    | # | Action | Data | Expected Result |\n"

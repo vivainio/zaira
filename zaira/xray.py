@@ -118,6 +118,66 @@ def add_steps(tests: list[dict[str, Any]]) -> None:
         test["steps"] = fetch_test_steps(str(test["key"]), token)
 
 
+def fetch_test_run(
+    test_issue_id: str, exec_issue_id: str, token: str
+) -> dict[str, Any]:
+    """Fetch the Test Run (actual per-step results) for one Test within one Test Execution."""
+    query = """
+    query TestRun($testIssueId: String!, $testExecIssueId: String!) {
+      getTestRun(testIssueId: $testIssueId, testExecIssueId: $testExecIssueId) {
+        status { name }
+        steps { status { name } actualResult comment }
+      }
+    }
+    """
+    response = requests.post(
+        f"{XRAY_BASE_URL}/graphql",
+        json={
+            "query": query,
+            "variables": {
+                "testIssueId": test_issue_id,
+                "testExecIssueId": exec_issue_id,
+            },
+        },
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=30,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    errors = payload.get("errors")
+    if errors:
+        raise RuntimeError(f"Xray GraphQL errors: {errors}")
+    result = payload.get("data", {}).get("getTestRun")
+    if not isinstance(result, dict):
+        raise RuntimeError("Xray Test Run not found")
+    return result
+
+
+def add_test_run_results(tests: list[dict[str, Any]]) -> None:
+    """Enrich linked Xray Test Executions in place with actual per-step results.
+
+    A Test's `steps` (from add_steps) are the expected procedure; a Test Run's
+    steps carry what actually happened when that test was executed.
+    """
+    pending = [
+        (test, execution)
+        for test in tests
+        for execution in test.get("executions", [])
+        if test.get("id") and execution.get("id")
+    ]
+    if not pending:
+        return
+    client_id, client_secret = load_credentials()
+    token = authenticate(client_id, client_secret)
+    for test, execution in pending:
+        try:
+            run = fetch_test_run(str(test["id"]), str(execution["id"]), token)
+        except Exception:
+            continue
+        execution["runStatus"] = str((run.get("status") or {}).get("name") or "")
+        execution["steps"] = run.get("steps") or []
+
+
 def _secret_store_name() -> str:
     return "Windows Credential Manager" if wincred.is_wsl() else "OS keyring"
 
@@ -161,9 +221,17 @@ def _table_cell(value: Any) -> str:
 
 
 def format_test_markdown(
-    ticket: dict[str, Any], definition: dict[str, Any], synced: str
+    ticket: dict[str, Any],
+    definition: dict[str, Any],
+    synced: str,
+    comments: list[Any] | None = None,
 ) -> str:
-    """Format a Jira/Xray Test as standalone Markdown."""
+    """Format a Jira/Xray Test as standalone Markdown.
+
+    Jira comments are always included: manual tests with no formal Xray
+    steps often have their actual test procedure written up as a comment
+    instead, so omitting comments would silently drop that content.
+    """
     from zaira.export import yaml_quote
     from zaira.jira_client import get_jira_site
 
@@ -212,12 +280,21 @@ url: https://{get_jira_site()}/browse/{key}
                     f"{_table_cell(step.get('data'))} | "
                     f"{_table_cell(step.get('result'))} |\n"
                 )
+
+    markdown += "\n## Comments\n\n"
+    if comments:
+        for comment in comments:
+            markdown += (
+                f"### {comment.author} ({comment.created})\n\n{comment.body}\n\n"
+            )
+    else:
+        markdown += "_No comments_\n"
     return markdown
 
 
 def extract_command(args: argparse.Namespace) -> None:
     """Extract Xray Tests as standalone Markdown documents."""
-    from zaira.export import get_ticket
+    from zaira.export import get_comments, get_ticket
 
     client_id, client_secret = load_credentials()
     token = authenticate(client_id, client_secret)
@@ -244,8 +321,13 @@ def extract_command(args: argparse.Namespace) -> None:
             failures += 1
             continue
 
+        try:
+            comments = get_comments(key)
+        except Exception:
+            comments = []
+
         synced = datetime.now().isoformat(timespec="seconds")
-        markdown = format_test_markdown(ticket, definition, synced)
+        markdown = format_test_markdown(ticket, definition, synced, comments)
         if output:
             path = output / f"{key}.md"
             path.write_text(markdown, encoding="utf-8")
