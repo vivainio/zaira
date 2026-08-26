@@ -82,10 +82,21 @@ def load_credentials() -> Credentials:
     return creds
 
 
+def _wincred_target(email: str) -> str:
+    """Build the Windows Credential Manager target name for a Jira token.
+
+    wincred.exe's `get` only takes a bare target (no username), so the
+    email has to be folded into the target itself. This also matches the
+    TargetName Python `keyring`'s own Windows backend uses (f"{username}@
+    {service}"), so entries set from native-Windows zaira stay visible here.
+    """
+    return f"{email}@{KEYRING_SERVICE}"
+
+
 def _get_token(email: str) -> str | None:
     if wincred.is_wsl():
         try:
-            return wincred.get_password(KEYRING_SERVICE, email)
+            return wincred.get_password(_wincred_target(email), email)
         except wincred.WslInteropUnavailable as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -95,7 +106,7 @@ def _get_token(email: str) -> str | None:
 def save_token_to_keyring(email: str, api_token: str) -> None:
     """Store the Jira API token in the OS keyring (or Windows Credential Manager on WSL)."""
     if wincred.is_wsl():
-        wincred.set_password(KEYRING_SERVICE, email, api_token)
+        wincred.set_password(_wincred_target(email), email, api_token)
         return
     keyring.set_password(KEYRING_SERVICE, email, api_token)
 
@@ -103,7 +114,7 @@ def save_token_to_keyring(email: str, api_token: str) -> None:
 def delete_token_from_keyring(email: str) -> None:
     """Remove the Jira API token from the secret store (if present)."""
     if wincred.is_wsl():
-        wincred.delete_password(KEYRING_SERVICE, email)
+        wincred.delete_password(_wincred_target(email), email)
         return
     try:
         keyring.delete_password(KEYRING_SERVICE, email)
