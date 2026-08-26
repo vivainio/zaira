@@ -1,9 +1,11 @@
 """Tests for init module."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 
 from zaira.init import (
+    _detect_auth_mode,
+    _ping_jira,
     slugify,
     generate_config,
     discover_components,
@@ -156,6 +158,82 @@ class TestGenerateConfig:
 
         # Should not raise
         tomllib.loads(result)
+
+
+class TestDetectAuthMode:
+    """Tests for _detect_auth_mode function."""
+
+    def test_saves_and_returns_detected_mode(self) -> None:
+        """Persists the probed mode/cloud_id and returns it."""
+        with (
+            patch(
+                "zaira.init.get_credentials",
+                return_value=(
+                    "https://example.atlassian.net",
+                    "user@example.com",
+                    "tok",
+                ),
+            ),
+            patch("zaira.init.probe_auth_mode", return_value=("scoped", "cloud-123")),
+            patch("zaira.init.save_auth_mode") as mock_save,
+        ):
+            result = _detect_auth_mode()
+
+        assert result == ("scoped", "cloud-123")
+        mock_save.assert_called_once_with("scoped", "cloud-123")
+
+    def test_returns_none_when_probe_fails(self) -> None:
+        """Returns None without saving when both endpoints reject the token."""
+        with (
+            patch(
+                "zaira.init.get_credentials",
+                return_value=(
+                    "https://example.atlassian.net",
+                    "user@example.com",
+                    "tok",
+                ),
+            ),
+            patch("zaira.init.probe_auth_mode", return_value=None),
+            patch("zaira.init.save_auth_mode") as mock_save,
+        ):
+            result = _detect_auth_mode()
+
+        assert result is None
+        mock_save.assert_not_called()
+
+
+class TestPingJira:
+    """Tests for _ping_jira function."""
+
+    def test_prints_scoped_mode_message(self, mock_jira, capsys) -> None:
+        """Mentions the api.atlassian.com gateway for scoped tokens."""
+        mock_jira.myself.return_value = {"displayName": "Ada Lovelace"}
+
+        _ping_jira("scoped")
+
+        out = capsys.readouterr().out
+        assert (
+            "OK (authenticated as Ada Lovelace, scoped token via api.atlassian.com gateway)"
+            in out
+        )
+
+    def test_prints_plain_message_for_classic(self, mock_jira, capsys) -> None:
+        """Omits the gateway mention for classic tokens."""
+        mock_jira.myself.return_value = {"displayName": "Ada Lovelace"}
+
+        _ping_jira("classic")
+
+        out = capsys.readouterr().out
+        assert out.strip() == "Jira access: OK (authenticated as Ada Lovelace)"
+
+    def test_prints_failure_on_exception(self, mock_jira, capsys) -> None:
+        """Prints a FAILED message when .myself() raises."""
+        mock_jira.myself.side_effect = Exception("boom")
+
+        _ping_jira("classic")
+
+        err = capsys.readouterr().err
+        assert "Jira access: FAILED" in err
 
 
 class TestDiscoverComponents:

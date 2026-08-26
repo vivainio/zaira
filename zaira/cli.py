@@ -1372,7 +1372,7 @@ def main() -> None:
     )
 
     def _reset_command(args: argparse.Namespace) -> None:
-        from zaira.jira_client import CACHE_DIR, CONFIG_DIR
+        from zaira.jira_client import CACHE_DIR, CONFIG_DIR, clear_auth_mode
 
         # Handle --rules flag to disable bundle
         if getattr(args, "rules", False):
@@ -1404,6 +1404,8 @@ def main() -> None:
             print(f"Removed {f.name}")
             cleared += 1
         print(f"Cache cleared ({cleared} files removed).")
+
+        clear_auth_mode()
 
     reset_parser.set_defaults(func=_reset_command)
 

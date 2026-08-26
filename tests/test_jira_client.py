@@ -149,6 +149,214 @@ class TestGetJiraSite:
         assert result == "jira.example.com"
 
 
+class TestLoadAuthMode:
+    """Tests for load_auth_mode function."""
+
+    def test_returns_none_when_file_missing(self, tmp_path) -> None:
+        """Returns None when config.toml doesn't exist."""
+        with patch.object(jira_client, "CONFIG_FILE", tmp_path / "nonexistent.toml"):
+            assert jira_client.load_auth_mode() is None
+
+    def test_returns_none_when_no_auth_table(self, tmp_path) -> None:
+        """Returns None when config.toml has no [auth] table."""
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("[worklog]\nmax_hours_per_day = 7.5\n")
+
+        with patch.object(jira_client, "CONFIG_FILE", config_file):
+            assert jira_client.load_auth_mode() is None
+
+    def test_returns_cached_mode_and_cloud_id(self, tmp_path) -> None:
+        """Returns (mode, cloud_id) from the [auth] table."""
+        config_file = tmp_path / "config.toml"
+        config_file.write_text('[auth]\nmode = "scoped"\ncloud_id = "cloud-123"\n')
+
+        with patch.object(jira_client, "CONFIG_FILE", config_file):
+            assert jira_client.load_auth_mode() == ("scoped", "cloud-123")
+
+    def test_returns_classic_mode_without_cloud_id(self, tmp_path) -> None:
+        """Returns (mode, None) when cloud_id is absent."""
+        config_file = tmp_path / "config.toml"
+        config_file.write_text('[auth]\nmode = "classic"\n')
+
+        with patch.object(jira_client, "CONFIG_FILE", config_file):
+            assert jira_client.load_auth_mode() == ("classic", None)
+
+
+class TestSaveAuthMode:
+    """Tests for save_auth_mode function."""
+
+    def test_creates_file_with_auth_table(self, tmp_path) -> None:
+        """Creates config.toml with an [auth] table if missing."""
+        config_file = tmp_path / "config.toml"
+        config_dir = tmp_path
+
+        with (
+            patch.object(jira_client, "CONFIG_FILE", config_file),
+            patch.object(jira_client, "CONFIG_DIR", config_dir),
+        ):
+            jira_client.save_auth_mode("scoped", "cloud-123")
+            assert jira_client.load_auth_mode() == ("scoped", "cloud-123")
+
+    def test_preserves_existing_tables(self, tmp_path) -> None:
+        """Appends [auth] without clobbering other tables."""
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("[worklog]\nmax_hours_per_day = 7.5\n")
+
+        with (
+            patch.object(jira_client, "CONFIG_FILE", config_file),
+            patch.object(jira_client, "CONFIG_DIR", tmp_path),
+        ):
+            jira_client.save_auth_mode("classic", None)
+
+        text = config_file.read_text()
+        assert "max_hours_per_day = 7.5" in text
+        assert 'mode = "classic"' in text
+        assert "cloud_id" not in text
+
+    def test_replaces_existing_auth_table(self, tmp_path) -> None:
+        """Overwrites a stale [auth] table rather than duplicating it."""
+        config_file = tmp_path / "config.toml"
+        config_file.write_text('[auth]\nmode = "classic"\n')
+
+        with (
+            patch.object(jira_client, "CONFIG_FILE", config_file),
+            patch.object(jira_client, "CONFIG_DIR", tmp_path),
+        ):
+            jira_client.save_auth_mode("scoped", "cloud-456")
+            assert jira_client.load_auth_mode() == ("scoped", "cloud-456")
+        assert config_file.read_text().count("[auth]") == 1
+
+
+class TestClearAuthMode:
+    """Tests for clear_auth_mode function."""
+
+    def test_removes_auth_table(self, tmp_path) -> None:
+        """Strips the [auth] table, preserving other tables."""
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            '[worklog]\nmax_hours_per_day = 7.5\n\n[auth]\nmode = "scoped"\ncloud_id = "cloud-123"\n'
+        )
+
+        with patch.object(jira_client, "CONFIG_FILE", config_file):
+            jira_client.clear_auth_mode()
+
+        text = config_file.read_text()
+        assert "[auth]" not in text
+        assert "max_hours_per_day = 7.5" in text
+
+    def test_noop_when_file_missing(self, tmp_path) -> None:
+        """Does nothing when config.toml doesn't exist."""
+        with patch.object(jira_client, "CONFIG_FILE", tmp_path / "nonexistent.toml"):
+            jira_client.clear_auth_mode()  # Should not raise
+
+
+class TestGetOrDetectAuthMode:
+    """Tests for get_or_detect_auth_mode function."""
+
+    def test_returns_cached_mode_without_probing(self) -> None:
+        """Uses the cached value and never calls probe_auth_mode."""
+        with (
+            patch.object(
+                jira_client, "load_auth_mode", return_value=("scoped", "cloud-123")
+            ),
+            patch.object(jira_client, "probe_auth_mode") as mock_probe,
+        ):
+            result = jira_client.get_or_detect_auth_mode(
+                "https://example.atlassian.net", "user@example.com", "token"
+            )
+
+        assert result == ("scoped", "cloud-123")
+        mock_probe.assert_not_called()
+
+    def test_probes_and_persists_when_not_cached(self) -> None:
+        """Probes and saves the result when nothing is cached yet."""
+        with (
+            patch.object(jira_client, "load_auth_mode", return_value=None),
+            patch.object(
+                jira_client, "probe_auth_mode", return_value=("scoped", "cloud-123")
+            ),
+            patch.object(jira_client, "save_auth_mode") as mock_save,
+        ):
+            result = jira_client.get_or_detect_auth_mode(
+                "https://example.atlassian.net", "user@example.com", "token"
+            )
+
+        assert result == ("scoped", "cloud-123")
+        mock_save.assert_called_once_with("scoped", "cloud-123")
+
+    def test_falls_back_to_classic_without_caching_when_probe_fails(self) -> None:
+        """Falls back to classic (uncached) when both endpoints reject the token."""
+        with (
+            patch.object(jira_client, "load_auth_mode", return_value=None),
+            patch.object(jira_client, "probe_auth_mode", return_value=None),
+            patch.object(jira_client, "save_auth_mode") as mock_save,
+        ):
+            result = jira_client.get_or_detect_auth_mode(
+                "https://example.atlassian.net", "user@example.com", "token"
+            )
+
+        assert result == ("classic", None)
+        mock_save.assert_not_called()
+
+
+class TestGetDefaultJira:
+    """Tests for _get_default_jira constructing the right server URL."""
+
+    def test_uses_classic_server_url(self) -> None:
+        """Constructs JIRA client with the site URL unchanged for classic mode."""
+        with (
+            patch.object(
+                jira_client,
+                "get_credentials",
+                return_value=(
+                    "https://example.atlassian.net",
+                    "user@example.com",
+                    "tok",
+                ),
+            ),
+            patch.object(
+                jira_client, "get_or_detect_auth_mode", return_value=("classic", None)
+            ),
+            patch("zaira.jira_client.JIRA") as mock_jira_cls,
+        ):
+            jira_client._get_default_jira.cache_clear()
+            jira_client._get_default_jira()
+
+        mock_jira_cls.assert_called_once_with(
+            server="https://example.atlassian.net",
+            basic_auth=("user@example.com", "tok"),
+        )
+        jira_client._get_default_jira.cache_clear()
+
+    def test_uses_gateway_server_url_for_scoped(self) -> None:
+        """Constructs JIRA client with the api.atlassian.com gateway for scoped mode."""
+        with (
+            patch.object(
+                jira_client,
+                "get_credentials",
+                return_value=(
+                    "https://example.atlassian.net",
+                    "user@example.com",
+                    "tok",
+                ),
+            ),
+            patch.object(
+                jira_client,
+                "get_or_detect_auth_mode",
+                return_value=("scoped", "cloud-123"),
+            ),
+            patch("zaira.jira_client.JIRA") as mock_jira_cls,
+        ):
+            jira_client._get_default_jira.cache_clear()
+            jira_client._get_default_jira()
+
+        mock_jira_cls.assert_called_once_with(
+            server="https://api.atlassian.com/ex/jira/cloud-123",
+            basic_auth=("user@example.com", "tok"),
+        )
+        jira_client._get_default_jira.cache_clear()
+
+
 class TestJiraClientInjection:
     """Tests for JIRA client injection (mock support)."""
 

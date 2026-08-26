@@ -9,35 +9,18 @@ from typing import Any, Callable
 import requests
 from requests.auth import HTTPBasicAuth
 
-from zaira.jira_client import load_credentials, get_server_from_config
+from zaira.atlassian_auth import confluence_base_url, resolve_cloud_id
+from zaira.jira_client import (
+    get_or_detect_auth_mode,
+    load_credentials,
+    get_server_from_config,
+)
 
 REQUEST_TIMEOUT_SECONDS = 30
 
 
 # API function overrides for testing
 _api_overrides: dict[str, Callable] = {}
-
-# Cached Atlassian cloud ID for the configured tenant
-_cloud_id: str | None = None
-
-
-def _get_cloud_id() -> str | None:
-    """Return the cloud ID for the configured tenant, or None if unavailable."""
-    global _cloud_id
-    if _cloud_id is not None:
-        return _cloud_id or None
-    server = get_server_from_config()
-    if not server:
-        return None
-    try:
-        r = requests.get(f"{server}/_edge/tenant_info", timeout=REQUEST_TIMEOUT_SECONDS)
-        if r.ok:
-            _cloud_id = r.json().get("cloudId") or ""
-        else:
-            _cloud_id = ""
-    except requests.RequestException:
-        _cloud_id = ""
-    return _cloud_id or None
 
 
 def set_api(name: str, func: Callable) -> None:
@@ -62,7 +45,8 @@ def _get_auth() -> tuple[str, HTTPBasicAuth]:
     if not server or not creds.get("email") or not creds.get("api_token"):
         raise ValueError("Credentials not configured. Run 'zaira init' to set up.")
 
-    base_url = server + "/wiki/rest/api"
+    mode, cloud_id = get_or_detect_auth_mode(server, creds["email"], creds["api_token"])
+    base_url = confluence_base_url(server, mode, cloud_id)
     auth = HTTPBasicAuth(creds["email"], creds["api_token"])
     return base_url, auth
 
@@ -534,8 +518,8 @@ def download_attachment(url: str, dest: Path) -> bool:
     # directly, but works when routed through the api.atlassian.com gateway,
     # which redirects to the media CDN with a signed token.
     if r.status_code == 401 and "/wiki/download/" in url:
-        cloud_id = _get_cloud_id()
         server = get_server_from_config()
+        cloud_id = resolve_cloud_id(server) if server else None
         if cloud_id and server and url.startswith(server):
             gateway_url = (
                 f"https://api.atlassian.com/ex/confluence/{cloud_id}"
@@ -879,10 +863,9 @@ def parse_space_key(ref: str) -> str:
 def get_personal_space_key() -> str | None:
     """Return the current user's personal space key, or None if not found."""
     base_url, auth = _get_auth()
-    server = base_url.replace("/wiki/rest/api", "")
     try:
         r = requests.get(
-            f"{server}/wiki/rest/api/user/current",
+            f"{base_url}/user/current",
             params={"expand": "personalSpace"},
             auth=auth,
             timeout=REQUEST_TIMEOUT_SECONDS,
