@@ -571,8 +571,10 @@ class TestFormatTicketMarkdown:
 
         result = format_ticket_markdown(ticket, [], "2024-01-17", "jira.example.com")
 
-        assert "| # | Action | Data | Expected Result |" in result
-        assert "| 1 | Open \\| page | First line | Page opens |" in result
+        assert "**Step 1**" in result
+        assert "**Action:** Open | page" in result
+        assert "**Data:** First\nline" in result
+        assert "**Expected Result:** Page opens" in result
 
     def test_ticket_with_test_run_results(self) -> None:
         """Formats actual per-step Test Run results under each execution."""
@@ -621,8 +623,9 @@ class TestFormatTicketMarkdown:
         result = format_ticket_markdown(ticket, [], "2024-01-17", "jira.example.com")
 
         assert "Execution EXEC-1: Run 1 (Done, run: FAIL)" in result
-        assert "| # | Status | Actual Result | Comment |" in result
-        assert "| 1 | FAIL | Error \\| shown | Broke on step 2 |" in result
+        assert "**Step 1** — FAIL" in result
+        assert "**Actual Result:** Error | shown" in result
+        assert "**Comment:** Broke on\nstep 2" in result
 
 
 class TestFormatTicketJson:

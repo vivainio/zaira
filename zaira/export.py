@@ -671,6 +671,15 @@ def format_custom_field_value(value: Any) -> str:
     return yaml_quote(str(value))
 
 
+def _field_block(label: str, text: Any) -> str:
+    """Render a labeled Xray step field as natural markdown, preserving any
+    embedded paragraphs/bullet lists instead of flattening them into a table cell."""
+    text = str(text or "").strip()
+    if not text:
+        return ""
+    return f"\n**{label}:** {text}\n"
+
+
 def format_ticket_minimal(ticket: dict[str, Any]) -> str:
     """Format ticket as minimal markdown: key + summary front matter, description body."""
     key = ticket.get("key", "")
@@ -763,43 +772,27 @@ url: https://{jira_site}/browse/{key}
 
 """
         for t in tests:
-            md += f"- {t['key']}: {t['summary']}\n"
-            md += f"  Status: {t['status']} | Assignee: {t['assignee']}\n"
+            md += f"### {t['key']}: {t['summary']}\n\n"
+            md += f"Status: {t['status']} | Assignee: {t['assignee']}\n"
             if t.get("alsoTests"):
-                md += f"  Also tests: {', '.join(t['alsoTests'])}\n"
+                md += f"Also tests: {', '.join(t['alsoTests'])}\n"
             for ex in t.get("executions", []):
                 run_status = ex.get("runStatus")
                 run_suffix = f", run: {run_status}" if run_status else ""
-                md += f"  - Execution {ex['key']}: {ex['summary']} ({ex['status']}{run_suffix})\n"
+                md += f"\n#### Execution {ex['key']}: {ex['summary']} ({ex['status']}{run_suffix})\n"
                 run_steps = ex.get("steps", [])
-                if run_steps:
-                    md += "\n    | # | Status | Actual Result | Comment |\n"
-                    md += "    |---|--------|----------------|---------|\n"
-                    for number, rstep in enumerate(run_steps, 1):
-                        rvalues = [
-                            str((rstep.get("status") or {}).get("name") or ""),
-                            str(rstep.get("actualResult") or "")
-                            .replace("|", "\\|")
-                            .replace("\n", " "),
-                            str(rstep.get("comment") or "")
-                            .replace("|", "\\|")
-                            .replace("\n", " "),
-                        ]
-                        md += f"    | {number} | {rvalues[0]} | {rvalues[1]} | {rvalues[2]} |\n"
+                for number, rstep in enumerate(run_steps, 1):
+                    status = (rstep.get("status") or {}).get("name") or ""
+                    md += f"\n**Step {number}**{f' — {status}' if status else ''}\n"
+                    md += _field_block("Actual Result", rstep.get("actualResult"))
+                    md += _field_block("Comment", rstep.get("comment"))
             steps = t.get("steps", [])
-            if steps:
-                md += "\n    | # | Action | Data | Expected Result |\n"
-                md += "    |---|--------|------|-----------------|\n"
-                for number, step in enumerate(steps, 1):
-                    values = [
-                        str(step.get(field) or "")
-                        .replace("|", "\\|")
-                        .replace("\n", " ")
-                        for field in ("action", "data", "result")
-                    ]
-                    md += (
-                        f"    | {number} | {values[0]} | {values[1]} | {values[2]} |\n"
-                    )
+            for number, step in enumerate(steps, 1):
+                md += f"\n**Step {number}**\n"
+                md += _field_block("Action", step.get("action"))
+                md += _field_block("Data", step.get("data"))
+                md += _field_block("Expected Result", step.get("result"))
+            md += "\n"
 
     pull_requests = ticket.get("pullRequests", [])
     if pull_requests:
