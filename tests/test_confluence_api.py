@@ -368,8 +368,8 @@ class TestGetAuth:
 
         assert "Credentials not configured" in str(exc_info.value)
 
-    def test_returns_auth_tuple(self, mock_confluence) -> None:
-        """Returns base URL and auth when configured."""
+    def test_returns_auth_tuple_classic(self, mock_confluence) -> None:
+        """Returns direct-site base URL and auth for a classic-mode token."""
         from unittest.mock import patch
 
         with (
@@ -381,10 +381,41 @@ class TestGetAuth:
                 "zaira.confluence_api.get_server_from_config",
                 return_value="https://example.atlassian.net",
             ),
+            patch(
+                "zaira.confluence_api.get_or_detect_auth_mode",
+                return_value=("classic", None),
+            ),
         ):
             base_url, auth = confluence_api._get_auth()
 
         assert base_url == "https://example.atlassian.net/wiki/rest/api"
+        assert auth.username == "user@example.com"
+        assert auth.password == "token123"
+
+    def test_returns_auth_tuple_scoped(self, mock_confluence) -> None:
+        """Returns the api.atlassian.com gateway base URL for a scoped-mode token."""
+        from unittest.mock import patch
+
+        with (
+            patch(
+                "zaira.confluence_api.load_credentials",
+                return_value={"email": "user@example.com", "api_token": "token123"},
+            ),
+            patch(
+                "zaira.confluence_api.get_server_from_config",
+                return_value="https://example.atlassian.net",
+            ),
+            patch(
+                "zaira.confluence_api.get_or_detect_auth_mode",
+                return_value=("scoped", "cloud-123"),
+            ),
+        ):
+            base_url, auth = confluence_api._get_auth()
+
+        assert (
+            base_url
+            == "https://api.atlassian.com/ex/confluence/cloud-123/wiki/rest/api"
+        )
         assert auth.username == "user@example.com"
         assert auth.password == "token123"
 

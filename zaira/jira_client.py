@@ -1,5 +1,6 @@
 """Jira client wrapper using the jira library."""
 
+import re
 import sys
 import tomllib
 from functools import lru_cache
@@ -12,6 +13,7 @@ from jira import JIRA
 from platformdirs import user_cache_dir, user_config_dir
 
 from zaira import wincred
+from zaira.atlassian_auth import AuthMode, jira_base_url, probe_auth_mode
 from zaira.errors import CredentialsNotConfigured
 from zaira.types import Credentials
 
@@ -170,6 +172,79 @@ def get_credentials() -> tuple[str, str, str]:
     return server, email, token
 
 
+_AUTH_TABLE_RE = re.compile(r"^\[auth\]\n(?:(?!^\[).*\n?)*", re.MULTILINE)
+
+
+def load_auth_mode() -> tuple[AuthMode, str | None] | None:
+    """Read the cached [auth] mode/cloud_id from config.toml.
+
+    Returns (mode, cloud_id), or None if nothing is cached yet.
+    """
+    if not CONFIG_FILE.exists():
+        return None
+    with open(CONFIG_FILE, "rb") as f:
+        config = tomllib.load(f)
+    auth = config.get("auth")
+    if not auth or not auth.get("mode"):
+        return None
+    return cast(AuthMode, auth["mode"]), auth.get("cloud_id")
+
+
+def save_auth_mode(mode: AuthMode, cloud_id: str | None) -> None:
+    """Persist the detected auth mode/cloud_id to config.toml's [auth] table.
+
+    Replaces any existing [auth] table in place; preserves the rest of the
+    file (comments, other tables) since config.toml is hand-editable.
+    """
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    text = CONFIG_FILE.read_text() if CONFIG_FILE.exists() else ""
+    text = _AUTH_TABLE_RE.sub("", text).rstrip("\n")
+
+    block = f'[auth]\nmode = "{mode}"\n'
+    if cloud_id:
+        block += f'cloud_id = "{cloud_id}"\n'
+
+    text = f"{text}\n\n{block}" if text else block
+    if not text.endswith("\n"):
+        text += "\n"
+    CONFIG_FILE.write_text(text)
+
+
+def clear_auth_mode() -> None:
+    """Remove the cached [auth] table from config.toml, if present."""
+    if not CONFIG_FILE.exists():
+        return
+    text = CONFIG_FILE.read_text()
+    new = _AUTH_TABLE_RE.sub("", text).rstrip("\n")
+    if new and not new.endswith("\n"):
+        new += "\n"
+    if new != text:
+        CONFIG_FILE.write_text(new)
+
+
+def get_or_detect_auth_mode(
+    server: str, email: str, token: str
+) -> tuple[AuthMode, str | None]:
+    """Return the cached auth mode, probing and persisting it if not cached.
+
+    On a probe failure (both classic and scoped endpoints reject the
+    token), falls back to "classic" without caching, so the real request
+    proceeds and fails naturally with the existing credential-error path
+    rather than raising here.
+    """
+    cached = load_auth_mode()
+    if cached is not None:
+        return cached
+
+    result = probe_auth_mode(server, email, token)
+    if result is None:
+        return "classic", None
+
+    mode, cloud_id = result
+    save_auth_mode(mode, cloud_id)
+    return mode, cloud_id
+
+
 # Injected client for testing
 _jira_client: JIRA | None = None
 
@@ -194,7 +269,9 @@ def _get_default_jira() -> JIRA:
         Authenticated JIRA client
     """
     server, email, token = get_credentials()
-    return JIRA(server=server, basic_auth=(email, token))
+    mode, cloud_id = get_or_detect_auth_mode(server, email, token)
+    effective_server = jira_base_url(server, mode, cloud_id)
+    return JIRA(server=effective_server, basic_auth=(email, token))
 
 
 def set_jira(client: JIRA | None) -> None:

@@ -6,16 +6,19 @@ import sys
 from pathlib import Path
 
 from zaira import wincred
+from zaira.atlassian_auth import AuthMode, probe_auth_mode
 from zaira.jira_client import (
     CACHE_DIR,
     CONFIG_FILE,
     CREDENTIALS_FILE,
     _read_credentials_file,
     format_jira_error,
+    get_credentials,
     get_jira,
     get_jira_site,
     get_project_schema_path,
     load_credentials,
+    save_auth_mode,
     save_token_to_keyring,
     strip_token_from_credentials_file,
 )
@@ -312,10 +315,35 @@ def init_command(args: argparse.Namespace) -> None:
                 "  Backend: wincred.exe not installed (run `zaira init --install-wincred`)"
             )
 
-    _ping_jira()
+    mode_result = _detect_auth_mode()
+    if mode_result is None:
+        print(
+            "  Jira access: FAILED — token rejected against both the classic and "
+            "scoped API endpoints — check it hasn't expired or been revoked; "
+            "create a new one at https://id.atlassian.com/manage-profile/security/api-tokens "
+            "then run 'zaira init --set-token'.",
+            file=sys.stderr,
+        )
+        return
+    _ping_jira(mode_result[0])
 
 
-def _ping_jira() -> None:
+def _detect_auth_mode() -> tuple[AuthMode, str | None] | None:
+    """Probe which Atlassian auth mode the configured token uses and cache it.
+
+    Returns (mode, cloud_id) on success, None if the token was rejected by
+    both the classic direct-site endpoint and the scoped gateway endpoint.
+    """
+    server, email, token = get_credentials()
+    result = probe_auth_mode(server, email, token)
+    if result is None:
+        return None
+    mode, cloud_id = result
+    save_auth_mode(mode, cloud_id)
+    return mode, cloud_id
+
+
+def _ping_jira(mode: AuthMode | None = None) -> None:
     """Verify credentials by calling /myself. Prints the result inline."""
     try:
         user = get_jira().myself()
@@ -323,7 +351,13 @@ def _ping_jira() -> None:
         print(f"  Jira access: FAILED — {format_jira_error(e)}", file=sys.stderr)
         return
     name = user.get("displayName") or user.get("emailAddress") or "unknown"
-    print(f"  Jira access: OK (authenticated as {name})")
+    if mode == "scoped":
+        print(
+            f"  Jira access: OK (authenticated as {name}, scoped token via "
+            "api.atlassian.com gateway)"
+        )
+    else:
+        print(f"  Jira access: OK (authenticated as {name})")
 
 
 def init_project_command(args: argparse.Namespace) -> None:
