@@ -911,14 +911,14 @@ issues = jira.search_issues("project = FOO AND status = 'In Progress'")
 
 # Instance schema (fields, statuses, priorities, issue types, link types)
 s = zaira.schema()
-s["statuses"]    # {'Open': 'To Do', 'In Progress': 'In Progress', ...}
-s["fields"]      # {'customfield_10001': 'Epic Link', ...}
+s["statuses"]  # {'Open': 'To Do', 'In Progress': 'In Progress', ...}
+s["fields"]  # {'customfield_10001': 'Epic Link', ...}
 s["priorities"]  # ['Blocker', 'Critical', 'Major', ...]
 
 # Project schema (components, labels)
 ps = zaira.project_schema("FOO")
 ps["components"]  # ['Backend', 'Frontend', ...]
-ps["labels"]      # ['bug', 'feature', ...]
+ps["labels"]  # ['bug', 'feature', ...]
 ```
 
 The client uses credentials from the platform config directory (`~/Library/Application Support/zaira/credentials.toml` on macOS, `~/.config/zaira/credentials.toml` on Linux). Schema functions return cached data populated by `zaira init-project` or `zaira info --save`.

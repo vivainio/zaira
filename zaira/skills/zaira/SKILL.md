@@ -178,14 +178,14 @@ issue = jira.issue("FOO-123")
 
 # Instance schema (fields, statuses, priorities, issue types, link types)
 s = zaira.schema()
-s["statuses"]    # {'Open': 'To Do', 'In Progress': 'In Progress', ...}
-s["fields"]      # {'customfield_10001': 'Epic Link', ...}
+s["statuses"]  # {'Open': 'To Do', 'In Progress': 'In Progress', ...}
+s["fields"]  # {'customfield_10001': 'Epic Link', ...}
 s["priorities"]  # ['Blocker', 'Critical', 'Major', ...]
 
 # Project schema (components, labels)
 ps = zaira.project_schema("FOO")
 ps["components"]  # ['Backend', 'Frontend', ...]
-ps["labels"]      # ['bug', 'feature', ...]
+ps["labels"]  # ['bug', 'feature', ...]
 ```
 
 ## Output

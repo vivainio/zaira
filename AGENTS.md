@@ -40,11 +40,10 @@ Add type annotations to all new code:
 Example:
 
 ```python
-def get_tickets(project: str, limit: int = 100) -> list[dict]:
-    ...
+def get_tickets(project: str, limit: int = 100) -> list[dict]: ...
 
-def export_ticket(ticket: dict, output_dir: Path) -> None:
-    ...
+
+def export_ticket(ticket: dict, output_dir: Path) -> None: ...
 ```
 
 ### Import Order
