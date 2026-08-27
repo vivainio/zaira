@@ -85,6 +85,10 @@ zaira get --sprint 456 -o tickets/
 # Output as JSON
 zaira get FOO-1234 --format json
 
+# Output as NDJSON: one JSON object per line (meta/description/comment/...),
+# each with a "markdown" field holding renderable markdown content
+zaira get FOO-1234 --format ndjson
+
 # Include linked pull requests (GitHub only)
 zaira get FOO-1234 --with-prs
 

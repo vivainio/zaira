@@ -28,6 +28,7 @@ zaira get FOO-1234 --min                    # Peek: key + summary + description 
 zaira get FOO-1234                          # View ticket to stdout
 zaira get FOO-1234 FOO-5678                 # View multiple tickets
 zaira get FOO-1234 --format json            # JSON output
+zaira get FOO-1234 --format ndjson          # NDJSON: one JSON object per line (meta/description/comment/...), each with a "markdown" field
 zaira get FOO-1234 --all-fields             # Include custom fields
 zaira get FOO-1234 -o tickets/              # Save to files
 zaira get --jql "project = FOO" -o tickets/ # Batch export by JQL

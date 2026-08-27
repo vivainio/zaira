@@ -690,6 +690,85 @@ def format_ticket_minimal(ticket: dict[str, Any]) -> str:
     return f"---\nkey: {key}\nsummary: {yaml_quote(summary)}\n{field_line}---\n{description}\n"
 
 
+def _render_links_section(issuelinks: list[dict[str, Any]]) -> str:
+    """Render issue links as a markdown bullet list."""
+    if not issuelinks:
+        return "_No links_\n"
+    lines = []
+    for link in issuelinks:
+        link_type = link.get("type", "Related")
+        direction = link.get("direction", "outward")
+        link_key = link.get("key", "")
+        link_summary = link.get("summary", "")
+        dir_label = "" if direction == "outward" else " (inward)"
+        lines.append(f"- {link_type}{dir_label}: {link_key} - {link_summary}\n")
+    return "".join(lines)
+
+
+def _render_test_markdown(t: dict[str, Any]) -> str:
+    """Render a single Xray test (with executions/steps) as markdown."""
+    md = f"### {t['key']}: {t['summary']}\n\n"
+    md += f"Status: {t['status']} | Assignee: {t['assignee']}\n"
+    if t.get("alsoTests"):
+        md += f"Also tests: {', '.join(t['alsoTests'])}\n"
+    for ex in t.get("executions", []):
+        run_status = ex.get("runStatus")
+        run_suffix = f", run: {run_status}" if run_status else ""
+        md += f"\n#### Execution {ex['key']}: {ex['summary']} ({ex['status']}{run_suffix})\n"
+        run_steps = ex.get("steps", [])
+        for number, rstep in enumerate(run_steps, 1):
+            status = (rstep.get("status") or {}).get("name") or ""
+            md += f"\n**Step {number}**{f' — {status}' if status else ''}\n"
+            md += _field_block("Actual Result", rstep.get("actualResult"))
+            md += _field_block("Comment", rstep.get("comment"))
+    steps = t.get("steps", [])
+    for number, step in enumerate(steps, 1):
+        md += f"\n**Step {number}**\n"
+        md += _field_block("Action", step.get("action"))
+        md += _field_block("Data", step.get("data"))
+        md += _field_block("Expected Result", step.get("result"))
+    return md
+
+
+def _render_pull_requests_section(pull_requests: list[dict[str, Any]]) -> str:
+    """Render linked pull requests as a markdown bullet list."""
+    lines = []
+    for pr in pull_requests:
+        name = pr.get("name", "")
+        url = pr.get("url", "")
+        status = pr.get("status", "")
+        lines.append(f"- [{name}]({url}) ({status})\n")
+    return "".join(lines)
+
+
+def _render_attachments_section(attachments: list[dict[str, Any]], key: str) -> str:
+    """Render attachments as a markdown bullet list."""
+    lines = []
+    for att in attachments:
+        att_filename = att.get("filename", "")
+        size_kb = att.get("size", 0) // 1024
+        author = att.get("author", "Unknown")
+        created = att.get("created", "")[:10]  # Just the date part
+        lines.append(
+            f"- [{att_filename}](attachments/{key}/{att_filename}) ({size_kb} KB, {author}, {created})\n"
+        )
+    return "".join(lines)
+
+
+def _render_properties_section(properties: list[dict[str, Any]]) -> str:
+    """Render issue properties (e.g. ducket grids) as markdown."""
+    parts = []
+    for prop in properties:
+        value = prop["value"]
+        if isinstance(value, dict) and "ducketId" in value:
+            table = format_ducket(prop)
+            if table:
+                parts.append(table + "\n\n")
+        else:
+            parts.append(f"**{prop['key']}**: {json.dumps(value)}\n\n")
+    return "".join(parts)
+
+
 def format_ticket_markdown(
     ticket: dict[str, Any], comments: list[Comment], synced: str, jira_site: str
 ) -> str:
@@ -753,17 +832,7 @@ url: https://{jira_site}/browse/{key}
 ## Links
 
 """
-    issuelinks = ticket.get("issuelinks", [])
-    if issuelinks:
-        for link in issuelinks:
-            link_type = link.get("type", "Related")
-            direction = link.get("direction", "outward")
-            link_key = link.get("key", "")
-            link_summary = link.get("summary", "")
-            dir_label = "" if direction == "outward" else " (inward)"
-            md += f"- {link_type}{dir_label}: {link_key} - {link_summary}\n"
-    else:
-        md += "_No links_\n"
+    md += _render_links_section(ticket.get("issuelinks", []))
 
     tests = ticket.get("tests", [])
     if tests:
@@ -772,27 +841,7 @@ url: https://{jira_site}/browse/{key}
 
 """
         for t in tests:
-            md += f"### {t['key']}: {t['summary']}\n\n"
-            md += f"Status: {t['status']} | Assignee: {t['assignee']}\n"
-            if t.get("alsoTests"):
-                md += f"Also tests: {', '.join(t['alsoTests'])}\n"
-            for ex in t.get("executions", []):
-                run_status = ex.get("runStatus")
-                run_suffix = f", run: {run_status}" if run_status else ""
-                md += f"\n#### Execution {ex['key']}: {ex['summary']} ({ex['status']}{run_suffix})\n"
-                run_steps = ex.get("steps", [])
-                for number, rstep in enumerate(run_steps, 1):
-                    status = (rstep.get("status") or {}).get("name") or ""
-                    md += f"\n**Step {number}**{f' — {status}' if status else ''}\n"
-                    md += _field_block("Actual Result", rstep.get("actualResult"))
-                    md += _field_block("Comment", rstep.get("comment"))
-            steps = t.get("steps", [])
-            for number, step in enumerate(steps, 1):
-                md += f"\n**Step {number}**\n"
-                md += _field_block("Action", step.get("action"))
-                md += _field_block("Data", step.get("data"))
-                md += _field_block("Expected Result", step.get("result"))
-            md += "\n"
+            md += _render_test_markdown(t) + "\n"
 
     pull_requests = ticket.get("pullRequests", [])
     if pull_requests:
@@ -800,11 +849,7 @@ url: https://{jira_site}/browse/{key}
 ## Pull Requests
 
 """
-        for pr in pull_requests:
-            name = pr.get("name", "")
-            url = pr.get("url", "")
-            status = pr.get("status", "")
-            md += f"- [{name}]({url}) ({status})\n"
+        md += _render_pull_requests_section(pull_requests)
 
     attachments = ticket.get("attachments", [])
     if attachments:
@@ -812,12 +857,7 @@ url: https://{jira_site}/browse/{key}
 ## Attachments
 
 """
-        for att in attachments:
-            att_filename = att.get("filename", "")
-            size_kb = att.get("size", 0) // 1024
-            author = att.get("author", "Unknown")
-            created = att.get("created", "")[:10]  # Just the date part
-            md += f"- [{att_filename}](attachments/{key}/{att_filename}) ({size_kb} KB, {author}, {created})\n"
+        md += _render_attachments_section(attachments, key)
 
     properties = ticket.get("properties", [])
     if properties:
@@ -825,14 +865,7 @@ url: https://{jira_site}/browse/{key}
 ## Properties
 
 """
-        for prop in properties:
-            value = prop["value"]
-            if isinstance(value, dict) and "ducketId" in value:
-                table = format_ducket(prop)
-                if table:
-                    md += table + "\n\n"
-            else:
-                md += f"**{prop['key']}**: {json.dumps(value)}\n\n"
+        md += _render_properties_section(properties)
 
     md += """
 ## Comments
@@ -859,6 +892,108 @@ def format_ticket_json(
         "url": f"https://{jira_site}/browse/{key}",
     }
     return json.dumps(data, indent=2)
+
+
+def format_ticket_ndjson(
+    ticket: dict[str, Any], comments: list[Comment], synced: str, jira_site: str
+) -> str:
+    """Format ticket data as newline-delimited JSON segments.
+
+    Each line is a standalone JSON object with a "type" field and, for
+    content sections, a "markdown" field holding fully-rendered markdown
+    text. This lets a consumer stream/filter by segment while still being
+    able to render each segment's content as markdown.
+    """
+    key = ticket.get("key", "")
+    parent_data = ticket.get("parent")
+    lines: list[dict[str, Any]] = []
+
+    lines.append(
+        {
+            "type": "meta",
+            "key": key,
+            "summary": ticket.get("summary", "No summary"),
+            "issuetype": ticket.get("issuetype", "Unknown"),
+            "status": ticket.get("status", "Unknown"),
+            "priority": ticket.get("priority", "None"),
+            "assignee": ticket.get("assignee", "Unassigned"),
+            "reporter": ticket.get("reporter", "Unknown"),
+            "created": _format_timestamp(ticket.get("created", "")),
+            "updated": _format_timestamp(ticket.get("updated", "")),
+            "components": ticket.get("components", []),
+            "labels": ticket.get("labels", []),
+            "parent": parent_data["key"] if parent_data else None,
+            "custom_fields": ticket.get("custom_fields", {}),
+            "body_field": ticket.get("body_field"),
+            "synced": synced,
+            "url": f"https://{jira_site}/browse/{key}",
+        }
+    )
+
+    lines.append(
+        {
+            "type": "description",
+            "markdown": ticket.get("description", "No description") or "No description",
+        }
+    )
+
+    paragraph_fields = ticket.get("paragraph_fields", {})
+    for name, value in sorted(paragraph_fields.items()):
+        if value.strip():
+            lines.append({"type": "paragraph", "name": name, "markdown": value})
+
+    lines.append(
+        {
+            "type": "links",
+            "markdown": _render_links_section(ticket.get("issuelinks", [])),
+        }
+    )
+
+    for t in ticket.get("tests", []):
+        lines.append(
+            {
+                "type": "test",
+                "key": t.get("key"),
+                "summary": t.get("summary"),
+                "markdown": _render_test_markdown(t),
+            }
+        )
+
+    pull_requests = ticket.get("pullRequests", [])
+    if pull_requests:
+        lines.append(
+            {
+                "type": "pull_requests",
+                "markdown": _render_pull_requests_section(pull_requests),
+            }
+        )
+
+    attachments = ticket.get("attachments", [])
+    if attachments:
+        lines.append(
+            {
+                "type": "attachments",
+                "markdown": _render_attachments_section(attachments, key),
+            }
+        )
+
+    properties = ticket.get("properties", [])
+    if properties:
+        lines.append(
+            {"type": "properties", "markdown": _render_properties_section(properties)}
+        )
+
+    for c in comments:
+        lines.append(
+            {
+                "type": "comment",
+                "author": c.author,
+                "created": c.created,
+                "markdown": c.body,
+            }
+        )
+
+    return "\n".join(json.dumps(line, ensure_ascii=False) for line in lines)
 
 
 class PendingAttachment:
@@ -919,7 +1054,7 @@ def export_ticket(
     summary = ticket.get("summary", "No summary")
     parent_data = ticket.get("parent")
 
-    ext = "json" if fmt == "json" else "md"
+    ext = {"json": "json", "ndjson": "ndjson"}.get(fmt, "md")
     filename = f"{key}-{normalize_title(summary)}.{ext}"
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -954,6 +1089,11 @@ def export_ticket(
     if fmt == "json":
         outfile.write_text(
             format_ticket_json(ticket, comments, synced, jira_site), encoding="utf-8"
+        )
+    elif fmt == "ndjson":
+        outfile.write_text(
+            format_ticket_ndjson(ticket, comments, synced, jira_site),
+            encoding="utf-8",
         )
     else:
         outfile.write_text(
@@ -1055,6 +1195,8 @@ def export_to_stdout(
 
     if fmt == "json":
         print(format_ticket_json(ticket, comments, synced, jira_site))
+    elif fmt == "ndjson":
+        print(format_ticket_ndjson(ticket, comments, synced, jira_site))
     else:
         print(format_ticket_markdown(ticket, comments, synced, jira_site))
 

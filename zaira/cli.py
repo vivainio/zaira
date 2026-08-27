@@ -503,9 +503,9 @@ def main() -> None:
     )
     get_parser.add_argument(
         "--format",
-        choices=["md", "json"],
+        choices=["md", "json", "ndjson"],
         default="md",
-        help="Output format (default: md)",
+        help="Output format (default: md; ndjson = newline-delimited JSON segments with markdown content per segment)",
     )
     get_parser.add_argument(
         "--with-prs",
