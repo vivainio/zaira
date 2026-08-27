@@ -13,19 +13,37 @@ from zaira.util import humanize_age
 
 PAGE_SIZE = 50
 
-# Standard fields accessible as attributes on issue.fields
+
+def _optional_field(f: Any, name: str) -> Any:
+    """An issue field's value, or None if it isn't in this project's field
+    scheme at all -- accessing an absent field directly (`f.priority`)
+    raises AttributeError rather than returning None, unlike a field that
+    exists but is simply unset on this issue."""
+    return getattr(f, name, None)
+
+
+# Standard fields accessible as attributes on issue.fields. Classification
+# fields (priority, resolution, components, labels, fixVersions, duedate)
+# can be disabled outright in a project's field configuration, in which
+# case the attribute doesn't exist at all -- go through `_optional_field`
+# for those instead of accessing them directly, so a disabled field reads
+# as empty instead of crashing the whole search.
 STANDARD_FIELD_ATTRS = {
     "assignee": lambda f: _user_display(f.assignee),
     "reporter": lambda f: _user_display(f.reporter),
-    "priority": lambda f: f.priority.name if f.priority else "",
+    "priority": lambda f: p.name if (p := _optional_field(f, "priority")) else "",
     "issuetype": lambda f: f.issuetype.name if f.issuetype else "",
-    "components": lambda f: ", ".join(c.name for c in (f.components or [])),
-    "labels": lambda f: ", ".join(f.labels or []),
-    "fixversions": lambda f: ", ".join(v.name for v in (f.fixVersions or [])),
-    "duedate": lambda f: f.duedate or "",
+    "components": lambda f: ", ".join(
+        c.name for c in (_optional_field(f, "components") or [])
+    ),
+    "labels": lambda f: ", ".join(_optional_field(f, "labels") or []),
+    "fixversions": lambda f: ", ".join(
+        v.name for v in (_optional_field(f, "fixVersions") or [])
+    ),
+    "duedate": lambda f: _optional_field(f, "duedate") or "",
     "created": lambda f: (f.created or "")[:10],
     "updated": lambda f: (f.updated or "")[:10],
-    "resolution": lambda f: f.resolution.name if f.resolution else "",
+    "resolution": lambda f: r.name if (r := _optional_field(f, "resolution")) else "",
     "status": lambda f: f.status.name if f.status else "",
 }
 
@@ -182,12 +200,13 @@ def search_command(args: argparse.Namespace) -> None:
         data = []
         for issue in issues:
             f = issue.fields
+            priority = _optional_field(f, "priority")
             item = {
                 "key": issue.key,
                 "summary": f.summary or "",
                 "status": f.status.name if f.status else "?",
                 "type": f.issuetype.name if f.issuetype else "",
-                "priority": f.priority.name if f.priority else "",
+                "priority": priority.name if priority else "",
                 "assignee": str(f.assignee) if f.assignee else "",
                 "created": f.created or "",
             }
