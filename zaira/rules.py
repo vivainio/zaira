@@ -129,12 +129,16 @@ def load_rules(path: str | Path = "rules.yaml") -> RulesConfig:
 def _get_field_value(ticket: Mapping[str, Any], field_name: str) -> tuple[bool, Any]:
     """Look up a field by human-readable name in ticket dict.
 
-    Checks standard ticket keys first, then custom_fields.
+    Checks standard ticket keys first, then custom_fields, then
+    paragraph_fields (textarea-type custom fields are exported separately
+    from custom_fields by export.get_ticket - see there).
     Returns (found: bool, value).
     """
     # Normalize for case-insensitive lookup on standard fields
     lower = field_name.lower()
-    standard_map = {k.lower(): k for k in ticket if k != "custom_fields"}
+    standard_map = {
+        k.lower(): k for k in ticket if k not in ("custom_fields", "paragraph_fields")
+    }
     if lower in standard_map:
         return True, ticket[standard_map[lower]]
 
@@ -146,6 +150,10 @@ def _get_field_value(ticket: Mapping[str, Any], field_name: str) -> tuple[bool, 
     custom = ticket.get("custom_fields", {})
     if field_name in custom:
         return True, custom[field_name]
+
+    paragraph = ticket.get("paragraph_fields", {})
+    if field_name in paragraph:
+        return True, paragraph[field_name]
 
     return False, None
 
