@@ -680,6 +680,82 @@ class TestFormatTicketJson:
         assert data["list_field"] == [1, 2, 3]
 
 
+class TestFormatTicketNdjson:
+    """Tests for format_ticket_ndjson function."""
+
+    def test_pull_requests_are_one_segment_each(self) -> None:
+        """Each linked PR becomes its own `pull_request` segment, not one combined blob."""
+        import json
+        from zaira.export import format_ticket_ndjson
+        from zaira.types import Comment
+
+        ticket = {
+            "key": "TEST-PR",
+            "summary": "With PRs",
+            "issuetype": "Task",
+            "status": "In Review",
+            "priority": "Medium",
+            "assignee": "dev@example.com",
+            "reporter": "dev@example.com",
+            "description": "Has PRs",
+            "components": [],
+            "labels": [],
+            "parent": None,
+            "issuelinks": [],
+            "pullRequests": [
+                {
+                    "name": "Fix bug #123",
+                    "url": "https://github.com/org/repo/pull/123",
+                    "status": "MERGED",
+                },
+                {
+                    "name": "Add feature #124",
+                    "url": "https://github.com/org/repo/pull/124",
+                    "status": "OPEN",
+                },
+            ],
+        }
+
+        result = format_ticket_ndjson(ticket, [], "2024-01-17", "jira.example.com")
+        segments = [json.loads(line) for line in result.split("\n") if line]
+
+        pr_segments = [s for s in segments if s["type"] == "pull_request"]
+        assert len(pr_segments) == 2
+        assert pr_segments[0] == {
+            "type": "pull_request",
+            "name": "Fix bug #123",
+            "url": "https://github.com/org/repo/pull/123",
+            "status": "MERGED",
+        }
+        assert pr_segments[1]["name"] == "Add feature #124"
+        assert not any(s["type"] == "pull_requests" for s in segments)
+
+    def test_no_pull_request_segments_when_none_linked(self) -> None:
+        """No `pull_request` segments are emitted when the ticket has no linked PRs."""
+        import json
+        from zaira.export import format_ticket_ndjson
+
+        ticket = {
+            "key": "TEST-NOPR",
+            "summary": "No PRs",
+            "issuetype": "Task",
+            "status": "Open",
+            "priority": "Medium",
+            "assignee": "dev@example.com",
+            "reporter": "dev@example.com",
+            "description": "No PRs",
+            "components": [],
+            "labels": [],
+            "parent": None,
+            "issuelinks": [],
+        }
+
+        result = format_ticket_ndjson(ticket, [], "2024-01-17", "jira.example.com")
+        segments = [json.loads(line) for line in result.split("\n") if line]
+
+        assert not any(s["type"] in ("pull_request", "pull_requests") for s in segments)
+
+
 class TestTicketMarkdownCustomFields:
     """Tests for format_ticket_markdown with custom fields."""
 
@@ -1138,11 +1214,21 @@ class TestGetPullRequests:
     """Tests for get_pull_requests function."""
 
     def test_returns_pull_requests(self, mock_jira) -> None:
-        """Returns formatted PR list."""
+        """Discovers the instance type from `summary`, then fetches `detail` with it."""
         from zaira.export import get_pull_requests
 
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
+        summary_response = MagicMock()
+        summary_response.json.return_value = {
+            "summary": {
+                "pullrequest": {
+                    "byInstanceType": {
+                        "oAuth-com.github.integration.production": {"count": 2}
+                    }
+                }
+            }
+        }
+        detail_response = MagicMock()
+        detail_response.json.return_value = {
             "detail": [
                 {
                     "pullRequests": [
@@ -1160,13 +1246,82 @@ class TestGetPullRequests:
                 }
             ]
         }
-        mock_jira._session.get.return_value = mock_response
+
+        def fake_get(url, params=None, **kwargs):
+            if url.endswith("/issue/summary"):
+                return summary_response
+            assert (
+                params["applicationType"] == "oAuth-com.github.integration.production"
+            )
+            return detail_response
+
+        mock_jira._session.get.side_effect = fake_get
 
         result = get_pull_requests("12345")
 
         assert len(result) == 2
         assert result[0]["name"] == "Fix bug"
         assert result[0]["status"] == "MERGED"
+
+    def test_queries_detail_once_per_instance_type(self, mock_jira) -> None:
+        """Merges PRs across multiple GitHub integration instances on the same issue."""
+        from zaira.export import get_pull_requests
+
+        summary_response = MagicMock()
+        summary_response.json.return_value = {
+            "summary": {
+                "pullrequest": {
+                    "byInstanceType": {
+                        "oAuth-com.github.integration.production": {"count": 1},
+                        "oAuth-com.github.integration.on-prem": {"count": 1},
+                    }
+                }
+            }
+        }
+
+        def detail_for(app_type):
+            resp = MagicMock()
+            resp.json.return_value = {
+                "detail": [
+                    {
+                        "pullRequests": [
+                            {
+                                "name": app_type,
+                                "url": "https://github.com/org/repo/pull/1",
+                                "status": "OPEN",
+                            }
+                        ]
+                    }
+                ]
+            }
+            return resp
+
+        def fake_get(url, params=None, **kwargs):
+            if url.endswith("/issue/summary"):
+                return summary_response
+            return detail_for(params["applicationType"])
+
+        mock_jira._session.get.side_effect = fake_get
+
+        result = get_pull_requests("12345")
+
+        assert {pr["name"] for pr in result} == {
+            "oAuth-com.github.integration.production",
+            "oAuth-com.github.integration.on-prem",
+        }
+
+    def test_returns_empty_when_no_instances_reported(self, mock_jira) -> None:
+        """No PR-reporting instance types -> no detail calls, empty result."""
+        from zaira.export import get_pull_requests
+
+        summary_response = MagicMock()
+        summary_response.json.return_value = {"summary": {}}
+        mock_jira._session.get.return_value = summary_response
+
+        result = get_pull_requests("12345")
+
+        assert result == []
+        mock_jira._session.get.assert_called_once()
 
     def test_returns_empty_on_error(self, mock_jira) -> None:
         """Returns empty list on error."""

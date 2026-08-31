@@ -529,29 +529,53 @@ def format_ducket(prop: dict) -> str:
 
 
 def get_pull_requests(issue_id: str) -> list[dict]:
-    """Fetch GitHub PRs linked to a Jira issue via dev-status API."""
+    """Fetch GitHub PRs linked to a Jira issue via dev-status API.
+
+    The "detail" endpoint needs the exact application instance type (e.g.
+    "oAuth-com.github.integration.production") as `applicationType` --
+    the generic "GitHub" type some Atlassian docs show silently returns
+    an empty `detail` list even when PRs exist, since it doesn't match
+    the actual registered integration instance for this site. So this
+    first asks the "summary" endpoint which instance type(s) reported
+    pull requests for this issue (the `byInstanceType` keys under
+    `pullrequest`), then queries "detail" once per instance and merges
+    the results -- covering sites with more than one GitHub integration
+    (e.g. cloud + on-prem) too.
+    """
     jira = get_jira()
     try:
         assert jira._session is not None
-        resp = jira._session.get(
-            f"{jira._options['server']}/rest/dev-status/1.0/issue/detail",
-            params={
-                "issueId": issue_id,
-                "applicationType": "GitHub",
-                "dataType": "pullrequest",
-            },
+        summary_resp = jira._session.get(
+            f"{jira._options['server']}/rest/dev-status/1.0/issue/summary",
+            params={"issueId": issue_id},
         )
-        data = resp.json()
+        instance_types = (
+            summary_resp.json()
+            .get("summary", {})
+            .get("pullrequest", {})
+            .get("byInstanceType", {})
+            .keys()
+        )
         prs = []
-        for detail in data.get("detail", []):
-            for pr in detail.get("pullRequests", []):
-                prs.append(
-                    {
-                        "name": pr.get("name"),
-                        "url": pr.get("url"),
-                        "status": pr.get("status"),
-                    }
-                )
+        for app_type in instance_types:
+            resp = jira._session.get(
+                f"{jira._options['server']}/rest/dev-status/1.0/issue/detail",
+                params={
+                    "issueId": issue_id,
+                    "applicationType": app_type,
+                    "dataType": "pullrequest",
+                },
+            )
+            data = resp.json()
+            for detail in data.get("detail", []):
+                for pr in detail.get("pullRequests", []):
+                    prs.append(
+                        {
+                            "name": pr.get("name"),
+                            "url": pr.get("url"),
+                            "status": pr.get("status"),
+                        }
+                    )
         return prs
     except Exception:
         return []
@@ -959,12 +983,13 @@ def format_ticket_ndjson(
             }
         )
 
-    pull_requests = ticket.get("pullRequests", [])
-    if pull_requests:
+    for pr in ticket.get("pullRequests", []):
         lines.append(
             {
-                "type": "pull_requests",
-                "markdown": _render_pull_requests_section(pull_requests),
+                "type": "pull_request",
+                "name": pr.get("name", ""),
+                "url": pr.get("url", ""),
+                "status": pr.get("status", ""),
             }
         )
 
