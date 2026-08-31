@@ -1250,6 +1250,7 @@ class TestGetPullRequests:
         def fake_get(url, params=None, **kwargs):
             if url.endswith("/issue/summary"):
                 return summary_response
+            assert params is not None
             assert (
                 params["applicationType"] == "oAuth-com.github.integration.production"
             )
@@ -1299,6 +1300,7 @@ class TestGetPullRequests:
         def fake_get(url, params=None, **kwargs):
             if url.endswith("/issue/summary"):
                 return summary_response
+            assert params is not None
             return detail_for(params["applicationType"])
 
         mock_jira._session.get.side_effect = fake_get
