@@ -892,7 +892,7 @@ def main() -> None:
     transition_parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Preview transition without executing",
+        help="Preview transition without executing, showing the fields on its screen",
     )
     transition_parser.set_defaults(func=transition_command)
 

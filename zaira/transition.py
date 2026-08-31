@@ -7,10 +7,18 @@ from typing import Any
 from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 
 
-def get_transitions(key: str) -> list[dict]:
-    """Get available transitions for a ticket."""
+def get_transitions(key: str, expand: str | None = None) -> list[dict]:
+    """Get available transitions for a ticket.
+
+    Args:
+        key: Ticket key (e.g., PROJ-123)
+        expand: Optional Jira expand param. Pass "transitions.fields" to
+            include the fields shown on each transition's screen.
+    """
     jira = get_jira()
     try:
+        if expand:
+            return jira.transitions(key, expand=expand)
         return jira.transitions(key)
     except Exception as e:
         print(
@@ -18,6 +26,22 @@ def get_transitions(key: str) -> list[dict]:
             file=sys.stderr,
         )
         return []
+
+
+def _find_transition(transitions: list[dict], status: str) -> dict | None:
+    """Find the transition matching a transition name or target status name (case-insensitive)."""
+    status_lower = status.lower()
+    for t in transitions:
+        if t["name"].lower() == status_lower or t["to"]["name"].lower() == status_lower:
+            return t
+    return None
+
+
+def _print_unmatched_status(status: str, transitions: list[dict]) -> None:
+    print(f"Error: No transition to '{status}' available", file=sys.stderr)
+    print("\nAvailable transitions:", file=sys.stderr)
+    for t in transitions:
+        print(f"  - {t['name']} → {t['to']['name']}", file=sys.stderr)
 
 
 def transition_ticket(
@@ -40,23 +64,9 @@ def transition_ticket(
     jira = get_jira()
     try:
         transitions = jira.transitions(key)
-
-        # Find matching transition (case-insensitive)
-        status_lower = status.lower()
-        match = None
-        for t in transitions:
-            if t["name"].lower() == status_lower:
-                match = t
-                break
-            if t["to"]["name"].lower() == status_lower:
-                match = t
-                break
-
+        match = _find_transition(transitions, status)
         if not match:
-            print(f"Error: No transition to '{status}' available", file=sys.stderr)
-            print("\nAvailable transitions:", file=sys.stderr)
-            for t in transitions:
-                print(f"  - {t['name']} → {t['to']['name']}", file=sys.stderr)
+            _print_unmatched_status(status, transitions)
             return False
 
         jira.transition_issue(key, match["id"], fields=fields or {}, comment=comment)
@@ -85,6 +95,22 @@ def _suggest_field_names(msg: str) -> None:
             name = None
         if name and name != fid:
             print(f"  Did you mean: {name!r} (instead of {fid})?", file=sys.stderr)
+
+
+def _print_transition_fields(fields: dict) -> None:
+    """Print field definitions as parsed by info._parse_editmeta_response."""
+    if not fields:
+        print("  (no fields on this transition screen)")
+        return
+    for fname, fdef in fields.items():
+        print(f"  {fname}")
+        print(f"    id:       {fdef['id']}")
+        print(f"    type:     {fdef['type']}")
+        if fdef.get("required"):
+            print("    required: True")
+        values = fdef.get("allowedValues")
+        if values:
+            print(f"    values:   {', '.join(str(v) for v in values)}")
 
 
 def transition_command(args: argparse.Namespace) -> None:
@@ -169,15 +195,10 @@ def transition_command(args: argparse.Namespace) -> None:
                 # actual target status name (e.g. "Implementing") so rule
                 # checks like valid_transitions compare status-to-status.
                 target_status = status
-                status_lower = status.lower()
                 available_transitions = get_transitions(key)
-                for t in available_transitions:
-                    if (
-                        t["name"].lower() == status_lower
-                        or t["to"]["name"].lower() == status_lower
-                    ):
-                        target_status = t["to"]["name"]
-                        break
+                match = _find_transition(available_transitions, status)
+                if match:
+                    target_status = match["to"]["name"]
                 violations.extend(validate_transition(ticket, all_rules, target_status))
 
         if violations:
@@ -216,6 +237,13 @@ def transition_command(args: argparse.Namespace) -> None:
 
     # Handle dry-run
     if getattr(args, "dry_run", False):
+        transitions = get_transitions(key, expand="transitions.fields")
+        match = _find_transition(transitions, status) if transitions else None
+        if not match:
+            if transitions:
+                _print_unmatched_status(status, transitions)
+            sys.exit(1)
+
         print(f"Would transition {key} to '{status}'")
         if fields:
             print("  With fields:")
@@ -223,6 +251,11 @@ def transition_command(args: argparse.Namespace) -> None:
                 print(f"    {field_id} = {value}")
         if comment:
             print(f"  With comment: {comment}")
+
+        from zaira.info import _parse_editmeta_response
+
+        print("\nFields on this transition screen:")
+        _print_transition_fields(_parse_editmeta_response(match))
         return
 
     if transition_ticket(key, status, fields=fields, comment=comment):

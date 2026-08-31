@@ -209,6 +209,96 @@ class TestTransitionCommand:
         call_args = mock_jira.transition_issue.call_args
         assert call_args[1]["fields"]["resolution"] == {"name": "Done"}
 
+    def test_dry_run_shows_screen_fields(self, mock_jira, capsys) -> None:
+        """--dry-run prints the screen fields for the matching transition."""
+        mock_jira.transitions.return_value = [
+            {
+                "id": "1",
+                "name": "Start Implementation",
+                "to": {"name": "Implementing"},
+                "fields": {
+                    "resolution": {
+                        "name": "Resolution",
+                        "required": True,
+                        "schema": {"type": "resolution"},
+                        "allowedValues": [{"name": "Done"}, {"name": "Won't Fix"}],
+                    }
+                },
+            },
+            {"id": "2", "name": "Done", "to": {"name": "Done"}, "fields": {}},
+        ]
+
+        args = argparse.Namespace(
+            key="test-123",
+            list=False,
+            status="Start Implementation",
+            field=None,
+            dry_run=True,
+        )
+
+        with (
+            patch("zaira.transition.get_jira_site", return_value="jira.example.com"),
+            patch("zaira.rules.try_load_rules", return_value=None),
+        ):
+            transition_command(args)
+
+        mock_jira.transitions.assert_called_with(
+            "TEST-123", expand="transitions.fields"
+        )
+        captured = capsys.readouterr()
+        assert "Would transition TEST-123 to 'Start Implementation'" in captured.out
+        assert "Fields on this transition screen:" in captured.out
+        assert "Resolution" in captured.out
+        assert "id:       resolution" in captured.out
+        assert "required: True" in captured.out
+        assert "values:   Done, Won't Fix" in captured.out
+        # Ticket was not actually transitioned.
+        mock_jira.transition_issue.assert_not_called()
+
+    def test_dry_run_no_fields_on_screen(self, mock_jira, capsys) -> None:
+        """--dry-run notes when the transition screen has no fields."""
+        mock_jira.transitions.return_value = [
+            {"id": "2", "name": "Done", "to": {"name": "Done"}, "fields": {}},
+        ]
+
+        args = argparse.Namespace(
+            key="test-123", list=False, status="Done", field=None, dry_run=True
+        )
+
+        with (
+            patch("zaira.transition.get_jira_site", return_value="jira.example.com"),
+            patch("zaira.rules.try_load_rules", return_value=None),
+        ):
+            transition_command(args)
+
+        captured = capsys.readouterr()
+        assert "(no fields on this transition screen)" in captured.out
+
+    def test_dry_run_invalid_status_exits(self, mock_jira, capsys) -> None:
+        """--dry-run exits with an error for an unknown status."""
+        mock_jira.transitions.return_value = [
+            {"id": "1", "name": "Start", "to": {"name": "In Progress"}, "fields": {}},
+        ]
+
+        args = argparse.Namespace(
+            key="test-123",
+            list=False,
+            status="Nonexistent",
+            field=None,
+            dry_run=True,
+        )
+
+        with (
+            patch("zaira.transition.get_jira_site", return_value="jira.example.com"),
+            patch("zaira.rules.try_load_rules", return_value=None),
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                transition_command(args)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "No transition to 'Nonexistent'" in captured.err
+
     def test_uppercases_ticket_key(self, mock_jira, capsys) -> None:
         """Converts ticket key to uppercase."""
         mock_jira.transitions.return_value = [
