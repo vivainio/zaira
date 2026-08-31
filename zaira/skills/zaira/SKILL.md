@@ -106,7 +106,7 @@ zaira transition FOO-1234 --list            # List available transitions
 zaira transition FOO-1234 Done -F "Resolution=Done"  # Set fields during transition
 zaira transition FOO-1234 Done -c "Comment text"  # Include comment with transition
 zaira transition FOO-1234 Done -F "Resolution=Done" -c "Comment"  # Fields + comment
-zaira transition FOO-1234 Done --dry-run    # Preview without transitioning
+zaira transition FOO-1234 Done --dry-run    # Preview; also lists the screen's required fields
 zaira transition FOO-1234 Done --no-check  # Skip rules validation
 
 # Activity history (local log of write operations)
