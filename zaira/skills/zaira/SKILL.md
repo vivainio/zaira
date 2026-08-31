@@ -1,7 +1,7 @@
 ---
 name: zaira
 description: Access Jira tickets and Confluence wiki pages offline using zaira CLI. Use when user needs to export, report, or refresh Jira tickets; read, create, or update Confluence pages; or mentions "jira", "confluence", "wiki", "zaira", a ticket key like "FOO-123", or a Confluence page URL/link.
-updated: 2026-08-25
+updated: 2026-08-31
 ---
 
 # Zaira - Jira CLI
