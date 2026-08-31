@@ -97,11 +97,28 @@ def _suggest_field_names(msg: str) -> None:
             print(f"  Did you mean: {name!r} (instead of {fid})?", file=sys.stderr)
 
 
-def _print_transition_fields(fields: dict) -> None:
-    """Print field definitions as parsed by info._parse_editmeta_response."""
+def _format_field_value(value: Any) -> str:
+    """Render a --field value (as produced by edit.parse_field_args) for display."""
+    if isinstance(value, dict):
+        return str(value.get("name") or value.get("value") or value)
+    if isinstance(value, list):
+        return ", ".join(_format_field_value(v) for v in value)
+    return str(value)
+
+
+def _print_transition_fields(
+    fields: dict, provided: dict[str, Any] | None = None
+) -> None:
+    """Print field definitions as parsed by info._parse_editmeta_response.
+
+    `provided` is the field_id -> value dict (as parsed from --field args, if
+    any); each field is annotated with the value that would be set, or
+    "(not set)" so it's obvious what's still missing.
+    """
     if not fields:
         print("  (no fields on this transition screen)")
         return
+    provided = provided or {}
     for fname, fdef in fields.items():
         print(f"  {fname}")
         print(f"    id:       {fdef['id']}")
@@ -111,6 +128,25 @@ def _print_transition_fields(fields: dict) -> None:
         values = fdef.get("allowedValues")
         if values:
             print(f"    values:   {', '.join(str(v) for v in values)}")
+        if fdef["id"] in provided:
+            print(f"    value:    {_format_field_value(provided[fdef['id']])}")
+        else:
+            print("    value:    (not set)")
+
+
+def _parse_transition_fields(key: str, project: str, field_args: list[str]) -> dict:
+    """Parse --field NAME=VALUE args into a field_id -> value dict."""
+    if not field_args:
+        return {}
+    from zaira.edit import parse_field_args
+    from zaira.jira_client import get_jira
+    from zaira.info import ensure_editmeta
+
+    jira = get_jira()
+    issue = jira.issue(key, fields="issuetype")
+    issue_type = issue.fields.issuetype.name
+    ensure_editmeta(key, issue_type)
+    return parse_field_args(field_args, project=project, issue_type=issue_type)
 
 
 def transition_command(args: argparse.Namespace) -> None:
@@ -131,11 +167,34 @@ def transition_command(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     status = args.status
+    field_args = getattr(args, "field", None) or []
+    project = key.split("-")[0]
+
+    if getattr(args, "dry_run", False):
+        # Non-mutating: peek at the real transition screen (and any values
+        # --field would set) straight from Jira, without the local
+        # allowed-fields/rules.yaml gates below — --no-check isn't needed.
+        fields = _parse_transition_fields(key, project, field_args)
+        transitions = get_transitions(key, expand="transitions.fields")
+        match = _find_transition(transitions, status) if transitions else None
+        if not match:
+            if transitions:
+                _print_unmatched_status(status, transitions)
+            sys.exit(1)
+
+        print(f"Would transition {key} to '{status}'")
+        comment = getattr(args, "comment", None)
+        if comment:
+            print(f"  With comment: {comment}")
+
+        from zaira.info import _parse_editmeta_response
+
+        print("\nFields on this transition screen:")
+        _print_transition_fields(_parse_editmeta_response(match), provided=fields)
+        return
 
     # Check allowed_fields whitelist for raw field names BEFORE parsing (unless --no-check is set)
     # This must happen BEFORE mapping field names to IDs
-    field_args = getattr(args, "field", None) or []
-    project = key.split("-")[0]
     if field_args and not getattr(args, "no_check", False):
         from zaira.rules import check_field_allowed, load_allowed_fields
 
@@ -163,18 +222,7 @@ def transition_command(args: argparse.Namespace) -> None:
                 print("\nUse --no-check to skip validation.", file=sys.stderr)
                 sys.exit(1)
 
-    # Parse --field arguments
-    fields = {}
-    if field_args:
-        from zaira.edit import parse_field_args
-        from zaira.jira_client import get_jira
-        from zaira.info import ensure_editmeta
-
-        jira = get_jira()
-        issue = jira.issue(key, fields="issuetype")
-        issue_type = issue.fields.issuetype.name
-        ensure_editmeta(key, issue_type)
-        fields = parse_field_args(field_args, project=project, issue_type=issue_type)
+    fields = _parse_transition_fields(key, project, field_args)
 
     # Validate against rules.yaml before transitioning
     if not getattr(args, "no_check", False):
@@ -234,29 +282,6 @@ def transition_command(args: argparse.Namespace) -> None:
             sys.exit(1)
 
     comment = getattr(args, "comment", None)
-
-    # Handle dry-run
-    if getattr(args, "dry_run", False):
-        transitions = get_transitions(key, expand="transitions.fields")
-        match = _find_transition(transitions, status) if transitions else None
-        if not match:
-            if transitions:
-                _print_unmatched_status(status, transitions)
-            sys.exit(1)
-
-        print(f"Would transition {key} to '{status}'")
-        if fields:
-            print("  With fields:")
-            for field_id, value in fields.items():
-                print(f"    {field_id} = {value}")
-        if comment:
-            print(f"  With comment: {comment}")
-
-        from zaira.info import _parse_editmeta_response
-
-        print("\nFields on this transition screen:")
-        _print_transition_fields(_parse_editmeta_response(match))
-        return
 
     if transition_ticket(key, status, fields=fields, comment=comment):
         print(f"Transitioned {key}")

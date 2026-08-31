@@ -252,7 +252,107 @@ class TestTransitionCommand:
         assert "id:       resolution" in captured.out
         assert "required: True" in captured.out
         assert "values:   Done, Won't Fix" in captured.out
+        assert "value:    (not set)" in captured.out
         # Ticket was not actually transitioned.
+        mock_jira.transition_issue.assert_not_called()
+
+    def test_dry_run_annotates_provided_field_values(self, mock_jira, capsys) -> None:
+        """--dry-run with --field shows the value that would be set for that field."""
+        mock_jira.transitions.return_value = [
+            {
+                "id": "1",
+                "name": "Start Implementation",
+                "to": {"name": "Implementing"},
+                "fields": {
+                    "resolution": {
+                        "name": "Resolution",
+                        "required": True,
+                        "schema": {"type": "resolution"},
+                        "allowedValues": [{"name": "Done"}, {"name": "Won't Fix"}],
+                    },
+                    "customfield_100": {
+                        "name": "Story Points",
+                        "required": True,
+                        "schema": {"type": "number"},
+                    },
+                },
+            },
+        ]
+        mock_issue = MagicMock()
+        mock_issue.fields.issuetype.name = "Story"
+        mock_jira.issue.return_value = mock_issue
+
+        args = argparse.Namespace(
+            key="test-123",
+            list=False,
+            status="Start Implementation",
+            field=["Resolution=Done"],
+            dry_run=True,
+        )
+
+        with (
+            patch("zaira.transition.get_jira_site", return_value="jira.example.com"),
+            patch("zaira.info.ensure_editmeta", return_value=None),
+            patch("zaira.rules.try_load_rules", return_value=None),
+        ):
+            transition_command(args)
+
+        captured = capsys.readouterr()
+        assert "value:    Done" in captured.out
+        # Story Points wasn't supplied, so it should be flagged as unset.
+        assert "value:    (not set)" in captured.out
+        mock_jira.transition_issue.assert_not_called()
+
+    def test_dry_run_skips_local_gates_without_no_check(
+        self, mock_jira, capsys
+    ) -> None:
+        """--dry-run bypasses the allowed_fields/rules.yaml gates even without --no-check."""
+        mock_jira.transitions.return_value = [
+            {
+                "id": "1",
+                "name": "Start Implementation",
+                "to": {"name": "Implementing"},
+                "fields": {
+                    "resolution": {
+                        "name": "Resolution",
+                        "required": True,
+                        "schema": {"type": "resolution"},
+                    }
+                },
+            },
+        ]
+        mock_issue = MagicMock()
+        mock_issue.fields.issuetype.name = "Story"
+        mock_jira.issue.return_value = mock_issue
+
+        args = argparse.Namespace(
+            key="test-123",
+            list=False,
+            status="Start Implementation",
+            field=["Resolution=Done"],
+            dry_run=True,
+            no_check=False,
+        )
+
+        # If dry-run touched either gate, these would block/raise before the
+        # fields preview ever printed.
+        with (
+            patch("zaira.transition.get_jira_site", return_value="jira.example.com"),
+            patch("zaira.info.ensure_editmeta", return_value=None),
+            patch(
+                "zaira.rules.load_allowed_fields",
+                side_effect=AssertionError("allowed_fields gate should be skipped"),
+            ),
+            patch(
+                "zaira.rules.try_load_rules",
+                side_effect=AssertionError("rules.yaml gate should be skipped"),
+            ),
+        ):
+            transition_command(args)
+
+        captured = capsys.readouterr()
+        assert "Fields on this transition screen:" in captured.out
+        assert "value:    Done" in captured.out
         mock_jira.transition_issue.assert_not_called()
 
     def test_dry_run_no_fields_on_screen(self, mock_jira, capsys) -> None:
