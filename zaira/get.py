@@ -5,17 +5,20 @@ import contextlib
 import io
 import json
 import sys
+import webbrowser
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, TypedDict
 
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
+from zaira.errors import ApplicationError
 from zaira.export import (
     PendingAttachment,
     export_ticket,
     export_to_stdout,
     search_tickets,
 )
+from zaira.jira_client import get_jira_site
 
 
 class ExportKwargs(TypedDict):
@@ -30,8 +33,32 @@ class ExportKwargs(TypedDict):
     defer_attachments: bool
 
 
+def open_in_browser(args: argparse.Namespace) -> None:
+    """Open a single ticket in the default web browser (like `gh pr view --web`)."""
+    if any(getattr(args, opt, None) for opt in ("jql", "board", "sprint")):
+        raise ApplicationError(
+            "--web takes a single ticket key, not --jql/--board/--sprint"
+        )
+
+    keys = list(args.keys or [])
+    if len(keys) != 1:
+        raise ApplicationError("--web needs exactly one ticket key")
+
+    site = get_jira_site()
+    if not site:
+        raise ApplicationError("Jira site not configured. Run 'zaira init'.")
+
+    url = f"https://{site}/browse/{keys[0].upper()}"
+    print(f"Opening {url}")
+    webbrowser.open(url)
+
+
 def get_command(args: argparse.Namespace) -> None:
     """Handle get subcommand."""
+    if getattr(args, "web", False):
+        open_in_browser(args)
+        return
+
     fmt = getattr(args, "format", "md")
     include_custom = getattr(args, "all_fields", False)
     with_prs = getattr(args, "with_prs", False)

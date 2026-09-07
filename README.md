@@ -103,6 +103,10 @@ zaira get FOO-1234 --min
 
 # Skip wiki-to-markdown conversion (preserve Jira wiki markup)
 zaira get FOO-1234 --raw
+
+# Open the ticket in a web browser instead of fetching it (like gh pr view --web)
+zaira get FOO-1234 --web
+zaira get FOO-1234 -w
 ```
 
 ### create
