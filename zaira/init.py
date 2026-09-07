@@ -7,6 +7,7 @@ from pathlib import Path
 
 from zaira import wincred
 from zaira.atlassian_auth import AuthMode, probe_auth_mode
+from zaira.errors import ResourceFetchFailed
 from zaira.jira_client import (
     CACHE_DIR,
     CONFIG_FILE,
@@ -26,48 +27,109 @@ from zaira.info import _fetch_and_cache_fields
 
 
 def discover_components(project: str) -> list[str]:
-    """Discover components for a project."""
-    jira = get_jira()
+    """Discover components for a project.
+
+    Returns [] both when the project has no components and when discovery
+    failed -- see _fetch_components for the distinction available
+    internally.
+    """
     try:
-        proj = jira.project(project)
-        components = jira.project_components(proj)
-        return sorted([c.name for c in components if c.name])
+        return _fetch_components(project)
     except Exception:
         return []
 
 
+def _fetch_components(project: str) -> list[str]:
+    """Fetch components for a project.
+
+    Raises ResourceFetchFailed on a JIRAError, as distinct from the
+    project legitimately having no components.
+    """
+    from jira.exceptions import JIRAError
+
+    jira = get_jira()
+    try:
+        proj = jira.project(project)
+        components = jira.project_components(proj)
+    except JIRAError as e:
+        raise ResourceFetchFailed(
+            f"could not discover components for {project}: {format_jira_error(e)}"
+        ) from e
+    return sorted([c.name for c in components if c.name])
+
+
 def discover_labels(project: str) -> list[str]:
-    """Discover labels used in a project by sampling recent tickets."""
+    """Discover labels used in a project by sampling recent tickets.
+
+    Returns [] both when no labels are found and when discovery failed --
+    see _fetch_labels for the distinction available internally.
+    """
+    try:
+        return _fetch_labels(project)
+    except Exception:
+        return []
+
+
+def _fetch_labels(project: str) -> list[str]:
+    """Fetch labels used in a project by sampling recent tickets.
+
+    Raises ResourceFetchFailed on a JIRAError, as distinct from the
+    sampled tickets legitimately having no labels.
+    """
+    from jira.exceptions import JIRAError
+
     jira = get_jira()
     try:
         issues = jira.search_issues(
             f'project = "{project}" ORDER BY updated DESC',
             maxResults=200,
         )
-        labels = set()
-        for issue in issues:
-            for label in issue.fields.labels or []:
-                labels.add(label)
-        return sorted(labels)
-    except Exception:
-        return []
+    except JIRAError as e:
+        raise ResourceFetchFailed(
+            f"could not discover labels for {project}: {format_jira_error(e)}"
+        ) from e
+    labels = set()
+    for issue in issues:
+        for label in issue.fields.labels or []:
+            labels.add(label)
+    return sorted(labels)
 
 
 def discover_boards(project: str) -> list[dict]:
-    """Discover boards for a project."""
+    """Discover boards for a project.
+
+    Returns [] both when the project has no boards and when discovery
+    failed -- see _fetch_boards for the distinction available internally.
+    """
+    try:
+        return _fetch_boards(project)
+    except Exception:
+        return []
+
+
+def _fetch_boards(project: str) -> list[dict]:
+    """Fetch boards for a project.
+
+    Raises ResourceFetchFailed on a JIRAError, as distinct from the
+    project legitimately having no boards.
+    """
+    from jira.exceptions import JIRAError
+
     jira = get_jira()
     try:
         boards = jira.boards(projectKeyOrID=project)
-        return [
-            {
-                "id": b.id,
-                "name": b.name,
-                "type": b.type,
-            }
-            for b in boards
-        ]
-    except Exception:
-        return []
+    except JIRAError as e:
+        raise ResourceFetchFailed(
+            f"could not discover boards for {project}: {format_jira_error(e)}"
+        ) from e
+    return [
+        {
+            "id": b.id,
+            "name": b.name,
+            "type": b.type,
+        }
+        for b in boards
+    ]
 
 
 def slugify(name: str) -> str:

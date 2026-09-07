@@ -3,6 +3,7 @@
 import argparse
 import sys
 
+from zaira.errors import ResourceFetchFailed
 from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.types import Board, Sprint
 
@@ -51,14 +52,34 @@ def get_sprints(board_id: int, state: str | None = None) -> list[Sprint]:
 
 
 def get_board_info(board_id: int) -> dict | None:
-    """Get board details."""
-    jira = get_jira()
+    """Get board details.
+
+    Returns None both when the board doesn't exist and when fetching it
+    failed -- see _fetch_board_info for the distinction available
+    internally.
+    """
     try:
-        # Use the raw API to get board details
-        board = jira._get_json(f"board/{board_id}", base=jira.AGILE_BASE_URL)
-        return board
+        return _fetch_board_info(board_id)
     except Exception:
         return None
+
+
+def _fetch_board_info(board_id: int) -> dict | None:
+    """Fetch board details from the raw Agile API.
+
+    Raises ResourceFetchFailed on any JIRAError (a 404 for a nonexistent
+    board included, since the Agile API doesn't distinguish "gone" from
+    other failures here) instead of the blind None this used to return.
+    """
+    from jira.exceptions import JIRAError
+
+    jira = get_jira()
+    try:
+        return jira._get_json(f"board/{board_id}", base=jira.AGILE_BASE_URL)
+    except JIRAError as e:
+        raise ResourceFetchFailed(
+            f"could not fetch board {board_id}: {format_jira_error(e)}"
+        ) from e
 
 
 def get_board_issues_jql(board_id: int) -> str | None:
