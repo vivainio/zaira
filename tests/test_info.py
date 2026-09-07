@@ -7,15 +7,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from zaira.info import (
+    _fetch_cached_data,
+    get_field_id,
+    get_field_map,
+    get_field_name,
+    get_field_type,
+    load_project_schema,
     load_schema,
     save_schema,
     update_schema,
-    get_field_id,
-    get_field_name,
-    get_field_map,
-    get_field_type,
-    load_project_schema,
-    _fetch_cached_data,
 )
 from zaira.types import ZSchema
 
@@ -376,8 +376,9 @@ class TestLinkTypesCommand:
 
     def test_displays_link_types_from_cache(self, mock_jira, capsys, tmp_path) -> None:
         """Displays link types from cached schema."""
-        from zaira.info import link_types_command
         import argparse
+
+        from zaira.info import link_types_command
 
         schema_file = tmp_path / "schema.json"
         schema = {
@@ -401,8 +402,9 @@ class TestLinkTypesCommand:
 
     def test_fetches_link_types_on_refresh(self, mock_jira, capsys, tmp_path) -> None:
         """Fetches link types from API on refresh."""
-        from zaira.info import link_types_command
         import argparse
+
+        from zaira.info import link_types_command
 
         schema_file = tmp_path / "schema.json"
         schema_file.write_text("{}")
@@ -426,8 +428,9 @@ class TestLinkTypesCommand:
 
     def test_handles_api_error(self, mock_jira, capsys, tmp_path) -> None:
         """Handles API errors gracefully."""
-        from zaira.info import link_types_command
         import argparse
+
+        from zaira.info import link_types_command
 
         schema_file = tmp_path / "nonexistent.json"
         mock_jira.issue_link_types.side_effect = Exception("API Error")
@@ -450,8 +453,9 @@ class TestStatusesCommand:
 
     def test_displays_statuses_from_cache(self, mock_jira, capsys, tmp_path) -> None:
         """Displays statuses from cached schema."""
-        from zaira.info import statuses_command
         import argparse
+
+        from zaira.info import statuses_command
 
         schema_file = tmp_path / "schema.json"
         schema = {
@@ -476,8 +480,9 @@ class TestStatusesCommand:
 
     def test_fetches_statuses_on_refresh(self, mock_jira, capsys, tmp_path) -> None:
         """Fetches statuses from API on refresh."""
-        from zaira.info import statuses_command
         import argparse
+
+        from zaira.info import statuses_command
 
         schema_file = tmp_path / "schema.json"
         schema_file.write_text("{}")
@@ -500,8 +505,9 @@ class TestStatusesCommand:
 
     def test_handles_api_error(self, mock_jira, capsys, tmp_path) -> None:
         """Handles API errors gracefully."""
-        from zaira.info import statuses_command
         import argparse
+
+        from zaira.info import statuses_command
 
         schema_file = tmp_path / "nonexistent.json"
         mock_jira.statuses.side_effect = Exception("API Error")
@@ -522,8 +528,9 @@ class TestIssueTypesCommand:
 
     def test_displays_issue_types_from_cache(self, mock_jira, capsys, tmp_path) -> None:
         """Displays issue types from cached schema."""
-        from zaira.info import issue_types_command
         import argparse
+
+        from zaira.info import issue_types_command
 
         schema_file = tmp_path / "schema.json"
         schema = {
@@ -549,8 +556,9 @@ class TestIssueTypesCommand:
 
     def test_fetches_issue_types_on_refresh(self, mock_jira, capsys, tmp_path) -> None:
         """Fetches issue types from API on refresh."""
-        from zaira.info import issue_types_command
         import argparse
+
+        from zaira.info import issue_types_command
 
         schema_file = tmp_path / "schema.json"
         schema_file.write_text("{}")
@@ -573,8 +581,9 @@ class TestIssueTypesCommand:
 
     def test_handles_api_error(self, mock_jira, capsys, tmp_path) -> None:
         """Handles API errors gracefully."""
-        from zaira.info import issue_types_command
         import argparse
+
+        from zaira.info import issue_types_command
 
         schema_file = tmp_path / "nonexistent.json"
         mock_jira.issue_types.side_effect = Exception("API Error")
@@ -597,8 +606,9 @@ class TestFieldsCommand:
         self, mock_jira, capsys, tmp_path
     ) -> None:
         """Displays custom fields from cached schema."""
-        from zaira.info import fields_command
         import argparse
+
+        from zaira.info import fields_command
 
         schema_file = tmp_path / "schema.json"
         schema = {
@@ -627,8 +637,9 @@ class TestFieldsCommand:
 
     def test_shows_all_fields(self, mock_jira, capsys, tmp_path) -> None:
         """Shows all fields when --all flag is set."""
-        from zaira.info import fields_command
         import argparse
+
+        from zaira.info import fields_command
 
         schema_file = tmp_path / "schema.json"
         schema = {
@@ -651,8 +662,9 @@ class TestFieldsCommand:
 
     def test_filters_fields(self, mock_jira, capsys, tmp_path) -> None:
         """Filters fields by name."""
-        from zaira.info import fields_command
         import argparse
+
+        from zaira.info import fields_command
 
         schema_file = tmp_path / "schema.json"
         schema = {
@@ -680,8 +692,9 @@ class TestFieldsCommand:
 
     def test_fetches_fields_on_refresh(self, mock_jira, capsys, tmp_path) -> None:
         """Fetches fields from API on refresh."""
-        from zaira.info import fields_command
         import argparse
+
+        from zaira.info import fields_command
 
         schema_file = tmp_path / "schema.json"
         schema_file.write_text("{}")
@@ -709,8 +722,9 @@ class TestFieldsCommand:
 
     def test_filters_by_allowed_fields(self, mock_jira, capsys, tmp_path) -> None:
         """Shows only allowed fields when allowed_fields is configured."""
-        from zaira.info import fields_command
         import argparse
+
+        from zaira.info import fields_command
 
         schema_file = tmp_path / "schema.json"
         schema = {
@@ -743,8 +757,9 @@ class TestFieldsCommand:
 
     def test_all_flag_ignores_allowed_fields(self, mock_jira, capsys, tmp_path) -> None:
         """--all flag shows all fields even when allowed_fields is configured."""
-        from zaira.info import fields_command
         import argparse
+
+        from zaira.info import fields_command
 
         schema_file = tmp_path / "schema.json"
         schema = {
@@ -769,8 +784,9 @@ class TestFieldsCommand:
 
     def test_handles_api_error(self, mock_jira, capsys, tmp_path) -> None:
         """Handles API errors gracefully."""
-        from zaira.info import fields_command
         import argparse
+
+        from zaira.info import fields_command
 
         schema_file = tmp_path / "nonexistent.json"
         mock_jira.fields.side_effect = Exception("API Error")
@@ -792,8 +808,9 @@ class TestInfoCommand:
 
     def test_calls_info_func(self, mock_jira, capsys, tmp_path) -> None:
         """Calls info_func when present on args."""
-        from zaira.info import info_command
         import argparse
+
+        from zaira.info import info_command
 
         called = []
 
@@ -808,8 +825,9 @@ class TestInfoCommand:
 
     def test_shows_usage_when_no_subcommand(self, mock_jira, capsys) -> None:
         """Shows usage when no subcommand specified."""
-        from zaira.info import info_command
         import argparse
+
+        from zaira.info import info_command
 
         args = argparse.Namespace()
         # No info_func attribute
@@ -935,8 +953,9 @@ class TestFieldCommand:
 
     def test_suggests_similar_field_names(self, capsys, tmp_path) -> None:
         """Shows 'did you mean' suggestions for close matches."""
-        from zaira.info import field_command
         import argparse
+
+        from zaira.info import field_command
 
         self._write_editmeta(
             tmp_path,
@@ -965,8 +984,9 @@ class TestFieldCommand:
         self, capsys, tmp_path
     ) -> None:
         """Falls back to plain 'not found' when nothing is close."""
-        from zaira.info import field_command
         import argparse
+
+        from zaira.info import field_command
 
         self._write_editmeta(
             tmp_path,

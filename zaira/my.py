@@ -7,7 +7,6 @@ from zaira.jira_client import format_jira_error, get_jira
 from zaira.types import MyTicket
 from zaira.util import humanize_age
 
-
 DEFAULT_ASSIGNED_JQL = (
     "assignee = currentUser() "
     "AND status NOT IN (Done, Closed, Resolved, Disposal, Rejected) "

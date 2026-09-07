@@ -8,6 +8,7 @@ from pathlib import Path
 from zaira import wincred
 from zaira.atlassian_auth import AuthMode, probe_auth_mode
 from zaira.errors import ResourceFetchFailed
+from zaira.info import _fetch_and_cache_fields
 from zaira.jira_client import (
     CACHE_DIR,
     CONFIG_FILE,
@@ -23,7 +24,6 @@ from zaira.jira_client import (
     save_token_to_keyring,
     strip_token_from_credentials_file,
 )
-from zaira.info import _fetch_and_cache_fields
 
 
 def discover_components(project: str) -> list[str]:

@@ -6,9 +6,8 @@ import json
 
 import pytest
 
-from zaira.search import format_results, build_jql, _looks_like_jql, print_row
+from zaira.search import _looks_like_jql, build_jql, format_results, print_row
 from zaira.types import SearchResult
-
 
 # ---------------------------------------------------------------------------
 # format_results

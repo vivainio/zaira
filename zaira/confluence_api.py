@@ -13,8 +13,8 @@ from zaira.atlassian_auth import confluence_base_url, resolve_cloud_id
 from zaira.errors import ResourceFetchFailed
 from zaira.jira_client import (
     get_or_detect_auth_mode,
-    load_credentials,
     get_server_from_config,
+    load_credentials,
 )
 
 REQUEST_TIMEOUT_SECONDS = 30

@@ -2,8 +2,7 @@
 
 from unittest.mock import MagicMock
 
-from zaira import jira_client
-from zaira import confluence_api
+from zaira import confluence_api, jira_client
 
 
 class TestJiraMocking:

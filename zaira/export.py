@@ -9,10 +9,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
+from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
 from zaira.errors import ResourceFetchFailed
 from zaira.info import get_field_custom_type, get_field_name, load_default_fields
 from zaira.jira_client import format_jira_error, get_jira, get_jira_site
-from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
 from zaira.mdconv import is_jira_wiki, jira_wiki_to_markdown
 from zaira.types import Attachment, Comment, get_user_identifier, yaml_quote
 

@@ -425,7 +425,7 @@ class TestFetchPageWithRequests:
 
     def test_fetches_page_successfully(self, mock_confluence) -> None:
         """Fetches page from API."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = True
@@ -455,7 +455,7 @@ class TestFetchPageWithRequests:
 
     def test_returns_none_on_error(self, mock_confluence) -> None:
         """Returns None when API request fails."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = False
@@ -477,7 +477,7 @@ class TestCreatePageWithRequests:
 
     def test_creates_page_successfully(self, mock_confluence) -> None:
         """Creates page via API."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = True
@@ -501,7 +501,7 @@ class TestCreatePageWithRequests:
 
     def test_creates_page_with_parent(self, mock_confluence) -> None:
         """Creates page with parent ID."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = True
@@ -524,7 +524,7 @@ class TestCreatePageWithRequests:
 
     def test_returns_none_on_error(self, mock_confluence) -> None:
         """Returns None when creation fails."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = False
@@ -546,7 +546,7 @@ class TestUpdatePageWithRequests:
 
     def test_updates_page_successfully(self, mock_confluence) -> None:
         """Updates page via API."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = True
@@ -571,7 +571,7 @@ class TestUpdatePageWithRequests:
 
     def test_returns_none_on_error(self, mock_confluence) -> None:
         """Returns None when update fails."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = False
@@ -593,7 +593,7 @@ class TestDeletePageWithRequests:
 
     def test_deletes_page_successfully(self, mock_confluence) -> None:
         """Deletes page via API."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = True
@@ -611,7 +611,7 @@ class TestDeletePageWithRequests:
 
     def test_returns_false_on_error(self, mock_confluence) -> None:
         """Returns False when deletion fails."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = False
@@ -633,7 +633,7 @@ class TestGetChildPagesWithRequests:
 
     def test_gets_children_successfully(self, mock_confluence) -> None:
         """Gets child pages via API."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = True
@@ -657,7 +657,7 @@ class TestGetChildPagesWithRequests:
 
     def test_returns_empty_on_error(self, mock_confluence) -> None:
         """Returns empty list when request fails."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = False
@@ -679,7 +679,7 @@ class TestSearchPagesWithRequests:
 
     def test_searches_successfully(self, mock_confluence) -> None:
         """Searches pages via API."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = True
@@ -701,7 +701,7 @@ class TestSearchPagesWithRequests:
 
     def test_returns_error_info_on_failure(self, mock_confluence) -> None:
         """Returns error info when search fails."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = False
@@ -727,7 +727,7 @@ class TestGetPageLabelsWithRequests:
 
     def test_gets_labels_successfully(self, mock_confluence) -> None:
         """Gets page labels via API."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = True
@@ -751,7 +751,7 @@ class TestGetPageLabelsWithRequests:
 
     def test_returns_empty_on_error(self, mock_confluence) -> None:
         """Returns empty list when request fails."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = False
@@ -773,7 +773,7 @@ class TestAddPageLabelsWithRequests:
 
     def test_adds_labels_successfully(self, mock_confluence) -> None:
         """Adds labels via API."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = True
@@ -791,7 +791,7 @@ class TestAddPageLabelsWithRequests:
 
     def test_returns_false_on_error(self, mock_confluence) -> None:
         """Returns False when adding labels fails."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = False
@@ -845,7 +845,7 @@ class TestGetAttachmentsWithRequests:
 
     def test_gets_attachments_successfully(self, mock_confluence) -> None:
         """Gets attachments via API."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = True
@@ -866,7 +866,7 @@ class TestGetAttachmentsWithRequests:
 
     def test_returns_empty_on_error(self, mock_confluence) -> None:
         """Returns empty results when request fails."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = False
@@ -888,7 +888,7 @@ class TestUploadAttachmentWithRequests:
 
     def test_uploads_successfully(self, mock_confluence, tmp_path) -> None:
         """Uploads attachment via API."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         test_file = tmp_path / "test.txt"
         test_file.write_text("content")
@@ -913,7 +913,7 @@ class TestUploadAttachmentWithRequests:
 
     def test_returns_none_on_error(self, mock_confluence, tmp_path) -> None:
         """Returns None when upload fails."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         test_file = tmp_path / "test.txt"
         test_file.write_text("content")
@@ -938,7 +938,7 @@ class TestGetPagePropertyWithRequests:
 
     def test_gets_property_successfully(self, mock_confluence) -> None:
         """Gets page property via API."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = True
@@ -962,7 +962,7 @@ class TestGetPagePropertyWithRequests:
 
     def test_returns_none_when_not_found(self, mock_confluence) -> None:
         """Returns None when property doesn't exist."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = False
@@ -984,7 +984,7 @@ class TestSetPagePropertyWithRequests:
 
     def test_creates_new_property(self, mock_confluence) -> None:
         """Creates new property when it doesn't exist."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_get_response = MagicMock()
         mock_get_response.ok = False  # Property doesn't exist
@@ -1009,7 +1009,7 @@ class TestSetPagePropertyWithRequests:
 
     def test_updates_existing_property(self, mock_confluence) -> None:
         """Updates existing property."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_get_response = MagicMock()
         mock_get_response.ok = True
@@ -1045,7 +1045,7 @@ class TestUpdatePagePropertiesWithRequests:
 
     def test_updates_properties_successfully(self, mock_confluence) -> None:
         """Updates page properties via API."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = True
@@ -1075,7 +1075,7 @@ class TestUpdatePagePropertiesWithRequests:
 
     def test_returns_none_on_error(self, mock_confluence) -> None:
         """Returns None when update fails."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = False
@@ -1097,7 +1097,7 @@ class TestDownloadAttachmentWithRequests:
 
     def test_downloads_successfully(self, mock_confluence, tmp_path) -> None:
         """Downloads attachment via API."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = True
@@ -1121,7 +1121,7 @@ class TestDownloadAttachmentWithRequests:
 
     def test_returns_false_on_error(self, mock_confluence, tmp_path) -> None:
         """Returns False when download fails."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = False
@@ -1147,7 +1147,7 @@ class TestUpdateAttachmentWithRequests:
 
     def test_updates_successfully(self, mock_confluence, tmp_path) -> None:
         """Updates attachment via API."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         test_file = tmp_path / "updated.txt"
         test_file.write_text("new content")
@@ -1170,7 +1170,7 @@ class TestUpdateAttachmentWithRequests:
 
     def test_returns_none_on_error(self, mock_confluence, tmp_path) -> None:
         """Returns None when update fails."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         test_file = tmp_path / "failed.txt"
         test_file.write_text("content")
@@ -1195,7 +1195,7 @@ class TestRemovePageLabelWithRequests:
 
     def test_removes_successfully(self, mock_confluence) -> None:
         """Removes label via API."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = True
@@ -1213,7 +1213,7 @@ class TestRemovePageLabelWithRequests:
 
     def test_returns_false_on_error(self, mock_confluence) -> None:
         """Returns False when removal fails."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = False
@@ -1239,7 +1239,7 @@ class TestFetchSpaceRootFolders:
     """
 
     def test_raises_resource_fetch_failed_on_http_error(self, mock_confluence) -> None:
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         from zaira.errors import ResourceFetchFailed
 
@@ -1261,7 +1261,7 @@ class TestFetchSpaceRootFolders:
     def test_returns_empty_list_for_space_with_no_folders(
         self, mock_confluence
     ) -> None:
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = True
@@ -1281,7 +1281,7 @@ class TestFetchSpaceRootFolders:
     ) -> None:
         """get_space_root_folders() is the compatibility adapter: same []
         on failure as before this helper existed."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = False
@@ -1307,7 +1307,7 @@ class TestFetchChildFolders:
     """
 
     def test_raises_resource_fetch_failed_on_http_error(self, mock_confluence) -> None:
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         from zaira.errors import ResourceFetchFailed
 
@@ -1329,7 +1329,7 @@ class TestFetchChildFolders:
     def test_returns_empty_list_for_parent_with_no_child_folders(
         self, mock_confluence
     ) -> None:
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = True
@@ -1349,7 +1349,7 @@ class TestFetchChildFolders:
     ) -> None:
         """get_child_folders() is the compatibility adapter: same [] on
         failure as before this helper existed."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         mock_response = MagicMock()
         mock_response.ok = False

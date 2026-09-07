@@ -5,35 +5,35 @@ from unittest.mock import patch
 
 import pytest
 
+from tests.jira_wiki_samples import (
+    BLOCKQUOTES,
+    BULLET_LISTS,
+    CODE_BLOCKS,
+    COLOR,
+    FULL_DOCUMENT,
+    HEADINGS,
+    IMAGES,
+    LINKS,
+    MIXED_LISTS,
+    NOFORMAT,
+    NUMBERED_LISTS,
+    PANELS,
+    TABLES,
+    TEXT_BREAKS,
+    TEXT_EFFECTS,
+)
 from zaira.mdconv import (
     RENDERERS,
     cleanup_render_temps,
-    markdown_to_storage,
-    markdown_to_jira_wiki,
-    jira_wiki_to_markdown,
+    convert_attachments_to_images,
+    convert_images_to_attachments,
+    extract_local_images,
     is_jira_wiki,
+    jira_wiki_to_markdown,
+    markdown_to_jira_wiki,
+    markdown_to_storage,
     render_diagram_blocks,
     storage_to_markdown,
-    extract_local_images,
-    convert_images_to_attachments,
-    convert_attachments_to_images,
-)
-from tests.jira_wiki_samples import (
-    HEADINGS,
-    TEXT_EFFECTS,
-    COLOR,
-    TEXT_BREAKS,
-    LINKS,
-    IMAGES,
-    BULLET_LISTS,
-    NUMBERED_LISTS,
-    MIXED_LISTS,
-    BLOCKQUOTES,
-    TABLES,
-    CODE_BLOCKS,
-    NOFORMAT,
-    PANELS,
-    FULL_DOCUMENT,
 )
 
 

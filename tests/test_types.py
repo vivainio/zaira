@@ -2,7 +2,6 @@
 
 from unittest.mock import MagicMock
 
-
 from zaira.types import get_user_identifier, yaml_quote
 
 

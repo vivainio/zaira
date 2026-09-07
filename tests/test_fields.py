@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 from zaira.create import map_fields
-from zaira.edit import format_field_value, _parse_number
+from zaira.edit import _parse_number, format_field_value
 
 
 def _em(field_id: str, field_type: str) -> tuple[object, ...]:

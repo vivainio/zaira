@@ -10,10 +10,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
-from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
 from zaira.config import get_reports_dir
 from zaira.dashboard import get_dashboard, get_dashboard_gadgets
+from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.types import ParentIssue, ReportTicket, get_user_identifier
 from zaira.util import humanize_age
 
@@ -534,7 +534,7 @@ def generate_dashboard_report(
 
 def report_command(args: argparse.Namespace) -> None:
     """Handle report subcommand."""
-    from zaira.project import get_query, get_board, get_report, list_reports
+    from zaira.project import get_board, get_query, get_report, list_reports
 
     # Check if no arguments provided - list available reports
     report_name = getattr(args, "name", None)
@@ -785,8 +785,8 @@ def report_command(args: argparse.Namespace) -> None:
 
     # Full mode: also export tickets
     if getattr(args, "full", False):
-        from zaira.export import export_ticket
         from zaira.config import get_tickets_dir
+        from zaira.export import export_ticket
         from zaira.refresh import find_ticket_file, ticket_needs_export
 
         override = getattr(args, "tickets_dir", None)

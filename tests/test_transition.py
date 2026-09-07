@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from zaira.transition import get_transitions, transition_ticket, transition_command
+from zaira.transition import get_transitions, transition_command, transition_ticket
 
 
 class TestGetTransitions:

@@ -7,12 +7,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from zaira.create import (
+    create_command,
+    create_ticket,
     detect_markdown,
+    map_fields,
     parse_content,
     parse_ticket_file,
-    map_fields,
-    create_ticket,
-    create_command,
 )
 
 

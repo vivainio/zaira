@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from zaira.attach import attach_file, attach_command
+from zaira.attach import attach_command, attach_file
 
 
 class TestAttachFile:

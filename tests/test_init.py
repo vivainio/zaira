@@ -2,15 +2,14 @@
 
 from unittest.mock import MagicMock, patch
 
-
 from zaira.init import (
     _detect_auth_mode,
     _ping_jira,
-    slugify,
-    generate_config,
+    discover_boards,
     discover_components,
     discover_labels,
-    discover_boards,
+    generate_config,
+    slugify,
 )
 
 

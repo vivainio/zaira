@@ -5,11 +5,11 @@ from unittest.mock import MagicMock
 import pytest
 
 from zaira.boards import (
-    get_boards,
-    get_sprints,
     get_board_info,
     get_board_issues_jql,
+    get_boards,
     get_sprint_issues_jql,
+    get_sprints,
 )
 from zaira.types import Board, Sprint
 

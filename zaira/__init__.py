@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from jira import JIRA
+
     from zaira.types import ZSchema
 
 __version__ = version("zaira")

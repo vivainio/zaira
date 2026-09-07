@@ -559,7 +559,7 @@ def check_command(args: argparse.Namespace) -> None:
 
             allowed_values_map = {}
             if fields_needing_values:
-                from zaira.info import load_editmeta, get_editmeta_field
+                from zaira.info import get_editmeta_field, load_editmeta
 
                 try:
                     editmeta = load_editmeta(project, issue_type)

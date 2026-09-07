@@ -13,15 +13,14 @@ from typing import Any
 
 from zaira import confluence_api
 from zaira.jira_client import get_server_from_config
-from zaira.types import PageInfo
 from zaira.mdconv import (
     cleanup_render_temps,
+    extract_local_images,
     markdown_to_storage,
     render_diagram_blocks,
     storage_to_markdown,
-    extract_local_images,
 )
-
+from zaira.types import PageInfo
 
 # Property key for sync metadata
 SYNC_PROPERTY_KEY = "zaira-sync"

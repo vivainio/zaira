@@ -30,5 +30,11 @@ jobs:
       - name: Run type checks
         run: uv run ty check
 
+      - name: Run lint
+        run: uv run ruff check .
+
+      - name: Run format check
+        run: uv run ruff format --check .
+
       - name: Run tests
         run: uv run pytest tests/ -v

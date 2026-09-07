@@ -10,7 +10,6 @@ from zaira.info import get_editmeta_field
 from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.types import EditmetaFieldDef, FieldValue
 
-
 # Standard field name mappings
 STANDARD_FIELDS = {
     "summary": "summary",

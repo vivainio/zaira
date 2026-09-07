@@ -6,13 +6,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from zaira.export import (
-    normalize_title,
-    extract_description,
-    extract_custom_field_value,
-    is_placeholder_value,
-    _is_na_value,
     _is_bogus_field_name,
+    _is_na_value,
+    extract_custom_field_value,
+    extract_description,
     format_custom_field_value,
+    is_placeholder_value,
+    normalize_title,
 )
 from zaira.types import Attachment
 
@@ -634,6 +634,7 @@ class TestFormatTicketJson:
     def test_basic_json_format(self) -> None:
         """Formats ticket as valid JSON."""
         import json
+
         from zaira.export import format_ticket_json
         from zaira.types import Comment
 
@@ -662,6 +663,7 @@ class TestFormatTicketJson:
     def test_json_preserves_all_fields(self) -> None:
         """JSON output preserves all ticket fields."""
         import json
+
         from zaira.export import format_ticket_json
 
         ticket = {
@@ -686,8 +688,8 @@ class TestFormatTicketNdjson:
     def test_pull_requests_are_one_segment_each(self) -> None:
         """Each linked PR becomes its own `pull_request` segment, not one combined blob."""
         import json
+
         from zaira.export import format_ticket_ndjson
-        from zaira.types import Comment
 
         ticket = {
             "key": "TEST-PR",
@@ -733,6 +735,7 @@ class TestFormatTicketNdjson:
     def test_no_pull_request_segments_when_none_linked(self) -> None:
         """No `pull_request` segments are emitted when the ticket has no linked PRs."""
         import json
+
         from zaira.export import format_ticket_ndjson
 
         ticket = {
@@ -999,8 +1002,9 @@ class TestGetTicket:
 
     def test_includes_custom_fields(self, mock_jira) -> None:
         """Includes custom fields when requested."""
-        from zaira.export import get_ticket
         from unittest.mock import patch
+
+        from zaira.export import get_ticket
 
         mock_issue = MagicMock()
         mock_issue.id = "12345"
@@ -1328,7 +1332,9 @@ class TestGetPullRequests:
             ]
         }
 
-        def fake_get(url, params=None, **kwargs):
+        def fake_get(
+            url: str, params: dict | None = None, **kwargs: object
+        ) -> MagicMock:
             if url.endswith("/issue/summary"):
                 return summary_response
             assert params is not None
@@ -1361,7 +1367,7 @@ class TestGetPullRequests:
             }
         }
 
-        def detail_for(app_type):
+        def detail_for(app_type: str) -> MagicMock:
             resp = MagicMock()
             resp.json.return_value = {
                 "detail": [
@@ -1378,7 +1384,9 @@ class TestGetPullRequests:
             }
             return resp
 
-        def fake_get(url, params=None, **kwargs):
+        def fake_get(
+            url: str, params: dict | None = None, **kwargs: object
+        ) -> MagicMock:
             if url.endswith("/issue/summary"):
                 return summary_response
             assert params is not None
@@ -1723,8 +1731,9 @@ class TestExportTicket:
 
     def test_exports_markdown(self, mock_jira, tmp_path, capsys) -> None:
         """Exports ticket to markdown file."""
-        from zaira.export import export_ticket
         from unittest.mock import patch
+
+        from zaira.export import export_ticket
 
         mock_issue = MagicMock()
         mock_issue.id = "12345"
@@ -1761,9 +1770,10 @@ class TestExportTicket:
 
     def test_exports_json(self, mock_jira, tmp_path) -> None:
         """Exports ticket to JSON file."""
-        from zaira.export import export_ticket
-        from unittest.mock import patch
         import json
+        from unittest.mock import patch
+
+        from zaira.export import export_ticket
 
         mock_issue = MagicMock()
         mock_issue.id = "12345"
@@ -1821,8 +1831,9 @@ class TestExportTicket:
 
     def test_creates_component_symlinks(self, mock_jira, tmp_path) -> None:
         """Creates symlinks by component."""
-        from zaira.export import export_ticket
         from unittest.mock import patch
+
+        from zaira.export import export_ticket
 
         mock_component = MagicMock()
         mock_component.name = "Backend"
@@ -1890,8 +1901,9 @@ class TestExportTicket:
 
     def test_defers_attachment_downloads(self, mock_jira, tmp_path) -> None:
         """With defer_attachments, returns pending attachments undownloaded."""
-        from zaira.export import export_ticket
         from unittest.mock import patch
+
+        from zaira.export import export_ticket
 
         mock_jira.issue.return_value = self._mock_issue_with_attachment()
 
@@ -1914,8 +1926,9 @@ class TestExportTicket:
 
     def test_reports_attachment_download_failures(self, mock_jira, tmp_path) -> None:
         """Without deferral, a failed attachment download is reported, not silently dropped."""
-        from zaira.export import export_ticket
         from unittest.mock import patch
+
+        from zaira.export import export_ticket
 
         mock_jira.issue.return_value = self._mock_issue_with_attachment()
 
@@ -1936,8 +1949,9 @@ class TestExportToStdout:
 
     def test_outputs_markdown_to_stdout(self, mock_jira, capsys) -> None:
         """Outputs markdown to stdout."""
-        from zaira.export import export_to_stdout
         from unittest.mock import patch
+
+        from zaira.export import export_to_stdout
 
         mock_issue = MagicMock()
         mock_issue.id = "12345"
@@ -1970,9 +1984,10 @@ class TestExportToStdout:
 
     def test_outputs_json_to_stdout(self, mock_jira, capsys) -> None:
         """Outputs JSON to stdout."""
-        from zaira.export import export_to_stdout
-        from unittest.mock import patch
         import json
+        from unittest.mock import patch
+
+        from zaira.export import export_to_stdout
 
         mock_issue = MagicMock()
         mock_issue.id = "12345"
@@ -2026,8 +2041,9 @@ class TestExportToStdout:
 
     def test_body_field_promotes_paragraph_field(self, mock_jira, capsys) -> None:
         """--field promotes a paragraph (textarea) field to body with field: in front matter."""
-        from zaira.export import export_to_stdout
         from unittest.mock import patch
+
+        from zaira.export import export_to_stdout
 
         mock_issue = MagicMock()
         mock_issue.id = "12345"
@@ -2068,8 +2084,9 @@ class TestExportToStdout:
 
     def test_body_field_minimal_output(self, mock_jira, capsys) -> None:
         """--field with --min emits field: in front matter."""
-        from zaira.export import export_to_stdout
         from unittest.mock import patch
+
+        from zaira.export import export_to_stdout
 
         mock_issue = MagicMock()
         mock_issue.id = "12345"
@@ -2107,8 +2124,9 @@ class TestExportToStdout:
 
     def test_body_field_not_found_warns(self, mock_jira, capsys) -> None:
         """--field with unknown field name warns but still outputs."""
-        from zaira.export import export_to_stdout
         from unittest.mock import patch
+
+        from zaira.export import export_to_stdout
 
         mock_issue = MagicMock()
         mock_issue.id = "12345"
@@ -2145,9 +2163,10 @@ class TestExportCommand:
 
     def test_exports_to_stdout_by_default(self, mock_jira, capsys) -> None:
         """Exports to stdout by default."""
-        from zaira.export import export_command
-        from unittest.mock import patch
         import argparse
+        from unittest.mock import patch
+
+        from zaira.export import export_command
 
         mock_issue = MagicMock()
         mock_issue.id = "12345"
@@ -2190,9 +2209,10 @@ class TestExportCommand:
 
     def test_exports_to_files(self, mock_jira, tmp_path, capsys) -> None:
         """Exports to files when --files is set."""
-        from zaira.export import export_command
-        from unittest.mock import patch
         import argparse
+        from unittest.mock import patch
+
+        from zaira.export import export_command
 
         mock_issue = MagicMock()
         mock_issue.id = "12345"
@@ -2238,9 +2258,10 @@ class TestExportCommand:
         self, mock_jira, tmp_path, monkeypatch
     ) -> None:
         """Uses tickets_dir from zproject.toml when no -o given."""
-        from zaira.export import export_command
-        from unittest.mock import patch
         import argparse
+        from unittest.mock import patch
+
+        from zaira.export import export_command
 
         monkeypatch.chdir(tmp_path)
         (tmp_path / "zproject.toml").write_text('tickets_dir = "my-tickets"\n')
@@ -2288,9 +2309,10 @@ class TestExportCommand:
 
     def test_searches_with_jql(self, mock_jira, capsys) -> None:
         """Searches for tickets using JQL."""
-        from zaira.export import export_command
-        from unittest.mock import patch
         import argparse
+        from unittest.mock import patch
+
+        from zaira.export import export_command
 
         mock_issue1 = MagicMock()
         mock_issue1.key = "TEST-1"
@@ -2337,8 +2359,9 @@ class TestExportCommand:
 
     def test_exits_when_no_tickets(self, mock_jira, capsys) -> None:
         """Exits when no tickets specified or found."""
-        from zaira.export import export_command
         import argparse
+
+        from zaira.export import export_command
 
         args = argparse.Namespace(
             tickets=[],
@@ -2361,9 +2384,10 @@ class TestExportCommand:
 
     def test_uses_board_jql(self, mock_jira, capsys) -> None:
         """Uses board to generate JQL."""
-        from zaira.export import export_command
-        from unittest.mock import patch
         import argparse
+        from unittest.mock import patch
+
+        from zaira.export import export_command
 
         mock_issue1 = MagicMock()
         mock_issue1.key = "TEST-1"
@@ -2413,9 +2437,10 @@ class TestExportCommand:
 
     def test_uses_sprint_jql(self, mock_jira, capsys) -> None:
         """Uses sprint to generate JQL."""
-        from zaira.export import export_command
-        from unittest.mock import patch
         import argparse
+        from unittest.mock import patch
+
+        from zaira.export import export_command
 
         mock_issue1 = MagicMock()
         mock_issue1.key = "TEST-1"

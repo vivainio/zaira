@@ -10,7 +10,6 @@ from zaira.jira_client import get_jira
 from zaira.types import SearchResult
 from zaira.util import humanize_age
 
-
 PAGE_SIZE = 50
 
 
