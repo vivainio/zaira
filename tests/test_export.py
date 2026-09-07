@@ -1751,7 +1751,8 @@ class TestExportTicket:
         with patch("zaira.export.get_jira_site", return_value="jira.example.com"):
             result = export_ticket("TEST-1", tmp_path)
 
-        assert result is True
+        assert result.status == "success"
+        assert result.path is not None
         files = list(tmp_path.glob("TEST-1*.md"))
         assert len(files) == 1
         content = files[0].read_text()
@@ -1798,21 +1799,25 @@ class TestExportTicket:
         with patch("zaira.export.get_jira_site", return_value="jira.example.com"):
             result = export_ticket("TEST-2", tmp_path, fmt="json")
 
-        assert result is True
+        assert result.status == "success"
+        assert result.path is not None
         files = list(tmp_path.glob("TEST-2*.json"))
         assert len(files) == 1
         data = json.loads(files[0].read_text())
         assert data["key"] == "TEST-2"
 
-    def test_returns_false_on_fetch_error(self, mock_jira, tmp_path, capsys) -> None:
-        """Returns False when ticket fetch fails."""
+    def test_returns_failed_status_on_fetch_error(
+        self, mock_jira, tmp_path, capsys
+    ) -> None:
+        """Returns a failed ExportResult when ticket fetch fails."""
         from zaira.export import export_ticket
 
         mock_jira.issue.side_effect = Exception("Not found")
 
         result = export_ticket("INVALID-1", tmp_path)
 
-        assert result is False
+        assert result.status == "failed"
+        assert result.path is None
 
     def test_creates_component_symlinks(self, mock_jira, tmp_path) -> None:
         """Creates symlinks by component."""
@@ -1852,6 +1857,78 @@ class TestExportTicket:
         symlinks = list(symlink_dir.glob("TEST-3*.md"))
         assert len(symlinks) == 1
         assert symlinks[0].is_symlink()
+
+    def _mock_issue_with_attachment(self) -> MagicMock:
+        mock_attachment = MagicMock()
+        mock_attachment.id = "att1"
+        mock_attachment.filename = "screenshot.png"
+        mock_attachment.size = 1024
+        mock_attachment.mimeType = "image/png"
+        mock_attachment.author.displayName = "John Doe"
+        mock_attachment.created = "2024-01-15T10:00:00"
+
+        mock_issue = MagicMock()
+        mock_issue.id = "12345"
+        mock_issue.key = "TEST-4"
+        mock_issue.fields.summary = "Attachment test"
+        mock_issue.fields.description = None
+        mock_issue.fields.issuetype.name = "Bug"
+        mock_issue.fields.status.name = "Open"
+        mock_issue.fields.status.statusCategory.name = "To Do"
+        mock_issue.fields.priority.name = "High"
+        mock_issue.fields.assignee = None
+        mock_issue.fields.reporter = None
+        mock_issue.fields.created = "2024-01-01"
+        mock_issue.fields.updated = "2024-01-02"
+        mock_issue.fields.components = []
+        mock_issue.fields.labels = []
+        mock_issue.fields.parent = None
+        mock_issue.fields.issuelinks = []
+        mock_issue.fields.attachment = [mock_attachment]
+        mock_issue.fields.comment.comments = []
+        return mock_issue
+
+    def test_defers_attachment_downloads(self, mock_jira, tmp_path) -> None:
+        """With defer_attachments, returns pending attachments undownloaded."""
+        from zaira.export import export_ticket
+        from unittest.mock import patch
+
+        mock_jira.issue.return_value = self._mock_issue_with_attachment()
+
+        with (
+            patch("zaira.export.get_jira_site", return_value="jira.example.com"),
+            patch("zaira.export.download_attachment") as mock_download,
+        ):
+            result = export_ticket(
+                "TEST-4",
+                tmp_path,
+                with_attachments=True,
+                defer_attachments=True,
+            )
+
+        assert result.status == "success"
+        assert len(result.pending_attachments) == 1
+        assert result.pending_attachments[0].attachment["filename"] == "screenshot.png"
+        assert result.attachment_failures == []
+        mock_download.assert_not_called()
+
+    def test_reports_attachment_download_failures(self, mock_jira, tmp_path) -> None:
+        """Without deferral, a failed attachment download is reported, not silently dropped."""
+        from zaira.export import export_ticket
+        from unittest.mock import patch
+
+        mock_jira.issue.return_value = self._mock_issue_with_attachment()
+
+        with (
+            patch("zaira.export.get_jira_site", return_value="jira.example.com"),
+            patch("zaira.export.download_attachment", return_value=False),
+        ):
+            result = export_ticket("TEST-4", tmp_path, with_attachments=True)
+
+        assert result.status == "success"
+        assert result.pending_attachments == []
+        assert len(result.attachment_failures) == 1
+        assert result.attachment_failures[0].attachment["filename"] == "screenshot.png"
 
 
 class TestExportToStdout:

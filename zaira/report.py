@@ -834,11 +834,11 @@ def report_command(args: argparse.Namespace) -> None:
                 }
                 for future in as_completed(futures):
                     key = futures[future]
-                    if future.result():
+                    if future.result().status == "success":
                         exported += 1
         else:
             for key in to_export:
-                if export_ticket(key, tickets_dir):
+                if export_ticket(key, tickets_dir).status == "success":
                     exported += 1
 
         print(f"Exported {exported} tickets, {skipped} unchanged")

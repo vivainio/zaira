@@ -232,18 +232,18 @@ def refresh_command(args: argparse.Namespace) -> None:
                 if ticket_file:
                     if force:
                         print(f"  {key}: forcing refresh...")
-                        if export_ticket(key, tickets_dir):
+                        if export_ticket(key, tickets_dir).status == "success":
                             exported += 1
                     elif ticket_needs_export(ticket_file, updated):
                         print(f"  {key}: changed, refreshing...")
-                        if export_ticket(key, tickets_dir):
+                        if export_ticket(key, tickets_dir).status == "success":
                             exported += 1
                     else:
                         print(f"  {key}: unchanged, skipping")
                         skipped += 1
                 else:
                     print(f"  {key}: new, exporting...")
-                    if export_ticket(key, tickets_dir):
+                    if export_ticket(key, tickets_dir).status == "success":
                         exported += 1
 
             print(f"\nExported {exported} tickets, {skipped} unchanged")

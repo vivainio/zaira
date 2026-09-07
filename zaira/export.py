@@ -4,10 +4,10 @@ import argparse
 import json
 import re
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from zaira.errors import ResourceFetchFailed
 from zaira.info import get_field_custom_type, get_field_name, load_default_fields
@@ -1112,6 +1112,23 @@ class PendingAttachment:
         return download_attachment(self.attachment, self.output_dir)
 
 
+@dataclass
+class ExportResult:
+    """Structured outcome of export_ticket().
+
+    status distinguishes a failed ticket fetch from a successful export.
+    pending_attachments holds attachments not yet downloaded (only
+    populated when defer_attachments=True); attachment_failures holds
+    attachments export_ticket tried and failed to download itself (only
+    possible when defer_attachments=False).
+    """
+
+    status: Literal["success", "failed"]
+    path: Path | None = None
+    pending_attachments: list[PendingAttachment] = field(default_factory=list)
+    attachment_failures: list[PendingAttachment] = field(default_factory=list)
+
+
 def export_ticket(
     key: str,
     output_dir: Path,
@@ -1123,14 +1140,8 @@ def export_ticket(
     with_attachments: bool = False,
     symlinks: bool = False,
     defer_attachments: bool = False,
-) -> bool | list[PendingAttachment]:
-    """Export a single ticket to markdown or JSON.
-
-    Returns:
-        bool when defer_attachments is False (success/failure).
-        list[PendingAttachment] when defer_attachments is True and successful,
-        or False on failure.
-    """
+) -> ExportResult:
+    """Export a single ticket to markdown or JSON."""
     print(f"Exporting {key}...")
 
     ticket = get_ticket(
@@ -1141,7 +1152,7 @@ def export_ticket(
     )
     if not ticket:
         print(f"  Error: Could not fetch {key}")
-        return False
+        return ExportResult(status="failed")
 
     if with_prs:
         ticket["pullRequests"] = get_pull_requests(ticket["id"])
@@ -1165,6 +1176,7 @@ def export_ticket(
 
     # Download attachments to attachments/{key}/
     pending: list[PendingAttachment] = []
+    attachment_failures: list[PendingAttachment] = []
     if with_attachments:
         attachments = ticket.get("attachments", [])
         if attachments:
@@ -1187,7 +1199,8 @@ def export_ticket(
             if not defer_attachments:
                 print(f"  Downloading {len(pending)} attachment(s)...")
                 for p in pending:
-                    p.download()
+                    if not p.download():
+                        attachment_failures.append(p)
 
     if fmt == "json":
         outfile.write_text(
@@ -1229,8 +1242,10 @@ def export_ticket(
             link.symlink_to(f"../../{filename}")
 
     if defer_attachments:
-        return pending
-    return True
+        return ExportResult(status="success", path=outfile, pending_attachments=pending)
+    return ExportResult(
+        status="success", path=outfile, attachment_failures=attachment_failures
+    )
 
 
 def _apply_body_field(ticket: dict[str, Any], body_field: str) -> None:
@@ -1364,13 +1379,14 @@ def export_command(args: argparse.Namespace) -> None:
             output_dir = get_tickets_dir()
         success = 0
         for key in tickets:
-            if export_ticket(
+            result = export_ticket(
                 key,
                 output_dir,
                 fmt=fmt,
                 with_prs=with_prs,
                 include_custom=include_custom,
                 with_attachments=True,  # Always download attachments for file exports
-            ):
+            )
+            if result.status == "success":
                 success += 1
         print(f"\nExported {success}/{len(tickets)} tickets to {output_dir}/")
