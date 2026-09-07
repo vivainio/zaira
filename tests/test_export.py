@@ -1176,6 +1176,46 @@ class TestGetComments:
         assert "ADF comment" in result[0].body
 
 
+class TestFetchComments:
+    """Tests for the internal _fetch_comments helper.
+
+    Unlike get_comments(), this distinguishes a failed fetch (raises
+    ResourceFetchFailed) from a ticket that legitimately has no comments
+    (returns []).
+    """
+
+    def test_raises_resource_fetch_failed_on_jira_error(self, mock_jira) -> None:
+        from jira.exceptions import JIRAError
+
+        from zaira.errors import ResourceFetchFailed
+        from zaira.export import _fetch_comments
+
+        mock_jira.issue.side_effect = JIRAError(status_code=500, text="boom")
+
+        with pytest.raises(ResourceFetchFailed):
+            _fetch_comments("TEST-1")
+
+    def test_returns_empty_list_for_ticket_with_no_comments(self, mock_jira) -> None:
+        from zaira.export import _fetch_comments
+
+        mock_issue = MagicMock()
+        mock_issue.fields.comment.comments = []
+        mock_jira.issue.return_value = mock_issue
+
+        assert _fetch_comments("TEST-1") == []
+
+    def test_get_comments_swallows_resource_fetch_failed(self, mock_jira) -> None:
+        """get_comments() is the compatibility adapter: same [] on failure
+        as before this helper existed, preserving CLI behavior."""
+        from jira.exceptions import JIRAError
+
+        from zaira.export import get_comments
+
+        mock_jira.issue.side_effect = JIRAError(status_code=500, text="boom")
+
+        assert get_comments("TEST-1") == []
+
+
 class TestGetLinkedTests:
     """Tests for linked Xray issue discovery."""
 
@@ -1208,6 +1248,47 @@ class TestGetLinkedTests:
                 "alsoTests": [],
             }
         ]
+
+
+class TestFetchLinkedTests:
+    """Tests for the internal _fetch_linked_tests helper.
+
+    Unlike get_linked_tests(), this distinguishes a failed fetch of the
+    source issue (raises ResourceFetchFailed) from an issue that
+    legitimately has no linked tests (returns []).
+    """
+
+    def test_raises_resource_fetch_failed_on_jira_error(self, mock_jira) -> None:
+        from jira.exceptions import JIRAError
+
+        from zaira.errors import ResourceFetchFailed
+        from zaira.export import _fetch_linked_tests
+
+        mock_jira.issue.side_effect = JIRAError(status_code=500, text="boom")
+
+        with pytest.raises(ResourceFetchFailed):
+            _fetch_linked_tests("TEST-1")
+
+    def test_returns_empty_list_for_issue_with_no_linked_tests(self, mock_jira) -> None:
+        from zaira.export import _fetch_linked_tests
+
+        issue = MagicMock()
+        issue.fields.issuetype.name = "Story"
+        issue.fields.issuelinks = []
+        mock_jira.issue.return_value = issue
+
+        assert _fetch_linked_tests("TEST-1") == []
+
+    def test_get_linked_tests_swallows_resource_fetch_failed(self, mock_jira) -> None:
+        """get_linked_tests() is the compatibility adapter: same [] on
+        failure as before this helper existed."""
+        from jira.exceptions import JIRAError
+
+        from zaira.export import get_linked_tests
+
+        mock_jira.issue.side_effect = JIRAError(status_code=500, text="boom")
+
+        assert get_linked_tests("TEST-1") == []
 
 
 class TestGetPullRequests:
@@ -1334,6 +1415,94 @@ class TestGetPullRequests:
         result = get_pull_requests("12345")
 
         assert result == []
+
+
+class TestFetchPullRequests:
+    """Tests for the internal _fetch_pull_requests helper.
+
+    Unlike get_pull_requests(), this distinguishes a failed request
+    (raises ResourceFetchFailed) from an issue that legitimately has no
+    linked pull requests (returns []).
+    """
+
+    def test_raises_resource_fetch_failed_on_http_error(self, mock_jira) -> None:
+        from zaira.errors import ResourceFetchFailed
+        from zaira.export import _fetch_pull_requests
+
+        summary_response = MagicMock()
+        summary_response.ok = False
+        summary_response.status_code = 500
+        mock_jira._session.get.return_value = summary_response
+
+        with pytest.raises(ResourceFetchFailed):
+            _fetch_pull_requests("12345")
+
+    def test_returns_empty_list_for_issue_with_no_linked_prs(self, mock_jira) -> None:
+        from zaira.export import _fetch_pull_requests
+
+        summary_response = MagicMock()
+        summary_response.ok = True
+        summary_response.json.return_value = {"summary": {}}
+        mock_jira._session.get.return_value = summary_response
+
+        assert _fetch_pull_requests("12345") == []
+
+    def test_get_pull_requests_swallows_resource_fetch_failed(self, mock_jira) -> None:
+        """get_pull_requests() is the compatibility adapter: same [] on
+        failure as before this helper existed."""
+        from zaira.export import get_pull_requests
+
+        summary_response = MagicMock()
+        summary_response.ok = False
+        summary_response.status_code = 500
+        mock_jira._session.get.return_value = summary_response
+
+        assert get_pull_requests("12345") == []
+
+
+class TestFetchIssueProperties:
+    """Tests for the internal _fetch_issue_properties helper.
+
+    Unlike get_issue_properties(), this distinguishes a failed request
+    (raises ResourceFetchFailed) from an issue that legitimately has no
+    interesting properties (returns []).
+    """
+
+    def test_raises_resource_fetch_failed_on_http_error(self, mock_jira) -> None:
+        from zaira.errors import ResourceFetchFailed
+        from zaira.export import _fetch_issue_properties
+
+        response = MagicMock()
+        response.ok = False
+        response.status_code = 500
+        mock_jira._session.get.return_value = response
+
+        with pytest.raises(ResourceFetchFailed):
+            _fetch_issue_properties("12345")
+
+    def test_returns_empty_list_for_issue_with_no_properties(self, mock_jira) -> None:
+        from zaira.export import _fetch_issue_properties
+
+        response = MagicMock()
+        response.ok = True
+        response.json.return_value = {"keys": []}
+        mock_jira._session.get.return_value = response
+
+        assert _fetch_issue_properties("12345") == []
+
+    def test_get_issue_properties_swallows_resource_fetch_failed(
+        self, mock_jira
+    ) -> None:
+        """get_issue_properties() is the compatibility adapter: same []
+        on failure as before this helper existed."""
+        from zaira.export import get_issue_properties
+
+        response = MagicMock()
+        response.ok = False
+        response.status_code = 500
+        mock_jira._session.get.return_value = response
+
+        assert get_issue_properties("12345") == []
 
 
 class TestDownloadAttachment:

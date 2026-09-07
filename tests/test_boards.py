@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock
 
+import pytest
 
 from zaira.boards import (
     get_boards,
@@ -145,6 +146,34 @@ class TestGetBoardInfo:
         result = get_board_info(999)
 
         assert result is None
+
+
+class TestFetchBoardInfo:
+    """Tests for the internal _fetch_board_info helper.
+
+    Unlike get_board_info(), this raises ResourceFetchFailed on a
+    JIRAError instead of silently returning None.
+    """
+
+    def test_raises_resource_fetch_failed_on_jira_error(self, mock_jira) -> None:
+        from jira.exceptions import JIRAError
+
+        from zaira.boards import _fetch_board_info
+        from zaira.errors import ResourceFetchFailed
+
+        mock_jira._get_json.side_effect = JIRAError(status_code=404, text="Not Found")
+
+        with pytest.raises(ResourceFetchFailed):
+            _fetch_board_info(999)
+
+    def test_get_board_info_swallows_resource_fetch_failed(self, mock_jira) -> None:
+        """get_board_info() is the compatibility adapter: same None on
+        failure as before this helper existed."""
+        from jira.exceptions import JIRAError
+
+        mock_jira._get_json.side_effect = JIRAError(status_code=404, text="Not Found")
+
+        assert get_board_info(999) is None
 
 
 class TestGetBoardIssuesJql:

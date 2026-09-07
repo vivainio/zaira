@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from zaira.errors import ResourceFetchFailed
 from zaira.info import get_field_custom_type, get_field_name, load_default_fields
 from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
@@ -338,31 +339,51 @@ def get_ticket(
         return None
 
 
-def get_comments(key: str, raw: bool = False) -> list[Comment]:
-    """Fetch ticket comments."""
+def _fetch_comments(key: str, raw: bool = False) -> list[Comment]:
+    """Fetch and parse ticket comments.
+
+    Raises ResourceFetchFailed if Jira could not be reached or rejected the
+    request, as distinct from the ticket legitimately having no comments.
+    """
+    from jira.exceptions import JIRAError
+
     jira = get_jira()
     try:
         issue = jira.issue(key, fields="comment")
-        comments = issue.fields.comment.comments if issue.fields.comment else []
-        result: list[Comment] = []
-        for c in comments:
-            body = c.body
-            if hasattr(body, "raw"):
-                body = extract_description(body.raw, raw=raw)
-            elif hasattr(body, "__dict__"):
-                body = extract_description(body.__dict__, raw=raw)
-            body_str = body if isinstance(body, str) else str(body)
-            if not raw and is_jira_wiki(body_str):
-                body_str = jira_wiki_to_markdown(body_str)
-            result.append(
-                Comment(
-                    author=c.author.displayName if c.author else "Unknown",
-                    created=_format_timestamp(c.created or ""),
-                    body=body_str,
-                    id=c.id,
-                )
+    except JIRAError as e:
+        raise ResourceFetchFailed(
+            f"could not fetch comments for {key}: {format_jira_error(e)}"
+        ) from e
+    comments = issue.fields.comment.comments if issue.fields.comment else []
+    result: list[Comment] = []
+    for c in comments:
+        body = c.body
+        if hasattr(body, "raw"):
+            body = extract_description(body.raw, raw=raw)
+        elif hasattr(body, "__dict__"):
+            body = extract_description(body.__dict__, raw=raw)
+        body_str = body if isinstance(body, str) else str(body)
+        if not raw and is_jira_wiki(body_str):
+            body_str = jira_wiki_to_markdown(body_str)
+        result.append(
+            Comment(
+                author=c.author.displayName if c.author else "Unknown",
+                created=_format_timestamp(c.created or ""),
+                body=body_str,
+                id=c.id,
             )
-        return result
+        )
+    return result
+
+
+def get_comments(key: str, raw: bool = False) -> list[Comment]:
+    """Fetch ticket comments.
+
+    Returns [] both when the ticket has no comments and when fetching them
+    failed -- see _fetch_comments for the distinction available internally.
+    """
+    try:
+        return _fetch_comments(key, raw)
     except Exception:
         return []
 
@@ -370,82 +391,99 @@ def get_comments(key: str, raw: bool = False) -> list[Comment]:
 def get_linked_tests(key: str) -> list[dict]:
     """Fetch Xray Test and Test Execution issues linked to a Jira issue.
 
+    Returns [] both when there are no linked tests and when fetching them
+    failed -- see _fetch_linked_tests for the distinction available
+    internally.
+    """
+    try:
+        return _fetch_linked_tests(key)
+    except Exception:
+        return []
+
+
+def _fetch_linked_tests(key: str) -> list[dict]:
+    """Fetch Xray Test and Test Execution issues linked to a Jira issue.
+
     Follows 'Tests' link type (inward = "tested by") to find Test issues,
     then checks for Test Executions linked to those tests.
+
+    Raises ResourceFetchFailed if the issue itself could not be fetched, as
+    distinct from it legitimately having no linked tests.
     """
+    from jira.exceptions import JIRAError
+
     jira = get_jira()
     try:
         issue = jira.issue(key, fields="issuetype,issuelinks")
-        issue_type = issue.fields.issuetype.name
-        test_keys = [key] if issue_type in ("Test", "Test Case", "Test Case 2") else []
-        for link in getattr(issue.fields, "issuelinks", None) or []:
-            if link.type.name != "Tests":
-                continue
-            if hasattr(link, "inwardIssue"):
-                linked = link.inwardIssue
-            elif hasattr(link, "outwardIssue"):
-                linked = link.outwardIssue
-            else:
-                continue
-            if linked.fields.issuetype.name in (
-                "Test",
-                "Test Case",
-                "Test Case 2",
-            ):
-                test_keys.append(linked.key)
+    except JIRAError as e:
+        raise ResourceFetchFailed(
+            f"could not fetch linked tests for {key}: {format_jira_error(e)}"
+        ) from e
+    issue_type = issue.fields.issuetype.name
+    test_keys = [key] if issue_type in ("Test", "Test Case", "Test Case 2") else []
+    for link in getattr(issue.fields, "issuelinks", None) or []:
+        if link.type.name != "Tests":
+            continue
+        if hasattr(link, "inwardIssue"):
+            linked = link.inwardIssue
+        elif hasattr(link, "outwardIssue"):
+            linked = link.outwardIssue
+        else:
+            continue
+        if linked.fields.issuetype.name in (
+            "Test",
+            "Test Case",
+            "Test Case 2",
+        ):
+            test_keys.append(linked.key)
 
-        if not test_keys:
-            return []
-
-        # Fetch full details for each test
-        tests = []
-        for tk in test_keys:
-            try:
-                t = jira.issue(tk, fields="summary,status,assignee,issuelinks")
-                f = t.fields
-                # Find test executions linked to this test
-                executions = []
-                also_tests = []
-                for link in getattr(f, "issuelinks", None) or []:
-                    if hasattr(link, "inwardIssue"):
-                        linked = link.inwardIssue
-                    elif hasattr(link, "outwardIssue"):
-                        linked = link.outwardIssue
-                    else:
-                        continue
-                    lt_name = linked.fields.issuetype.name
-                    if lt_name in ("Test Execution", "Sub Test Execution"):
-                        executions.append(
-                            {
-                                "id": linked.id,
-                                "key": linked.key,
-                                "summary": linked.fields.summary,
-                                "status": linked.fields.status.name,
-                            }
-                        )
-                    elif (
-                        lt_name in ("Story", "Bug", "Task", "Epic")
-                        and linked.key != key
-                    ):
-                        if link.type.name == "Tests":
-                            also_tests.append(linked.key)
-
-                tests.append(
-                    {
-                        "id": t.id,
-                        "key": t.key,
-                        "summary": f.summary,
-                        "status": f.status.name,
-                        "assignee": get_user_identifier(f.assignee) or "Unassigned",
-                        "executions": executions,
-                        "alsoTests": also_tests,
-                    }
-                )
-            except Exception:
-                continue
-        return tests
-    except Exception:
+    if not test_keys:
         return []
+
+    # Fetch full details for each test
+    tests = []
+    for tk in test_keys:
+        try:
+            t = jira.issue(tk, fields="summary,status,assignee,issuelinks")
+            f = t.fields
+            # Find test executions linked to this test
+            executions = []
+            also_tests = []
+            for link in getattr(f, "issuelinks", None) or []:
+                if hasattr(link, "inwardIssue"):
+                    linked = link.inwardIssue
+                elif hasattr(link, "outwardIssue"):
+                    linked = link.outwardIssue
+                else:
+                    continue
+                lt_name = linked.fields.issuetype.name
+                if lt_name in ("Test Execution", "Sub Test Execution"):
+                    executions.append(
+                        {
+                            "id": linked.id,
+                            "key": linked.key,
+                            "summary": linked.fields.summary,
+                            "status": linked.fields.status.name,
+                        }
+                    )
+                elif lt_name in ("Story", "Bug", "Task", "Epic") and linked.key != key:
+                    if link.type.name == "Tests":
+                        also_tests.append(linked.key)
+
+            tests.append(
+                {
+                    "id": t.id,
+                    "key": t.key,
+                    "summary": f.summary,
+                    "status": f.status.name,
+                    "assignee": get_user_identifier(f.assignee) or "Unassigned",
+                    "executions": executions,
+                    "alsoTests": also_tests,
+                }
+            )
+        except Exception:
+            continue
+    return tests
 
 
 def get_xray_tests(key: str) -> list[dict]:
@@ -484,25 +522,42 @@ def get_issue_properties(issue_id: str) -> list[dict]:
     """Fetch interesting issue properties (e.g. ducket grids).
 
     Skips noise properties (jqlt.*, scriptrunner.*, etc.) and returns
-    a list of dicts with 'key' and 'value'.
+    a list of dicts with 'key' and 'value'. Returns [] both when there are
+    no interesting properties and when fetching them failed -- see
+    _fetch_issue_properties for the distinction available internally.
     """
-    jira = get_jira()
     try:
-        session = jira._session
-        if session is None:
-            return []
-        resp = session.get(jira._get_url(f"issue/{issue_id}/properties"))
-        keys = [p["key"] for p in resp.json().get("keys", [])]
-        results = []
-        for key in keys:
-            if any(key.startswith(p) for p in PROPS_SKIP_PREFIXES):
-                continue
-            r = session.get(jira._get_url(f"issue/{issue_id}/properties/{key}"))
-            if r.status_code == 200:
-                results.append({"key": key, "value": r.json().get("value", {})})
-        return results
+        return _fetch_issue_properties(issue_id)
     except Exception:
         return []
+
+
+def _fetch_issue_properties(issue_id: str) -> list[dict]:
+    """Fetch interesting issue properties (e.g. ducket grids).
+
+    Raises ResourceFetchFailed if the properties list could not be fetched,
+    as distinct from the issue legitimately having none.
+    """
+    jira = get_jira()
+    session = jira._session
+    if session is None:
+        raise ResourceFetchFailed(
+            f"no active session to fetch properties for {issue_id}"
+        )
+    resp = session.get(jira._get_url(f"issue/{issue_id}/properties"))
+    if not resp.ok:
+        raise ResourceFetchFailed(
+            f"could not list properties for {issue_id}: HTTP {resp.status_code}"
+        )
+    keys = [p["key"] for p in resp.json().get("keys", [])]
+    results = []
+    for key in keys:
+        if any(key.startswith(p) for p in PROPS_SKIP_PREFIXES):
+            continue
+        r = session.get(jira._get_url(f"issue/{issue_id}/properties/{key}"))
+        if r.status_code == 200:
+            results.append({"key": key, "value": r.json().get("value", {})})
+    return results
 
 
 def format_ducket(prop: dict) -> str:
@@ -531,6 +586,19 @@ def format_ducket(prop: dict) -> str:
 def get_pull_requests(issue_id: str) -> list[dict]:
     """Fetch GitHub PRs linked to a Jira issue via dev-status API.
 
+    Returns [] both when there are no linked pull requests and when
+    fetching them failed -- see _fetch_pull_requests for the distinction
+    available internally.
+    """
+    try:
+        return _fetch_pull_requests(issue_id)
+    except Exception:
+        return []
+
+
+def _fetch_pull_requests(issue_id: str) -> list[dict]:
+    """Fetch GitHub PRs linked to a Jira issue via dev-status API.
+
     The "detail" endpoint needs the exact application instance type (e.g.
     "oAuth-com.github.integration.production") as `applicationType` --
     the generic "GitHub" type some Atlassian docs show silently returns
@@ -541,44 +609,54 @@ def get_pull_requests(issue_id: str) -> list[dict]:
     `pullrequest`), then queries "detail" once per instance and merges
     the results -- covering sites with more than one GitHub integration
     (e.g. cloud + on-prem) too.
+
+    Raises ResourceFetchFailed if a request fails, as distinct from the
+    issue legitimately having no linked pull requests.
     """
     jira = get_jira()
-    try:
-        assert jira._session is not None
-        summary_resp = jira._session.get(
-            f"{jira._options['server']}/rest/dev-status/1.0/issue/summary",
-            params={"issueId": issue_id},
+    assert jira._session is not None
+    summary_resp = jira._session.get(
+        f"{jira._options['server']}/rest/dev-status/1.0/issue/summary",
+        params={"issueId": issue_id},
+    )
+    if not summary_resp.ok:
+        raise ResourceFetchFailed(
+            f"could not fetch linked pull requests for {issue_id}: "
+            f"HTTP {summary_resp.status_code}"
         )
-        instance_types = (
-            summary_resp.json()
-            .get("summary", {})
-            .get("pullrequest", {})
-            .get("byInstanceType", {})
-            .keys()
+    instance_types = (
+        summary_resp.json()
+        .get("summary", {})
+        .get("pullrequest", {})
+        .get("byInstanceType", {})
+        .keys()
+    )
+    prs = []
+    for app_type in instance_types:
+        resp = jira._session.get(
+            f"{jira._options['server']}/rest/dev-status/1.0/issue/detail",
+            params={
+                "issueId": issue_id,
+                "applicationType": app_type,
+                "dataType": "pullrequest",
+            },
         )
-        prs = []
-        for app_type in instance_types:
-            resp = jira._session.get(
-                f"{jira._options['server']}/rest/dev-status/1.0/issue/detail",
-                params={
-                    "issueId": issue_id,
-                    "applicationType": app_type,
-                    "dataType": "pullrequest",
-                },
+        if not resp.ok:
+            raise ResourceFetchFailed(
+                f"could not fetch linked pull requests for {issue_id}: "
+                f"HTTP {resp.status_code}"
             )
-            data = resp.json()
-            for detail in data.get("detail", []):
-                for pr in detail.get("pullRequests", []):
-                    prs.append(
-                        {
-                            "name": pr.get("name"),
-                            "url": pr.get("url"),
-                            "status": pr.get("status"),
-                        }
-                    )
-        return prs
-    except Exception:
-        return []
+        data = resp.json()
+        for detail in data.get("detail", []):
+            for pr in detail.get("pullRequests", []):
+                prs.append(
+                    {
+                        "name": pr.get("name"),
+                        "url": pr.get("url"),
+                        "status": pr.get("status"),
+                    }
+                )
+    return prs
 
 
 MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024  # 10 MB

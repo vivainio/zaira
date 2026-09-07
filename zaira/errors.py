@@ -11,3 +11,14 @@ class ApplicationError(Exception):
 
 class CredentialsNotConfigured(ApplicationError):
     """Required Jira credentials are missing."""
+
+
+class ResourceFetchFailed(Exception):
+    """A remote fetch failed due to a transport/API error.
+
+    Distinct from a resource legitimately having no data. Internal-only:
+    raised by fetch helpers and caught by boundary adapters close to the
+    call site so existing CLI output stays unchanged for now. Whether (and
+    how) that boundary should instead report the failure is a separate
+    compatibility decision -- see refactoring_plan.md.
+    """

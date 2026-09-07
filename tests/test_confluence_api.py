@@ -1230,6 +1230,142 @@ class TestRemovePageLabelWithRequests:
         assert result is False
 
 
+class TestFetchSpaceRootFolders:
+    """Tests for the internal _fetch_space_root_folders helper.
+
+    Unlike get_space_root_folders(), this distinguishes a failed request
+    (raises ResourceFetchFailed) from a space that legitimately has no
+    root folders (returns []).
+    """
+
+    def test_raises_resource_fetch_failed_on_http_error(self, mock_confluence) -> None:
+        from unittest.mock import patch, MagicMock
+
+        from zaira.errors import ResourceFetchFailed
+
+        mock_response = MagicMock()
+        mock_response.ok = False
+        mock_response.status_code = 500
+        mock_response.reason = "Internal Server Error"
+
+        with (
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
+            patch("requests.get", return_value=mock_response),
+        ):
+            with pytest.raises(ResourceFetchFailed):
+                confluence_api._fetch_space_root_folders("SPACE")
+
+    def test_returns_empty_list_for_space_with_no_folders(
+        self, mock_confluence
+    ) -> None:
+        from unittest.mock import patch, MagicMock
+
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_response.json.return_value = {"results": []}
+
+        with (
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
+            patch("requests.get", return_value=mock_response),
+        ):
+            assert confluence_api._fetch_space_root_folders("SPACE") == []
+
+    def test_get_space_root_folders_swallows_resource_fetch_failed(
+        self, mock_confluence
+    ) -> None:
+        """get_space_root_folders() is the compatibility adapter: same []
+        on failure as before this helper existed."""
+        from unittest.mock import patch, MagicMock
+
+        mock_response = MagicMock()
+        mock_response.ok = False
+        mock_response.status_code = 500
+        mock_response.reason = "Internal Server Error"
+
+        with (
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
+            patch("requests.get", return_value=mock_response),
+        ):
+            assert confluence_api.get_space_root_folders("SPACE") == []
+
+
+class TestFetchChildFolders:
+    """Tests for the internal _fetch_child_folders helper.
+
+    Unlike get_child_folders(), this distinguishes a failed request
+    (raises ResourceFetchFailed) from a parent that legitimately has no
+    child folders (returns []).
+    """
+
+    def test_raises_resource_fetch_failed_on_http_error(self, mock_confluence) -> None:
+        from unittest.mock import patch, MagicMock
+
+        from zaira.errors import ResourceFetchFailed
+
+        mock_response = MagicMock()
+        mock_response.ok = False
+        mock_response.status_code = 404
+        mock_response.reason = "Not Found"
+
+        with (
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
+            patch("requests.get", return_value=mock_response),
+        ):
+            with pytest.raises(ResourceFetchFailed):
+                confluence_api._fetch_child_folders("12345")
+
+    def test_returns_empty_list_for_parent_with_no_child_folders(
+        self, mock_confluence
+    ) -> None:
+        from unittest.mock import patch, MagicMock
+
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_response.json.return_value = {"results": []}
+
+        with (
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
+            patch("requests.get", return_value=mock_response),
+        ):
+            assert confluence_api._fetch_child_folders("12345") == []
+
+    def test_get_child_folders_swallows_resource_fetch_failed(
+        self, mock_confluence
+    ) -> None:
+        """get_child_folders() is the compatibility adapter: same [] on
+        failure as before this helper existed."""
+        from unittest.mock import patch, MagicMock
+
+        mock_response = MagicMock()
+        mock_response.ok = False
+        mock_response.status_code = 404
+        mock_response.reason = "Not Found"
+
+        with (
+            patch(
+                "zaira.confluence_api._get_auth",
+                return_value=("https://base", MagicMock()),
+            ),
+            patch("requests.get", return_value=mock_response),
+        ):
+            assert confluence_api.get_child_folders("12345") == []
+
+
 class TestResolveFolderPathFromParent:
     """Tests for resolve_folder_path_from_parent function."""
 

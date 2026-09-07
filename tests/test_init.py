@@ -284,6 +284,37 @@ class TestDiscoverComponents:
         assert result == []
 
 
+class TestFetchComponents:
+    """Tests for the internal _fetch_components helper.
+
+    Unlike discover_components(), this raises ResourceFetchFailed on a
+    JIRAError instead of silently returning [].
+    """
+
+    def test_raises_resource_fetch_failed_on_jira_error(self, mock_jira) -> None:
+        import pytest
+        from jira.exceptions import JIRAError
+
+        from zaira.errors import ResourceFetchFailed
+        from zaira.init import _fetch_components
+
+        mock_jira.project.side_effect = JIRAError(status_code=500, text="boom")
+
+        with pytest.raises(ResourceFetchFailed):
+            _fetch_components("TEST")
+
+    def test_discover_components_swallows_resource_fetch_failed(
+        self, mock_jira
+    ) -> None:
+        """discover_components() is the compatibility adapter: same []
+        on failure as before this helper existed."""
+        from jira.exceptions import JIRAError
+
+        mock_jira.project.side_effect = JIRAError(status_code=500, text="boom")
+
+        assert discover_components("TEST") == []
+
+
 class TestDiscoverLabels:
     """Tests for discover_labels with mocked Jira."""
 
@@ -322,6 +353,35 @@ class TestDiscoverLabels:
         assert result == []
 
 
+class TestFetchLabels:
+    """Tests for the internal _fetch_labels helper.
+
+    Unlike discover_labels(), this raises ResourceFetchFailed on a
+    JIRAError instead of silently returning [].
+    """
+
+    def test_raises_resource_fetch_failed_on_jira_error(self, mock_jira) -> None:
+        import pytest
+        from jira.exceptions import JIRAError
+
+        from zaira.errors import ResourceFetchFailed
+        from zaira.init import _fetch_labels
+
+        mock_jira.search_issues.side_effect = JIRAError(status_code=500, text="boom")
+
+        with pytest.raises(ResourceFetchFailed):
+            _fetch_labels("TEST")
+
+    def test_discover_labels_swallows_resource_fetch_failed(self, mock_jira) -> None:
+        """discover_labels() is the compatibility adapter: same [] on
+        failure as before this helper existed."""
+        from jira.exceptions import JIRAError
+
+        mock_jira.search_issues.side_effect = JIRAError(status_code=500, text="boom")
+
+        assert discover_labels("TEST") == []
+
+
 class TestDiscoverBoards:
     """Tests for discover_boards with mocked Jira."""
 
@@ -352,3 +412,32 @@ class TestDiscoverBoards:
         result = discover_boards("TEST")
 
         assert result == []
+
+
+class TestFetchBoards:
+    """Tests for the internal _fetch_boards helper.
+
+    Unlike discover_boards(), this raises ResourceFetchFailed on a
+    JIRAError instead of silently returning [].
+    """
+
+    def test_raises_resource_fetch_failed_on_jira_error(self, mock_jira) -> None:
+        import pytest
+        from jira.exceptions import JIRAError
+
+        from zaira.errors import ResourceFetchFailed
+        from zaira.init import _fetch_boards
+
+        mock_jira.boards.side_effect = JIRAError(status_code=500, text="boom")
+
+        with pytest.raises(ResourceFetchFailed):
+            _fetch_boards("TEST")
+
+    def test_discover_boards_swallows_resource_fetch_failed(self, mock_jira) -> None:
+        """discover_boards() is the compatibility adapter: same [] on
+        failure as before this helper existed."""
+        from jira.exceptions import JIRAError
+
+        mock_jira.boards.side_effect = JIRAError(status_code=500, text="boom")
+
+        assert discover_boards("TEST") == []

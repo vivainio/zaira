@@ -10,6 +10,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 from zaira.atlassian_auth import confluence_base_url, resolve_cloud_id
+from zaira.errors import ResourceFetchFailed
 from zaira.jira_client import (
     get_or_detect_auth_mode,
     load_credentials,
@@ -642,10 +643,28 @@ def get_space_root_folders(space_key: str, limit: int = 100) -> list[dict]:
 
     Returns:
         List of folder dicts (only root-level, i.e. those whose only ancestor is the homepage)
+
+    Note:
+        Returns [] both when the space has no folders and when the request
+        fails -- see _fetch_space_root_folders for the distinction available
+        internally to callers that need it (e.g. resolve_folder_path).
     """
     if "get_space_root_folders" in _api_overrides:
         return _api_overrides["get_space_root_folders"](space_key, limit)
 
+    try:
+        return _fetch_space_root_folders(space_key, limit)
+    except ResourceFetchFailed:
+        return []
+
+
+def _fetch_space_root_folders(space_key: str, limit: int = 100) -> list[dict]:
+    """Fetch top-level folders in a space via CQL.
+
+    Raises ResourceFetchFailed if the request fails, as distinct from the
+    space legitimately having no folders. Does not consult _api_overrides --
+    callers wanting test-injected results should use get_space_root_folders.
+    """
     base_url, auth = _get_auth()
     r = requests.get(
         f"{base_url}/content/search",
@@ -658,7 +677,9 @@ def get_space_root_folders(space_key: str, limit: int = 100) -> list[dict]:
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
     if not r.ok:
-        return []
+        raise ResourceFetchFailed(
+            f"could not list folders in space {space_key}: {r.status_code} - {r.reason}"
+        )
 
     results = r.json().get("results", [])
     # Filter to root folders: those with only the homepage as ancestor
@@ -675,10 +696,30 @@ def get_child_folders(content_id: str, limit: int = 100) -> list[dict]:
 
     Returns:
         List of folder dicts
+
+    Note:
+        Returns [] both when there are no child folders and when the
+        request fails -- see _fetch_child_folders for the distinction
+        available internally to callers that need it (e.g.
+        resolve_folder_path).
     """
     if "get_child_folders" in _api_overrides:
         return _api_overrides["get_child_folders"](content_id, limit)
 
+    try:
+        return _fetch_child_folders(content_id, limit)
+    except ResourceFetchFailed:
+        return []
+
+
+def _fetch_child_folders(content_id: str, limit: int = 100) -> list[dict]:
+    """Fetch child folders of a page or folder.
+
+    Raises ResourceFetchFailed if the request fails, as distinct from the
+    parent legitimately having no child folders. Does not consult
+    _api_overrides -- callers wanting test-injected results should use
+    get_child_folders.
+    """
     base_url, auth = _get_auth()
     r = requests.get(
         f"{base_url}/content/{content_id}/child/folder",
@@ -687,7 +728,9 @@ def get_child_folders(content_id: str, limit: int = 100) -> list[dict]:
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
     if not r.ok:
-        return []
+        raise ResourceFetchFailed(
+            f"could not list child folders of {content_id}: {r.status_code} - {r.reason}"
+        )
     return r.json().get("results", [])
 
 
