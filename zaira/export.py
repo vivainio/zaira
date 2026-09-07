@@ -15,6 +15,7 @@ from zaira.info import get_field_custom_type, get_field_name, load_default_field
 from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.mdconv import is_jira_wiki, jira_wiki_to_markdown
 from zaira.types import Attachment, Comment, get_user_identifier, yaml_quote
+from zaira.util import atomic_write_text
 
 
 def _format_timestamp(ts: str) -> str:
@@ -1184,19 +1185,12 @@ def _write_ticket_file(
 ) -> None:
     """Write formatted ticket content (md/json/ndjson) to outfile."""
     if fmt == "json":
-        outfile.write_text(
-            format_ticket_json(ticket, comments, synced, jira_site), encoding="utf-8"
-        )
+        content = format_ticket_json(ticket, comments, synced, jira_site)
     elif fmt == "ndjson":
-        outfile.write_text(
-            format_ticket_ndjson(ticket, comments, synced, jira_site),
-            encoding="utf-8",
-        )
+        content = format_ticket_ndjson(ticket, comments, synced, jira_site)
     else:
-        outfile.write_text(
-            format_ticket_markdown(ticket, comments, synced, jira_site),
-            encoding="utf-8",
-        )
+        content = format_ticket_markdown(ticket, comments, synced, jira_site)
+    atomic_write_text(outfile, content)
 
 
 def _create_ticket_symlinks(
