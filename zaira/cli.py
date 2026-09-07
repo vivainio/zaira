@@ -129,18 +129,13 @@ def _warn_if_store_python() -> None:
     )
 
 
-def main() -> None:
-    # Force UTF-8 stdout on Windows to avoid encode/decode errors
-    # when Jira content contains characters outside cp1252
-    if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
-        if hasattr(sys.stdout, "reconfigure"):
-            stdout = sys.stdout
-            assert isinstance(stdout, io.TextIOWrapper)
-            stdout.reconfigure(encoding="utf-8")
+def build_parser() -> argparse.ArgumentParser:
+    """Construct the zaira CLI argument parser.
 
-    _warn_if_store_python()
-    _migrate_legacy_dirs()
-
+    Pure parser construction with no side effects, so it can be exercised
+    directly in tests without touching stdout encoding, Windows migration,
+    or credential state.
+    """
     parser = argparse.ArgumentParser(
         prog="zaira",
         description="Jira CLI tool for offline ticket management",
@@ -1536,6 +1531,22 @@ def main() -> None:
     )
     install_skills_parser.set_defaults(func=install_skills_command)
 
+    return parser
+
+
+def main() -> None:
+    # Force UTF-8 stdout on Windows to avoid encode/decode errors
+    # when Jira content contains characters outside cp1252
+    if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+        if hasattr(sys.stdout, "reconfigure"):
+            stdout = sys.stdout
+            assert isinstance(stdout, io.TextIOWrapper)
+            stdout.reconfigure(encoding="utf-8")
+
+    _warn_if_store_python()
+    _migrate_legacy_dirs()
+
+    parser = build_parser()
     args = parser.parse_args()
 
     if not args.command:
