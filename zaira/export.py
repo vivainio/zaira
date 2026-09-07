@@ -1129,6 +1129,102 @@ class ExportResult:
     attachment_failures: list[PendingAttachment] = field(default_factory=list)
 
 
+def _enrich_ticket(
+    ticket: dict[str, Any],
+    key: str,
+    with_prs: bool,
+    with_tests: bool,
+    with_props: bool,
+) -> None:
+    """Add optional PR/test/property sections to a fetched ticket dict, in place."""
+    if with_prs:
+        ticket["pullRequests"] = get_pull_requests(ticket["id"])
+    if with_tests:
+        ticket["tests"] = get_xray_tests(key)
+    if with_props:
+        ticket["properties"] = get_issue_properties(ticket["id"])
+
+
+def _prepare_pending_attachments(
+    ticket: dict[str, Any], output_dir: Path, key: str, with_attachments: bool
+) -> list[PendingAttachment]:
+    """Build the list of attachments to download, deduping filename collisions."""
+    if not with_attachments:
+        return []
+    attachments = ticket.get("attachments", [])
+    if not attachments:
+        return []
+
+    attach_dir = output_dir / "attachments" / key
+    pending: list[PendingAttachment] = []
+    seen: dict[str, int] = {}
+    for att in attachments:
+        orig_name = att["filename"]
+        if orig_name in seen:
+            seen[orig_name] += 1
+            # Insert counter before extension: foo.png -> foo_2.png
+            base, dot, ext_part = orig_name.rpartition(".")
+            if dot:
+                att["filename"] = f"{base}_{seen[orig_name]}.{ext_part}"
+            else:
+                att["filename"] = f"{orig_name}_{seen[orig_name]}"
+        else:
+            seen[orig_name] = 1
+        pending.append(PendingAttachment(att, attach_dir))
+    return pending
+
+
+def _write_ticket_file(
+    outfile: Path,
+    fmt: str,
+    ticket: dict[str, Any],
+    comments: list[Comment],
+    synced: str,
+    jira_site: str,
+) -> None:
+    """Write formatted ticket content (md/json/ndjson) to outfile."""
+    if fmt == "json":
+        outfile.write_text(
+            format_ticket_json(ticket, comments, synced, jira_site), encoding="utf-8"
+        )
+    elif fmt == "ndjson":
+        outfile.write_text(
+            format_ticket_ndjson(ticket, comments, synced, jira_site),
+            encoding="utf-8",
+        )
+    else:
+        outfile.write_text(
+            format_ticket_markdown(ticket, comments, synced, jira_site),
+            encoding="utf-8",
+        )
+
+
+def _create_ticket_symlinks(
+    output_dir: Path,
+    filename: str,
+    ticket: dict[str, Any],
+    parent_data: dict[str, Any] | None,
+) -> None:
+    """Create by-component and by-parent symlinks for a markdown export."""
+    for comp in ticket.get("components", []):
+        if comp:
+            comp_dir = output_dir / "by-component" / comp.lower().replace(" ", "-")
+            comp_dir.mkdir(parents=True, exist_ok=True)
+            link = comp_dir / filename
+            link.unlink(missing_ok=True)
+            link.symlink_to(f"../../{filename}")
+
+    if parent_data:
+        parent_dirname = (
+            f"{parent_data['key']}-{normalize_title(parent_data['summary'])}"
+        )
+        parent_dir = output_dir / "by-parent" / parent_dirname
+        parent_dir.mkdir(parents=True, exist_ok=True)
+        link = parent_dir / filename
+        link.unlink(missing_ok=True)
+        link.symlink_to(f"../../{filename}")
+
+
 def export_ticket(
     key: str,
     output_dir: Path,
@@ -1154,12 +1250,7 @@ def export_ticket(
         print(f"  Error: Could not fetch {key}")
         return ExportResult(status="failed")
 
-    if with_prs:
-        ticket["pullRequests"] = get_pull_requests(ticket["id"])
-    if with_tests:
-        ticket["tests"] = get_xray_tests(key)
-    if with_props:
-        ticket["properties"] = get_issue_properties(ticket["id"])
+    _enrich_ticket(ticket, key, with_prs, with_tests, with_props)
 
     comments = get_comments(key)
     synced = datetime.now().isoformat(timespec="seconds")
@@ -1175,71 +1266,21 @@ def export_ticket(
     outfile = output_dir / filename
 
     # Download attachments to attachments/{key}/
-    pending: list[PendingAttachment] = []
+    pending = _prepare_pending_attachments(ticket, output_dir, key, with_attachments)
     attachment_failures: list[PendingAttachment] = []
-    if with_attachments:
-        attachments = ticket.get("attachments", [])
-        if attachments:
-            attach_dir = output_dir / "attachments" / key
-            seen: dict[str, int] = {}
-            for att in attachments:
-                orig_name = att["filename"]
-                if orig_name in seen:
-                    seen[orig_name] += 1
-                    # Insert counter before extension: foo.png -> foo_2.png
-                    base, dot, ext_part = orig_name.rpartition(".")
-                    if dot:
-                        att["filename"] = f"{base}_{seen[orig_name]}.{ext_part}"
-                    else:
-                        att["filename"] = f"{orig_name}_{seen[orig_name]}"
-                else:
-                    seen[orig_name] = 1
-                pending.append(PendingAttachment(att, attach_dir))
+    if pending and not defer_attachments:
+        print(f"  Downloading {len(pending)} attachment(s)...")
+        for p in pending:
+            if not p.download():
+                attachment_failures.append(p)
 
-            if not defer_attachments:
-                print(f"  Downloading {len(pending)} attachment(s)...")
-                for p in pending:
-                    if not p.download():
-                        attachment_failures.append(p)
-
-    if fmt == "json":
-        outfile.write_text(
-            format_ticket_json(ticket, comments, synced, jira_site), encoding="utf-8"
-        )
-    elif fmt == "ndjson":
-        outfile.write_text(
-            format_ticket_ndjson(ticket, comments, synced, jira_site),
-            encoding="utf-8",
-        )
-    else:
-        outfile.write_text(
-            format_ticket_markdown(ticket, comments, synced, jira_site),
-            encoding="utf-8",
-        )
+    _write_ticket_file(outfile, fmt, ticket, comments, synced, jira_site)
 
     print(f"  Saved to {outfile}")
 
     # Create symlinks (only for markdown, disabled by default)
     if symlinks and fmt == "md":
-        # Create symlinks by component
-        for comp in ticket.get("components", []):
-            if comp:
-                comp_dir = output_dir / "by-component" / comp.lower().replace(" ", "-")
-                comp_dir.mkdir(parents=True, exist_ok=True)
-                link = comp_dir / filename
-                link.unlink(missing_ok=True)
-                link.symlink_to(f"../../{filename}")
-
-        # Create symlinks by parent
-        if parent_data:
-            parent_dirname = (
-                f"{parent_data['key']}-{normalize_title(parent_data['summary'])}"
-            )
-            parent_dir = output_dir / "by-parent" / parent_dirname
-            parent_dir.mkdir(parents=True, exist_ok=True)
-            link = parent_dir / filename
-            link.unlink(missing_ok=True)
-            link.symlink_to(f"../../{filename}")
+        _create_ticket_symlinks(output_dir, filename, ticket, parent_data)
 
     if defer_attachments:
         return ExportResult(status="success", path=outfile, pending_attachments=pending)
@@ -1300,12 +1341,7 @@ def export_to_stdout(
         print(format_ticket_minimal(ticket))
         return True
 
-    if with_prs:
-        ticket["pullRequests"] = get_pull_requests(ticket["id"])
-    if with_tests:
-        ticket["tests"] = get_xray_tests(key)
-    if with_props:
-        ticket["properties"] = get_issue_properties(ticket["id"])
+    _enrich_ticket(ticket, key, with_prs, with_tests, with_props)
 
     comments = get_comments(key, raw=raw)
     synced = datetime.now().isoformat(timespec="seconds")
