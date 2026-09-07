@@ -17,6 +17,7 @@ from zaira.wiki import (
     get_sync_property,
     set_sync_property,
     check_images_changed,
+    compute_sync_state,
 )
 
 
@@ -451,6 +452,111 @@ class TestCheckImagesChanged:
         result = check_images_changed(md_file, content, {})
 
         assert result is False
+
+
+class TestComputeSyncState:
+    """Tests for compute_sync_state function."""
+
+    def test_no_sync_meta_is_local_ahead_no_conflict(self, tmp_path) -> None:
+        """With no prior sync metadata, treats the file as new/local-changed."""
+        md_file = tmp_path / "test.md"
+        md_file.write_text("# Content")
+
+        state = compute_sync_state(
+            md_file, "# Content", remote_version=1, sync_meta=None
+        )
+
+        assert state.local_changed is True
+        assert state.remote_changed is False
+        assert state.stored_version == 0
+        assert state.stored_image_hashes == {}
+
+    def test_in_sync_when_hash_and_version_match(self, tmp_path) -> None:
+        """Neither local nor remote changed when hash and version match stored state."""
+        import hashlib
+
+        md_file = tmp_path / "test.md"
+        content = "# Content"
+        local_hash = hashlib.sha256(content.encode()).hexdigest()
+
+        state = compute_sync_state(
+            md_file,
+            content,
+            remote_version=1,
+            sync_meta={"source_hash": local_hash, "uploaded_version": 1, "images": {}},
+        )
+
+        assert state.local_changed is False
+        assert state.remote_changed is False
+
+    def test_local_ahead_when_content_hash_differs(self, tmp_path) -> None:
+        """Local changed when the content hash no longer matches the stored one."""
+        md_file = tmp_path / "test.md"
+
+        state = compute_sync_state(
+            md_file,
+            "# Changed",
+            remote_version=1,
+            sync_meta={"source_hash": "old_hash", "uploaded_version": 1, "images": {}},
+        )
+
+        assert state.local_changed is True
+        assert state.remote_changed is False
+
+    def test_remote_ahead_when_version_differs(self, tmp_path) -> None:
+        """Remote changed when the remote version no longer matches the stored one."""
+        import hashlib
+
+        md_file = tmp_path / "test.md"
+        content = "# Content"
+        local_hash = hashlib.sha256(content.encode()).hexdigest()
+
+        state = compute_sync_state(
+            md_file,
+            content,
+            remote_version=2,
+            sync_meta={"source_hash": local_hash, "uploaded_version": 1, "images": {}},
+        )
+
+        assert state.local_changed is False
+        assert state.remote_changed is True
+
+    def test_conflict_when_both_changed(self, tmp_path) -> None:
+        """Both local and remote changed -- the conflict case."""
+        md_file = tmp_path / "test.md"
+
+        state = compute_sync_state(
+            md_file,
+            "# Changed",
+            remote_version=2,
+            sync_meta={"source_hash": "old_hash", "uploaded_version": 1, "images": {}},
+        )
+
+        assert state.local_changed is True
+        assert state.remote_changed is True
+
+    def test_local_changed_when_image_changed(self, tmp_path) -> None:
+        """Local changed when an image referenced in the body has a new hash."""
+        import hashlib
+
+        md_file = tmp_path / "test.md"
+        content = "![Alt](./image.png)"
+        local_hash = hashlib.sha256(content.encode()).hexdigest()
+        (tmp_path / "image.png").write_bytes(b"new data")
+
+        state = compute_sync_state(
+            md_file,
+            content,
+            remote_version=1,
+            sync_meta={
+                "source_hash": local_hash,
+                "uploaded_version": 1,
+                "images": {"image.png": "old_hash"},
+            },
+        )
+
+        assert state.local_changed is True
+        assert state.remote_changed is False
 
 
 class TestGetChildren:

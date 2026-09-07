@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 import sys
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -910,27 +911,14 @@ def _put_one_file(
     remote_body = page["body"]["storage"]["value"]
     current_title = page["title"]
 
-    # Get sync metadata
+    # Get sync metadata and compare against local file/image state
     sync_meta = get_sync_property(page_id)
-
-    # Compute local content hash
-    local_hash = hashlib.sha256(body_only.encode()).hexdigest()
-
-    # Determine sync status
-    if sync_meta:
-        stored_hash = sync_meta.get("source_hash", "")
-        stored_version = sync_meta.get("uploaded_version", 0)
-        stored_image_hashes = sync_meta.get("images", {})
-
-        content_changed = local_hash != stored_hash
-        images_changed = check_images_changed(filepath, body_only, stored_image_hashes)
-        local_changed = content_changed or images_changed
-        remote_changed = remote_version != stored_version
-    else:
-        stored_version = 0
-        stored_image_hashes = {}
-        local_changed = True
-        remote_changed = False
+    sync_state = compute_sync_state(filepath, body_only, remote_version, sync_meta)
+    local_hash = sync_state.local_hash
+    local_changed = sync_state.local_changed
+    remote_changed = sync_state.remote_changed
+    stored_version = sync_state.stored_version
+    stored_image_hashes = sync_state.stored_image_hashes
 
     # Handle --status
     if status:
@@ -1634,6 +1622,55 @@ def check_images_changed(
             return True
 
     return False
+
+
+@dataclass
+class SyncState:
+    """Comparison of a local file's content against its last-synced state.
+
+    Pure given its inputs: computed entirely from the already-fetched
+    remote_version and sync_meta plus local file reads (for image
+    hashing) -- it makes no Confluence API calls itself.
+    """
+
+    local_hash: str
+    local_changed: bool
+    remote_changed: bool
+    stored_version: int
+    stored_image_hashes: dict[str, str] = field(default_factory=dict)
+
+
+def compute_sync_state(
+    filepath: Path,
+    body_only: str,
+    remote_version: int,
+    sync_meta: dict | None,
+) -> SyncState:
+    """Compare local file content/images against the last-recorded sync state."""
+    local_hash = hashlib.sha256(body_only.encode()).hexdigest()
+
+    if sync_meta:
+        stored_hash = sync_meta.get("source_hash", "")
+        stored_version = sync_meta.get("uploaded_version", 0)
+        stored_image_hashes = sync_meta.get("images", {})
+
+        content_changed = local_hash != stored_hash
+        images_changed = check_images_changed(filepath, body_only, stored_image_hashes)
+        local_changed = content_changed or images_changed
+        remote_changed = remote_version != stored_version
+    else:
+        stored_version = 0
+        stored_image_hashes = {}
+        local_changed = True
+        remote_changed = False
+
+    return SyncState(
+        local_hash=local_hash,
+        local_changed=local_changed,
+        remote_changed=remote_changed,
+        stored_version=stored_version,
+        stored_image_hashes=stored_image_hashes,
+    )
 
 
 def sync_images(
