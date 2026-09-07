@@ -918,7 +918,7 @@ class TestGetTicket:
 
         assert result is None
         captured = capsys.readouterr()
-        assert "Error fetching" in captured.out
+        assert "Error fetching" in captured.err
 
     def test_includes_parent_info(self, mock_jira) -> None:
         """Includes parent information when present."""

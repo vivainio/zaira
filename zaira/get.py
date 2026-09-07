@@ -74,8 +74,9 @@ def get_command(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     if to_stdout:
+        ok = True
         for key in keys:
-            export_to_stdout(
+            ok &= export_to_stdout(
                 key,
                 fmt=fmt,
                 with_prs=with_prs,
@@ -86,6 +87,8 @@ def get_command(args: argparse.Namespace) -> None:
                 raw=raw,
                 body_field=body_field,
             )
+        if not ok:
+            sys.exit(1)
     else:
         assert output is not None
         output_dir = Path(output)

@@ -334,7 +334,7 @@ def get_ticket(
 
         return ticket
     except Exception as e:
-        print(f"  Error fetching {key}: {format_jira_error(e)}")
+        print(f"  Error fetching {key}: {format_jira_error(e)}", file=sys.stderr)
         return None
 
 
@@ -1270,10 +1270,13 @@ def export_command(args: argparse.Namespace) -> None:
     include_custom = getattr(args, "all_fields", False)
 
     if to_stdout:
+        ok = True
         for key in tickets:
-            export_to_stdout(
+            ok &= export_to_stdout(
                 key, fmt=fmt, with_prs=with_prs, include_custom=include_custom
             )
+        if not ok:
+            sys.exit(1)
     else:
         if args.output:
             output_dir = Path(args.output)
