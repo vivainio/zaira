@@ -3,7 +3,6 @@
 from pathlib import Path
 from unittest.mock import patch
 
-
 from zaira import config
 
 

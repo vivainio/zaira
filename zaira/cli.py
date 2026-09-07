@@ -7,8 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from zaira import __version__
+from zaira.activity_log import format_entries, read_entries
 from zaira.attach import attach_command
 from zaira.boards import boards_command
+from zaira.bundle import bundle_install_command, bundle_update_command
 from zaira.changelog import changelog_command
 from zaira.comment import comment_command
 from zaira.create import create_command
@@ -16,50 +18,74 @@ from zaira.dashboard import dashboard_command, dashboards_command
 from zaira.edit import edit_command
 from zaira.errors import ApplicationError
 from zaira.export import get_attachment_command
-from zaira.hours import hours_command
-from zaira.link import link_command
-from zaira.transition import transition_command
-from zaira.worklog import log_command
-from zaira.wiki import (
-    wiki_command,
-    get_command as wiki_get_command,
-    search_command as wiki_search_command,
-    create_command as wiki_create_command,
-    put_command as wiki_put_command,
-    append_command as wiki_append_command,
-    attach_command as wiki_attach_command,
-    get_attachment_command as wiki_get_attachment_command,
-    edit_command as wiki_edit_command,
-    delete_command as wiki_delete_command,
-    ls_command as wiki_ls_command,
+from zaira.get import get_command
+from zaira.goals import (
+    export_command as goals_export_command,
 )
-from zaira.info import (
-    info_command,
-    learn_command,
-    link_types_command,
-    statuses_command,
-    issue_types_command,
-    fields_command,
-    field_command,
+from zaira.goals import (
+    get_command as goals_get_command,
 )
 from zaira.goals import (
     goals_command,
-    export_command as goals_export_command,
-    get_command as goals_get_command,
+)
+from zaira.goals import (
     updates_command as goals_updates_command,
 )
+from zaira.hours import hours_command
+from zaira.info import (
+    field_command,
+    fields_command,
+    info_command,
+    issue_types_command,
+    learn_command,
+    link_types_command,
+    statuses_command,
+)
 from zaira.init import init_command, init_project_command
+from zaira.link import link_command
 from zaira.my import my_command
-from zaira.recent import recent_command, wiki_recent_command
-from zaira.report import report_command
-from zaira.refresh import refresh_command
-from zaira.search import search_command
-from zaira.get import get_command
 from zaira.put import put_command
-from zaira.bundle import bundle_install_command, bundle_update_command
-from zaira.skills import install_skills_command
+from zaira.recent import recent_command, wiki_recent_command
+from zaira.refresh import refresh_command
+from zaira.report import report_command
 from zaira.rules import check_command
-from zaira.activity_log import read_entries, format_entries
+from zaira.search import search_command
+from zaira.skills import install_skills_command
+from zaira.transition import transition_command
+from zaira.wiki import (
+    append_command as wiki_append_command,
+)
+from zaira.wiki import (
+    attach_command as wiki_attach_command,
+)
+from zaira.wiki import (
+    create_command as wiki_create_command,
+)
+from zaira.wiki import (
+    delete_command as wiki_delete_command,
+)
+from zaira.wiki import (
+    edit_command as wiki_edit_command,
+)
+from zaira.wiki import (
+    get_attachment_command as wiki_get_attachment_command,
+)
+from zaira.wiki import (
+    get_command as wiki_get_command,
+)
+from zaira.wiki import (
+    ls_command as wiki_ls_command,
+)
+from zaira.wiki import (
+    put_command as wiki_put_command,
+)
+from zaira.wiki import (
+    search_command as wiki_search_command,
+)
+from zaira.wiki import (
+    wiki_command,
+)
+from zaira.worklog import log_command
 from zaira.xray import extract_command as xray_extract_command
 from zaira.xray import init_xray_command
 
@@ -87,6 +113,7 @@ def _migrate_legacy_dirs() -> None:
     if sys.platform != "win32":
         return
     from platformdirs import user_config_dir
+
     from zaira.jira_client import CONFIG_DIR
 
     old = Path(user_config_dir("zaira"))  # AppData\Local\zaira\zaira

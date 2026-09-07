@@ -3,7 +3,6 @@
 from dataclasses import dataclass
 from typing import Any, TypeAlias, TypedDict
 
-
 FieldValue: TypeAlias = (
     None | bool | int | float | str | list["FieldValue"] | dict[str, "FieldValue"]
 )

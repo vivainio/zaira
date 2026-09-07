@@ -6,21 +6,21 @@ import hashlib
 import json
 import re
 import sys
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from zaira import confluence_api
 from zaira.jira_client import get_server_from_config
-from zaira.types import PageInfo
 from zaira.mdconv import (
     cleanup_render_temps,
+    extract_local_images,
     markdown_to_storage,
     render_diagram_blocks,
     storage_to_markdown,
-    extract_local_images,
 )
-
+from zaira.types import PageInfo
 
 # Property key for sync metadata
 SYNC_PROPERTY_KEY = "zaira-sync"
@@ -847,174 +847,130 @@ def _create_page_for_file(
     return True
 
 
-def _put_one_file(
+def _print_sync_status(
+    page_id: str,
     filepath: Path,
-    page_id_override: str | None,
-    title_override: str | None,
-    pull: bool,
-    force: bool,
-    status: bool,
-    diff: bool = False,
-    renderers: list[str] | None = None,
-    mirror_parent_id: str | None = None,
-    name_prefix: str = "",
-    raw: bool = False,
-) -> bool:
-    """Process a single markdown file for wiki put.
+    remote_version: int,
+    sync_meta: dict | None,
+    local_changed: bool,
+    remote_changed: bool,
+) -> None:
+    """Print sync status for `wiki put --status`."""
+    print(f"Page ID: {page_id}")
+    print(f"File: {filepath}")
+    print(f"Remote version: {remote_version}")
+    if sync_meta:
+        print(f"Last synced version: {sync_meta.get('uploaded_version', 'N/A')}")
+        print(f"Last synced: {sync_meta.get('uploaded_at', 'N/A')}")
+        print(f"Local changed: {'Yes' if local_changed else 'No'}")
+        print(f"Remote changed: {'Yes' if remote_changed else 'No'}")
+        if local_changed and remote_changed:
+            print("Status: CONFLICT (both changed)")
+        elif local_changed:
+            print("Status: Local ahead")
+        elif remote_changed:
+            print("Status: Remote ahead")
+        else:
+            print("Status: In sync")
+    else:
+        print("Status: No sync metadata")
 
-    Args:
-        filepath: Path to markdown file
-        page_id_override: Override page ID from -p flag
-        title_override: Override title from -t flag
-        pull: Pull remote changes instead of pushing
-        force: Force overwrite on conflict
-        status: Just show sync status
-        diff: Just show diff
-        renderers: Diagram renderers
-        mirror_parent_id: Parent folder ID for mirror mode
-        name_prefix: Prefix for folder names in mirror mode
-        raw: Treat file content as literal Confluence storage format (skip markdown conversion)
 
-    Returns:
-        True if successful, False otherwise
-    """
-    if not filepath.exists():
-        print(f"Error: File not found: {filepath}", file=sys.stderr)
-        return False
+def _show_diff(
+    filepath: Path, remote_body: str, body_only: str, remote_version: int, raw: bool
+) -> None:
+    """Print a unified diff between local and remote content for `wiki put --diff`."""
+    remote_compare = remote_body if raw else storage_to_markdown(remote_body)
+    local_lines = body_only.splitlines(keepends=True)
+    remote_lines = remote_compare.splitlines(keepends=True)
 
-    body_content = filepath.read_text(encoding="utf-8")
-    if not body_content.strip():
-        print(f"Error: File is empty: {filepath}", file=sys.stderr)
-        return False
-
-    # Parse front matter
-    front_matter, body_only = parse_front_matter(body_content)
-    page_id = page_id_override or (
-        str(front_matter["confluence"]) if front_matter.get("confluence") else None
+    diff_lines = list(
+        difflib.unified_diff(
+            remote_lines,
+            local_lines,
+            fromfile=f"remote (v{remote_version})",
+            tofile=f"local ({filepath})",
+        )
     )
 
-    if not page_id:
-        print(f"Skipping {filepath}: no 'confluence:' in front matter", file=sys.stderr)
-        return False
+    if diff_lines:
+        print(f"Diff for {filepath}:")
+        print("".join(diff_lines))
+    else:
+        print(f"{filepath}: no content differences")
 
-    # Get current page
-    page = confluence_api.fetch_page(
-        page_id, expand="version,body.storage,space,ancestors"
-    )
 
-    if not page:
-        print(f"Error fetching page {page_id}", file=sys.stderr)
-        return False
-
+def _pull_page(
+    filepath: Path,
+    page_id: str,
+    page: dict,
+    front_matter: dict,
+    raw: bool,
+) -> None:
+    """Pull remote content down to the local file for `wiki put --pull`."""
     remote_version = page["version"]["number"]
     remote_body = page["body"]["storage"]["value"]
     current_title = page["title"]
 
-    # Get sync metadata
-    sync_meta = get_sync_property(page_id)
+    download_images(page_id, filepath)
+    md_content = remote_body if raw else storage_to_markdown(remote_body)
 
-    # Compute local content hash
-    local_hash = hashlib.sha256(body_only.encode()).hexdigest()
+    # Sync properties from remote
+    front_matter["confluence"] = int(page_id)
+    front_matter["title"] = current_title
+    front_matter["space"] = page["space"]["key"]
+    folder_path = _build_folder_path(page.get("ancestors", []))
+    if folder_path:
+        front_matter["folder"] = folder_path
+    elif "folder" in front_matter:
+        del front_matter["folder"]
 
-    # Determine sync status
-    if sync_meta:
-        stored_hash = sync_meta.get("source_hash", "")
-        stored_version = sync_meta.get("uploaded_version", 0)
-        stored_image_hashes = sync_meta.get("images", {})
+    # Get labels from remote
+    labels = confluence_api.get_page_labels(page_id)
+    if labels:
+        front_matter["labels"] = labels
+    elif "labels" in front_matter:
+        del front_matter["labels"]
 
-        content_changed = local_hash != stored_hash
-        images_changed = check_images_changed(filepath, body_only, stored_image_hashes)
-        local_changed = content_changed or images_changed
-        remote_changed = remote_version != stored_version
-    else:
-        stored_version = 0
-        stored_image_hashes = {}
-        local_changed = True
-        remote_changed = False
+    new_content = write_front_matter(front_matter, md_content)
+    filepath.write_text(new_content, encoding="utf-8")
 
-    # Handle --status
-    if status:
-        print(f"Page ID: {page_id}")
-        print(f"File: {filepath}")
-        print(f"Remote version: {remote_version}")
-        if sync_meta:
-            print(f"Last synced version: {sync_meta.get('uploaded_version', 'N/A')}")
-            print(f"Last synced: {sync_meta.get('uploaded_at', 'N/A')}")
-            print(f"Local changed: {'Yes' if local_changed else 'No'}")
-            print(f"Remote changed: {'Yes' if remote_changed else 'No'}")
-            if local_changed and remote_changed:
-                print("Status: CONFLICT (both changed)")
-            elif local_changed:
-                print("Status: Local ahead")
-            elif remote_changed:
-                print("Status: Remote ahead")
-            else:
-                print("Status: In sync")
-        else:
-            print("Status: No sync metadata")
-        return True
+    new_hash = hashlib.sha256(md_content.encode()).hexdigest()
+    set_sync_property(
+        page_id,
+        {
+            "source_hash": new_hash,
+            "uploaded_at": datetime.now(timezone.utc).isoformat(),
+            "uploaded_version": remote_version,
+            "source_file": str(filepath),
+        },
+    )
+    print(f"Pulled version {remote_version} to {filepath}")
 
-    # Handle --diff
-    if diff:
-        remote_compare = remote_body if raw else storage_to_markdown(remote_body)
-        local_lines = body_only.splitlines(keepends=True)
-        remote_lines = remote_compare.splitlines(keepends=True)
 
-        diff_lines = list(
-            difflib.unified_diff(
-                remote_lines,
-                local_lines,
-                fromfile=f"remote (v{remote_version})",
-                tofile=f"local ({filepath})",
-            )
-        )
+def _push_page(
+    filepath: Path,
+    page_id: str,
+    page: dict,
+    front_matter: dict,
+    body_only: str,
+    sync_meta: dict | None,
+    local_hash: str,
+    local_changed: bool,
+    remote_changed: bool,
+    stored_version: int,
+    stored_image_hashes: dict[str, str],
+    title_override: str | None,
+    force: bool,
+    raw: bool,
+    renderers: list[str] | None,
+    mirror_parent_id: str | None,
+    name_prefix: str,
+) -> bool:
+    """Push local content to Confluence for `wiki put` (the default action)."""
+    remote_version = page["version"]["number"]
+    current_title = page["title"]
 
-        if diff_lines:
-            print(f"Diff for {filepath}:")
-            print("".join(diff_lines))
-        else:
-            print(f"{filepath}: no content differences")
-        return True
-
-    # Handle --pull
-    if pull:
-        download_images(page_id, filepath)
-        md_content = remote_body if raw else storage_to_markdown(remote_body)
-
-        # Sync properties from remote
-        front_matter["confluence"] = int(page_id)
-        front_matter["title"] = current_title
-        front_matter["space"] = page["space"]["key"]
-        folder_path = _build_folder_path(page.get("ancestors", []))
-        if folder_path:
-            front_matter["folder"] = folder_path
-        elif "folder" in front_matter:
-            del front_matter["folder"]
-
-        # Get labels from remote
-        labels = confluence_api.get_page_labels(page_id)
-        if labels:
-            front_matter["labels"] = labels
-        elif "labels" in front_matter:
-            del front_matter["labels"]
-
-        new_content = write_front_matter(front_matter, md_content)
-        filepath.write_text(new_content, encoding="utf-8")
-
-        new_hash = hashlib.sha256(md_content.encode()).hexdigest()
-        set_sync_property(
-            page_id,
-            {
-                "source_hash": new_hash,
-                "uploaded_at": datetime.now(timezone.utc).isoformat(),
-                "uploaded_version": remote_version,
-                "source_file": str(filepath),
-            },
-        )
-        print(f"Pulled version {remote_version} to {filepath}")
-        return True
-
-    # Handle push (default)
     if not force and sync_meta and local_changed and remote_changed:
         print(f"Conflict in {filepath}: local and remote both changed", file=sys.stderr)
         print(
@@ -1183,6 +1139,116 @@ def _put_one_file(
         msg += " [" + ", ".join(property_changes) + "]"
     print(msg)
     return True
+
+
+def _put_one_file(
+    filepath: Path,
+    page_id_override: str | None,
+    title_override: str | None,
+    pull: bool,
+    force: bool,
+    status: bool,
+    diff: bool = False,
+    renderers: list[str] | None = None,
+    mirror_parent_id: str | None = None,
+    name_prefix: str = "",
+    raw: bool = False,
+) -> bool:
+    """Process a single markdown file for wiki put.
+
+    Fetches the remote page and its sync state, then dispatches to
+    whichever of --status/--diff/--pull/(default push) was requested.
+
+    Args:
+        filepath: Path to markdown file
+        page_id_override: Override page ID from -p flag
+        title_override: Override title from -t flag
+        pull: Pull remote changes instead of pushing
+        force: Force overwrite on conflict
+        status: Just show sync status
+        diff: Just show diff
+        renderers: Diagram renderers
+        mirror_parent_id: Parent folder ID for mirror mode
+        name_prefix: Prefix for folder names in mirror mode
+        raw: Treat file content as literal Confluence storage format (skip markdown conversion)
+
+    Returns:
+        True if successful, False otherwise
+    """
+    if not filepath.exists():
+        print(f"Error: File not found: {filepath}", file=sys.stderr)
+        return False
+
+    body_content = filepath.read_text(encoding="utf-8")
+    if not body_content.strip():
+        print(f"Error: File is empty: {filepath}", file=sys.stderr)
+        return False
+
+    # Parse front matter
+    front_matter, body_only = parse_front_matter(body_content)
+    page_id = page_id_override or (
+        str(front_matter["confluence"]) if front_matter.get("confluence") else None
+    )
+
+    if not page_id:
+        print(f"Skipping {filepath}: no 'confluence:' in front matter", file=sys.stderr)
+        return False
+
+    # Get current page
+    page = confluence_api.fetch_page(
+        page_id, expand="version,body.storage,space,ancestors"
+    )
+
+    if not page:
+        print(f"Error fetching page {page_id}", file=sys.stderr)
+        return False
+
+    remote_version = page["version"]["number"]
+
+    # Get sync metadata and compare against local file/image state
+    sync_meta = get_sync_property(page_id)
+    sync_state = compute_sync_state(filepath, body_only, remote_version, sync_meta)
+
+    if status:
+        _print_sync_status(
+            page_id,
+            filepath,
+            remote_version,
+            sync_meta,
+            sync_state.local_changed,
+            sync_state.remote_changed,
+        )
+        return True
+
+    if diff:
+        _show_diff(
+            filepath, page["body"]["storage"]["value"], body_only, remote_version, raw
+        )
+        return True
+
+    if pull:
+        _pull_page(filepath, page_id, page, front_matter, raw)
+        return True
+
+    return _push_page(
+        filepath,
+        page_id,
+        page,
+        front_matter,
+        body_only,
+        sync_meta,
+        sync_state.local_hash,
+        sync_state.local_changed,
+        sync_state.remote_changed,
+        sync_state.stored_version,
+        sync_state.stored_image_hashes,
+        title_override,
+        force,
+        raw,
+        renderers,
+        mirror_parent_id,
+        name_prefix,
+    )
 
 
 def _parse_renderers(value: str | None) -> list[str] | None:
@@ -1634,6 +1700,55 @@ def check_images_changed(
             return True
 
     return False
+
+
+@dataclass
+class SyncState:
+    """Comparison of a local file's content against its last-synced state.
+
+    Pure given its inputs: computed entirely from the already-fetched
+    remote_version and sync_meta plus local file reads (for image
+    hashing) -- it makes no Confluence API calls itself.
+    """
+
+    local_hash: str
+    local_changed: bool
+    remote_changed: bool
+    stored_version: int
+    stored_image_hashes: dict[str, str] = field(default_factory=dict)
+
+
+def compute_sync_state(
+    filepath: Path,
+    body_only: str,
+    remote_version: int,
+    sync_meta: dict | None,
+) -> SyncState:
+    """Compare local file content/images against the last-recorded sync state."""
+    local_hash = hashlib.sha256(body_only.encode()).hexdigest()
+
+    if sync_meta:
+        stored_hash = sync_meta.get("source_hash", "")
+        stored_version = sync_meta.get("uploaded_version", 0)
+        stored_image_hashes = sync_meta.get("images", {})
+
+        content_changed = local_hash != stored_hash
+        images_changed = check_images_changed(filepath, body_only, stored_image_hashes)
+        local_changed = content_changed or images_changed
+        remote_changed = remote_version != stored_version
+    else:
+        stored_version = 0
+        stored_image_hashes = {}
+        local_changed = True
+        remote_changed = False
+
+    return SyncState(
+        local_hash=local_hash,
+        local_changed=local_changed,
+        remote_changed=remote_changed,
+        stored_version=stored_version,
+        stored_image_hashes=stored_image_hashes,
+    )
 
 
 def sync_images(

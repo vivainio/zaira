@@ -13,8 +13,8 @@ from zaira.atlassian_auth import confluence_base_url, resolve_cloud_id
 from zaira.errors import ResourceFetchFailed
 from zaira.jira_client import (
     get_or_detect_auth_mode,
-    load_credentials,
     get_server_from_config,
+    load_credentials,
 )
 
 REQUEST_TIMEOUT_SECONDS = 30
@@ -52,6 +52,46 @@ def _get_auth() -> tuple[str, HTTPBasicAuth]:
     return base_url, auth
 
 
+def _request(
+    method: str,
+    path: str,
+    *,
+    params: dict[str, Any] | None = None,
+    json_body: Any = None,
+    headers: dict[str, str] | None = None,
+    files: dict[str, Any] | None = None,
+) -> requests.Response:
+    """Make an authenticated Confluence REST API request.
+
+    Centralizes auth resolution and the request timeout shared by every
+    Confluence API call below. Deliberately a thin wrapper around the
+    requests.get/post/put/delete module functions (rather than a
+    requests.Session) so tests that patch those functions directly keep
+    working unchanged.
+    """
+    base_url, auth = _get_auth()
+    url = f"{base_url}{path}"
+    kwargs: dict[str, Any] = {"auth": auth, "timeout": REQUEST_TIMEOUT_SECONDS}
+    if params is not None:
+        kwargs["params"] = params
+    if json_body is not None:
+        kwargs["json"] = json_body
+    if headers is not None:
+        kwargs["headers"] = headers
+    if files is not None:
+        kwargs["files"] = files
+
+    if method == "GET":
+        return requests.get(url, **kwargs)
+    if method == "POST":
+        return requests.post(url, **kwargs)
+    if method == "PUT":
+        return requests.put(url, **kwargs)
+    if method == "DELETE":
+        return requests.delete(url, **kwargs)
+    raise ValueError(f"Unsupported HTTP method: {method}")
+
+
 def fetch_page(page_id: str, expand: str = "") -> dict | None:
     """Fetch a Confluence page by ID.
 
@@ -65,14 +105,8 @@ def fetch_page(page_id: str, expand: str = "") -> dict | None:
     if "fetch_page" in _api_overrides:
         return _api_overrides["fetch_page"](page_id, expand)
 
-    base_url, auth = _get_auth()
     params = {"expand": expand} if expand else {}
-    r = requests.get(
-        f"{base_url}/content/{page_id}",
-        params=params,
-        auth=auth,
-        timeout=REQUEST_TIMEOUT_SECONDS,
-    )
+    r = _request("GET", f"/content/{page_id}", params=params)
     if not r.ok:
         return None
     return r.json()
@@ -98,7 +132,6 @@ def create_page(
     if "create_page" in _api_overrides:
         return _api_overrides["create_page"](space_key, title, body, parent_id)
 
-    base_url, auth = _get_auth()
     payload: dict[str, Any] = {
         "type": "page",
         "title": title,
@@ -113,12 +146,7 @@ def create_page(
     if parent_id:
         payload["ancestors"] = [{"id": parent_id}]
 
-    r = requests.post(
-        f"{base_url}/content",
-        json=payload,
-        auth=auth,
-        timeout=REQUEST_TIMEOUT_SECONDS,
-    )
+    r = _request("POST", "/content", json_body=payload)
     if not r.ok:
         return None
     return r.json()
@@ -146,19 +174,13 @@ def update_page(
     if "update_page" in _api_overrides:
         return _api_overrides["update_page"](page_id, title, body, version, page_type)
 
-    base_url, auth = _get_auth()
     payload = {
         "version": {"number": version + 1},
         "title": title,
         "type": page_type,
         "body": {"storage": {"value": body, "representation": "storage"}},
     }
-    r = requests.put(
-        f"{base_url}/content/{page_id}",
-        json=payload,
-        auth=auth,
-        timeout=REQUEST_TIMEOUT_SECONDS,
-    )
+    r = _request("PUT", f"/content/{page_id}", json_body=payload)
     if not r.ok:
         return None
     return r.json()
@@ -190,7 +212,6 @@ def update_page_properties(
             page_id, version, page_type, title, space_key, parent_id
         )
 
-    base_url, auth = _get_auth()
     payload: dict[str, Any] = {
         "version": {"number": version + 1},
         "type": page_type,
@@ -201,12 +222,7 @@ def update_page_properties(
     if parent_id:
         payload["ancestors"] = [{"id": parent_id}]
 
-    r = requests.put(
-        f"{base_url}/content/{page_id}",
-        json=payload,
-        auth=auth,
-        timeout=REQUEST_TIMEOUT_SECONDS,
-    )
+    r = _request("PUT", f"/content/{page_id}", json_body=payload)
     if not r.ok:
         return None
     return r.json()
@@ -224,12 +240,7 @@ def delete_page(page_id: str) -> bool:
     if "delete_page" in _api_overrides:
         return _api_overrides["delete_page"](page_id)
 
-    base_url, auth = _get_auth()
-    r = requests.delete(
-        f"{base_url}/content/{page_id}",
-        auth=auth,
-        timeout=REQUEST_TIMEOUT_SECONDS,
-    )
+    r = _request("DELETE", f"/content/{page_id}")
     return r.ok
 
 
@@ -246,13 +257,7 @@ def get_child_pages(page_id: str, limit: int = 100) -> list[dict]:
     if "get_child_pages" in _api_overrides:
         return _api_overrides["get_child_pages"](page_id, limit)
 
-    base_url, auth = _get_auth()
-    r = requests.get(
-        f"{base_url}/content/{page_id}/child/page",
-        params={"limit": limit},
-        auth=auth,
-        timeout=REQUEST_TIMEOUT_SECONDS,
-    )
+    r = _request("GET", f"/content/{page_id}/child/page", params={"limit": limit})
     if not r.ok:
         return []
     return r.json().get("results", [])
@@ -278,16 +283,10 @@ def search_pages(cql: str, limit: int = 25, expand: str = "") -> dict:
     if "search_pages" in _api_overrides:
         return _api_overrides["search_pages"](cql, limit, expand)
 
-    base_url, auth = _get_auth()
     params: dict[str, Any] = {"cql": cql, "limit": limit}
     if expand:
         params["expand"] = expand
-    r = requests.get(
-        f"{base_url}/content/search",
-        params=params,
-        auth=auth,
-        timeout=REQUEST_TIMEOUT_SECONDS,
-    )
+    r = _request("GET", "/content/search", params=params)
     if not r.ok:
         return {"results": [], "error": f"{r.status_code} - {r.reason}", "text": r.text}
 
@@ -306,12 +305,7 @@ def get_page_labels(page_id: str) -> list[str]:
     if "get_page_labels" in _api_overrides:
         return _api_overrides["get_page_labels"](page_id)
 
-    base_url, auth = _get_auth()
-    r = requests.get(
-        f"{base_url}/content/{page_id}/label",
-        auth=auth,
-        timeout=REQUEST_TIMEOUT_SECONDS,
-    )
+    r = _request("GET", f"/content/{page_id}/label")
     if not r.ok:
         return []
     return [lbl["name"] for lbl in r.json().get("results", [])]
@@ -333,12 +327,8 @@ def add_page_labels(page_id: str, labels: list[str]) -> bool:
     if not labels:
         return True
 
-    base_url, auth = _get_auth()
-    r = requests.post(
-        f"{base_url}/content/{page_id}/label",
-        json=[{"name": lbl} for lbl in labels],
-        auth=auth,
-        timeout=REQUEST_TIMEOUT_SECONDS,
+    r = _request(
+        "POST", f"/content/{page_id}/label", json_body=[{"name": lbl} for lbl in labels]
     )
     return r.ok
 
@@ -356,12 +346,7 @@ def remove_page_label(page_id: str, label: str) -> bool:
     if "remove_page_label" in _api_overrides:
         return _api_overrides["remove_page_label"](page_id, label)
 
-    base_url, auth = _get_auth()
-    r = requests.delete(
-        f"{base_url}/content/{page_id}/label/{label}",
-        auth=auth,
-        timeout=REQUEST_TIMEOUT_SECONDS,
-    )
+    r = _request("DELETE", f"/content/{page_id}/label/{label}")
     return r.ok
 
 
@@ -406,14 +391,8 @@ def get_attachments(page_id: str, expand: str = "") -> dict:
     if "get_attachments" in _api_overrides:
         return _api_overrides["get_attachments"](page_id, expand)
 
-    base_url, auth = _get_auth()
     params = {"expand": expand} if expand else {}
-    r = requests.get(
-        f"{base_url}/content/{page_id}/child/attachment",
-        params=params,
-        auth=auth,
-        timeout=REQUEST_TIMEOUT_SECONDS,
-    )
+    r = _request("GET", f"/content/{page_id}/child/attachment", params=params)
     if not r.ok:
         return {"results": []}
     return r.json()
@@ -437,17 +416,15 @@ def upload_attachment(
     if "upload_attachment" in _api_overrides:
         return _api_overrides["upload_attachment"](page_id, file_path, filename)
 
-    base_url, auth = _get_auth()
     name = filename or file_path.name
     headers = {"X-Atlassian-Token": "nocheck"}
 
     with open(file_path, "rb") as f:
-        r = requests.post(
-            f"{base_url}/content/{page_id}/child/attachment",
+        r = _request(
+            "POST",
+            f"/content/{page_id}/child/attachment",
             files={"file": (name, f)},
             headers=headers,
-            auth=auth,
-            timeout=REQUEST_TIMEOUT_SECONDS,
         )
 
     if not r.ok:
@@ -481,17 +458,15 @@ def update_attachment(
             page_id, attachment_id, file_path, filename
         )
 
-    base_url, auth = _get_auth()
     name = filename or file_path.name
     headers = {"X-Atlassian-Token": "nocheck"}
 
     with open(file_path, "rb") as f:
-        r = requests.post(
-            f"{base_url}/content/{page_id}/child/attachment/{attachment_id}/data",
+        r = _request(
+            "POST",
+            f"/content/{page_id}/child/attachment/{attachment_id}/data",
             files={"file": (name, f)},
             headers=headers,
-            auth=auth,
-            timeout=REQUEST_TIMEOUT_SECONDS,
         )
 
     if not r.ok:
@@ -546,12 +521,7 @@ def get_page_property(page_id: str, key: str) -> dict | None:
     if "get_page_property" in _api_overrides:
         return _api_overrides["get_page_property"](page_id, key)
 
-    base_url, auth = _get_auth()
-    r = requests.get(
-        f"{base_url}/content/{page_id}/property/{key}",
-        auth=auth,
-        timeout=REQUEST_TIMEOUT_SECONDS,
-    )
+    r = _request("GET", f"/content/{page_id}/property/{key}")
     if not r.ok:
         return None
     return r.json()
@@ -571,34 +541,30 @@ def set_page_property(page_id: str, key: str, value: dict) -> bool:
     if "set_page_property" in _api_overrides:
         return _api_overrides["set_page_property"](page_id, key, value)
 
-    base_url, auth = _get_auth()
-
     # Check if property exists
     existing = get_page_property(page_id, key)
 
     if existing:
         # Update existing property
         prop_version = existing["version"]["number"]
-        r = requests.put(
-            f"{base_url}/content/{page_id}/property/{key}",
-            json={
+        r = _request(
+            "PUT",
+            f"/content/{page_id}/property/{key}",
+            json_body={
                 "key": key,
                 "value": value,
                 "version": {"number": prop_version + 1},
             },
-            auth=auth,
-            timeout=REQUEST_TIMEOUT_SECONDS,
         )
     else:
         # Create new property
-        r = requests.post(
-            f"{base_url}/content/{page_id}/property",
-            json={
+        r = _request(
+            "POST",
+            f"/content/{page_id}/property",
+            json_body={
                 "key": key,
                 "value": value,
             },
-            auth=auth,
-            timeout=REQUEST_TIMEOUT_SECONDS,
         )
 
     return r.ok
@@ -617,17 +583,15 @@ def get_space_root_pages(space_key: str, limit: int = 100) -> list[dict]:
     if "get_space_root_pages" in _api_overrides:
         return _api_overrides["get_space_root_pages"](space_key, limit)
 
-    base_url, auth = _get_auth()
-    r = requests.get(
-        f"{base_url}/content",
+    r = _request(
+        "GET",
+        "/content",
         params={
             "spaceKey": space_key,
             "depth": "root",
             "limit": limit,
             "expand": "version",
         },
-        auth=auth,
-        timeout=REQUEST_TIMEOUT_SECONDS,
     )
     if not r.ok:
         return []
@@ -665,16 +629,14 @@ def _fetch_space_root_folders(space_key: str, limit: int = 100) -> list[dict]:
     space legitimately having no folders. Does not consult _api_overrides --
     callers wanting test-injected results should use get_space_root_folders.
     """
-    base_url, auth = _get_auth()
-    r = requests.get(
-        f"{base_url}/content/search",
+    r = _request(
+        "GET",
+        "/content/search",
         params={
             "cql": f'space="{space_key}" AND type=folder',
             "limit": limit,
             "expand": "ancestors",
         },
-        auth=auth,
-        timeout=REQUEST_TIMEOUT_SECONDS,
     )
     if not r.ok:
         raise ResourceFetchFailed(
@@ -720,13 +682,7 @@ def _fetch_child_folders(content_id: str, limit: int = 100) -> list[dict]:
     _api_overrides -- callers wanting test-injected results should use
     get_child_folders.
     """
-    base_url, auth = _get_auth()
-    r = requests.get(
-        f"{base_url}/content/{content_id}/child/folder",
-        params={"limit": limit},
-        auth=auth,
-        timeout=REQUEST_TIMEOUT_SECONDS,
-    )
+    r = _request("GET", f"/content/{content_id}/child/folder", params={"limit": limit})
     if not r.ok:
         raise ResourceFetchFailed(
             f"could not list child folders of {content_id}: {r.status_code} - {r.reason}"
@@ -752,7 +708,6 @@ def create_folder(
     if "create_folder" in _api_overrides:
         return _api_overrides["create_folder"](space_key, title, parent_id)
 
-    base_url, auth = _get_auth()
     payload: dict[str, Any] = {
         "type": "folder",
         "title": title,
@@ -761,12 +716,7 @@ def create_folder(
     if parent_id:
         payload["ancestors"] = [{"id": parent_id}]
 
-    r = requests.post(
-        f"{base_url}/content",
-        json=payload,
-        auth=auth,
-        timeout=REQUEST_TIMEOUT_SECONDS,
-    )
+    r = _request("POST", "/content", json_body=payload)
     if not r.ok:
         return None
     return r.json()

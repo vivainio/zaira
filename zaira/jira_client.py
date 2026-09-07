@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import cast
 
 import keyring
-from keyring.errors import PasswordDeleteError
 from jira import JIRA
+from keyring.errors import PasswordDeleteError
 from platformdirs import user_cache_dir, user_config_dir
 
 from zaira import wincred

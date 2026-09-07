@@ -116,18 +116,16 @@ def get_command(args: argparse.Namespace) -> None:
                 }
                 for future in as_completed(futures):
                     result = future.result()
-                    if result is not False:
+                    if result.status == "success":
                         success += 1
-                        if isinstance(result, list):
-                            all_pending.extend(result)
+                        all_pending.extend(result.pending_attachments)
         else:
             success = 0
             for key in keys:
                 result = export_ticket(key, output_dir, **export_kwargs)
-                if result is not False:
+                if result.status == "success":
                     success += 1
-                    if isinstance(result, list):
-                        all_pending.extend(result)
+                    all_pending.extend(result.pending_attachments)
 
         if all_pending:
             print(f"\nDownloading {len(all_pending)} attachment(s)...")

@@ -1,23 +1,23 @@
 """Tests for report module."""
 
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from zaira.types import ParentIssue, ReportTicket
 from zaira.report import (
     _group_tickets_by,
-    humanize_age,
+    generate_csv_report,
     generate_front_matter,
+    generate_json_report,
     generate_report,
     generate_table,
-    generate_json_report,
-    generate_csv_report,
-    search_tickets,
     get_ticket_dates,
+    humanize_age,
+    search_tickets,
 )
+from zaira.types import ParentIssue, ReportTicket
 
 
 class TestGroupTicketsBy:
@@ -541,8 +541,9 @@ class TestGenerateDashboardReport:
 
     def test_handles_dashboard_with_no_jql_gadgets(self, mock_jira) -> None:
         """Handles dashboard with no JQL gadgets."""
-        from zaira.report import generate_dashboard_report
         from unittest.mock import MagicMock
+
+        from zaira.report import generate_dashboard_report
 
         mock_dashboard = MagicMock()
         mock_dashboard.name = "Test Dashboard"
@@ -559,8 +560,9 @@ class TestGenerateDashboardReport:
 
     def test_generates_report_with_gadgets(self, mock_jira) -> None:
         """Generates full report from dashboard gadgets."""
-        from zaira.report import generate_dashboard_report
         from unittest.mock import MagicMock
+
+        from zaira.report import generate_dashboard_report
 
         mock_dashboard = MagicMock()
         mock_dashboard.name = "My Dashboard"
@@ -599,8 +601,9 @@ class TestGenerateDashboardReport:
 
     def test_handles_grouping(self, mock_jira) -> None:
         """Generates grouped report from dashboard."""
-        from zaira.report import generate_dashboard_report
         from unittest.mock import MagicMock
+
+        from zaira.report import generate_dashboard_report
 
         mock_dashboard = MagicMock()
         mock_dashboard.name = "Grouped Dashboard"
@@ -650,8 +653,9 @@ class TestReportCommand:
 
     def test_lists_reports_when_no_args(self, mock_jira, capsys) -> None:
         """Lists available reports when no arguments given."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         args = argparse.Namespace(
             name=None,
@@ -683,8 +687,9 @@ class TestReportCommand:
 
     def test_exits_when_no_reports_defined(self, mock_jira, capsys) -> None:
         """Exits with message when no reports defined."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         args = argparse.Namespace(
             name=None,
@@ -710,8 +715,9 @@ class TestReportCommand:
 
     def test_generates_report_with_jql(self, mock_jira, capsys, tmp_path) -> None:
         """Generates report from JQL query."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         args = argparse.Namespace(
             name=None,
@@ -747,8 +753,9 @@ class TestReportCommand:
 
     def test_exits_when_no_tickets_found(self, mock_jira, capsys) -> None:
         """Exits with message when no tickets found."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         args = argparse.Namespace(
             name=None,
@@ -776,9 +783,10 @@ class TestReportCommand:
 
     def test_generates_json_format(self, mock_jira, capsys) -> None:
         """Generates JSON format report."""
-        from zaira.report import report_command
         import argparse
         import json
+
+        from zaira.report import report_command
 
         args = argparse.Namespace(
             name=None,
@@ -808,8 +816,9 @@ class TestReportCommand:
 
     def test_generates_csv_format(self, mock_jira, capsys) -> None:
         """Generates CSV format report."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         args = argparse.Namespace(
             name=None,
@@ -849,8 +858,9 @@ class TestReportCommand:
 
     def test_uses_named_query(self, mock_jira, capsys) -> None:
         """Uses named query from project config."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         args = argparse.Namespace(
             name=None,
@@ -888,8 +898,9 @@ class TestReportCommand:
 
     def test_exits_when_query_not_found(self, mock_jira, capsys) -> None:
         """Exits when named query not found."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         args = argparse.Namespace(
             name=None,
@@ -915,8 +926,9 @@ class TestReportCommand:
 
     def test_uses_board_jql(self, mock_jira, capsys) -> None:
         """Uses board ID to generate JQL."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         args = argparse.Namespace(
             name=None,
@@ -954,8 +966,9 @@ class TestReportCommand:
 
     def test_uses_sprint_jql(self, mock_jira, capsys) -> None:
         """Uses sprint ID to generate JQL."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         args = argparse.Namespace(
             name=None,
@@ -993,8 +1006,9 @@ class TestReportCommand:
 
     def test_adds_label_filter(self, mock_jira, capsys) -> None:
         """Adds label filter to JQL."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         args = argparse.Namespace(
             name=None,
@@ -1031,8 +1045,9 @@ class TestReportCommand:
 
     def test_saves_to_file(self, mock_jira, tmp_path) -> None:
         """Saves report to file."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         output_file = tmp_path / "report.md"
         args = argparse.Namespace(
@@ -1070,8 +1085,9 @@ class TestReportCommand:
 
     def test_exits_when_no_jql_source(self, mock_jira, capsys) -> None:
         """Exits when no JQL source provided."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         # Named report that has no JQL source in its definition
         args = argparse.Namespace(
@@ -1107,8 +1123,9 @@ class TestReportCommand:
 
     def test_handles_dashboard_report(self, mock_jira, capsys) -> None:
         """Handles dashboard report generation."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         args = argparse.Namespace(
             name=None,
@@ -1141,8 +1158,9 @@ class TestReportCommand:
 
     def test_handles_dashboard_url(self, mock_jira, capsys) -> None:
         """Extracts dashboard ID from URL."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         args = argparse.Namespace(
             name=None,
@@ -1174,8 +1192,9 @@ class TestReportCommand:
 
     def test_exits_when_dashboard_not_found(self, mock_jira, capsys) -> None:
         """Exits when dashboard not found."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         args = argparse.Namespace(
             name=None,
@@ -1201,8 +1220,9 @@ class TestReportCommand:
 
     def test_uses_named_report(self, mock_jira, capsys) -> None:
         """Uses named report from project config."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         args = argparse.Namespace(
             name="my-report",
@@ -1244,8 +1264,9 @@ class TestReportCommand:
         self, mock_jira, tmp_path, monkeypatch
     ) -> None:
         """Named report output path from zproject.toml is used."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         monkeypatch.chdir(tmp_path)
         (tmp_path / "zproject.toml").write_text("")
@@ -1292,8 +1313,9 @@ class TestReportCommand:
         self, mock_jira, tmp_path, monkeypatch
     ) -> None:
         """CLI -o flag takes precedence over report def output."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         monkeypatch.chdir(tmp_path)
         (tmp_path / "zproject.toml").write_text("")
@@ -1336,8 +1358,9 @@ class TestReportCommand:
 
     def test_exits_when_named_report_not_found(self, mock_jira, capsys) -> None:
         """Exits when named report not found."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         args = argparse.Namespace(
             name="nonexistent",
@@ -1364,8 +1387,9 @@ class TestReportCommand:
 
     def test_uses_board_name_from_config(self, mock_jira, capsys) -> None:
         """Resolves board name from project config."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         args = argparse.Namespace(
             name=None,
@@ -1405,8 +1429,9 @@ class TestReportCommand:
 
     def test_exits_when_board_not_found(self, mock_jira, capsys) -> None:
         """Exits when board name not found in config."""
-        from zaira.report import report_command
         import argparse
+
+        from zaira.report import report_command
 
         args = argparse.Namespace(
             name=None,

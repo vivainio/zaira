@@ -139,8 +139,8 @@ def _parse_transition_fields(key: str, project: str, field_args: list[str]) -> d
     if not field_args:
         return {}
     from zaira.edit import parse_field_args
-    from zaira.jira_client import get_jira
     from zaira.info import ensure_editmeta
+    from zaira.jira_client import get_jira
 
     jira = get_jira()
     issue = jira.issue(key, fields="issuetype")
@@ -226,11 +226,11 @@ def transition_command(args: argparse.Namespace) -> None:
 
     # Validate against rules.yaml before transitioning
     if not getattr(args, "no_check", False):
+        from zaira.export import get_ticket
         from zaira.rules import (
             try_load_rules,
             validate_transition,
         )
-        from zaira.export import get_ticket
 
         all_rules = try_load_rules()
         violations = []

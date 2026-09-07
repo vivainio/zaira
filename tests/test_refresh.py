@@ -6,10 +6,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from zaira.refresh import (
-    parse_front_matter,
     extract_ticket_keys,
     find_ticket_file,
     get_local_synced_time,
+    parse_front_matter,
     ticket_needs_export,
 )
 

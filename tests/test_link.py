@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from zaira.link import get_link_types, create_link, link_command
+from zaira.link import create_link, get_link_types, link_command
 
 
 class TestGetLinkTypes:

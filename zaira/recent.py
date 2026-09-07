@@ -14,7 +14,6 @@ from zaira.jira_client import (
     load_credentials,
 )
 
-
 JIRA_RECENT_JQL = "issuekey in issueHistory() ORDER BY lastViewed DESC"
 
 

@@ -178,9 +178,9 @@ def refresh_command(args: argparse.Namespace) -> None:
 
     # Full refresh: also export tickets
     if getattr(args, "full", False):
-        from zaira.report import search_tickets
         from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
-        from zaira.project import get_query, get_board, get_report
+        from zaira.project import get_board, get_query, get_report
+        from zaira.report import search_tickets
 
         # Re-read front matter after refresh
         front_matter = parse_front_matter(report_path.read_text(encoding="utf-8"))
@@ -232,18 +232,18 @@ def refresh_command(args: argparse.Namespace) -> None:
                 if ticket_file:
                     if force:
                         print(f"  {key}: forcing refresh...")
-                        if export_ticket(key, tickets_dir):
+                        if export_ticket(key, tickets_dir).status == "success":
                             exported += 1
                     elif ticket_needs_export(ticket_file, updated):
                         print(f"  {key}: changed, refreshing...")
-                        if export_ticket(key, tickets_dir):
+                        if export_ticket(key, tickets_dir).status == "success":
                             exported += 1
                     else:
                         print(f"  {key}: unchanged, skipping")
                         skipped += 1
                 else:
                     print(f"  {key}: new, exporting...")
-                    if export_ticket(key, tickets_dir):
+                    if export_ticket(key, tickets_dir).status == "success":
                         exported += 1
 
             print(f"\nExported {exported} tickets, {skipped} unchanged")

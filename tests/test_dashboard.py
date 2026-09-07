@@ -1,16 +1,16 @@
 """Tests for dashboard module."""
 
 from zaira.dashboard import (
-    _get_owner_name,
     _dict_to_dashboard,
     _extract_gadget_type,
+    _get_filter,
+    _get_gadget_config,
+    _get_owner_name,
     generate_dashboard_markdown,
-    get_dashboards,
-    get_my_dashboards,
     get_dashboard,
     get_dashboard_raw,
-    _get_gadget_config,
-    _get_filter,
+    get_dashboards,
+    get_my_dashboards,
 )
 from zaira.types import Dashboard, DashboardGadget
 

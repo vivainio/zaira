@@ -8,18 +8,18 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 from zaira.edit import (
-    read_input,
-    read_file_or_stdin,
+    _format_assignee,
+    _handle_update_error,
+    _parse_number,
+    edit_command,
+    edit_ticket,
+    format_field_value,
+    get_allowed_values,
     map_field,
     parse_field_args,
     parse_yaml_fields,
-    edit_ticket,
-    edit_command,
-    format_field_value,
-    get_allowed_values,
-    _format_assignee,
-    _parse_number,
-    _handle_update_error,
+    read_file_or_stdin,
+    read_input,
 )
 
 

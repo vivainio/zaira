@@ -38,6 +38,7 @@ zaira = "zaira.cli:main"
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",
+    "ruff>=0.16.6",
     "ty==0.0.73",
 ]
 
@@ -69,7 +70,10 @@ include = ["zaira", "tests"]
 allowed-unresolved-imports = ["toon_format"]
 
 [tool.ruff.lint]
-extend-select = ["ANN"]
+# Explicit rather than relying on ruff's own default selection, which has
+# grown broader across ruff versions and would otherwise make `ruff check`
+# non-deterministic across environments/CI runners.
+select = ["E4", "E7", "E9", "F", "I", "ANN"]
 # Dynamic Jira, YAML, and argparse boundaries legitimately require Any.
 ignore = ["ANN401"]
 

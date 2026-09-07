@@ -9,13 +9,13 @@ import pytest
 from zaira.hours import (
     _days_range,
     _workdays_in_range,
-    query_hours,
-    query_ticket_hours,
+    fill_missing,
     format_hours,
     format_ticket_hours,
     format_ticket_hours_csv,
     hours_command,
-    fill_missing,
+    query_hours,
+    query_ticket_hours,
 )
 
 

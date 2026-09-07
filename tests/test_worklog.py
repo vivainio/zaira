@@ -7,15 +7,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from zaira.worklog import (
-    list_worklogs,
-    add_worklog,
-    log_command,
-    spread_hours,
+    _distribute_rounded,
+    _ExistingHours,
+    _parse_spread,
     _parse_time_to_hours,
     _round_half_hour,
-    _distribute_rounded,
-    _parse_spread,
-    _ExistingHours,
+    add_worklog,
+    list_worklogs,
+    log_command,
+    spread_hours,
 )
 
 

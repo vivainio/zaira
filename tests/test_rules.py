@@ -3,14 +3,14 @@
 from pathlib import Path
 from unittest.mock import patch
 
+import zaira.jira_client as jira_client_mod
 from zaira.rules import (
-    check_ticket,
-    validate_transition,
     _find_rules_file,
+    check_ticket,
     load_rules,
+    validate_transition,
 )
 from zaira.types import RulesConfig
-import zaira.jira_client as jira_client_mod
 
 
 def _ticket(**overrides: object) -> dict[str, object]:

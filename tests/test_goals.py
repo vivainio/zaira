@@ -1,8 +1,8 @@
 """Tests for goals module."""
 
 import argparse
-from collections.abc import Iterator
 import json
+from collections.abc import Iterator
 from unittest.mock import MagicMock, patch
 
 import pytest

@@ -1,12 +1,12 @@
 """Tests for comment module."""
 
 import argparse
-from unittest.mock import MagicMock, patch
 import sys
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from zaira.comment import read_body, add_comment, comment_command
+from zaira.comment import add_comment, comment_command, read_body
 
 
 class TestReadBody:

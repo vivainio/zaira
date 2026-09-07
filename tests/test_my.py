@@ -2,8 +2,7 @@
 
 from unittest.mock import MagicMock
 
-
-from zaira.my import search_my_tickets, print_table
+from zaira.my import print_table, search_my_tickets
 from zaira.types import MyTicket
 
 
