@@ -1,7 +1,10 @@
 """Utility functions."""
 
 import difflib
+import os
+import tempfile
 from datetime import datetime, timezone
+from pathlib import Path
 
 
 def fuzzy_match(query: str, choices: list[str], n: int = 5) -> list[str]:
@@ -50,3 +53,26 @@ def humanize_age(iso_timestamp: str | None) -> str:
         return f"{int(years)}y"
     except (ValueError, TypeError):
         return "-"
+
+
+def atomic_write_text(path: Path, content: str, *, encoding: str = "utf-8") -> None:
+    """Write text to `path` atomically.
+
+    Writes to a temporary file in the same directory, then renames it into
+    place. A failure partway through (encoding error, disk full, etc.)
+    leaves the previous contents of `path` untouched instead of a
+    truncated or partially written file, since `path` itself is never
+    opened for writing.
+    """
+    path = Path(path)
+    fd, tmp_name = tempfile.mkstemp(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+    )
+    tmp_path = Path(tmp_name)
+    try:
+        with open(fd, "w", encoding=encoding) as f:
+            f.write(content)
+        os.replace(tmp_path, path)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise

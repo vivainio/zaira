@@ -17,7 +17,7 @@ from zaira.jira_client import (
     get_schema_path,
 )
 from zaira.types import EditmetaFieldDef, EditmetaSchema, ProjectSchema, ZSchema
-from zaira.util import fuzzy_match
+from zaira.util import atomic_write_text, fuzzy_match
 
 T = TypeVar("T")
 
@@ -38,10 +38,11 @@ def load_field_descriptions() -> dict[str, str]:
 def save_field_descriptions(descriptions: dict[str, str]) -> None:
     """Save shared field descriptions."""
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    FIELD_DESCRIPTIONS_FILE.write_text(
+    atomic_write_text(
+        FIELD_DESCRIPTIONS_FILE,
         yaml.dump(
             descriptions, default_flow_style=False, sort_keys=True, allow_unicode=True
-        )
+        ),
     )
 
 
@@ -63,7 +64,9 @@ def save_schema(schema: ZSchema) -> None:
     """Save instance schema to global cache directory."""
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     schema_file = get_schema_path()
-    schema_file.write_text(json.dumps({**schema, "version": SCHEMA_VERSION}, indent=2))
+    atomic_write_text(
+        schema_file, json.dumps({**schema, "version": SCHEMA_VERSION}, indent=2)
+    )
 
 
 def update_schema(key: str, value: dict | list) -> None:
@@ -580,7 +583,9 @@ def _fetch_and_save_editmeta(
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     path = get_editmeta_path(project, issue_type)
-    path.write_text(yaml.dump(editmeta, default_flow_style=False, sort_keys=False))
+    atomic_write_text(
+        path, yaml.dump(editmeta, default_flow_style=False, sort_keys=False)
+    )
     print(
         f"Learned {issue_type} editmeta from {source} ({len(all_fields)} fields)",
         file=sys.stderr,
@@ -714,7 +719,9 @@ def _learn_editmeta_from_file(filepath: str, data: dict) -> None:
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     dest = get_editmeta_path(project, issue_type)
-    dest.write_text(yaml.dump(merged, default_flow_style=False, sort_keys=False))
+    atomic_write_text(
+        dest, yaml.dump(merged, default_flow_style=False, sort_keys=False)
+    )
 
     n_fields = len(incoming_fields)
     print(f"  {filepath} -> {dest.name}  ({n_fields} fields, {project}/{issue_type})")
@@ -804,7 +811,9 @@ def learn_command(args: argparse.Namespace) -> None:
         }
 
         path = get_editmeta_path(project, issue_type)
-        path.write_text(yaml.dump(editmeta, default_flow_style=False, sort_keys=False))
+        atomic_write_text(
+            path, yaml.dump(editmeta, default_flow_style=False, sort_keys=False)
+        )
 
         print(f"  {issue_type}: {len(all_fields)} fields -> {path.name}")
 
