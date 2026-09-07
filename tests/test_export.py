@@ -1176,6 +1176,46 @@ class TestGetComments:
         assert "ADF comment" in result[0].body
 
 
+class TestFetchComments:
+    """Tests for the internal _fetch_comments helper.
+
+    Unlike get_comments(), this distinguishes a failed fetch (raises
+    ResourceFetchFailed) from a ticket that legitimately has no comments
+    (returns []).
+    """
+
+    def test_raises_resource_fetch_failed_on_jira_error(self, mock_jira) -> None:
+        from jira.exceptions import JIRAError
+
+        from zaira.errors import ResourceFetchFailed
+        from zaira.export import _fetch_comments
+
+        mock_jira.issue.side_effect = JIRAError(status_code=500, text="boom")
+
+        with pytest.raises(ResourceFetchFailed):
+            _fetch_comments("TEST-1")
+
+    def test_returns_empty_list_for_ticket_with_no_comments(self, mock_jira) -> None:
+        from zaira.export import _fetch_comments
+
+        mock_issue = MagicMock()
+        mock_issue.fields.comment.comments = []
+        mock_jira.issue.return_value = mock_issue
+
+        assert _fetch_comments("TEST-1") == []
+
+    def test_get_comments_swallows_resource_fetch_failed(self, mock_jira) -> None:
+        """get_comments() is the compatibility adapter: same [] on failure
+        as before this helper existed, preserving CLI behavior."""
+        from jira.exceptions import JIRAError
+
+        from zaira.export import get_comments
+
+        mock_jira.issue.side_effect = JIRAError(status_code=500, text="boom")
+
+        assert get_comments("TEST-1") == []
+
+
 class TestGetLinkedTests:
     """Tests for linked Xray issue discovery."""
 

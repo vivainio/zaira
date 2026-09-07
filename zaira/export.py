@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from zaira.errors import ResourceFetchFailed
 from zaira.info import get_field_custom_type, get_field_name, load_default_fields
 from zaira.jira_client import format_jira_error, get_jira, get_jira_site
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
@@ -338,31 +339,51 @@ def get_ticket(
         return None
 
 
-def get_comments(key: str, raw: bool = False) -> list[Comment]:
-    """Fetch ticket comments."""
+def _fetch_comments(key: str, raw: bool = False) -> list[Comment]:
+    """Fetch and parse ticket comments.
+
+    Raises ResourceFetchFailed if Jira could not be reached or rejected the
+    request, as distinct from the ticket legitimately having no comments.
+    """
+    from jira.exceptions import JIRAError
+
     jira = get_jira()
     try:
         issue = jira.issue(key, fields="comment")
-        comments = issue.fields.comment.comments if issue.fields.comment else []
-        result: list[Comment] = []
-        for c in comments:
-            body = c.body
-            if hasattr(body, "raw"):
-                body = extract_description(body.raw, raw=raw)
-            elif hasattr(body, "__dict__"):
-                body = extract_description(body.__dict__, raw=raw)
-            body_str = body if isinstance(body, str) else str(body)
-            if not raw and is_jira_wiki(body_str):
-                body_str = jira_wiki_to_markdown(body_str)
-            result.append(
-                Comment(
-                    author=c.author.displayName if c.author else "Unknown",
-                    created=_format_timestamp(c.created or ""),
-                    body=body_str,
-                    id=c.id,
-                )
+    except JIRAError as e:
+        raise ResourceFetchFailed(
+            f"could not fetch comments for {key}: {format_jira_error(e)}"
+        ) from e
+    comments = issue.fields.comment.comments if issue.fields.comment else []
+    result: list[Comment] = []
+    for c in comments:
+        body = c.body
+        if hasattr(body, "raw"):
+            body = extract_description(body.raw, raw=raw)
+        elif hasattr(body, "__dict__"):
+            body = extract_description(body.__dict__, raw=raw)
+        body_str = body if isinstance(body, str) else str(body)
+        if not raw and is_jira_wiki(body_str):
+            body_str = jira_wiki_to_markdown(body_str)
+        result.append(
+            Comment(
+                author=c.author.displayName if c.author else "Unknown",
+                created=_format_timestamp(c.created or ""),
+                body=body_str,
+                id=c.id,
             )
-        return result
+        )
+    return result
+
+
+def get_comments(key: str, raw: bool = False) -> list[Comment]:
+    """Fetch ticket comments.
+
+    Returns [] both when the ticket has no comments and when fetching them
+    failed -- see _fetch_comments for the distinction available internally.
+    """
+    try:
+        return _fetch_comments(key, raw)
     except Exception:
         return []
 
