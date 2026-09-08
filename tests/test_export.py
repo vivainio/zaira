@@ -7,13 +7,12 @@ import pytest
 
 from zaira.export import (
     _is_bogus_field_name,
-    _is_na_value,
     extract_custom_field_value,
     extract_description,
-    format_custom_field_value,
     is_placeholder_value,
     normalize_title,
 )
+from zaira.export_fields import _is_na_value, format_custom_field_value
 from zaira.types import Attachment
 
 

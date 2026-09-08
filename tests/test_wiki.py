@@ -707,7 +707,7 @@ class TestSyncImages:
 
     def test_returns_empty_for_no_images(self, tmp_path, mock_confluence) -> None:
         """Returns empty dict when no images in content."""
-        from zaira.wiki import sync_images
+        from zaira.wiki_images import sync_images
 
         md_file = tmp_path / "test.md"
         md_file.write_text("No images")
@@ -719,7 +719,7 @@ class TestSyncImages:
     def test_uploads_new_image(self, tmp_path, mock_confluence, capsys) -> None:
         """Uploads new image and returns hash."""
         from zaira import confluence_api
-        from zaira.wiki import sync_images
+        from zaira.wiki_images import sync_images
 
         # Create markdown file and image
         md_file = tmp_path / "test.md"
@@ -743,7 +743,7 @@ class TestSyncImages:
     def test_updates_existing_image(self, tmp_path, mock_confluence, capsys) -> None:
         """Updates existing attachment when image changed."""
         from zaira import confluence_api
-        from zaira.wiki import sync_images
+        from zaira.wiki_images import sync_images
 
         md_file = tmp_path / "test.md"
         content = "![Alt](./image.png)"
@@ -767,7 +767,8 @@ class TestSyncImages:
     def test_skips_unchanged_image(self, tmp_path, mock_confluence, capsys) -> None:
         """Skips upload when image unchanged."""
         from zaira import confluence_api
-        from zaira.wiki import compute_file_hash, sync_images
+        from zaira.wiki_images import sync_images
+        from zaira.wiki_sync import compute_file_hash
 
         md_file = tmp_path / "test.md"
         content = "![Alt](./image.png)"
@@ -789,7 +790,7 @@ class TestSyncImages:
     def test_warns_for_missing_image(self, tmp_path, mock_confluence, capsys) -> None:
         """Warns when referenced image doesn't exist."""
         from zaira import confluence_api
-        from zaira.wiki import sync_images
+        from zaira.wiki_images import sync_images
 
         md_file = tmp_path / "test.md"
         content = "![Alt](./missing.png)"
@@ -813,7 +814,7 @@ class TestDownloadImages:
     ) -> None:
         """Does nothing when page has no attachments."""
         from zaira import confluence_api
-        from zaira.wiki import download_images
+        from zaira.wiki_images import download_images
 
         md_file = tmp_path / "test.md"
         confluence_api.set_api(
@@ -829,7 +830,7 @@ class TestDownloadImages:
     ) -> None:
         """Downloads image attachments to images directory."""
         from zaira import confluence_api
-        from zaira.wiki import download_images
+        from zaira.wiki_images import download_images
 
         md_file = tmp_path / "test.md"
         confluence_api.set_api(
@@ -857,7 +858,7 @@ class TestDownloadImages:
     ) -> None:
         """Skips non-image file extensions."""
         from zaira import confluence_api
-        from zaira.wiki import download_images
+        from zaira.wiki_images import download_images
 
         md_file = tmp_path / "test.md"
         confluence_api.set_api(
@@ -894,7 +895,7 @@ class TestPrintPageTree:
         confluence_api.set_api("get_child_pages", lambda page_id, limit: [])
 
         with patch(
-            "zaira.wiki.get_server_from_config",
+            "zaira.wiki_remote.get_server_from_config",
             return_value="https://site.atlassian.net",
         ):
             count = _print_page_tree("12345")
@@ -934,7 +935,7 @@ class TestPrintPageTree:
         confluence_api.set_api("get_child_pages", mock_children)
 
         with patch(
-            "zaira.wiki.get_server_from_config",
+            "zaira.wiki_remote.get_server_from_config",
             return_value="https://site.atlassian.net",
         ):
             count = _print_page_tree("12345")
@@ -3543,7 +3544,7 @@ class TestSyncImagesErrors:
     def test_upload_error(self, tmp_path, mock_confluence, capsys) -> None:
         """Handles upload error."""
         from zaira import confluence_api
-        from zaira.wiki import sync_images
+        from zaira.wiki_images import sync_images
 
         md_file = tmp_path / "test.md"
         content = "![Alt](./image.png)"
@@ -5242,11 +5243,11 @@ class TestMirrorPreprocessing:
         # Run put_command — it will preprocess then fail on API calls, so we
         # mock the rest and just check the file was rewritten.
         with (
-            patch("zaira.wiki._put_one_file"),
-            patch("zaira.wiki._create_page_for_file"),
-            patch("zaira.wiki._get_page_info"),
+            patch("zaira.wiki_put._put_one_file"),
+            patch("zaira.wiki_put._create_page_for_file"),
+            patch("zaira.wiki_put._get_page_info"),
             patch(
-                "zaira.wiki._resolve_parent_from_front_matter",
+                "zaira.wiki_put._resolve_parent_from_front_matter",
                 return_value=("parent_id", "ENG"),
             ),
         ):
@@ -5284,11 +5285,11 @@ class TestMirrorPreprocessing:
         )
 
         with (
-            patch("zaira.wiki._put_one_file"),
-            patch("zaira.wiki._create_page_for_file"),
-            patch("zaira.wiki._get_page_info"),
+            patch("zaira.wiki_put._put_one_file"),
+            patch("zaira.wiki_put._create_page_for_file"),
+            patch("zaira.wiki_put._get_page_info"),
             patch(
-                "zaira.wiki._resolve_parent_from_front_matter",
+                "zaira.wiki_put._resolve_parent_from_front_matter",
                 return_value=("pid", "ENG"),
             ),
         ):
@@ -5323,11 +5324,11 @@ class TestMirrorPreprocessing:
         )
 
         with (
-            patch("zaira.wiki._put_one_file"),
-            patch("zaira.wiki._create_page_for_file"),
-            patch("zaira.wiki._get_page_info"),
+            patch("zaira.wiki_put._put_one_file"),
+            patch("zaira.wiki_put._create_page_for_file"),
+            patch("zaira.wiki_put._get_page_info"),
             patch(
-                "zaira.wiki._resolve_parent_from_front_matter",
+                "zaira.wiki_put._resolve_parent_from_front_matter",
                 return_value=("pid", "ENG"),
             ),
         ):
@@ -5364,11 +5365,11 @@ class TestMirrorPreprocessing:
         )
 
         with (
-            patch("zaira.wiki._put_one_file", return_value=True),
-            patch("zaira.wiki._create_page_for_file"),
-            patch("zaira.wiki._get_page_info"),
+            patch("zaira.wiki_put._put_one_file", return_value=True),
+            patch("zaira.wiki_put._create_page_for_file"),
+            patch("zaira.wiki_put._get_page_info"),
             patch(
-                "zaira.wiki._resolve_parent_from_front_matter",
+                "zaira.wiki_put._resolve_parent_from_front_matter",
                 return_value=("pid", "ENG"),
             ),
         ):
@@ -5429,11 +5430,11 @@ class TestMirrorPreprocessing:
         )
 
         with (
-            patch("zaira.wiki._put_one_file"),
-            patch("zaira.wiki._create_page_for_file"),
-            patch("zaira.wiki._get_page_info"),
+            patch("zaira.wiki_put._put_one_file"),
+            patch("zaira.wiki_put._create_page_for_file"),
+            patch("zaira.wiki_put._get_page_info"),
             patch(
-                "zaira.wiki._resolve_parent_from_front_matter",
+                "zaira.wiki_put._resolve_parent_from_front_matter",
                 return_value=("pid", "ENG"),
             ),
         ):
@@ -5474,11 +5475,11 @@ class TestMirrorPreprocessing:
         )
 
         with (
-            patch("zaira.wiki._put_one_file"),
-            patch("zaira.wiki._create_page_for_file"),
-            patch("zaira.wiki._get_page_info"),
+            patch("zaira.wiki_put._put_one_file"),
+            patch("zaira.wiki_put._create_page_for_file"),
+            patch("zaira.wiki_put._get_page_info"),
             patch(
-                "zaira.wiki._resolve_parent_from_front_matter",
+                "zaira.wiki_put._resolve_parent_from_front_matter",
                 return_value=("pid", "ENG"),
             ),
         ):
