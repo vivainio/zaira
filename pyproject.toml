@@ -55,7 +55,7 @@ constraint-dependencies = [
 packages = ["zaira"]
 
 [tool.setuptools.package-data]
-zaira = ["skills/zaira/*"]
+zaira = ["py.typed", "skills/zaira/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
