@@ -199,7 +199,6 @@ class TestTransitionCommand:
         with (
             patch("zaira.transition.get_jira_site", return_value="jira.example.com"),
             patch("zaira.info.ensure_editmeta", return_value=None),
-            patch("zaira.rules.try_load_rules", return_value=None),
         ):
             transition_command(args)
 
@@ -238,7 +237,6 @@ class TestTransitionCommand:
 
         with (
             patch("zaira.transition.get_jira_site", return_value="jira.example.com"),
-            patch("zaira.rules.try_load_rules", return_value=None),
         ):
             transition_command(args)
 
@@ -293,7 +291,6 @@ class TestTransitionCommand:
         with (
             patch("zaira.transition.get_jira_site", return_value="jira.example.com"),
             patch("zaira.info.ensure_editmeta", return_value=None),
-            patch("zaira.rules.try_load_rules", return_value=None),
         ):
             transition_command(args)
 
@@ -306,7 +303,7 @@ class TestTransitionCommand:
     def test_dry_run_skips_local_gates_without_no_check(
         self, mock_jira, capsys
     ) -> None:
-        """--dry-run bypasses the allowed_fields/rules.yaml gates even without --no-check."""
+        """--dry-run bypasses the pre_write/check hook gates even without --no-check."""
         mock_jira.transitions.return_value = [
             {
                 "id": "1",
@@ -340,12 +337,12 @@ class TestTransitionCommand:
             patch("zaira.transition.get_jira_site", return_value="jira.example.com"),
             patch("zaira.info.ensure_editmeta", return_value=None),
             patch(
-                "zaira.rules.load_allowed_fields",
-                side_effect=AssertionError("allowed_fields gate should be skipped"),
+                "zaira.hooks.run_pre_write_hooks",
+                side_effect=AssertionError("pre_write hook gate should be skipped"),
             ),
             patch(
-                "zaira.rules.try_load_rules",
-                side_effect=AssertionError("rules.yaml gate should be skipped"),
+                "zaira.hooks.run_check_hooks",
+                side_effect=AssertionError("check hook gate should be skipped"),
             ),
         ):
             transition_command(args)
@@ -367,7 +364,6 @@ class TestTransitionCommand:
 
         with (
             patch("zaira.transition.get_jira_site", return_value="jira.example.com"),
-            patch("zaira.rules.try_load_rules", return_value=None),
         ):
             transition_command(args)
 
@@ -390,7 +386,6 @@ class TestTransitionCommand:
 
         with (
             patch("zaira.transition.get_jira_site", return_value="jira.example.com"),
-            patch("zaira.rules.try_load_rules", return_value=None),
         ):
             with pytest.raises(SystemExit) as exc_info:
                 transition_command(args)

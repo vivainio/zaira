@@ -1,7 +1,7 @@
 ---
 name: zaira
 description: Access Jira tickets and Confluence wiki pages offline using zaira CLI. Use when user needs to export, report, or refresh Jira tickets; read, create, or update Confluence pages; or mentions "jira", "confluence", "wiki", "zaira", a ticket key like "FOO-123", or a Confluence page URL/link.
-updated: 2026-08-31
+updated: 2026-09-14
 ---
 
 # Zaira - Jira CLI
@@ -60,6 +60,7 @@ zaira boards                                # List boards
 # Create ticket from YAML front matter
 zaira create ticket.md                      # Create from file
 zaira create - --dry-run                    # Preview from stdin
+zaira create ticket.md --no-check           # Skip pre_create hook validation
 
 # Edit ticket fields
 zaira edit FOO-1234 --title "New title"
@@ -72,7 +73,7 @@ zaira edit FOO-1234 --from fields.yaml      # Update from YAML file
 zaira edit FOO-1234 --from -                # Update from stdin YAML
 zaira edit FOO-1234 --field "Description=-" # Read field value from stdin
 zaira edit FOO-1234 --field "Priority=High" --dry-run  # Preview without updating
-zaira edit FOO-1234 --field "Priority=High" --no-check  # Skip field whitelist validation
+zaira edit FOO-1234 --field "Priority=High" --no-check  # Skip pre_write hook validation
 
 # Log work hours
 zaira log FOO-1234 2h                       # Log 2 hours
@@ -107,33 +108,28 @@ zaira transition FOO-1234 Done -F "Resolution=Done"  # Set fields during transit
 zaira transition FOO-1234 Done -c "Comment text"  # Include comment with transition
 zaira transition FOO-1234 Done -F "Resolution=Done" -c "Comment"  # Fields + comment
 zaira transition FOO-1234 Done --dry-run    # Preview; also lists the screen's required fields
-zaira transition FOO-1234 Done --no-check  # Skip rules validation
+zaira transition FOO-1234 Done --no-check  # Skip hook validation
 
 # Activity history (local log of write operations)
 zaira history                               # Last 20 entries
 zaira history -n 50                         # Last 50 entries
 zaira history -k FOO-1234                   # Filter by ticket key
 
-# Rules validation
-zaira check FOO-1234                        # Check ticket against rules.yaml
+# Hooks (arbitrary Python guardrails -- see HOOKS.md)
+zaira check FOO-1234                        # Check ticket against registered CHECK hooks
 zaira check FOO-1234 FOO-5678              # Check multiple tickets
-
-# Rules bundle management
-zaira bundle install skills/jira-process/rules  # Install from local directory
-zaira bundle install https://example.com/bundle.zip  # Install from URL
-zaira bundle update                         # Re-fetch from recorded source
-zaira bundle update --dry-run               # Preview what would change
+zaira hooks                                 # List loaded hook files/packages
 
 # Cache management
 # If zaira behaves unexpectedly or gets out of sync, 'zaira reset' is safe to run at any time.
 # It clears the local cache and zaira will re-fetch fresh data from Jira on next use.
 zaira reset                                 # Clear all cached data (editmeta, schema, field descriptions)
-zaira reset --rules                         # Disable rules bundle (renames rules/ to rules-disabled/)
+zaira reset --hooks                         # Disable local hooks (renames hooks/ to hooks-disabled/)
 
 # Instance metadata (cached locally)
 zaira info statuses                         # List statuses
-zaira info fields                           # List custom fields (filtered by allowed_fields if configured)
-zaira info fields --all                     # Show all fields (bypass allowed_fields filter)
+zaira info fields                           # List custom fields
+zaira info fields --all                     # Show all fields (including standard, non-custom)
 zaira info fields --refresh                 # Refresh from Jira API
 zaira info field Priority "Story Points"    # Look up editmeta for fields (values grouped by project)
 zaira info field components                 # List valid components grouped by project

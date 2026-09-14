@@ -35,6 +35,7 @@ EXPECTED_COMMAND_TREE: dict[str, list[str]] = {
     "get": [],
     "put": [],
     "check": [],
+    "hooks": [],
     "comment": [],
     "log": [],
     "hours": [],
@@ -62,7 +63,6 @@ EXPECTED_COMMAND_TREE: dict[str, list[str]] = {
     "changelog": [],
     "history": [],
     "reset": [],
-    "bundle": ["install", "update"],
     "goals": ["export", "get", "updates"],
     "install-skills": [],
 }

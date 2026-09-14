@@ -629,48 +629,40 @@ def edit_command(args: argparse.Namespace) -> None:
             desc = markdown_to_jira_wiki(desc)
         fields["description"] = desc
 
-    # Check allowed_fields whitelist for raw field names (unless --no-check is set)
-    # This must happen BEFORE mapping field names to IDs
+    # Run "pre_write" hooks (zaira.hooks) against the raw field names/values
+    # (unless --no-check is set). This must happen BEFORE mapping field
+    # names to IDs.
     if not getattr(args, "no_check", False):
-        from zaira.rules import check_field_allowed, load_allowed_fields
+        from zaira.hooks import FieldWriteContext, drain_notes, run_pre_write_hooks
 
-        allowed = load_allowed_fields(project=project)
-        if allowed:
-            field_errors = []
-            # Extract field names from arguments
-            field_args_names = []
-            field_args = getattr(args, "field", None) or []
-            for arg in field_args:
-                if "=" in arg:
-                    name = arg.split("=", 1)[0].strip()
-                    field_args_names.append(name)
+        # Extract field name -> raw value from --field NAME=VALUE args
+        write_fields: dict[str, object] = {}
+        field_args = getattr(args, "field", None) or []
+        for arg in field_args:
+            if "=" in arg:
+                name, _, value = arg.partition("=")
+                write_fields[name.strip()] = value
 
-            # Extract field names from --from file/stdin
-            yaml_field_names = []
-            if from_content is not None:
-                data = yaml.safe_load(from_content)
-                if isinstance(data, dict):
-                    yaml_field_names = list(data.keys())
+        # Extract field name -> value from --from file/stdin
+        if from_content is not None:
+            data = yaml.safe_load(from_content)
+            if isinstance(data, dict):
+                write_fields.update(data)
 
-            # Check all field names against allowed list
-            all_field_names = field_args_names + yaml_field_names
-            for field_name in all_field_names:
-                error = check_field_allowed(field_name, allowed)
-                if error:
-                    field_errors.append(error)
-
-            if field_errors:
-                print("Error: The following fields are not allowed:", file=sys.stderr)
-                for err in field_errors:
-                    field_name = err.field
-                    suggestions = err.suggestions
-                    print(f"  - {field_name}", file=sys.stderr)
-                    if suggestions:
-                        print("    Did you mean:", file=sys.stderr)
-                        for s in suggestions:
-                            print(f"      {s}", file=sys.stderr)
-                print("\nUse --no-check to skip validation.", file=sys.stderr)
-                sys.exit(1)
+        violations = run_pre_write_hooks(
+            FieldWriteContext(
+                project=project, key=key, issue_type=issue_type, fields=write_fields
+            )
+        )
+        for msg in drain_notes():
+            print(f"  NOTE  {msg}")
+        if violations:
+            print("Error: field write blocked:", file=sys.stderr)
+            for v in violations:
+                print(f"  FAIL  {v.check:<11s} {v.field}", file=sys.stderr)
+                print(f"        {v.message}", file=sys.stderr)
+            print("\nUse --no-check to skip validation.", file=sys.stderr)
+            sys.exit(1)
 
     # Handle --field arguments
     field_args = getattr(args, "field", None) or []

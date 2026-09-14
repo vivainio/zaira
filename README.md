@@ -125,6 +125,9 @@ EOF
 
 # Preview without creating
 zaira create ticket.md --dry-run
+
+# Skip pre_create hook validation
+zaira create ticket.md --no-check
 ```
 
 The file format matches exported tickets:
@@ -348,7 +351,7 @@ cat description.md | zaira edit FOO-1234 -F "Description=-"
 # Preview changes without updating
 zaira edit FOO-1234 -F "Priority=High" --dry-run
 
-# Skip allowed_fields validation
+# Skip pre_write hook validation
 zaira edit FOO-1234 -F "CustomField=value" --no-check
 ```
 
@@ -385,34 +388,39 @@ zaira transition FOO-1234 Done --dry-run
 # Add a comment with the transition
 zaira transition FOO-1234 Done --comment "Deployed to prod"
 
-# Skip rules.yaml validation
+# Skip hook validation
 zaira transition FOO-1234 Done --no-check
 ```
 
-### check (experimental)
+### check
 
-Validate tickets against a `rules.yaml` file:
+Validate tickets against your registered `CHECK` hooks (see [HOOKS.md](HOOKS.md)):
 
 ```bash
 zaira check FOO-123
 zaira check FOO-123 FOO-456 FOO-789
-zaira check FOO-123 --rules path/to/rules.yaml
 ```
 
-See [RULES.md](RULES.md) for complete documentation on rules file format, discovery, and all available checks.
-
-**Transition validation:** When `rules.yaml` exists, `zaira transition` automatically checks the target status rules before transitioning. If the ticket fails validation, the transition is blocked:
+**Transition validation:** `zaira transition` automatically runs `CHECK` hooks against the target status before transitioning. If a hook returns a violation, the transition is blocked:
 
 ```
 $ zaira transition FOO-123 Done
-Blocked: FOO-123 fails rules for 'Done':
-  FAIL  required    Resolution
-  FAIL  not_contains Description
+Blocked: FOO-123 fails checks for 'Done':
+  FAIL  hook        Resolution
+        Resolution must be set before Done
 
 Use --no-check to skip validation.
 ```
 
 Use `--no-check` to bypass: `zaira transition FOO-123 Done --no-check`
+
+### hooks
+
+List loaded hook files and hook packages (see [HOOKS.md](HOOKS.md)):
+
+```bash
+zaira hooks
+```
 
 ### link
 
@@ -710,7 +718,7 @@ zaira history --key FOO-123     # Filter by ticket
 
 ### learn
 
-Cache the editable fields for a project or issue (used by `allowed_fields` validation):
+Cache the editable fields for a project or issue (used for field-name/value validation and suggestions):
 
 ```bash
 zaira learn FOO-123             # Learn from a specific issue
@@ -720,27 +728,12 @@ zaira learn fields.yaml         # Import field mappings from a YAML file
 
 ### reset
 
-Clear cached data or disable rules:
+Clear cached data or disable local hooks:
 
 ```bash
 zaira reset                     # Clear all cached schema/editmeta data
-zaira reset --rules             # Disable installed rules bundle (renames rules/ to rules-disabled/)
+zaira reset --hooks             # Disable locally-installed hooks (renames hooks/ to hooks-disabled/)
 ```
-
-### bundle
-
-Install and update rule bundles:
-
-```bash
-zaira bundle install https://example.com/rules.zip
-zaira bundle install /path/to/local/rules.zip
-zaira bundle install https://example.com/rules.zip --dry-run
-
-zaira bundle update             # Re-fetch bundle from recorded source
-zaira bundle update --dry-run
-```
-
-See [RULES.md](RULES.md) for documentation on rule bundle format.
 
 ### info
 

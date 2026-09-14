@@ -30,8 +30,8 @@ Turn JQL or named queries into grouped markdown, JSON, or CSV reports.](https://
 [:lucide-book-open: **Sync Confluence**  
 Mirror local markdown to wiki pages with `zaira wiki put`, images and all.](https://github.com/vivainio/zaira#wiki-put-with-sync)
 
-[:lucide-shield-check: **Validate with rules**  
-Check tickets against `rules.yaml` before transitioning them with `zaira check`.](https://github.com/vivainio/zaira#check-experimental)
+[:lucide-shield-check: **Validate with hooks**  
+Check tickets against Python hooks before transitioning them with `zaira check`.](https://github.com/vivainio/zaira#check)
 
 </div>
 
@@ -40,7 +40,7 @@ Check tickets against `rules.yaml` before transitioning them with `zaira check`.
 - Exporting tickets and Confluence pages to plain markdown for AI agents to read.
 - Round-tripping ticket fields, descriptions, and wiki pages without leaving the terminal.
 - Generating recurring reports from named JQL queries in `zproject.toml`.
-- Tracking work with `zaira log` / `zaira hours` and validating transitions with `rules.yaml`.
+- Tracking work with `zaira log` / `zaira hours` and validating transitions with Python hooks.
 - Mirroring a local docs tree onto Confluence spaces and folders.
 
 ## Get started

@@ -623,10 +623,7 @@ class TestFieldsCommand:
 
         args = argparse.Namespace(refresh=False, all=False, filter=None)
 
-        with (
-            patch("zaira.info.get_schema_path", return_value=schema_file),
-            patch("zaira.rules.load_allowed_fields", return_value=None),
-        ):
+        with patch("zaira.info.get_schema_path", return_value=schema_file):
             fields_command(args)
 
         captured = capsys.readouterr()
@@ -679,10 +676,7 @@ class TestFieldsCommand:
 
         args = argparse.Namespace(refresh=False, all=False, filter="sprint")
 
-        with (
-            patch("zaira.info.get_schema_path", return_value=schema_file),
-            patch("zaira.rules.load_allowed_fields", return_value=None),
-        ):
+        with patch("zaira.info.get_schema_path", return_value=schema_file):
             fields_command(args)
 
         captured = capsys.readouterr()
@@ -713,74 +707,11 @@ class TestFieldsCommand:
         with (
             patch("zaira.info.get_schema_path", return_value=schema_file),
             patch("zaira.info.CACHE_DIR", tmp_path),
-            patch("zaira.rules.load_allowed_fields", return_value=None),
         ):
             fields_command(args)
 
         captured = capsys.readouterr()
         assert "Story Points" in captured.out
-
-    def test_filters_by_allowed_fields(self, mock_jira, capsys, tmp_path) -> None:
-        """Shows only allowed fields when allowed_fields is configured."""
-        import argparse
-
-        from zaira.info import fields_command
-
-        schema_file = tmp_path / "schema.json"
-        schema = {
-            "version": 2,
-            "fields": {
-                "customfield_10001": {"name": "Story Points"},
-                "customfield_10002": {"name": "Sprint"},
-                "customfield_10003": {"name": "Epic Link"},
-            },
-        }
-        schema_file.write_text(json.dumps(schema))
-
-        args = argparse.Namespace(refresh=False, all=False, filter=None)
-
-        with (
-            patch("zaira.info.get_schema_path", return_value=schema_file),
-            patch(
-                "zaira.rules.load_allowed_fields",
-                return_value={"Story Points", "Sprint"},
-            ),
-        ):
-            fields_command(args)
-
-        captured = capsys.readouterr()
-        assert "Story Points" in captured.out
-        assert "Sprint" in captured.out
-        assert "Epic Link" not in captured.out
-        assert "Filtered by" in captured.err
-        assert "--all" in captured.err
-
-    def test_all_flag_ignores_allowed_fields(self, mock_jira, capsys, tmp_path) -> None:
-        """--all flag shows all fields even when allowed_fields is configured."""
-        import argparse
-
-        from zaira.info import fields_command
-
-        schema_file = tmp_path / "schema.json"
-        schema = {
-            "version": 2,
-            "fields": {
-                "customfield_10001": {"name": "Story Points"},
-                "customfield_10002": {"name": "Sprint"},
-                "summary": {"name": "Summary"},
-            },
-        }
-        schema_file.write_text(json.dumps(schema))
-
-        args = argparse.Namespace(refresh=False, all=True, filter=None)
-
-        with patch("zaira.info.get_schema_path", return_value=schema_file):
-            fields_command(args)
-
-        captured = capsys.readouterr()
-        assert "Story Points" in captured.out
-        assert "Sprint" in captured.out
-        assert "Summary" in captured.out
 
     def test_handles_api_error(self, mock_jira, capsys, tmp_path) -> None:
         """Handles API errors gracefully."""

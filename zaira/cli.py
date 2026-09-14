@@ -10,8 +10,8 @@ from zaira import __version__
 from zaira.activity_log import format_entries, read_entries
 from zaira.attach import attach_command
 from zaira.boards import boards_command
-from zaira.bundle import bundle_install_command, bundle_update_command
 from zaira.changelog import changelog_command
+from zaira.check import check_command
 from zaira.comment import comment_command
 from zaira.create import create_command
 from zaira.dashboard import dashboard_command, dashboards_command
@@ -48,7 +48,6 @@ from zaira.put import put_command
 from zaira.recent import recent_command, wiki_recent_command
 from zaira.refresh import refresh_command
 from zaira.report import report_command
-from zaira.rules import check_command
 from zaira.search import search_command
 from zaira.skills import install_skills_command
 from zaira.transition import transition_command
@@ -605,19 +604,35 @@ def build_parser() -> argparse.ArgumentParser:
     # Check command
     check_parser = subparsers.add_parser(
         "check",
-        help="Validate tickets against rules.yaml",
+        help="Validate tickets against zaira hooks (see HOOKS.md)",
     )
     check_parser.add_argument(
         "keys",
         nargs="+",
         help="Ticket key(s) to check (e.g., PROJ-123)",
     )
-    check_parser.add_argument(
-        "--rules",
-        default="rules.yaml",
-        help="Path to rules YAML file (default: rules.yaml)",
-    )
     check_parser.set_defaults(func=check_command)
+
+    # Hooks command
+    hooks_parser = subparsers.add_parser(
+        "hooks",
+        help="List loaded zaira hooks (local files and installed hook packages)",
+    )
+
+    def _hooks_command(args: argparse.Namespace) -> None:
+        from zaira.hooks import HOOKS_DIR, LOCAL_HOOKS_DIR, loaded_sources
+
+        sources = loaded_sources()
+        if not sources:
+            print("No hooks loaded.")
+            print(f"  Local:    {LOCAL_HOOKS_DIR.resolve()}/*.py, {HOOKS_DIR}/*.py")
+            print('  Packages: pip packages with a "zaira.hooks" entry point')
+            return
+        print("Loaded hooks:")
+        for s in sources:
+            print(f"  - {s}")
+
+    hooks_parser.set_defaults(func=_hooks_command)
 
     # Comment command
     comment_parser = subparsers.add_parser(
@@ -826,7 +841,7 @@ def build_parser() -> argparse.ArgumentParser:
     edit_parser.add_argument(
         "--no-check",
         action="store_true",
-        help="Skip allowed_fields.txt validation",
+        help="Skip pre_write hook validation",
     )
     edit_parser.add_argument(
         "--dry-run",
@@ -849,6 +864,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run",
         action="store_true",
         help="Show what would be created without actually creating",
+    )
+    create_parser.add_argument(
+        "--no-check",
+        action="store_true",
+        help="Skip pre_create hook validation",
     )
     create_parser.set_defaults(func=create_command)
 
@@ -909,7 +929,7 @@ def build_parser() -> argparse.ArgumentParser:
     transition_parser.add_argument(
         "--no-check",
         action="store_true",
-        help="Skip rules.yaml validation before transitioning",
+        help="Skip hook validation before transitioning",
     )
     transition_parser.add_argument(
         "--dry-run",
@@ -969,7 +989,7 @@ def build_parser() -> argparse.ArgumentParser:
         "-a",
         "--all",
         action="store_true",
-        help="Show all fields (ignore custom-only and allowed_fields filters)",
+        help="Show all fields, including standard (non-custom) ones",
     )
     info_fields.set_defaults(info_func=fields_command)
 
@@ -1388,33 +1408,32 @@ def build_parser() -> argparse.ArgumentParser:
         help="Clear all cached data (editmeta, schema, field descriptions)",
     )
     reset_parser.add_argument(
-        "--rules",
+        "--hooks",
         action="store_true",
-        help="Disable installed rules bundle (renames rules/ to rules-disabled/)",
+        help="Disable locally-installed hooks (renames hooks/ to hooks-disabled/). "
+        "Does not affect hooks installed as pip packages -- pip uninstall those.",
     )
 
     def _reset_command(args: argparse.Namespace) -> None:
         from zaira.jira_client import CACHE_DIR, CONFIG_DIR, clear_auth_mode
 
-        # Handle --rules flag to disable bundle
-        if getattr(args, "rules", False):
-            rules_dir = CONFIG_DIR / "rules"
-            rules_disabled = CONFIG_DIR / "rules-disabled"
+        # Handle --hooks flag to disable locally-installed hook files
+        if getattr(args, "hooks", False):
+            hooks_dir = CONFIG_DIR / "hooks"
+            hooks_disabled = CONFIG_DIR / "hooks-disabled"
 
-            if not rules_dir.exists():
-                print(f"No rules directory found at {rules_dir}")
+            if not hooks_dir.exists():
+                print(f"No hooks directory found at {hooks_dir}")
                 return
 
-            # Remove existing rules-disabled if present
-            if rules_disabled.exists():
-                __import__("shutil").rmtree(rules_disabled)
-                print(f"Removed existing {rules_disabled}")
+            if hooks_disabled.exists():
+                __import__("shutil").rmtree(hooks_disabled)
+                print(f"Removed existing {hooks_disabled}")
 
-            # Rename rules to rules-disabled
-            rules_dir.rename(rules_disabled)
-            print("Rules disabled (renamed to rules-disabled)")
-            print(f"\nRules location: {rules_disabled}")
-            print(f"To restore: mv {rules_disabled} {rules_dir}")
+            hooks_dir.rename(hooks_disabled)
+            print("Hooks disabled (renamed to hooks-disabled)")
+            print(f"\nHooks location: {hooks_disabled}")
+            print(f"To restore: mv {hooks_disabled} {hooks_dir}")
             return
 
         # Normal cache clearing
@@ -1430,41 +1449,6 @@ def build_parser() -> argparse.ArgumentParser:
         clear_auth_mode()
 
     reset_parser.set_defaults(func=_reset_command)
-
-    # Bundle command with subcommands
-    def bundle_command(args: argparse.Namespace) -> None:
-        if hasattr(args, "bundle_func"):
-            args.bundle_func(args)
-        else:
-            print("Usage: zaira bundle <install|update>")
-            sys.exit(1)
-
-    bundle_parser = subparsers.add_parser(
-        "bundle", help="Install and update rule bundles"
-    )
-    bundle_parser.set_defaults(func=bundle_command)
-    bundle_subparsers = bundle_parser.add_subparsers(dest="bundle_command")
-
-    bundle_install_p = bundle_subparsers.add_parser(
-        "install", help="Install a bundle from a URL or local zip"
-    )
-    bundle_install_p.add_argument("source", help="URL or local path to a .zip bundle")
-    bundle_install_p.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Show what would be installed without making changes",
-    )
-    bundle_install_p.set_defaults(bundle_func=bundle_install_command)
-
-    bundle_update_p = bundle_subparsers.add_parser(
-        "update", help="Re-fetch bundle from recorded source URL"
-    )
-    bundle_update_p.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Show what would be updated without making changes",
-    )
-    bundle_update_p.set_defaults(bundle_func=bundle_update_command)
 
     goals_parser = subparsers.add_parser(
         "goals", help="Atlassian Goals (Townsquare) export and lookup"

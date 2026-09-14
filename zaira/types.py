@@ -1,61 +1,23 @@
 """Type definitions for zaira."""
 
 from dataclasses import dataclass
-from typing import Any, TypeAlias, TypedDict
+from typing import Any, NamedTuple, TypeAlias, TypedDict
 
 FieldValue: TypeAlias = (
     None | bool | int | float | str | list["FieldValue"] | dict[str, "FieldValue"]
 )
 
-RuleScalar: TypeAlias = None | bool | int | float | str
 
+class Violation(NamedTuple):
+    """A failed ticket check, produced by a zaira.hooks CHECK/PRE_CREATE/
+    PRE_WRITE hook. `zaira check`/`zaira transition`/`zaira create`/
+    `zaira edit` all print this same shape. Always blocks/fails -- for a
+    message that shouldn't block anything, call zaira.hooks.note() instead.
+    """
 
-class CountMatchesRule(TypedDict, total=False):
-    """Match-count bounds for a text field."""
-
-    pattern: str
-    min: int
-    max: int
-
-
-class LinkedIssueRule(TypedDict, total=False):
-    """Constraint on linked issues."""
-
-    type: str
-    priority: str | list[str]
-
-
-RuleBlock = TypedDict(
-    "RuleBlock",
-    {
-        "required": list[str],
-        "non_empty": list[str],
-        "subtask_types": list[str],
-        "contains": dict[str, str | list[str]],
-        "not_contains": dict[str, str | list[str]],
-        "matches": dict[str, str | list[str]],
-        "not_matches": dict[str, str | list[str]],
-        "one_of": dict[str, list[RuleScalar]],
-        "not_one_of": dict[str, list[RuleScalar]],
-        "count_matches": dict[str, CountMatchesRule],
-        "sections_present": dict[str, list[str]],
-        "no_open_linked": list[LinkedIssueRule],
-        "when": dict[str, "RuleBlock"],
-        "if": list["ConditionalRule"],
-        "valid_transitions": dict[str, list[str]],
-    },
-    total=False,
-)
-
-
-class ConditionalRule(TypedDict):
-    """Conditional validation rule loaded from an ``if`` YAML key."""
-
-    match: dict[str, RuleScalar]
-    then: RuleBlock
-
-
-RulesConfig: TypeAlias = dict[str, RuleBlock]
+    field: str
+    check: str
+    message: str
 
 
 # === Dataclasses (internal structures) ===
@@ -373,23 +335,6 @@ class ProjectSchema(TypedDict, total=False):
 
     components: list[str]
     labels: list[str]
-
-
-@dataclass
-class BundleChanges:
-    """Files changed during a bundle install or update."""
-
-    added: list[str]
-    modified: list[str]
-    removed: list[str]
-
-
-@dataclass
-class FieldError:
-    """Validation error from check_field_allowed."""
-
-    field: str
-    suggestions: list[str]
 
 
 @dataclass
