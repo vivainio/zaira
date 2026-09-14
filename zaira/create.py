@@ -259,6 +259,32 @@ def create_command(args: argparse.Namespace) -> None:
 
     project = front_matter.get("project", "")
 
+    # User-defined "pre_create" hooks (zaira.hooks) -- may edit front_matter/
+    # description in place, or block creation outright (e.g. reject certain
+    # issue types for a project). Skipped with --no-check.
+    ctx = None
+    if not getattr(args, "no_check", False):
+        from zaira.hooks import CreateContext, drain_notes, run_pre_create_hooks
+
+        ctx = CreateContext(
+            project=project,
+            issue_type=issue_type,
+            front_matter=front_matter,
+            description=description or "",
+        )
+        violations = run_pre_create_hooks(ctx)
+        for msg in drain_notes():
+            print(f"  NOTE  {msg}")
+        if violations:
+            print(f"Blocked: cannot create {issue_type} in {project}:", file=sys.stderr)
+            for v in violations:
+                print(f"  FAIL  {v.check:<11s} {v.field}", file=sys.stderr)
+                print(f"        {v.message}", file=sys.stderr)
+            print("\nUse --no-check to skip validation.", file=sys.stderr)
+            sys.exit(1)
+        front_matter = ctx.front_matter
+        description = ctx.description
+
     # Auto-learn editmeta if needed
     from zaira.info import ensure_editmeta_for_type
 
@@ -279,3 +305,11 @@ def create_command(args: argparse.Namespace) -> None:
 
         summary = front_matter.get("summary", "")
         record("create", key, summary if summary else None)
+
+        if ctx is not None:
+            from zaira.hooks import drain_notes, run_post_create_hooks
+
+            ctx.key = key
+            run_post_create_hooks(ctx)
+            for msg in drain_notes():
+                print(f"  NOTE  {msg}")

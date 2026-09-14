@@ -421,22 +421,6 @@ def fields_command(args: argparse.Namespace) -> None:
             f for f in fields if f.get("custom") or f["id"].startswith("customfield_")
         ]
 
-    # Filter to allowed_fields if configured (unless --all)
-    allowed_fields_active = False
-    if not show_all:
-        from zaira.rules import ALLOWED_FIELDS_FILE, load_allowed_fields
-
-        allowed = load_allowed_fields()
-        if allowed:
-            allowed_fields_active = True
-            allowed_lower = {a.lower() for a in allowed}
-            result = [
-                f
-                for f in result
-                if f["name"].lower() in allowed_lower
-                or f["id"].lower() in allowed_lower
-            ]
-
     if filter_text:
         filter_lower = filter_text.lower()
         result = [
@@ -451,13 +435,6 @@ def fields_command(args: argparse.Namespace) -> None:
     print("-" * 65)
     for f in result:
         print(f"{f['id']:<25} {f['name']:<40}")
-
-    if allowed_fields_active:
-        print(
-            f"\nFiltered by {ALLOWED_FIELDS_FILE}"
-            "\nUse --all to see all fields available on the server.",
-            file=sys.stderr,
-        )
 
 
 def get_editmeta_field(

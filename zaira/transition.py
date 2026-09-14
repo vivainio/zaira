@@ -134,17 +134,22 @@ def _print_transition_fields(
             print("    value:    (not set)")
 
 
-def _parse_transition_fields(key: str, project: str, field_args: list[str]) -> dict:
-    """Parse --field NAME=VALUE args into a field_id -> value dict."""
+def _parse_transition_fields(
+    key: str, project: str, field_args: list[str], issue_type: str | None = None
+) -> dict:
+    """Parse --field NAME=VALUE args into a field_id -> value dict.
+
+    `issue_type` may be passed in if already resolved by the caller, to
+    avoid a second `jira.issue()` round trip.
+    """
     if not field_args:
         return {}
     from zaira.edit import parse_field_args
     from zaira.info import ensure_editmeta
-    from zaira.jira_client import get_jira
 
-    jira = get_jira()
-    issue = jira.issue(key, fields="issuetype")
-    issue_type = issue.fields.issuetype.name
+    if issue_type is None:
+        issue = get_jira().issue(key, fields="issuetype")
+        issue_type = issue.fields.issuetype.name
     ensure_editmeta(key, issue_type)
     return parse_field_args(field_args, project=project, issue_type=issue_type)
 
@@ -172,8 +177,8 @@ def transition_command(args: argparse.Namespace) -> None:
 
     if getattr(args, "dry_run", False):
         # Non-mutating: peek at the real transition screen (and any values
-        # --field would set) straight from Jira, without the local
-        # allowed-fields/rules.yaml gates below — --no-check isn't needed.
+        # --field would set) straight from Jira, without the hook gates
+        # below — --no-check isn't needed.
         fields = _parse_transition_fields(key, project, field_args)
         transitions = get_transitions(key, expand="transitions.fields")
         match = _find_transition(transitions, status) if transitions else None
@@ -193,91 +198,78 @@ def transition_command(args: argparse.Namespace) -> None:
         _print_transition_fields(_parse_editmeta_response(match), provided=fields)
         return
 
-    # Check allowed_fields whitelist for raw field names BEFORE parsing (unless --no-check is set)
-    # This must happen BEFORE mapping field names to IDs
+    # Resolve issue type once, up front, if we'll need it below (for the
+    # pre_write hook check and/or field-ID mapping).
+    issue_type = None
+    if field_args:
+        issue = get_jira().issue(key, fields="issuetype")
+        issue_type = issue.fields.issuetype.name
+
+    # Run "pre_write" hooks (zaira.hooks) against the raw field names/values
+    # BEFORE parsing (unless --no-check is set) -- must happen before
+    # mapping field names to IDs.
     if field_args and not getattr(args, "no_check", False):
-        from zaira.rules import check_field_allowed, load_allowed_fields
+        from zaira.hooks import FieldWriteContext, drain_notes, run_pre_write_hooks
 
-        allowed_fields = load_allowed_fields(project=project)
-        if allowed_fields:
-            field_errors = []
-            # Extract field names from arguments
-            for arg in field_args:
-                if "=" in arg:
-                    name = arg.split("=", 1)[0].strip()
-                    error = check_field_allowed(name, allowed_fields)
-                    if error:
-                        field_errors.append(error)
+        write_fields: dict[str, Any] = {}
+        for arg in field_args:
+            if "=" in arg:
+                name, _, value = arg.partition("=")
+                write_fields[name.strip()] = value
 
-            if field_errors:
-                print("Error: The following fields are not allowed:", file=sys.stderr)
-                for err in field_errors:
-                    field_name = err.field
-                    suggestions = err.suggestions
-                    print(f"  - {field_name}", file=sys.stderr)
-                    if suggestions:
-                        print("    Did you mean:", file=sys.stderr)
-                        for s in suggestions:
-                            print(f"      {s}", file=sys.stderr)
-                print("\nUse --no-check to skip validation.", file=sys.stderr)
-                sys.exit(1)
-
-    fields = _parse_transition_fields(key, project, field_args)
-
-    # Validate against rules.yaml before transitioning
-    if not getattr(args, "no_check", False):
-        from zaira.export import get_ticket
-        from zaira.rules import (
-            try_load_rules,
-            validate_transition,
+        violations = run_pre_write_hooks(
+            FieldWriteContext(
+                project=project,
+                key=key,
+                issue_type=issue_type or "",
+                fields=write_fields,
+            )
         )
+        for msg in drain_notes():
+            print(f"  NOTE  {msg}")
+        if violations:
+            print("Error: field write blocked:", file=sys.stderr)
+            for v in violations:
+                print(f"  FAIL  {v.check:<11s} {v.field}", file=sys.stderr)
+                print(f"        {v.message}", file=sys.stderr)
+            print("\nUse --no-check to skip validation.", file=sys.stderr)
+            sys.exit(1)
 
-        all_rules = try_load_rules()
+    fields = _parse_transition_fields(key, project, field_args, issue_type=issue_type)
+
+    # Run "check" hooks (zaira.hooks) against the transition's target status
+    # before transitioning (unless --no-check is set).
+    if not getattr(args, "no_check", False):
+        from zaira.check import validate_transition
+        from zaira.export import get_ticket
+        from zaira.hooks import drain_notes, hooks_enabled
+
         violations = []
-        available_transitions: list[dict] = []
+        available_transitions = []
 
-        if all_rules:
+        if hooks_enabled():
             ticket = get_ticket(key, full=True, include_custom=True)
             if ticket:
-                # Resolve transition name (e.g. "Start Implementation") to the
-                # actual target status name (e.g. "Implementing") so rule
-                # checks like valid_transitions compare status-to-status.
+                # Resolve transition name (e.g. "Start Implementation") to
+                # the actual target status name (e.g. "Implementing") so
+                # check hooks compare status-to-status.
                 target_status = status
                 available_transitions = get_transitions(key)
                 match = _find_transition(available_transitions, status)
                 if match:
                     target_status = match["to"]["name"]
-                violations.extend(validate_transition(ticket, all_rules, target_status))
+                violations.extend(validate_transition(ticket, target_status))
 
+        for msg in drain_notes():
+            print(f"  NOTE  {msg}")
         if violations:
             print(
-                f"Blocked: {key} fails rules for '{status}':",
+                f"Blocked: {key} fails checks for '{status}':",
                 file=sys.stderr,
             )
             for v in violations:
                 print(f"  FAIL  {v.check:<11s} {v.field}", file=sys.stderr)
-                if v.check in (
-                    "contains",
-                    "not_contains",
-                    "matches",
-                    "not_matches",
-                    "subtask_types",
-                    "one_of",
-                    "not_one_of",
-                    "allowed_fields",
-                    "valid_transitions",
-                    "count_matches",
-                    "sections_present",
-                    "no_open_linked",
-                ):
-                    print(f"        {v.message}", file=sys.stderr)
-            if (
-                any(v.check == "valid_transitions" for v in violations)
-                and available_transitions
-            ):
-                print("\nAvailable transitions from Jira:", file=sys.stderr)
-                for t in available_transitions:
-                    print(f"  - {t['name']} → {t['to']['name']}", file=sys.stderr)
+                print(f"        {v.message}", file=sys.stderr)
             print("\nUse --no-check to skip validation.", file=sys.stderr)
             sys.exit(1)
 
