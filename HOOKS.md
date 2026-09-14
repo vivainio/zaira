@@ -21,8 +21,7 @@ def no_tasks(ctx: CreateContext) -> Violation | None:
     return None
 ```
 
-Drop that file in `./hooks/` (or `~/.config/zaira/hooks/`, see
-Distribution below) and:
+Ship that file as an installed pip package (see Distribution below), then:
 
 ```bash
 zaira create ticket.md   # blocked if project: FOO, type: Task
@@ -178,25 +177,7 @@ fuzzy-match "did you mean" suggestion logic the old feature had.
 `pathlib.Path`, or an `importlib.resources` `Traversable` for data shipped
 inside a pip package (see below).
 
-## Distribution — two independent channels, both loaded every run
-
-### 1. Local files
-
-- `./hooks/*.py` — repo-local, checked into a project's own repo
-- `CONFIG_DIR/hooks/*.py` — per-user/per-machine
-  (`~/.config/zaira/hooks/` on Linux/macOS, `%APPDATA%\zaira\hooks\` on
-  Windows)
-
-Each file is imported once per invocation; every `@hook(...)` call at
-module level registers. No packaging required.
-
-Disable local hooks without deleting them:
-
-```bash
-zaira reset --hooks   # renames CONFIG_DIR/hooks to CONFIG_DIR/hooks-disabled
-```
-
-### 2. Installed pip packages (recommended for shared/org policy)
+## Distribution — installed pip packages only
 
 A normal Python package that declares a `zaira.hooks` entry point pointing
 at a module. Importing that module runs its `@hook(...)` registrations:
@@ -270,8 +251,7 @@ allowlist_from_file(
 zaira hooks
 ```
 
-Lists every hook file and hook package loaded this run (or says none are
-loaded, and where it looked).
+Lists every hook package loaded this run (or says none are loaded).
 
 ## Worked example: restrict issue types per project
 

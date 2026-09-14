@@ -66,32 +66,27 @@ skipped -- it never crashes or blocks an otherwise valid ticket operation
 beyond the one check it implements. `--no-check` (where the calling
 command supports it) skips hooks entirely.
 
-## Distribution -- two independent channels, both loaded every run
+## Distribution -- installed pip packages only
 
-  1. Local files: ./hooks/*.py (repo-local) and CONFIG_DIR/hooks/*.py
-     (per-user/per-machine). Each file is imported once per invocation;
-     every @hook(...) call at module level registers. No packaging
-     required -- good for quick, unshared policy.
-  2. Installed pip packages that declare a "zaira.hooks" entry point
-     pointing at a module; importing that module runs its @hook(...)
-     registrations. This is the path for versioned, shareable policy --
-     `pip install zaira-hooks-acme` picks it up with no zaira-side install
-     step, `pip install -U` ships updates, `pip uninstall` removes it:
+Hooks are distributed as normal Python packages that declare a
+"zaira.hooks" entry point pointing at a module; importing that module runs
+its @hook(...) registrations. This is versioned and shareable --
+`pip install zaira-hooks-acme` picks it up with no zaira-side install
+step, `pip install -U` ships updates, `pip uninstall` removes it:
 
-         # pyproject.toml of a hook package
-         [project.entry-points."zaira.hooks"]
-         acme_policy = "zaira_hooks_acme.policy"
+    # pyproject.toml of a hook package
+    [project.entry-points."zaira.hooks"]
+    acme_policy = "zaira_hooks_acme.policy"
 
-     A hook package can bundle data alongside its code as normal Python
-     package data (see zaira/skills.py for the same pattern already used
-     in this codebase) and read it via importlib.resources -- e.g. a field
-     allow-list shipped as a .txt resource, see allowlist_from_file().
+A hook package can bundle data alongside its code as normal Python
+package data (see zaira/skills.py for the same pattern already used
+in this codebase) and read it via importlib.resources -- e.g. a field
+allow-list shipped as a .txt resource, see allowlist_from_file().
 
-`zaira hooks` lists what's loaded (files and packages) for any given run.
+`zaira hooks` lists what's loaded (which packages) for any given run.
 """
 
 import functools
-import importlib.util
 import sys
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -100,11 +95,8 @@ from importlib.metadata import EntryPoint, entry_points
 from pathlib import Path
 from typing import Any, Callable, Literal, Mapping, Protocol, cast, overload
 
-from zaira.jira_client import CONFIG_DIR
 from zaira.types import Violation
 
-HOOKS_DIR = CONFIG_DIR / "hooks"
-LOCAL_HOOKS_DIR = Path("hooks")
 ENTRY_POINT_GROUP = "zaira.hooks"
 
 
@@ -296,20 +288,6 @@ def _hook_name(fn: Callable[..., Any]) -> str:
     return f"{getattr(fn, '__module__', '?')}.{getattr(fn, '__qualname__', getattr(fn, '__name__', '?'))}"
 
 
-def _exec_file(path: Path) -> None:
-    module_name = f"zaira_hook_{path.stem}_{abs(hash(str(path)))}"
-    try:
-        spec = importlib.util.spec_from_file_location(module_name, path)
-        if spec is None or spec.loader is None:
-            return
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[module_name] = module
-        spec.loader.exec_module(module)
-        _registry.sources.append(f"file: {path}")
-    except Exception as e:
-        print(f"warning: failed to load hook file {path}: {e}", file=sys.stderr)
-
-
 def _load_entry_point(ep: EntryPoint) -> None:
     try:
         ep.load()  # importing the target module runs its @hook(...) registrations
@@ -319,18 +297,13 @@ def _load_entry_point(ep: EntryPoint) -> None:
 
 
 def load_hooks() -> None:
-    """Discover and load hooks: local files, then installed pip packages.
+    """Discover and load hooks from installed pip packages.
 
     Idempotent -- safe to call from every command that consults hooks.
     """
     if _registry.loaded:
         return
     _registry.loaded = True
-
-    for hooks_dir in (LOCAL_HOOKS_DIR, HOOKS_DIR):
-        if hooks_dir.is_dir():
-            for path in sorted(hooks_dir.glob("*.py")):
-                _exec_file(path)
 
     try:
         eps = entry_points(group=ENTRY_POINT_GROUP)

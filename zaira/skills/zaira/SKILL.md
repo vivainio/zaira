@@ -118,13 +118,12 @@ zaira history -k FOO-1234                   # Filter by ticket key
 # Hooks (arbitrary Python guardrails -- see HOOKS.md)
 zaira check FOO-1234                        # Check ticket against registered CHECK hooks
 zaira check FOO-1234 FOO-5678              # Check multiple tickets
-zaira hooks                                 # List loaded hook files/packages
+zaira hooks                                 # List loaded hook packages
 
 # Cache management
 # If zaira behaves unexpectedly or gets out of sync, 'zaira reset' is safe to run at any time.
 # It clears the local cache and zaira will re-fetch fresh data from Jira on next use.
 zaira reset                                 # Clear all cached data (editmeta, schema, field descriptions)
-zaira reset --hooks                         # Disable local hooks (renames hooks/ to hooks-disabled/)
 
 # Instance metadata (cached locally)
 zaira info statuses                         # List statuses

@@ -728,11 +728,10 @@ zaira learn fields.yaml         # Import field mappings from a YAML file
 
 ### reset
 
-Clear cached data or disable local hooks:
+Clear cached data:
 
 ```bash
 zaira reset                     # Clear all cached schema/editmeta data
-zaira reset --hooks             # Disable locally-installed hooks (renames hooks/ to hooks-disabled/)
 ```
 
 ### info

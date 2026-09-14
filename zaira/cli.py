@@ -616,17 +616,16 @@ def build_parser() -> argparse.ArgumentParser:
     # Hooks command
     hooks_parser = subparsers.add_parser(
         "hooks",
-        help="List loaded zaira hooks (local files and installed hook packages)",
+        help="List loaded zaira hooks (installed hook packages)",
     )
 
     def _hooks_command(args: argparse.Namespace) -> None:
-        from zaira.hooks import HOOKS_DIR, LOCAL_HOOKS_DIR, loaded_sources
+        from zaira.hooks import loaded_sources
 
         sources = loaded_sources()
         if not sources:
             print("No hooks loaded.")
-            print(f"  Local:    {LOCAL_HOOKS_DIR.resolve()}/*.py, {HOOKS_DIR}/*.py")
-            print('  Packages: pip packages with a "zaira.hooks" entry point')
+            print('  Install a pip package with a "zaira.hooks" entry point')
             return
         print("Loaded hooks:")
         for s in sources:
@@ -1407,36 +1406,10 @@ def build_parser() -> argparse.ArgumentParser:
         "reset",
         help="Clear all cached data (editmeta, schema, field descriptions)",
     )
-    reset_parser.add_argument(
-        "--hooks",
-        action="store_true",
-        help="Disable locally-installed hooks (renames hooks/ to hooks-disabled/). "
-        "Does not affect hooks installed as pip packages -- pip uninstall those.",
-    )
 
     def _reset_command(args: argparse.Namespace) -> None:
-        from zaira.jira_client import CACHE_DIR, CONFIG_DIR, clear_auth_mode
+        from zaira.jira_client import CACHE_DIR, clear_auth_mode
 
-        # Handle --hooks flag to disable locally-installed hook files
-        if getattr(args, "hooks", False):
-            hooks_dir = CONFIG_DIR / "hooks"
-            hooks_disabled = CONFIG_DIR / "hooks-disabled"
-
-            if not hooks_dir.exists():
-                print(f"No hooks directory found at {hooks_dir}")
-                return
-
-            if hooks_disabled.exists():
-                __import__("shutil").rmtree(hooks_disabled)
-                print(f"Removed existing {hooks_disabled}")
-
-            hooks_dir.rename(hooks_disabled)
-            print("Hooks disabled (renamed to hooks-disabled)")
-            print(f"\nHooks location: {hooks_disabled}")
-            print(f"To restore: mv {hooks_disabled} {hooks_dir}")
-            return
-
-        # Normal cache clearing
         cleared = 0
         for f in CACHE_DIR.iterdir():
             if f.name == "activity.log":
