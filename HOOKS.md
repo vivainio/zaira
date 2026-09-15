@@ -251,7 +251,8 @@ allowlist_from_file(
 zaira hooks
 ```
 
-Lists every hook package loaded this run (or says none are loaded).
+Lists every hook package loaded this run and the directory containing its imported
+Python module, when available (or says none are loaded).
 
 ## Worked example: restrict issue types per project
 

@@ -291,7 +291,12 @@ def _hook_name(fn: Callable[..., Any]) -> str:
 def _load_entry_point(ep: EntryPoint) -> None:
     try:
         ep.load()  # importing the target module runs its @hook(...) registrations
-        _registry.sources.append(f"package: {ep.name} ({ep.value})")
+        source = f"package: {ep.name} ({ep.value})"
+        module = sys.modules.get(ep.module)
+        module_file = getattr(module, "__file__", None)
+        if module_file:
+            source += f"\n    directory: {Path(module_file).resolve().parent}"
+        _registry.sources.append(source)
     except Exception as e:
         print(f"warning: failed to load hook package '{ep.name}': {e}", file=sys.stderr)
 
