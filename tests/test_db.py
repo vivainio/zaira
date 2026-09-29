@@ -3,6 +3,7 @@
 import argparse
 import json
 import sqlite3
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -12,7 +13,7 @@ import pytest
 from zaira import db
 from zaira.errors import ApplicationError
 
-STATUSES = {
+STATUSES: dict[str, tuple[str | None, str | None]] = {
     "To Do": ("new", "To Do"),
     "In Progress": ("indeterminate", "In Progress"),
     "Review": ("indeterminate", "In Progress"),
@@ -143,7 +144,7 @@ def _rows(raw: dict[str, Any]) -> db.IssueRows:
 
 
 @pytest.fixture
-def conn(tmp_path: Path) -> sqlite3.Connection:
+def conn(tmp_path: Path) -> Iterator[sqlite3.Connection]:
     c = db.connect(tmp_path / "z.db")
     yield c
     c.close()

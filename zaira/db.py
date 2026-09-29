@@ -327,7 +327,7 @@ def parse_sprint(value: Any) -> dict[str, Any] | None:
     else:
         return None
     try:
-        sprint_id = int(data["id"])
+        sprint_id = int(data["id"])  # ty: ignore[invalid-argument-type]
     except (KeyError, TypeError, ValueError):
         return None
     state = data.get("state")
