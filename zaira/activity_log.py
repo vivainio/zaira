@@ -1,11 +1,21 @@
 """Activity log: append-only record of write operations."""
 
+import functools
 import json
 from datetime import datetime, timezone
 
-from zaira.jira_client import CACHE_DIR
+from zaira.jira_client import CACHE_DIR, current_token_fingerprint
 
 LOG_FILE = CACHE_DIR / "activity.log"
+
+
+@functools.cache
+def _token_fp() -> str | None:
+    """Token fingerprint, resolved once per process (keyring lookups are slow)."""
+    try:
+        return current_token_fingerprint()
+    except Exception:
+        return None
 
 
 def record(op: str, key: str, detail: str | None = None) -> None:
@@ -25,6 +35,9 @@ def record(op: str, key: str, detail: str | None = None) -> None:
         }
         if detail:
             entry["detail"] = detail
+        fp = _token_fp()
+        if fp:
+            entry["token"] = fp
         with LOG_FILE.open("a") as f:
             f.write(json.dumps(entry) + "\n")
     except Exception:
@@ -82,6 +95,8 @@ def format_entries(entries: list[dict]) -> str:
         key = e.get("key", "?")
         detail = e.get("detail", "")
         detail_str = f"  {detail}" if detail else ""
-        lines.append(f"{ts_display}  {op:<12s}  {key}{detail_str}")
+        token = e.get("token")
+        token_str = f"  [token {token}]" if token else ""
+        lines.append(f"{ts_display}  {op:<12s}  {key}{detail_str}{token_str}")
 
     return "\n".join(lines)
