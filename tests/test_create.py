@@ -226,12 +226,22 @@ class TestMapFields:
         assert "status" not in fields
 
     def test_maps_assignee(self) -> None:
-        """Maps assignee field."""
+        """Maps assignee to an accountId (Jira Cloud), not a legacy name."""
         front_matter = {"project": "TEST", "assignee": "jsmith"}
 
-        fields = map_fields(front_matter, "")
+        with patch("zaira.create.format_user", return_value={"accountId": "a1"}):
+            fields = map_fields(front_matter, "")
 
-        assert fields["assignee"] == {"name": "jsmith"}
+        assert fields["assignee"] == {"accountId": "a1"}
+
+    def test_maps_reporter(self) -> None:
+        """Maps reporter the same way as assignee."""
+        front_matter = {"project": "TEST", "reporter": "jsmith"}
+
+        with patch("zaira.create.format_user", return_value={"accountId": "r1"}):
+            fields = map_fields(front_matter, "")
+
+        assert fields["reporter"] == {"accountId": "r1"}
 
     def test_maps_none_assignee(self) -> None:
         """Maps None assignee as None."""

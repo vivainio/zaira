@@ -67,8 +67,8 @@ def read_file_or_stdin(path: str) -> str:
         sys.exit(1)
 
 
-def _format_assignee(value: str | None) -> dict[str, FieldValue] | None:
-    """Format assignee value for Jira API.
+def format_user(value: str | None) -> dict[str, FieldValue] | None:
+    """Format a user field (assignee, reporter) value for Jira API.
 
     Supports "me" as a special value to assign to the current user.
     Also looks up accountId by email/name for Jira Cloud compatibility.
@@ -83,7 +83,10 @@ def _format_assignee(value: str | None) -> dict[str, FieldValue] | None:
     users = jira.search_users(query=value)
     if users:
         return {"accountId": users[0].accountId}
-    # Fall back to using value directly as accountId
+    # Fall back to using value directly as accountId. Emails and display names
+    # are never valid accountIds, so warn rather than fail silently on Cloud.
+    if "@" in value or " " in value:
+        print(f"Warning: no Jira user found for '{value}'", file=sys.stderr)
     return {"accountId": value}
 
 
@@ -178,7 +181,7 @@ def map_field(
         if field_id in _NAME_FIELDS:
             return field_id, {"name": value}
         if field_id == "assignee":
-            return field_id, _format_assignee(
+            return field_id, format_user(
                 value if isinstance(value, str) else value[0] if value else None
             )
         if field_id == "labels":
@@ -290,7 +293,7 @@ def format_field_value(
     ):
         return {"name": value}
     elif field_type == "user":
-        return _format_assignee(value)
+        return format_user(value)
     elif field_type == "option":
         return {"value": value}
     elif field_type == "issuelink":
@@ -301,7 +304,7 @@ def format_field_value(
             if item_type == "string":
                 return values
             if item_type == "user":
-                return [_format_assignee(v) for v in values]
+                return [format_user(v) for v in values]
             if item_type in (
                 "version",
                 "resolution",

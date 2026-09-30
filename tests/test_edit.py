@@ -8,12 +8,12 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 from zaira.edit import (
-    _format_assignee,
     _handle_update_error,
     _parse_number,
     edit_command,
     edit_ticket,
     format_field_value,
+    format_user,
     get_allowed_values,
     map_field,
     parse_field_args,
@@ -346,18 +346,18 @@ class TestEditTicket:
 
 
 class TestFormatAssignee:
-    """Tests for _format_assignee function."""
+    """Tests for format_user function."""
 
     def test_returns_none_for_empty(self, mock_jira) -> None:
         """Returns None for empty value."""
-        assert _format_assignee(None) is None
-        assert _format_assignee("") is None
+        assert format_user(None) is None
+        assert format_user("") is None
 
     def test_handles_me_value(self, mock_jira) -> None:
         """Looks up current user for 'me' value."""
         mock_jira.myself.return_value = {"accountId": "abc123"}
 
-        result = _format_assignee("me")
+        result = format_user("me")
 
         assert result == {"accountId": "abc123"}
         mock_jira.myself.assert_called_once()
@@ -368,7 +368,7 @@ class TestFormatAssignee:
         mock_user.accountId = "user456"
         mock_jira.search_users.return_value = [mock_user]
 
-        result = _format_assignee("jsmith@example.com")
+        result = format_user("jsmith@example.com")
 
         assert result == {"accountId": "user456"}
         mock_jira.search_users.assert_called_once_with(query="jsmith@example.com")
@@ -377,9 +377,17 @@ class TestFormatAssignee:
         """Falls back to using value as accountId when user not found."""
         mock_jira.search_users.return_value = []
 
-        result = _format_assignee("direct-account-id")
+        result = format_user("direct-account-id")
 
         assert result == {"accountId": "direct-account-id"}
+
+    def test_warns_when_email_not_found(self, mock_jira, capsys) -> None:
+        """Warns when an email-like value matches no user."""
+        mock_jira.search_users.return_value = []
+
+        format_user("nobody@example.com")
+
+        assert "no Jira user found" in capsys.readouterr().err
 
 
 class TestParseNumber:

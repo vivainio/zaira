@@ -7,7 +7,7 @@ from pathlib import Path
 
 import yaml
 
-from zaira.edit import format_field_value
+from zaira.edit import format_field_value, format_user
 from zaira.info import get_editmeta_field, load_editmeta
 from zaira.jira_client import format_jira_error, get_jira
 from zaira.util import fuzzy_match
@@ -135,10 +135,8 @@ def map_fields(
                 fields["issuetype"] = {"name": value}
             elif jira_field == "priority":
                 fields["priority"] = {"name": value}
-            elif jira_field == "assignee":
-                fields["assignee"] = {"name": value} if value else None
-            elif jira_field == "reporter":
-                fields["reporter"] = {"name": value} if value else None
+            elif jira_field in ("assignee", "reporter"):
+                fields[jira_field] = format_user(value)
             elif jira_field == "components":
                 if isinstance(value, list):
                     names = value
