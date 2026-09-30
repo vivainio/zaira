@@ -1,11 +1,28 @@
 """Shared pytest fixtures for zaira tests."""
 
 from collections.abc import Iterator
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
-from zaira import confluence_api, jira_client
+from zaira import activity_log, confluence_api, jira_client
+
+
+@pytest.fixture(autouse=True)
+def isolated_activity_log(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[Path]:
+    """Redirect the activity log to a temp dir so tests never write to the real one.
+
+    The real log is an audit trail stamped with the user's token fingerprint;
+    test entries there would be indistinguishable from genuine activity.
+    """
+    log_dir = tmp_path / "activity-log"
+    monkeypatch.setattr(activity_log, "CACHE_DIR", log_dir)
+    monkeypatch.setattr(activity_log, "LOG_FILE", log_dir / "activity.log")
+    monkeypatch.setattr(activity_log, "_token_fp", lambda: "test0000")
+    yield log_dir / "activity.log"
 
 
 @pytest.fixture

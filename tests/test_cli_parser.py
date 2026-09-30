@@ -61,6 +61,7 @@ EXPECTED_COMMAND_TREE: dict[str, list[str]] = {
         "recent",
     ],
     "changelog": [],
+    "db": ["sync", "query", "schema"],
     "history": [],
     "reset": [],
     "goals": ["export", "get", "updates"],

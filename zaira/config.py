@@ -35,6 +35,34 @@ def get_tickets_dir() -> Path:
     return Path.cwd() / "tickets"
 
 
+def load_project_config() -> dict:
+    """Load zproject.toml from the project root, or {} outside a project."""
+    root = find_project_root()
+    if not root:
+        return {}
+    with open(root / "zproject.toml", "rb") as f:
+        return tomllib.load(f)
+
+
+def get_db_path() -> Path:
+    """Get the snapshot database path, respecting [db] path in zproject.toml."""
+    root = find_project_root()
+    if not root:
+        return Path.cwd() / "zaira.db"
+    configured = load_project_config().get("db", {}).get("path")
+    return root / (configured or "zaira.db")
+
+
+def get_db_scopes() -> list[str]:
+    """Get default scope (query) names from [db] scopes in zproject.toml."""
+    return list(load_project_config().get("db", {}).get("scopes", []))
+
+
+def get_project_query(name: str) -> str | None:
+    """Get a named query from [queries] in the project's zproject.toml."""
+    return load_project_config().get("queries", {}).get(name)
+
+
 def get_reports_dir() -> Path:
     """Get the reports directory for the project active at call time."""
     return get_project_dir("reports")

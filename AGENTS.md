@@ -94,6 +94,7 @@ gh release create v0.3.0 --generate-notes
   - `config.py` - Configuration handling
   - `create.py` - Ticket creation
   - `dashboard.py` - Dashboard operations
+  - `db.py` - SQLite snapshot (`zaira db sync/query/schema`)
   - `edit.py` - Ticket editing
   - `export.py` - Ticket export functionality
   - `info.py` - Schema and metadata queries

@@ -14,6 +14,7 @@ from zaira.jira_client import (
     CONFIG_FILE,
     CREDENTIALS_FILE,
     _read_credentials_file,
+    current_token_fingerprint,
     format_jira_error,
     get_credentials,
     get_jira,
@@ -367,6 +368,11 @@ def init_command(args: argparse.Namespace) -> None:
         )
     else:
         print(f"  Token: {_token_store_name()}")
+    fp = current_token_fingerprint()
+    if fp:
+        print(
+            f"  Token fingerprint: {fp} (sha256 prefix, as recorded in `zaira history`)"
+        )
     if wincred.is_wsl():
         info = wincred.backend_info()
         if info:
@@ -379,6 +385,9 @@ def init_command(args: argparse.Namespace) -> None:
 
     mode_result = _detect_auth_mode()
     if mode_result is None:
+        from zaira.activity_log import record
+
+        record("token-expired", "-", "init: token rejected by classic and scoped APIs")
         print(
             "  Jira access: FAILED — token rejected against both the classic and "
             "scoped API endpoints — check it hasn't expired or been revoked; "

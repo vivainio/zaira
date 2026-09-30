@@ -1,7 +1,7 @@
 ---
 name: zaira
 description: Access Jira tickets and Confluence wiki pages offline using zaira CLI. Use when user needs to export, report, or refresh Jira tickets; read, create, or update Confluence pages; or mentions "jira", "confluence", "wiki", "zaira", a ticket key like "FOO-123", or a Confluence page URL/link.
-updated: 2026-09-14
+updated: 2026-09-26
 ---
 
 # Zaira - Jira CLI
@@ -154,6 +154,21 @@ h3. Heading 3
 [link text|https://example.com]
 {code}code block{code}
 ```
+
+## SQLite Snapshot
+
+`zaira db` snapshots issues into SQLite (`zaira.db` in the project root) for SQL analysis and dashboards. Each sync fully rebuilds the given scopes; scopes are query names from `[queries]` in `zproject.toml`.
+
+```bash
+zaira db sync my-tickets                    # Rebuild scope from a named query
+zaira db sync                               # Rebuild all scopes in [db] scopes = [...]
+zaira db sync --jql "project = FOO" --name foo  # Ad-hoc JQL scope
+zaira db schema                             # Print tables and views (read before querying)
+zaira db query "SELECT key, status, cycle_time_days FROM v_issues WHERE status_category = 'done'"
+zaira db query "SELECT status, SUM(seconds)/86400.0 AS days FROM v_status_intervals WHERE key = 'FOO-1' GROUP BY status" --format json
+```
+
+Prefer the `v_issues` and `v_status_intervals` views over base tables. Other custom fields live in `custom_fields` (by `name`) or `json_extract(issues.raw, '$.customfield_NNN')`.
 
 ## Confluence Wiki
 

@@ -1,5 +1,6 @@
 """Jira client wrapper using the jira library."""
 
+import hashlib
 import re
 import sys
 import tomllib
@@ -80,6 +81,23 @@ def load_credentials() -> Credentials:
                 creds["api_token"] = token
 
     return creds
+
+
+def token_fingerprint(token: str) -> str:
+    """Return a short, non-reversible identifier for an API token.
+
+    First 8 hex chars of the SHA-256 digest of the token as stored. Support
+    can verify it by hashing the token themselves
+    (`printf %s "$TOKEN" | sha256sum | cut -c1-8`), while the secret itself
+    never reaches the log.
+    """
+    return hashlib.sha256(token.encode()).hexdigest()[:8]
+
+
+def current_token_fingerprint() -> str | None:
+    """Fingerprint of the currently configured API token, or None if unset."""
+    token = load_credentials().get("api_token")
+    return token_fingerprint(token) if token else None
 
 
 def _wincred_target(email: str) -> str:
@@ -311,6 +329,13 @@ def get_jira_site() -> str:
     return site.replace("https://", "").replace("http://", "")
 
 
+def _report_token_expiry(status: int | None, msg: str) -> None:
+    """Write a token-expiry entry to the activity log."""
+    from zaira.activity_log import record
+
+    record("token-expired", "-", f"HTTP {status}: {msg[:200]}")
+
+
 def format_jira_error(e: Exception) -> str:
     """Extract a clean error message from a JIRAError, stripping headers/response noise."""
     from jira.exceptions import JIRAError
@@ -336,7 +361,9 @@ def format_jira_error(e: Exception) -> str:
         msg = str(e)
 
     if status in (401, 403) and "permission" not in msg.lower():
+        _report_token_expiry(status, msg)
         msg += " (auth failed - API token may be expired; create a new one at https://id.atlassian.com/manage-profile/security/api-tokens then run 'zaira init --set-token' to update it)"
     elif status == 404 and "do not have permission" in msg:
+        _report_token_expiry(status, msg)
         msg += " (or your API token is expired - create a new one at https://id.atlassian.com/manage-profile/security/api-tokens then run 'zaira init --set-token' to update it)"
     return msg

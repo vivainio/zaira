@@ -15,6 +15,10 @@ from zaira.check import check_command
 from zaira.comment import comment_command
 from zaira.create import create_command
 from zaira.dashboard import dashboard_command, dashboards_command
+from zaira.db import db_command
+from zaira.db import query_command as db_query_command
+from zaira.db import schema_command as db_schema_command
+from zaira.db import sync_command as db_sync_command
 from zaira.edit import edit_command
 from zaira.errors import ApplicationError
 from zaira.export import get_attachment_command
@@ -1372,6 +1376,55 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print revision N of a field to stdout (requires --field)",
     )
     changelog_parser.set_defaults(func=changelog_command)
+
+    # Db command (SQLite snapshot of Jira issues)
+    db_parser = subparsers.add_parser(
+        "db",
+        help="Snapshot Jira issues into a SQLite database",
+    )
+    db_parser.set_defaults(func=db_command)
+    db_subparsers = db_parser.add_subparsers(dest="db_command")
+    db_path_args: dict[str, Any] = {
+        "metavar": "PATH",
+        "help": "Database file (default: zaira.db in project root)",
+    }
+
+    db_sync = db_subparsers.add_parser(
+        "sync",
+        help="Rebuild scopes (named queries) in the database from Jira",
+    )
+    db_sync.add_argument(
+        "scopes",
+        nargs="*",
+        metavar="SCOPE",
+        help="Query names from [queries] (default: [db] scopes in zproject.toml)",
+    )
+    db_sync.add_argument("--jql", help="Sync an ad-hoc JQL query instead")
+    db_sync.add_argument(
+        "--name", help="Scope name for --jql (default: adhoc)", default=None
+    )
+    db_sync.add_argument("--db", **db_path_args)
+    db_sync.set_defaults(db_func=db_sync_command)
+
+    db_query = db_subparsers.add_parser(
+        "query",
+        help="Run read-only SQL against the database",
+    )
+    db_query.add_argument("sql", help="SQL statement")
+    db_query.add_argument(
+        "--format",
+        choices=["table", "csv", "json"],
+        default="table",
+        help="Output format (default: table)",
+    )
+    db_query.add_argument("--db", **db_path_args)
+    db_query.set_defaults(db_func=db_query_command)
+
+    db_schema = db_subparsers.add_parser(
+        "schema",
+        help="Print the database schema (tables and views)",
+    )
+    db_schema.set_defaults(db_func=db_schema_command)
 
     # History command
     history_parser = subparsers.add_parser(
