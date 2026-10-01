@@ -174,7 +174,7 @@ class TestDetectAuthMode:
                 ),
             ),
             patch("zaira.init.probe_auth_mode", return_value=("scoped", "cloud-123")),
-            patch("zaira.init.save_auth_mode") as mock_save,
+            patch("zaira.init.persist_auth_mode", return_value=True) as mock_save,
         ):
             result = _detect_auth_mode()
 
@@ -193,7 +193,7 @@ class TestDetectAuthMode:
                 ),
             ),
             patch("zaira.init.probe_auth_mode", return_value=None),
-            patch("zaira.init.save_auth_mode") as mock_save,
+            patch("zaira.init.persist_auth_mode", return_value=True) as mock_save,
         ):
             result = _detect_auth_mode()
 

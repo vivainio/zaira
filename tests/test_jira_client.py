@@ -149,154 +149,291 @@ class TestGetJiraSite:
         assert result == "jira.example.com"
 
 
-class TestLoadAuthMode:
-    """Tests for load_auth_mode function."""
+class TestTokenRecord:
+    """Tests for the JSON token record stored in the secret store."""
 
-    def test_returns_none_when_file_missing(self, tmp_path) -> None:
-        """Returns None when config.toml doesn't exist."""
-        with patch.object(jira_client, "CONFIG_FILE", tmp_path / "nonexistent.toml"):
-            assert jira_client.load_auth_mode() is None
-
-    def test_returns_none_when_no_auth_table(self, tmp_path) -> None:
-        """Returns None when config.toml has no [auth] table."""
-        config_file = tmp_path / "config.toml"
-        config_file.write_text("[worklog]\nmax_hours_per_day = 7.5\n")
-
-        with patch.object(jira_client, "CONFIG_FILE", config_file):
-            assert jira_client.load_auth_mode() is None
-
-    def test_returns_cached_mode_and_cloud_id(self, tmp_path) -> None:
-        """Returns (mode, cloud_id) from the [auth] table."""
-        config_file = tmp_path / "config.toml"
-        config_file.write_text('[auth]\nmode = "scoped"\ncloud_id = "cloud-123"\n')
-
-        with patch.object(jira_client, "CONFIG_FILE", config_file):
-            assert jira_client.load_auth_mode() == ("scoped", "cloud-123")
-
-    def test_returns_classic_mode_without_cloud_id(self, tmp_path) -> None:
-        """Returns (mode, None) when cloud_id is absent."""
-        config_file = tmp_path / "config.toml"
-        config_file.write_text('[auth]\nmode = "classic"\n')
-
-        with patch.object(jira_client, "CONFIG_FILE", config_file):
-            assert jira_client.load_auth_mode() == ("classic", None)
-
-
-class TestSaveAuthMode:
-    """Tests for save_auth_mode function."""
-
-    def test_creates_file_with_auth_table(self, tmp_path) -> None:
-        """Creates config.toml with an [auth] table if missing."""
-        config_file = tmp_path / "config.toml"
-        config_dir = tmp_path
-
-        with (
-            patch.object(jira_client, "CONFIG_FILE", config_file),
-            patch.object(jira_client, "CONFIG_DIR", config_dir),
-        ):
-            jira_client.save_auth_mode("scoped", "cloud-123")
-            assert jira_client.load_auth_mode() == ("scoped", "cloud-123")
-
-    def test_preserves_existing_tables(self, tmp_path) -> None:
-        """Appends [auth] without clobbering other tables."""
-        config_file = tmp_path / "config.toml"
-        config_file.write_text("[worklog]\nmax_hours_per_day = 7.5\n")
-
-        with (
-            patch.object(jira_client, "CONFIG_FILE", config_file),
-            patch.object(jira_client, "CONFIG_DIR", tmp_path),
-        ):
-            jira_client.save_auth_mode("classic", None)
-
-        text = config_file.read_text()
-        assert "max_hours_per_day = 7.5" in text
-        assert 'mode = "classic"' in text
-        assert "cloud_id" not in text
-
-    def test_replaces_existing_auth_table(self, tmp_path) -> None:
-        """Overwrites a stale [auth] table rather than duplicating it."""
-        config_file = tmp_path / "config.toml"
-        config_file.write_text('[auth]\nmode = "classic"\n')
-
-        with (
-            patch.object(jira_client, "CONFIG_FILE", config_file),
-            patch.object(jira_client, "CONFIG_DIR", tmp_path),
-        ):
-            jira_client.save_auth_mode("scoped", "cloud-456")
-            assert jira_client.load_auth_mode() == ("scoped", "cloud-456")
-        assert config_file.read_text().count("[auth]") == 1
-
-
-class TestClearAuthMode:
-    """Tests for clear_auth_mode function."""
-
-    def test_removes_auth_table(self, tmp_path) -> None:
-        """Strips the [auth] table, preserving other tables."""
-        config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            '[worklog]\nmax_hours_per_day = 7.5\n\n[auth]\nmode = "scoped"\ncloud_id = "cloud-123"\n'
+    def test_parses_json_record(self) -> None:
+        secret = jira_client.encode_token_record(
+            {"v": 1, "token": "tok", "mode": "scoped", "cloud_id": "c1"}
         )
 
-        with patch.object(jira_client, "CONFIG_FILE", config_file):
-            jira_client.clear_auth_mode()
+        record = jira_client.parse_token_secret(secret)
 
-        text = config_file.read_text()
-        assert "[auth]" not in text
-        assert "max_hours_per_day = 7.5" in text
+        assert record["token"] == "tok"
+        assert record["mode"] == "scoped"
+        assert "legacy" not in record
 
-    def test_noop_when_file_missing(self, tmp_path) -> None:
-        """Does nothing when config.toml doesn't exist."""
-        with patch.object(jira_client, "CONFIG_FILE", tmp_path / "nonexistent.toml"):
-            jira_client.clear_auth_mode()  # Should not raise
+    def test_bare_token_is_legacy(self) -> None:
+        record = jira_client.parse_token_secret("ATATT3-bare-token\n")
+
+        assert record == {"token": "ATATT3-bare-token", "legacy": True}
+
+    def test_json_without_token_is_treated_as_legacy(self) -> None:
+        record = jira_client.parse_token_secret('{"foo": 1}')
+
+        assert record["legacy"] is True
+
+    def test_encode_drops_runtime_legacy_flag(self) -> None:
+        secret = jira_client.encode_token_record({"token": "t", "legacy": True})
+
+        assert "legacy" not in secret
+
+    def test_save_token_writes_record_with_metadata(self) -> None:
+        with (
+            patch.object(jira_client.wincred, "is_wsl", return_value=False),
+            patch.object(jira_client, "_get_token", return_value=None),
+            patch.object(jira_client.keyring, "set_password") as mock_set,
+        ):
+            jira_client.save_token_to_keyring(
+                "u@example.com",
+                "tok",
+                site="example.atlassian.net",
+                stored_by="test",
+                expires_at="2027-01-01",
+            )
+
+        service, username, secret = mock_set.call_args.args
+        assert (service, username) == ("zaira", "u@example.com")
+        record = jira_client.parse_token_secret(secret)
+        assert record["token"] == "tok"
+        assert record["email"] == "u@example.com"
+        assert record["site"] == "example.atlassian.net"
+        assert record["mode"] == "classic"
+        assert record["stored_by"] == "test"
+        assert record["expires_at"] == "2027-01-01"
+        assert record["stored_at"].endswith("Z")
+        assert record["host"]
+        assert record["fingerprint"] == jira_client.token_fingerprint("tok")
+        assert "previous_fingerprint" not in record
+
+    def test_save_token_records_replaced_fingerprint(
+        self, isolated_activity_log
+    ) -> None:
+        old = jira_client.encode_token_record({"v": 1, "token": "old-token"})
+
+        with (
+            patch.object(jira_client, "_get_token", return_value=old),
+            patch.object(jira_client, "_store_secret") as mock_store,
+        ):
+            jira_client.save_token_to_keyring("u@example.com", "new-token")
+
+        record = jira_client.parse_token_secret(mock_store.call_args.args[1])
+        old_fp = jira_client.token_fingerprint("old-token")
+        new_fp = jira_client.token_fingerprint("new-token")
+        assert record["previous_fingerprint"] == old_fp
+        assert record["replaced_at"] == record["stored_at"]
+        log = isolated_activity_log.read_text()
+        assert "token-set" in log
+        assert f"{old_fp} -> {new_fp}" in log
+
+    def test_save_same_token_keeps_rotation_history(self) -> None:
+        existing = jira_client.encode_token_record(
+            {
+                "v": 1,
+                "token": "same",
+                "previous_fingerprint": "deadbeef",
+                "replaced_at": "2026-01-01T00:00:00Z",
+            }
+        )
+
+        with (
+            patch.object(jira_client, "_get_token", return_value=existing),
+            patch.object(jira_client, "_store_secret") as mock_store,
+        ):
+            jira_client.save_token_to_keyring("u@example.com", "same")
+
+        record = jira_client.parse_token_secret(mock_store.call_args.args[1])
+        assert record["previous_fingerprint"] == "deadbeef"
+        assert record["replaced_at"] == "2026-01-01T00:00:00Z"
+
+    def test_save_over_legacy_bare_token_records_its_fingerprint(self) -> None:
+        with (
+            patch.object(jira_client, "_get_token", return_value="bare-old"),
+            patch.object(jira_client, "_store_secret") as mock_store,
+        ):
+            jira_client.save_token_to_keyring("u@example.com", "new")
+
+        record = jira_client.parse_token_secret(mock_store.call_args.args[1])
+        assert record["previous_fingerprint"] == jira_client.token_fingerprint(
+            "bare-old"
+        )
+
+    def test_warns_when_stored_fingerprint_does_not_match(
+        self, tmp_path, capsys, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(jira_client, "_warned_record_mismatch", False)
+        creds_file = tmp_path / "credentials.toml"
+        creds_file.write_text('email = "u@example.com"\n')
+        secret = jira_client.encode_token_record(
+            {"token": "edited", "fingerprint": "00000000"}
+        )
+
+        with (
+            patch.object(jira_client, "CREDENTIALS_FILE", creds_file),
+            patch.object(jira_client, "_get_token", return_value=secret),
+        ):
+            jira_client.load_credentials()
+
+        assert "does not match the token" in capsys.readouterr().err
+
+    def test_load_credentials_unwraps_record(self, tmp_path) -> None:
+        creds_file = tmp_path / "credentials.toml"
+        creds_file.write_text('site = "x.atlassian.net"\nemail = "u@example.com"\n')
+        secret = jira_client.encode_token_record(
+            {"v": 1, "token": "tok", "mode": "scoped", "cloud_id": "c1"}
+        )
+
+        with (
+            patch.object(jira_client, "CREDENTIALS_FILE", creds_file),
+            patch.object(jira_client, "_get_token", return_value=secret),
+        ):
+            creds = jira_client.load_credentials()
+
+        assert creds["api_token"] == "tok"
+        record = jira_client.get_token_record()
+        assert record is not None
+        assert record["mode"] == "scoped"
+
+    def test_load_credentials_accepts_legacy_bare_token(self, tmp_path) -> None:
+        creds_file = tmp_path / "credentials.toml"
+        creds_file.write_text('email = "u@example.com"\n')
+
+        with (
+            patch.object(jira_client, "CREDENTIALS_FILE", creds_file),
+            patch.object(jira_client, "_get_token", return_value="bare"),
+        ):
+            creds = jira_client.load_credentials()
+
+        assert creds["api_token"] == "bare"
+        record = jira_client.get_token_record()
+        assert record is not None
+        assert record.get("legacy") is True
+
+    def test_warns_on_email_mismatch(self, tmp_path, capsys, monkeypatch) -> None:
+        monkeypatch.setattr(jira_client, "_warned_record_mismatch", False)
+        creds_file = tmp_path / "credentials.toml"
+        creds_file.write_text('email = "me@example.com"\n')
+        secret = jira_client.encode_token_record(
+            {"token": "tok", "email": "other@example.com"}
+        )
+
+        with (
+            patch.object(jira_client, "CREDENTIALS_FILE", creds_file),
+            patch.object(jira_client, "_get_token", return_value=secret),
+        ):
+            jira_client.load_credentials()
+
+        err = capsys.readouterr().err
+        assert "other@example.com" in err
+        assert "me@example.com" in err
+
+    def test_persist_auth_mode_rewrites_record(self, tmp_path, monkeypatch) -> None:
+        creds_file = tmp_path / "credentials.toml"
+        creds_file.write_text('email = "u@example.com"\n')
+        secret = jira_client.encode_token_record(
+            {"v": 1, "token": "tok", "stored_by": "orig"}
+        )
+
+        with (
+            patch.object(jira_client, "CREDENTIALS_FILE", creds_file),
+            patch.object(jira_client, "_get_token", return_value=secret),
+            patch.object(jira_client, "_store_secret") as mock_store,
+        ):
+            jira_client.load_credentials()
+            assert jira_client.persist_auth_mode("scoped", "c1") is True
+
+        email, written = mock_store.call_args.args
+        assert email == "u@example.com"
+        record = jira_client.parse_token_secret(written)
+        assert record["mode"] == "scoped"
+        assert record["cloud_id"] == "c1"
+        assert record["stored_by"] == "orig"
+
+    def test_persist_auth_mode_migrates_legacy_entry(self, tmp_path) -> None:
+        creds_file = tmp_path / "credentials.toml"
+        creds_file.write_text('email = "u@example.com"\n')
+
+        with (
+            patch.object(jira_client, "CREDENTIALS_FILE", creds_file),
+            patch.object(jira_client, "_get_token", return_value="bare"),
+            patch.object(jira_client, "_store_secret") as mock_store,
+        ):
+            jira_client.load_credentials()
+            jira_client.persist_auth_mode("classic", None)
+
+        record = jira_client.parse_token_secret(mock_store.call_args.args[1])
+        assert record["token"] == "bare"
+        assert record["stored_by"] == "migrated-legacy"
+        assert "migrated_at" in record
+
+    def test_persist_auth_mode_returns_false_for_file_token(self, tmp_path) -> None:
+        creds_file = tmp_path / "credentials.toml"
+        creds_file.write_text('email = "u@example.com"\napi_token = "t"\n')
+
+        with (
+            patch.object(jira_client, "CREDENTIALS_FILE", creds_file),
+            patch.object(jira_client, "_store_secret") as mock_store,
+        ):
+            jira_client.load_credentials()
+            assert jira_client.persist_auth_mode("scoped", "c1") is False
+
+        mock_store.assert_not_called()
+
+    def test_expiry_report_includes_record_summary(self, isolated_activity_log) -> None:
+        jira_client._token_record = {
+            "v": 1,
+            "token": "SECRET-VALUE-123",
+            "mode": "classic",
+            "stored_at": "2026-01-01T00:00:00Z",
+            "stored_by": "test",
+        }
+        try:
+            jira_client._report_token_expiry(401, "nope")
+        finally:
+            jira_client._token_record = None
+
+        text = isolated_activity_log.read_text()
+        assert "stored_by=test" in text
+        assert "SECRET-VALUE-123" not in text
 
 
 class TestGetOrDetectAuthMode:
     """Tests for get_or_detect_auth_mode function."""
 
-    def test_returns_cached_mode_without_probing(self) -> None:
-        """Uses the cached value and never calls probe_auth_mode."""
-        with (
-            patch.object(
-                jira_client, "load_auth_mode", return_value=("scoped", "cloud-123")
-            ),
-            patch.object(jira_client, "probe_auth_mode") as mock_probe,
-        ):
-            result = jira_client.get_or_detect_auth_mode(
-                "https://example.atlassian.net", "user@example.com", "token"
-            )
-
-        assert result == ("scoped", "cloud-123")
-        mock_probe.assert_not_called()
-
-    def test_probes_and_persists_when_not_cached(self) -> None:
-        """Probes and saves the result when nothing is cached yet."""
-        with (
-            patch.object(jira_client, "load_auth_mode", return_value=None),
-            patch.object(
-                jira_client, "probe_auth_mode", return_value=("scoped", "cloud-123")
-            ),
-            patch.object(jira_client, "save_auth_mode") as mock_save,
-        ):
-            result = jira_client.get_or_detect_auth_mode(
-                "https://example.atlassian.net", "user@example.com", "token"
-            )
-
-        assert result == ("scoped", "cloud-123")
-        mock_save.assert_called_once_with("scoped", "cloud-123")
-
-    def test_falls_back_to_classic_without_caching_when_probe_fails(self) -> None:
-        """Falls back to classic (uncached) when both endpoints reject the token."""
-        with (
-            patch.object(jira_client, "load_auth_mode", return_value=None),
-            patch.object(jira_client, "probe_auth_mode", return_value=None),
-            patch.object(jira_client, "save_auth_mode") as mock_save,
-        ):
+    def test_defaults_to_classic_without_record(self) -> None:
+        with patch.object(jira_client, "_token_record", None):
             result = jira_client.get_or_detect_auth_mode(
                 "https://example.atlassian.net", "user@example.com", "token"
             )
 
         assert result == ("classic", None)
-        mock_save.assert_not_called()
+
+    def test_legacy_record_is_classic(self) -> None:
+        record = {"token": "token", "legacy": True}
+        with patch.object(jira_client, "_token_record", record):
+            result = jira_client.get_or_detect_auth_mode(
+                "https://example.atlassian.net", "user@example.com", "token"
+            )
+
+        assert result == ("classic", None)
+
+    def test_uses_scoped_mode_from_record(self) -> None:
+        record = {"token": "token", "mode": "scoped", "cloud_id": "cloud-123"}
+        with patch.object(jira_client, "_token_record", record):
+            result = jira_client.get_or_detect_auth_mode(
+                "https://example.atlassian.net", "user@example.com", "token"
+            )
+
+        assert result == ("scoped", "cloud-123")
+
+    def test_ignores_record_for_a_different_token(self) -> None:
+        record = {"token": "other", "mode": "scoped", "cloud_id": "cloud-123"}
+        with patch.object(jira_client, "_token_record", record):
+            result = jira_client.get_or_detect_auth_mode(
+                "https://example.atlassian.net", "user@example.com", "token"
+            )
+
+        assert result == ("classic", None)
 
 
 class TestGetDefaultJira:

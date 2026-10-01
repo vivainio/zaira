@@ -3,6 +3,7 @@
 import argparse
 import json
 import sys
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from zaira import wincred
@@ -20,8 +21,9 @@ from zaira.jira_client import (
     get_jira,
     get_jira_site,
     get_project_schema_path,
+    get_token_record,
     load_credentials,
-    save_auth_mode,
+    persist_auth_mode,
     save_token_to_keyring,
     strip_token_from_credentials_file,
 )
@@ -304,6 +306,51 @@ def _prompt_for_token(email: str) -> str:
     return token
 
 
+def _token_status() -> None:
+    """Print stored-token metadata (never the token) for debugging auth problems."""
+    creds = load_credentials()
+    record = get_token_record()
+    print(f"Token store: {_token_store_name()}")
+    print(f"  Config email: {creds.get('email', '(unset)')}")
+    print(f"  Config site:  {creds.get('site', '(unset)')}")
+    if not creds.get("api_token"):
+        print("  Token: none stored (run `zaira init --set-token`)")
+        return
+    print(f"  Token fingerprint: {current_token_fingerprint()}")
+    if record is None:
+        print("  Source: credentials.toml (run `zaira init --migrate-token`)")
+        return
+    if record.get("legacy"):
+        print(
+            "  Format: legacy bare token (written by an older zaira or another tool); "
+            "mode assumed classic. Run `zaira init --set-token` to record metadata."
+        )
+        return
+    print(f"  Format: v{record.get('v', '?')}")
+    print(f"  Mode: {record.get('mode', '?')}")
+    if record.get("cloud_id"):
+        print(f"  Cloud ID: {record['cloud_id']}")
+    print(f"  Email: {record.get('email', '?')}")
+    print(f"  Site: {record.get('site', '?')}")
+    stored_at = record.get("stored_at")
+    if stored_at:
+        age = datetime.now(timezone.utc) - datetime.fromisoformat(
+            stored_at.replace("Z", "+00:00")
+        )
+        print(f"  Stored at: {stored_at} ({age.days} days ago)")
+    for label, key in (
+        ("Stored by", "stored_by"),
+        ("Zaira version", "zaira_version"),
+        ("Host", "host"),
+        ("Replaced token", "previous_fingerprint"),
+        ("Replaced at", "replaced_at"),
+        ("Migrated at", "migrated_at"),
+        ("Expires at", "expires_at"),
+    ):
+        if record.get(key):
+            print(f"  {label}: {record[key]}")
+
+
 def init_command(args: argparse.Namespace) -> None:
     """Handle init subcommand - credentials setup only."""
     if getattr(args, "install_wincred", False):
@@ -324,8 +371,20 @@ def init_command(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
+    if getattr(args, "status", False):
+        _token_status()
+        return
+
     if not _ensure_credentials_file():
         sys.exit(1)
+
+    expires = getattr(args, "expires", None)
+    if expires:
+        try:
+            date.fromisoformat(expires)
+        except ValueError:
+            print("Error: --expires must be YYYY-MM-DD", file=sys.stderr)
+            sys.exit(1)
 
     creds = load_credentials()
     email = creds["email"]
@@ -339,7 +398,12 @@ def init_command(args: argparse.Namespace) -> None:
                 file=sys.stderr,
             )
             sys.exit(1)
-        save_token_to_keyring(email, file_token)
+        save_token_to_keyring(
+            email,
+            file_token,
+            site=creds.get("site"),
+            stored_by="zaira init --migrate-token",
+        )
         strip_token_from_credentials_file()
         print(
             f"Migrated api_token from {CREDENTIALS_FILE} to the {_token_store_name()} "
@@ -349,7 +413,15 @@ def init_command(args: argparse.Namespace) -> None:
         reset = getattr(args, "set_token", False)
         if reset or not creds.get("api_token"):
             token = _prompt_for_token(email)
-            save_token_to_keyring(email, token)
+            save_token_to_keyring(
+                email,
+                token,
+                site=creds.get("site"),
+                stored_by="zaira init --set-token"
+                if reset
+                else "zaira init (first-time setup)",
+                expires_at=expires,
+            )
             print(f"Stored API token for {email} in the {_token_store_name()}.\n")
             if reset and strip_token_from_credentials_file():
                 print(
@@ -400,7 +472,7 @@ def init_command(args: argparse.Namespace) -> None:
 
 
 def _detect_auth_mode() -> tuple[AuthMode, str | None] | None:
-    """Probe which Atlassian auth mode the configured token uses and cache it.
+    """Probe which Atlassian auth mode the configured token uses and record it.
 
     Returns (mode, cloud_id) on success, None if the token was rejected by
     both the classic direct-site endpoint and the scoped gateway endpoint.
@@ -410,7 +482,12 @@ def _detect_auth_mode() -> tuple[AuthMode, str | None] | None:
     if result is None:
         return None
     mode, cloud_id = result
-    save_auth_mode(mode, cloud_id)
+    if not persist_auth_mode(mode, cloud_id) and mode == "scoped":
+        print(
+            "  Warning: scoped token detected but it is stored in credentials.toml, "
+            "which cannot record the mode. Run `zaira init --migrate-token`.",
+            file=sys.stderr,
+        )
     return mode, cloud_id
 
 

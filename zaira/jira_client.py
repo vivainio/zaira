@@ -1,10 +1,13 @@
 """Jira client wrapper using the jira library."""
 
 import hashlib
-import re
+import json
+import socket
 import sys
 import tomllib
+from datetime import datetime, timezone
 from functools import lru_cache
+from importlib import metadata
 from pathlib import Path
 from typing import cast
 
@@ -14,9 +17,9 @@ from keyring.errors import PasswordDeleteError
 from platformdirs import user_cache_dir, user_config_dir
 
 from zaira import wincred
-from zaira.atlassian_auth import AuthMode, jira_base_url, probe_auth_mode
+from zaira.atlassian_auth import AuthMode, jira_base_url
 from zaira.errors import CredentialsNotConfigured
-from zaira.types import Credentials
+from zaira.types import Credentials, TokenRecord
 
 CONFIG_DIR = Path(user_config_dir("zaira", appauthor=False))
 CACHE_DIR = Path(user_cache_dir("zaira", appauthor=False))
@@ -65,28 +68,114 @@ def _read_credentials_file() -> Credentials:
         return cast(Credentials, tomllib.load(f))
 
 
+# Record behind the token most recently returned by load_credentials(); None
+# when the token came from credentials.toml or no token is stored.
+_token_record: TokenRecord | None = None
+_warned_record_mismatch = False
+
+RECORD_VERSION = 1
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _zaira_version() -> str:
+    try:
+        return metadata.version("zaira")
+    except metadata.PackageNotFoundError:
+        return "unknown"
+
+
+def parse_token_secret(secret: str) -> TokenRecord:
+    """Parse a secret-store value into a TokenRecord.
+
+    A JSON object with a `token` field is a v1+ record. Anything else is a
+    bare token written before the record format existed (or by another
+    tool) and comes back flagged `legacy`.
+    """
+    text = secret.strip()
+    if text.startswith("{"):
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            data = None
+        if isinstance(data, dict) and isinstance(data.get("token"), str):
+            if data["token"]:
+                return cast(TokenRecord, data)
+    return {"token": text, "legacy": True}
+
+
+def encode_token_record(record: TokenRecord) -> str:
+    """Serialize a TokenRecord for the secret store (drops runtime-only flags)."""
+    data = {k: v for k, v in record.items() if k != "legacy"}
+    return json.dumps(data, separators=(",", ":"), sort_keys=True)
+
+
+def _normalize_site(site: str) -> str:
+    return site.replace("https://", "").replace("http://", "").rstrip("/").lower()
+
+
+def _warn_on_record_mismatch(record: TokenRecord, creds: Credentials) -> None:
+    """Warn (once per process) when the stored token record looks misplaced."""
+    global _warned_record_mismatch
+    if _warned_record_mismatch:
+        return
+    problems: list[str] = []
+    rec_email, email = record.get("email"), creds.get("email")
+    if rec_email and email and rec_email.lower() != email.lower():
+        problems.append(f"token was stored for {rec_email}, but email is {email}")
+    rec_site, site = record.get("site"), creds.get("site")
+    if rec_site and site and _normalize_site(rec_site) != _normalize_site(site):
+        problems.append(f"token was stored for {rec_site}, but site is {site}")
+    stored_fp = record.get("fingerprint")
+    if stored_fp and stored_fp != token_fingerprint(record["token"]):
+        problems.append(
+            f"stored token fingerprint {stored_fp} does not match the token "
+            "(record edited or corrupted)"
+        )
+    expires = record.get("expires_at")
+    if expires and expires < _utc_now():
+        problems.append(f"token expired on {expires}")
+    if problems:
+        _warned_record_mismatch = True
+        print(f"Warning: {'; '.join(problems)}.", file=sys.stderr)
+
+
 def load_credentials() -> Credentials:
     """Load credentials, preferring the OS keyring for api_token.
 
-    site/email come from credentials.toml; api_token comes from the keyring
-    (service='zaira', username=email), falling back to the file if present.
+    site/email come from credentials.toml; api_token comes from the secret
+    store (service='zaira', username=email), falling back to the file if
+    present. The store holds a JSON TokenRecord (see parse_token_secret);
+    the record itself is available via get_token_record().
     """
+    global _token_record
     creds = _read_credentials_file()
+    _token_record = None
 
     if not creds.get("api_token"):
         email = creds.get("email")
         if email:
-            token = _get_token(email)
-            if token:
-                creds["api_token"] = token
+            secret = _get_token(email)
+            if secret:
+                record = parse_token_secret(secret)
+                creds["api_token"] = record["token"]
+                _token_record = record
+                _warn_on_record_mismatch(record, creds)
 
     return creds
+
+
+def get_token_record() -> TokenRecord | None:
+    """Record behind the token last returned by load_credentials(), if any."""
+    return _token_record
 
 
 def token_fingerprint(token: str) -> str:
     """Return a short, non-reversible identifier for an API token.
 
-    First 8 hex chars of the SHA-256 digest of the token as stored. Support
+    First 8 hex chars of the SHA-256 digest of the token string. Support
     can verify it by hashing the token themselves
     (`printf %s "$TOKEN" | sha256sum | cut -c1-8`), while the secret itself
     never reaches the log.
@@ -121,12 +210,99 @@ def _get_token(email: str) -> str | None:
     return keyring.get_password(KEYRING_SERVICE, email)
 
 
-def save_token_to_keyring(email: str, api_token: str) -> None:
-    """Store the Jira API token in the OS keyring (or Windows Credential Manager on WSL)."""
+def _store_secret(email: str, secret: str) -> None:
     if wincred.is_wsl():
-        wincred.set_password(_wincred_target(email), email, api_token)
+        wincred.set_password(_wincred_target(email), email, secret)
         return
-    keyring.set_password(KEYRING_SERVICE, email, api_token)
+    keyring.set_password(KEYRING_SERVICE, email, secret)
+
+
+def save_token_to_keyring(
+    email: str,
+    api_token: str,
+    *,
+    site: str | None = None,
+    mode: AuthMode = "classic",
+    cloud_id: str | None = None,
+    stored_by: str = "zaira",
+    expires_at: str | None = None,
+) -> None:
+    """Store the Jira API token plus debugging metadata as a JSON record.
+
+    Goes to the OS keyring, or to Windows Credential Manager on WSL.
+    """
+    fingerprint = token_fingerprint(api_token)
+    record: TokenRecord = {
+        "v": RECORD_VERSION,
+        "email": email,
+        "token": api_token,
+        "fingerprint": fingerprint,
+        "mode": mode,
+        "cloud_id": cloud_id,
+        "stored_at": _utc_now(),
+        "stored_by": stored_by,
+        "zaira_version": _zaira_version(),
+        "host": socket.gethostname(),
+        "expires_at": expires_at,
+    }
+    if site:
+        record["site"] = site
+
+    previous = _existing_record(email)
+    previous_fp = token_fingerprint(previous["token"]) if previous else None
+    if previous and previous_fp != fingerprint:
+        record["previous_fingerprint"] = cast(str, previous_fp)
+        record["replaced_at"] = record["stored_at"]
+    elif previous:
+        # Same token stored again: keep the earlier rotation history.
+        for key in ("previous_fingerprint", "replaced_at"):
+            if previous.get(key):
+                record[key] = previous[key]  # type: ignore[literal-required]
+
+    _store_secret(email, encode_token_record(record))
+    _log_token_set(previous_fp, fingerprint, stored_by)
+
+
+def _existing_record(email: str) -> TokenRecord | None:
+    """Currently stored record for `email`, or None if absent/unreadable."""
+    try:
+        secret = _get_token(email)
+    except Exception:
+        return None
+    return parse_token_secret(secret) if secret else None
+
+
+def _log_token_set(old_fp: str | None, new_fp: str, stored_by: str) -> None:
+    """Record a token write (and the fingerprint it replaced) in the activity log."""
+    from zaira.activity_log import record
+
+    change = f"{old_fp} -> {new_fp}" if old_fp else f"(none) -> {new_fp}"
+    record("token-set", "-", f"{change} [{stored_by}]")
+
+
+def persist_auth_mode(mode: AuthMode, cloud_id: str | None) -> bool:
+    """Record the detected auth mode in the stored token record.
+
+    Returns False when there is no stored record to update (the token comes
+    from credentials.toml), so the caller can tell the user to migrate.
+    """
+    record = _token_record
+    email = _read_credentials_file().get("email")
+    if record is None or not email:
+        return False
+    updated: TokenRecord = {**record, "v": RECORD_VERSION}
+    updated.pop("legacy", None)
+    updated["mode"] = mode
+    updated["cloud_id"] = cloud_id
+    updated.setdefault("email", email)
+    updated.setdefault("fingerprint", token_fingerprint(record["token"]))
+    if record.get("legacy"):
+        updated["stored_by"] = "migrated-legacy"
+        updated["migrated_at"] = _utc_now()
+        updated["zaira_version"] = _zaira_version()
+        updated["host"] = socket.gethostname()
+    _store_secret(email, encode_token_record(updated))
+    return True
 
 
 def delete_token_from_keyring(email: str) -> None:
@@ -176,7 +352,9 @@ def save_credentials(email: str, api_token: str) -> None:
     CREDENTIALS_FILE.write_text("\n".join(lines) + "\n")
     CREDENTIALS_FILE.chmod(0o600)
 
-    save_token_to_keyring(email, api_token)
+    save_token_to_keyring(
+        email, api_token, site=site or None, stored_by="save_credentials"
+    )
 
 
 def get_credentials() -> tuple[str, str, str]:
@@ -201,77 +379,19 @@ def get_credentials() -> tuple[str, str, str]:
     return server, email, token
 
 
-_AUTH_TABLE_RE = re.compile(r"^\[auth\]\n(?:(?!^\[).*\n?)*", re.MULTILINE)
-
-
-def load_auth_mode() -> tuple[AuthMode, str | None] | None:
-    """Read the cached [auth] mode/cloud_id from config.toml.
-
-    Returns (mode, cloud_id), or None if nothing is cached yet.
-    """
-    if not CONFIG_FILE.exists():
-        return None
-    with open(CONFIG_FILE, "rb") as f:
-        config = tomllib.load(f)
-    auth = config.get("auth")
-    if not auth or not auth.get("mode"):
-        return None
-    return cast(AuthMode, auth["mode"]), auth.get("cloud_id")
-
-
-def save_auth_mode(mode: AuthMode, cloud_id: str | None) -> None:
-    """Persist the detected auth mode/cloud_id to config.toml's [auth] table.
-
-    Replaces any existing [auth] table in place; preserves the rest of the
-    file (comments, other tables) since config.toml is hand-editable.
-    """
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    text = CONFIG_FILE.read_text() if CONFIG_FILE.exists() else ""
-    text = _AUTH_TABLE_RE.sub("", text).rstrip("\n")
-
-    block = f'[auth]\nmode = "{mode}"\n'
-    if cloud_id:
-        block += f'cloud_id = "{cloud_id}"\n'
-
-    text = f"{text}\n\n{block}" if text else block
-    if not text.endswith("\n"):
-        text += "\n"
-    CONFIG_FILE.write_text(text)
-
-
-def clear_auth_mode() -> None:
-    """Remove the cached [auth] table from config.toml, if present."""
-    if not CONFIG_FILE.exists():
-        return
-    text = CONFIG_FILE.read_text()
-    new = _AUTH_TABLE_RE.sub("", text).rstrip("\n")
-    if new and not new.endswith("\n"):
-        new += "\n"
-    if new != text:
-        CONFIG_FILE.write_text(new)
-
-
 def get_or_detect_auth_mode(
     server: str, email: str, token: str
 ) -> tuple[AuthMode, str | None]:
-    """Return the cached auth mode, probing and persisting it if not cached.
+    """Return the auth mode recorded with the stored token.
 
-    On a probe failure (both classic and scoped endpoints reject the
-    token), falls back to "classic" without caching, so the real request
-    proceeds and fails naturally with the existing credential-error path
-    rather than raising here.
+    Tokens without a recorded mode (legacy entries, credentials.toml) are
+    assumed classic. `zaira init` probes and records the mode, so scoped
+    tokens must be set up through it.
     """
-    cached = load_auth_mode()
-    if cached is not None:
-        return cached
-
-    result = probe_auth_mode(server, email, token)
-    if result is None:
-        return "classic", None
-
-    mode, cloud_id = result
-    save_auth_mode(mode, cloud_id)
-    return mode, cloud_id
+    record = _token_record
+    if record and record.get("token") == token and record.get("mode") == "scoped":
+        return "scoped", record.get("cloud_id")
+    return "classic", None
 
 
 # Injected client for testing
@@ -329,11 +449,32 @@ def get_jira_site() -> str:
     return site.replace("https://", "").replace("http://", "")
 
 
+def describe_token_record(record: TokenRecord | None) -> str:
+    """One-line, secret-free summary of the stored token record for logs."""
+    if record is None:
+        return "source=credentials.toml"
+    if record.get("legacy"):
+        return "format=legacy (bare token; not written by this zaira version)"
+    parts = [f"format=v{record.get('v', '?')}", f"mode={record.get('mode', '?')}"]
+    stored_at = record.get("stored_at")
+    if stored_at:
+        parts.append(f"stored_at={stored_at}")
+    if record.get("previous_fingerprint"):
+        parts.append(
+            f"replaced={record['previous_fingerprint']}@{record.get('replaced_at', '?')}"
+        )
+    for key in ("stored_by", "zaira_version", "host", "expires_at"):
+        if record.get(key):
+            parts.append(f"{key}={record[key]}")
+    return " ".join(parts)
+
+
 def _report_token_expiry(status: int | None, msg: str) -> None:
     """Write a token-expiry entry to the activity log."""
     from zaira.activity_log import record
 
-    record("token-expired", "-", f"HTTP {status}: {msg[:200]}")
+    detail = f"HTTP {status}: {msg[:200]} [{describe_token_record(_token_record)}]"
+    record("token-expired", "-", detail)
 
 
 def format_jira_error(e: Exception) -> str:

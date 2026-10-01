@@ -238,6 +238,31 @@ class Credentials(TypedDict, total=False):
     site: str
 
 
+class TokenRecord(TypedDict, total=False):
+    """Secret-store entry for the Jira API token (stored as JSON).
+
+    `legacy` is runtime-only (set when the stored value was a bare token
+    from before this format existed); it is never written back.
+    """
+
+    v: int
+    email: str
+    site: str
+    token: str
+    fingerprint: str
+    previous_fingerprint: str
+    replaced_at: str
+    mode: str
+    cloud_id: str | None
+    stored_at: str
+    stored_by: str
+    zaira_version: str
+    host: str
+    expires_at: str | None
+    migrated_at: str
+    legacy: bool
+
+
 class ReportDef(TypedDict, total=False):
     """Report definition from zproject.toml."""
 

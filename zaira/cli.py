@@ -371,6 +371,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Move the api_token from credentials.toml into the OS keyring (no prompt)",
     )
     init_parser.add_argument(
+        "--expires",
+        metavar="YYYY-MM-DD",
+        help="With --set-token: expiry date of the new token, recorded for debugging and expiry warnings",
+    )
+    init_parser.add_argument(
+        "--status",
+        action="store_true",
+        help="Show the stored token's metadata (never the token itself) and exit",
+    )
+    init_parser.add_argument(
         "--install-wincred",
         action="store_true",
         help="Download wincred.exe to %%USERPROFILE%%\\.local\\bin so zaira can use the Windows Credential Manager from WSL",
@@ -1461,7 +1471,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     def _reset_command(args: argparse.Namespace) -> None:
-        from zaira.jira_client import CACHE_DIR, clear_auth_mode
+        from zaira.jira_client import CACHE_DIR
 
         cleared = 0
         for f in CACHE_DIR.iterdir():
@@ -1471,8 +1481,6 @@ def build_parser() -> argparse.ArgumentParser:
             print(f"Removed {f.name}")
             cleared += 1
         print(f"Cache cleared ({cleared} files removed).")
-
-        clear_auth_mode()
 
     reset_parser.set_defaults(func=_reset_command)
 
