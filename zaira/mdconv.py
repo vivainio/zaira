@@ -2,11 +2,13 @@
 
 import hashlib
 import html
+import json
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -334,6 +336,25 @@ def _confluence_macro_to_xml(macro_str: str) -> str:
     return xml
 
 
+MERMAID_MACRO = "confluence-mermaid-macro"
+
+
+def _mermaid_macro(source: str) -> str:
+    """Build a Confluence Mermaid plugin macro for a diagram source."""
+    body = json.dumps([{"body": source, "date": int(time.time() * 1000)}])
+    body = body.replace("]]>", "]]]]><![CDATA[>")
+    search_text = html.escape(" ".join(source.split()))
+    return (
+        f'<ac:structured-macro ac:name="{MERMAID_MACRO}" ac:schema-version="1">'
+        '<ac:parameter ac:name="theme">default</ac:parameter>'
+        '<ac:parameter ac:name="look">classic</ac:parameter>'
+        '<ac:parameter ac:name="alignment">left</ac:parameter>'
+        f'<ac:parameter ac:name="searchText">{search_text}</ac:parameter>'
+        f"<ac:plain-text-body><![CDATA[{body}]]></ac:plain-text-body>"
+        "</ac:structured-macro>"
+    )
+
+
 def _code_block_to_macro(match: re.Match) -> str:
     """Convert HTML code block to Confluence code macro."""
     lang = match.group(1) or ""
@@ -353,6 +374,9 @@ def _code_block_to_macro(match: re.Match) -> str:
     # The HTML renderer always emits a trailing newline before </code>;
     # left in place it becomes a stray blank line inside the Confluence code macro.
     code = code.removesuffix("\n")
+
+    if lang == "mermaid":
+        return _mermaid_macro(code)
 
     return (
         f'<ac:structured-macro ac:name="code">'
@@ -618,6 +642,16 @@ def _extract_code_macro(elem: ET.Element) -> tuple[str, str]:
     return lang, code
 
 
+def _mermaid_macro_to_fence(elem: ET.Element) -> str:
+    """Convert a Confluence Mermaid plugin macro to a ```mermaid fence."""
+    _, body = _extract_code_macro(elem)
+    try:
+        source = json.loads(body)[0]["body"]
+    except (ValueError, IndexError, KeyError, TypeError):
+        source = body  # not the plugin's JSON envelope; treat as raw source
+    return f"\n```mermaid\n{source.rstrip(chr(10))}\n```\n"
+
+
 def _elem_to_markdown(
     elem: ET.Element,
     image_dir: str,
@@ -636,6 +670,8 @@ def _elem_to_markdown(
             lang = LANG_MAP_REVERSE.get(lang.lower(), lang.lower()) if lang else ""
             code = code.rstrip("\n")
             return f"\n```{lang}\n{code}\n```\n"
+        elif macro_name == MERMAID_MACRO:
+            return _mermaid_macro_to_fence(elem)
         elif macro_name == "toc":
             return "\n[TOC]\n"
         else:

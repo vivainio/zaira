@@ -157,6 +157,12 @@ Use Confluence macros for advanced features. The syntax works in both markdown a
 {macro-name:param1=value1|param2=value2}
 ```
 
+### Mermaid Diagrams
+
+A fenced ```` ```mermaid ```` block is published as the Confluence Mermaid plugin
+macro (`confluence-mermaid-macro`) and converted back to a fence on pull. Pass
+`--render mermaid` to upload a rendered image instead.
+
 ### Common Macros
 
 **Info Box:**

@@ -212,6 +212,18 @@ class TestMarkdownToStorage:
         html = markdown_to_storage(md)
         assert "<![CDATA[line1\n\nline2]]>" in html
 
+    def test_mermaid_fence_becomes_plugin_macro(self) -> None:
+        md = "```mermaid\ngraph TD\n  A --> B\n```"
+        out = markdown_to_storage(md)
+        assert 'ac:name="confluence-mermaid-macro"' in out
+        assert 'ac:name="code"' not in out
+        assert "A --&gt; B" in out  # searchText is escaped
+
+    def test_mermaid_roundtrip(self) -> None:
+        md = "```mermaid\ngraph TD\n  A --> B\n```"
+        out = storage_to_markdown(markdown_to_storage(md))
+        assert "```mermaid\ngraph TD\n  A --> B\n```" in out
+
     def test_toc(self) -> None:
         md = "# Title\n\n[TOC]\n\n## Section"
         html = markdown_to_storage(md)
