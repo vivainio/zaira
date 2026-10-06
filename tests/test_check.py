@@ -14,8 +14,10 @@ from zaira.types import Violation
 
 @pytest.fixture(autouse=True)
 def _clean_registry() -> Iterator[None]:
-    hooks_mod.reset_registry()
-    yield
+    # Don't let hook packages installed on the machine (entry points) leak in.
+    with patch.object(hooks_mod, "entry_points", return_value=()):
+        hooks_mod.reset_registry()
+        yield
     hooks_mod.reset_registry()
 
 
