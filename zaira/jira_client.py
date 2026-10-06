@@ -193,11 +193,13 @@ def _wincred_target(email: str) -> str:
     """Build the Windows Credential Manager target name for a Jira token.
 
     wincred.exe's `get` only takes a bare target (no username), so the
-    email has to be folded into the target itself. This also matches the
-    TargetName Python `keyring`'s own Windows backend uses (f"{username}@
-    {service}"), so entries set from native-Windows zaira stay visible here.
+    email has to be folded into the target itself.
+
+    Deliberately NOT the `{email}@zaira` name Python `keyring` uses on native
+    Windows: something outside this zaira kept overwriting that entry with an
+    old legacy bare token. A distinct name keeps other writers away from it.
     """
-    return f"{email}@{KEYRING_SERVICE}"
+    return f"zaira-jira-token:{email}"
 
 
 def _get_token(email: str) -> str | None:
