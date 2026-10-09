@@ -13,6 +13,35 @@ from zaira.util import humanize_age
 PAGE_SIZE = 50
 
 
+CLOUD_PAGE_MAX = 100
+
+
+def _search_issues(jira: Any, jql: str, limit: int | None) -> list[Any]:
+    """Run a JQL search, returning up to `limit` issues (all if no limit).
+
+    Jira Cloud caps a single search page at 100 issues, and the `jira`
+    library fetches exactly one page when given a numeric maxResults, so
+    `-n 300` would silently return 100. Follow nextPageToken ourselves.
+    """
+    if not limit:
+        return jira.search_issues(jql, startAt=0, maxResults=False)
+    if getattr(jira, "_is_cloud", False) is not True or limit <= CLOUD_PAGE_MAX:
+        return jira.search_issues(jql, startAt=0, maxResults=limit)
+    issues: list[Any] = []
+    token: str | None = None
+    while len(issues) < limit:
+        page = jira.enhanced_search_issues(
+            jql,
+            nextPageToken=token,
+            maxResults=min(CLOUD_PAGE_MAX, limit - len(issues)),
+        )
+        issues.extend(page)
+        token = getattr(page, "nextPageToken", None)
+        if not token or not page:
+            break
+    return issues[:limit]
+
+
 def _optional_field(f: Any, name: str) -> Any:
     """An issue field's value, or None if it isn't in this project's field
     scheme at all -- accessing an absent field directly (`f.priority`)
@@ -194,8 +223,7 @@ def search_command(args: argparse.Namespace) -> None:
                     continue
                 extra_field_specs.append((display, key))
 
-        max_results = limit if limit else False
-        issues = jira.search_issues(jql, startAt=0, maxResults=max_results)
+        issues = _search_issues(jira, jql, limit)
         data = []
         for issue in issues:
             f = issue.fields
@@ -252,8 +280,7 @@ def search_command(args: argparse.Namespace) -> None:
         all_rows = []
 
     # Let the library handle pagination (uses token-based pagination on Cloud)
-    max_results = limit if limit else False
-    issues = jira.search_issues(jql, startAt=0, maxResults=max_results)
+    issues = _search_issues(jira, jql, limit)
 
     for issue in issues:
         fields = issue.fields

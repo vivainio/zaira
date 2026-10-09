@@ -1,10 +1,13 @@
 """Get Jira tickets."""
 
 import argparse
+import contextlib
+import io
+import json
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import TypedDict
+from typing import Any, TypedDict
 
 from zaira.boards import get_board_issues_jql, get_sprint_issues_jql
 from zaira.export import (
@@ -75,18 +78,28 @@ def get_command(args: argparse.Namespace) -> None:
 
     if to_stdout:
         ok = True
+        # Several tickets as JSON must be one valid document, not
+        # concatenated top-level objects.
+        as_array = fmt == "json" and not minimal and len(keys) > 1
+        docs: list[Any] = []
         for key in keys:
-            ok &= export_to_stdout(
-                key,
-                fmt=fmt,
-                with_prs=with_prs,
-                with_tests=with_tests,
-                with_props=with_props,
-                include_custom=include_custom,
-                minimal=minimal,
-                raw=raw,
-                body_field=body_field,
-            )
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf if as_array else sys.stdout):
+                ok &= export_to_stdout(
+                    key,
+                    fmt=fmt,
+                    with_prs=with_prs,
+                    with_tests=with_tests,
+                    with_props=with_props,
+                    include_custom=include_custom,
+                    minimal=minimal,
+                    raw=raw,
+                    body_field=body_field,
+                )
+            if as_array and buf.getvalue().strip():
+                docs.append(json.loads(buf.getvalue()))
+        if as_array:
+            print(json.dumps(docs, indent=2, ensure_ascii=False))
         if not ok:
             sys.exit(1)
     else:

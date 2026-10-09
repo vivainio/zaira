@@ -3,6 +3,7 @@
 import argparse
 import importlib.util
 import json
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -203,3 +204,46 @@ class TestPrintRow:
         captured = capsys.readouterr()
         assert "..." in captured.out
         assert "X" * 200 not in captured.out
+
+
+# ---------------------------------------------------------------------------
+# _search_issues pagination
+# ---------------------------------------------------------------------------
+
+
+class TestSearchIssuesPagination:
+    """Jira Cloud caps a page at 100; -n above that must follow the token."""
+
+    def _cloud(self, total: int) -> MagicMock:
+        from jira.client import ResultList
+
+        jira = MagicMock()
+        jira._is_cloud = True
+
+        def page(
+            jql: str, nextPageToken: str | None = None, maxResults: int = 50
+        ) -> ResultList:
+            start = int(nextPageToken or 0)
+            end = min(start + min(maxResults, 100), total)
+            token = str(end) if end < total else None
+            return ResultList(list(range(start, end)), _nextPageToken=token)
+
+        jira.enhanced_search_issues.side_effect = page
+        return jira
+
+    def test_follows_token_past_100(self) -> None:
+        from zaira.search import _search_issues
+
+        assert len(_search_issues(self._cloud(157), "x", 300)) == 157
+
+    def test_stops_at_limit(self) -> None:
+        from zaira.search import _search_issues
+
+        assert len(_search_issues(self._cloud(500), "x", 250)) == 250
+
+    def test_no_limit_fetches_all_via_library(self) -> None:
+        from zaira.search import _search_issues
+
+        jira = MagicMock()
+        _search_issues(jira, "x", None)
+        jira.search_issues.assert_called_once_with("x", startAt=0, maxResults=False)
