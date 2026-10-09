@@ -221,7 +221,10 @@ def _fetch_comments(key: str, raw: bool = False) -> list[Comment]:
     comments = issue.fields.comment.comments if issue.fields.comment else []
     result: list[Comment] = []
     for c in comments:
-        body = c.body
+        # Automation or deleted-user comments have no author key at all, and
+        # a missing attribute on a jira resource raises AttributeError.
+        author = getattr(c, "author", None)
+        body = getattr(c, "body", "")
         if hasattr(body, "raw"):
             body = extract_description(body.raw, raw=raw)
         elif hasattr(body, "__dict__"):
@@ -231,8 +234,8 @@ def _fetch_comments(key: str, raw: bool = False) -> list[Comment]:
             body_str = jira_wiki_to_markdown(body_str)
         result.append(
             Comment(
-                author=c.author.displayName if c.author else "Unknown",
-                created=_format_timestamp(c.created or ""),
+                author=getattr(author, "displayName", None) or "Unknown",
+                created=_format_timestamp(getattr(c, "created", "") or ""),
                 body=body_str,
                 id=c.id,
             )
@@ -248,7 +251,8 @@ def get_comments(key: str, raw: bool = False) -> list[Comment]:
     """
     try:
         return _fetch_comments(key, raw)
-    except Exception:
+    except Exception as e:
+        print(f"  Warning: could not read comments on {key}: {e}", file=sys.stderr)
         return []
 
 

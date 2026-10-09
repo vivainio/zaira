@@ -1178,6 +1178,37 @@ class TestGetComments:
         assert len(result) == 1
         assert "ADF comment" in result[0].body
 
+    def test_comment_without_author_keeps_all_comments(self, mock_jira) -> None:
+        """A comment with no author attribute doesn't discard the others."""
+        from types import SimpleNamespace
+
+        from zaira.export import get_comments
+
+        authorless = SimpleNamespace(
+            body="automated", created="2025-01-28T10:00:00.000+0000", id="1"
+        )
+        authored = SimpleNamespace(
+            author=SimpleNamespace(displayName="Bob"),
+            body="hello",
+            created="2025-01-29T10:00:00.000+0000",
+            id="2",
+        )
+        mock_issue = MagicMock()
+        mock_issue.fields.comment.comments = [authorless, authored]
+        mock_jira.issue.return_value = mock_issue
+
+        result = get_comments("TEST-1")
+
+        assert [c.author for c in result] == ["Unknown", "Bob"]
+
+    def test_unexpected_error_warns_on_stderr(self, mock_jira, capsys) -> None:
+        from zaira.export import get_comments
+
+        mock_jira.issue.side_effect = RuntimeError("boom")
+
+        assert get_comments("TEST-1") == []
+        assert "boom" in capsys.readouterr().err
+
 
 class TestFetchComments:
     """Tests for the internal _fetch_comments helper.
