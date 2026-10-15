@@ -1,7 +1,7 @@
 ---
 name: zaira
 description: Access Jira tickets and Confluence wiki pages offline using zaira CLI. Use when user needs to export, report, or refresh Jira tickets; read, create, or update Confluence pages; or mentions "jira", "confluence", "wiki", "zaira", a ticket key like "FOO-123", or a Confluence page URL/link.
-updated: 2026-09-26
+updated: 2026-10-15
 ---
 
 # Zaira - Jira CLI
@@ -110,7 +110,15 @@ zaira transition FOO-1234 Done -F "Resolution=Done" -c "Comment"  # Fields + com
 zaira transition FOO-1234 Done --dry-run    # Preview; also lists the screen's required fields
 zaira transition FOO-1234 Done --no-check  # Skip hook validation
 
-# Activity history (local log of write operations)
+# Jira changelog (every field change: who, when, from/to values)
+zaira changelog FOO-1234                    # Full changelog for a ticket
+zaira changelog FOO-1234 -n 10              # Only the 10 most recent changes
+zaira changelog FOO-1234 -f status          # Only changes to one field
+zaira changelog FOO-1234 -f description --full  # Full old/new values instead of diffs
+zaira changelog FOO-1234 -f description --revisions  # List numbered revisions of a field
+zaira changelog FOO-1234 -f description --rev 2      # Print revision 2 of a field
+
+# Activity history (local log of write operations, NOT the Jira changelog)
 zaira history                               # Last 20 entries
 zaira history -n 50                         # Last 50 entries
 zaira history -k FOO-1234                   # Filter by ticket key
