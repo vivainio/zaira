@@ -1372,3 +1372,23 @@ class TestDiagramRendering:
     def test_cleanup_render_temps_noop_on_empty(self) -> None:
         """cleanup_render_temps does nothing with empty list."""
         cleanup_render_temps([])  # should not raise
+
+
+class TestTimeElement:
+    """Confluence date lozenges keep their date in the datetime attribute."""
+
+    def test_date_in_table_cell(self) -> None:
+        from zaira.mdconv import storage_to_markdown
+
+        md = storage_to_markdown(
+            "<table><tbody><tr><th>Release</th><th>Date</th></tr>"
+            '<tr><td>1.0</td><td><time datetime="2026-10-09"/></td></tr>'
+            "</tbody></table>"
+        )
+        assert "| 1.0 | 2026-10-09 |" in md
+
+    def test_inline_date(self) -> None:
+        from zaira.mdconv import storage_to_markdown
+
+        md = storage_to_markdown('<p>Due <time datetime="2026-11-01"/> ok</p>')
+        assert "Due 2026-11-01 ok" in md

@@ -662,6 +662,10 @@ def _elem_to_markdown(
     """Recursively convert an XML element to markdown."""
     tag = _get_tag(elem)
 
+    # Confluence date lozenge: the date is only in the datetime attribute
+    if tag == "time":
+        return _get_attr(elem, "datetime") or (elem.text or "")
+
     # Confluence structured-macro
     if tag == "structured-macro":
         macro_name = _get_attr(elem, "name", AC_NS) or _get_attr(elem, "name")
