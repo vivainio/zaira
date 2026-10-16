@@ -20,7 +20,13 @@ STANDARD_FIELDS = {
     "assignee": "assignee",
     "labels": "labels",
     "components": "components",
+    "fixversions": "fixVersions",
+    "affectsversions": "versions",
+    "versions": "versions",
 }
+
+# Standard fields that take a list of {"name": value} version objects
+_VERSION_FIELDS = {"fixVersions", "versions"}
 
 # Standard fields that use {"name": value} format
 _NAME_FIELDS = {"priority", "resolution"}
@@ -188,6 +194,13 @@ def map_field(
             if isinstance(value, list):
                 return field_id, value
             return field_id, [v.strip() for v in value.split(",")]
+        if field_id in _VERSION_FIELDS:
+            names = (
+                value
+                if isinstance(value, list)
+                else [v.strip() for v in str(value).split(",")]
+            )
+            return field_id, [{"name": str(n)} for n in names if str(n).strip()]
         if field_id == "components":
             names = (
                 value
@@ -423,6 +436,10 @@ def parse_yaml_fields(
         field_id, formatted_value = map_field(
             name, value, project=project, issue_type=issue_type
         )
+        # An empty version list is what `zaira get` prints for "none set";
+        # don't let a round-tripped file wipe versions in Jira.
+        if field_id in _VERSION_FIELDS and not formatted_value:
+            continue
         fields[field_id] = formatted_value
     return fields
 

@@ -275,6 +275,13 @@ class TestParseFieldArgs:
 class TestParseYamlFields:
     """Tests for parse_yaml_fields function."""
 
+    def test_versions_round_trip(self) -> None:
+        """Non-empty fixVersions are sent; empty lists are skipped."""
+        content = "fixVersions: [26.11, 26.10.2]\naffectsVersions: []\n"
+        result = parse_yaml_fields(content)
+
+        assert result == {"fixVersions": [{"name": "26.11"}, {"name": "26.10.2"}]}
+
     def test_parses_yaml_content(self) -> None:
         """Parses YAML content into fields dict."""
         content = """

@@ -74,6 +74,8 @@ def get_ticket(
                 dict.fromkeys(c.name for c in (fields.components or []))
             ),
             "labels": fields.labels or [],
+            "fixVersions": [v.name for v in (fields.fixVersions or [])],
+            "versions": [v.name for v in (fields.versions or [])],
             "parent": (
                 {
                     "key": fields.parent.key,
@@ -153,8 +155,6 @@ def get_ticket(
                 if fields.status and fields.status.statusCategory
                 else None
             )
-            ticket["fixVersions"] = [v.name for v in (fields.fixVersions or [])]
-            ticket["versions"] = [v.name for v in (fields.versions or [])]
             ticket["votes"] = fields.votes.votes if fields.votes else 0
             ticket["watches"] = fields.watches.watchCount if fields.watches else 0
             ticket["subtasks"] = [

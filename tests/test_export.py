@@ -374,6 +374,21 @@ class TestFormatTicketMarkdown:
         assert "_No links_" in result
         assert "_No comments_" in result
 
+    def test_versions_in_front_matter(self) -> None:
+        """Fix and affects versions are always shown, even when empty."""
+        from zaira.export import format_ticket_markdown
+
+        ticket = {
+            "key": "TEST-1",
+            "fixVersions": ["26.11", "26.10.2"],
+            "versions": [],
+            "issuelinks": [],
+        }
+        result = format_ticket_markdown(ticket, [], "now", "example.net")
+
+        assert "fixVersions: [26.11, 26.10.2]" in result
+        assert "affectsVersions: []" in result
+
     def test_ticket_with_comments(self) -> None:
         """Formats ticket with comments."""
         from zaira.export import format_ticket_markdown

@@ -124,6 +124,11 @@ def _render_properties_section(properties: list[dict[str, Any]]) -> str:
     return "".join(parts)
 
 
+def _yaml_list(values: list[str]) -> str:
+    """Render a list of names as a YAML flow sequence, e.g. ``[26.11, 26.10.2]``."""
+    return "[" + ", ".join(yaml_quote(v) for v in values) + "]"
+
+
 def format_ticket_markdown(
     ticket: dict[str, Any], comments: list[Comment], synced: str, jira_site: str
 ) -> str:
@@ -173,6 +178,8 @@ created: {_format_timestamp(ticket.get("created", ""))}
 updated: {_format_timestamp(ticket.get("updated", ""))}
 components: {yaml_quote(components)}
 labels: {yaml_quote(labels)}
+fixVersions: {_yaml_list(ticket.get("fixVersions", []))}
+affectsVersions: {_yaml_list(ticket.get("versions", []))}
 parent: {parent}
 {custom_fields_yaml}{body_field_yaml}synced: {synced}
 url: https://{jira_site}/browse/{key}
@@ -277,6 +284,8 @@ def format_ticket_ndjson(
             "updated": _format_timestamp(ticket.get("updated", "")),
             "components": ticket.get("components", []),
             "labels": ticket.get("labels", []),
+            "fixVersions": ticket.get("fixVersions", []),
+            "versions": ticket.get("versions", []),
             "parent": parent_data["key"] if parent_data else None,
             "custom_fields": ticket.get("custom_fields", {}),
             "body_field": ticket.get("body_field"),
