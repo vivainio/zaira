@@ -27,7 +27,7 @@ EXPECTED_COMMAND_TREE: dict[str, list[str]] = {
     "refresh": [],
     "init": [],
     "init-xray": [],
-    "xray": ["get"],
+    "xray": ["exec-create", "get", "run-import", "run-status", "run-step"],
     "init-project": [],
     "my": [],
     "recent": [],

@@ -301,3 +301,90 @@ class TestExtractCommand:
         assert "# TEST-1: Manual test" in output.read_text()
         assert "_No manual steps._" in output.read_text()
         assert "_No comments_" in output.read_text()
+
+
+class TestRunWrites:
+    RUN = {"id": "run1", "steps": [{"id": "s1"}, {"id": "s2"}]}
+
+    def test_run_status_updates_each_test(self) -> None:
+        args = argparse.Namespace(
+            keys=["t-1", "t-2"], exec="te-5", status="PASSED", dry_run=False
+        )
+        with (
+            patch.object(xray, "_auth_token", return_value="tok"),
+            patch.object(xray, "fetch_run", return_value=self.RUN),
+            patch.object(xray, "update_run_status") as update,
+        ):
+            xray.run_status_command(args)
+
+        assert update.call_args_list == [
+            call("run1", "PASSED", "tok"),
+            call("run1", "PASSED", "tok"),
+        ]
+
+    def test_dry_run_sends_nothing(self) -> None:
+        args = argparse.Namespace(
+            key="t-1",
+            exec="te-5",
+            step=2,
+            status="FAILED",
+            actual="boom",
+            comment=None,
+            dry_run=True,
+        )
+        with (
+            patch.object(xray, "_auth_token", return_value="tok"),
+            patch.object(xray, "fetch_run", return_value=self.RUN),
+            patch.object(xray, "update_run_step") as update,
+        ):
+            xray.run_step_command(args)
+
+        update.assert_not_called()
+
+    def test_run_step_maps_position_to_step_id(self) -> None:
+        args = argparse.Namespace(
+            key="t-1",
+            exec="te-5",
+            step=2,
+            status="FAILED",
+            actual="boom",
+            comment=None,
+            dry_run=False,
+        )
+        with (
+            patch.object(xray, "_auth_token", return_value="tok"),
+            patch.object(xray, "fetch_run", return_value=self.RUN),
+            patch.object(xray, "update_run_step") as update,
+        ):
+            xray.run_step_command(args)
+
+        update.assert_called_once_with(
+            "run1", "s2", "tok", status="FAILED", actual="boom", comment=None
+        )
+
+    def test_step_out_of_range(self) -> None:
+        with pytest.raises(RuntimeError, match="out of range"):
+            xray._step_id(self.RUN, 3)
+
+    def test_update_run_step_omits_unset_fields(self) -> None:
+        with patch.object(xray, "_graphql") as graphql:
+            xray.update_run_step("r", "s", "tok", status="PASSED")
+
+        assert graphql.call_args.args[1]["update"] == {"status": "PASSED"}
+
+    def test_create_execution_returns_key(self) -> None:
+        data = {
+            "createTestExecution": {
+                "testExecution": {"issueId": "9", "jira": {"key": "TE-9"}}
+            }
+        }
+        with (
+            patch.object(xray, "_issue_id", side_effect=["1", "2"]),
+            patch.object(xray, "_graphql", return_value=data) as graphql,
+        ):
+            key = xray.create_execution("FIN", "Run", ["T-1", "T-2"], ["chrome"], "tok")
+
+        assert key == "TE-9"
+        variables = graphql.call_args.args[1]
+        assert variables["ids"] == ["1", "2"]
+        assert variables["envs"] == ["chrome"]

@@ -89,8 +89,12 @@ from zaira.wiki import (
     wiki_command,
 )
 from zaira.worklog import log_command
+from zaira.xray import exec_create_command as xray_exec_create_command
 from zaira.xray import extract_command as xray_extract_command
 from zaira.xray import init_xray_command
+from zaira.xray import run_import_command as xray_run_import_command
+from zaira.xray import run_status_command as xray_run_status_command
+from zaira.xray import run_step_command as xray_run_step_command
 
 
 class _SingleValueAction(argparse.Action):
@@ -395,7 +399,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     xray_parser = subparsers.add_parser(
         "xray",
-        help="Extract Xray Cloud tests",
+        help="Extract Xray Cloud tests and record test run results",
     )
     xray_subparsers = xray_parser.add_subparsers(dest="xray_command", required=True)
     xray_get_parser = xray_subparsers.add_parser(
@@ -413,6 +417,65 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output directory (writes KEY.md files instead of stdout)",
     )
     xray_get_parser.set_defaults(func=xray_extract_command)
+
+    def _xray_write_args(parser: argparse.ArgumentParser) -> None:
+        parser.add_argument(
+            "--dry-run", action="store_true", help="Show what would change"
+        )
+
+    xray_run_status_parser = xray_subparsers.add_parser(
+        "run-status",
+        help="Set Test Run status for Test(s) within a Test Execution",
+    )
+    xray_run_status_parser.add_argument("keys", nargs="+", help="Xray Test key(s)")
+    xray_run_status_parser.add_argument("--exec", required=True, help="Execution key")
+    xray_run_status_parser.add_argument(
+        "--status", required=True, help="Xray status name (e.g. PASSED, FAILED)"
+    )
+    _xray_write_args(xray_run_status_parser)
+    xray_run_status_parser.set_defaults(func=xray_run_status_command)
+
+    xray_run_step_parser = xray_subparsers.add_parser(
+        "run-step",
+        help="Set the result of one step of a Test Run",
+    )
+    xray_run_step_parser.add_argument("key", help="Xray Test key")
+    xray_run_step_parser.add_argument("--exec", required=True, help="Execution key")
+    xray_run_step_parser.add_argument(
+        "--step", required=True, type=int, help="1-based step number"
+    )
+    xray_run_step_parser.add_argument("--status", help="Step status")
+    xray_run_step_parser.add_argument("--actual", help="Actual result text")
+    xray_run_step_parser.add_argument("--comment", help="Step comment")
+    _xray_write_args(xray_run_step_parser)
+    xray_run_step_parser.set_defaults(func=xray_run_step_command)
+
+    xray_run_import_parser = xray_subparsers.add_parser(
+        "run-import",
+        help="Apply Test Run results from a JSON file",
+    )
+    xray_run_import_parser.add_argument(
+        "file",
+        help='JSON list: [{"test": KEY, "status": S, "steps": [{"n": 1, "status": S}]}]',
+    )
+    xray_run_import_parser.add_argument("--exec", required=True, help="Execution key")
+    _xray_write_args(xray_run_import_parser)
+    xray_run_import_parser.set_defaults(func=xray_run_import_command)
+
+    xray_exec_create_parser = xray_subparsers.add_parser(
+        "exec-create",
+        help="Create a Test Execution for a set of Tests",
+    )
+    xray_exec_create_parser.add_argument("--project", required=True)
+    xray_exec_create_parser.add_argument("--summary", required=True)
+    xray_exec_create_parser.add_argument(
+        "--tests", nargs="+", required=True, help="Xray Test key(s)"
+    )
+    xray_exec_create_parser.add_argument(
+        "--env", action="append", default=[], help="Test environment (repeatable)"
+    )
+    _xray_write_args(xray_exec_create_parser)
+    xray_exec_create_parser.set_defaults(func=xray_exec_create_command)
 
     # Init-project command - generate zproject.toml
     init_project_parser = subparsers.add_parser(

@@ -1,6 +1,7 @@
 """Xray Cloud API integration and credential storage."""
 
 import argparse
+import json
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -176,6 +177,247 @@ def add_test_run_results(tests: list[dict[str, Any]]) -> None:
             continue
         execution["runStatus"] = str((run.get("status") or {}).get("name") or "")
         execution["steps"] = run.get("steps") or []
+
+
+def _graphql(query: str, variables: dict[str, Any], token: str) -> dict[str, Any]:
+    """Run one Xray GraphQL operation and return its `data`."""
+    response = requests.post(
+        f"{XRAY_BASE_URL}/graphql",
+        json={"query": query, "variables": variables},
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=30,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    errors = payload.get("errors")
+    if errors:
+        raise RuntimeError(f"Xray GraphQL errors: {errors}")
+    return payload.get("data") or {}
+
+
+def _issue_id(key: str) -> str:
+    """Resolve a Jira issue key to the numeric issue id Xray expects."""
+    from zaira.jira_client import get_jira
+
+    return str(get_jira().issue(key, fields="summary").id)
+
+
+def fetch_run(test_key: str, exec_key: str, token: str) -> dict[str, Any]:
+    """Fetch the Test Run (id, status, steps with ids) for a Test within an Execution."""
+    query = """
+    query TestRun($testIssueId: String!, $testExecIssueId: String!) {
+      getTestRun(testIssueId: $testIssueId, testExecIssueId: $testExecIssueId) {
+        id
+        status { name }
+        steps { id status { name } }
+      }
+    }
+    """
+    data = _graphql(
+        query,
+        {"testIssueId": _issue_id(test_key), "testExecIssueId": _issue_id(exec_key)},
+        token,
+    )
+    run = data.get("getTestRun")
+    if not isinstance(run, dict):
+        raise RuntimeError(f"{test_key} has no Test Run in {exec_key}")
+    return run
+
+
+def update_run_status(run_id: str, status: str, token: str) -> None:
+    """Set the overall status of a Test Run."""
+    _graphql(
+        "mutation($id: String!, $status: String!) "
+        "{ updateTestRunStatus(id: $id, status: $status) }",
+        {"id": run_id, "status": status},
+        token,
+    )
+
+
+def update_run_step(
+    run_id: str,
+    step_id: str,
+    token: str,
+    status: str | None = None,
+    actual: str | None = None,
+    comment: str | None = None,
+) -> None:
+    """Update one step of a Test Run (only the fields given)."""
+    update = {
+        name: value
+        for name, value in (
+            ("status", status),
+            ("actualResult", actual),
+            ("comment", comment),
+        )
+        if value is not None
+    }
+    _graphql(
+        "mutation($runId: String!, $stepId: String!, $update: UpdateTestRunStepInput!) "
+        "{ updateTestRunStep(testRunId: $runId, stepId: $stepId, updateData: $update) "
+        "{ warnings } }",
+        {"runId": run_id, "stepId": step_id, "update": update},
+        token,
+    )
+
+
+def create_execution(
+    project: str,
+    summary: str,
+    test_keys: list[str],
+    environments: list[str],
+    token: str,
+) -> str:
+    """Create a Test Execution containing the given Tests; return its Jira key."""
+    variables: dict[str, Any] = {
+        "ids": [_issue_id(key) for key in test_keys],
+        "jira": {"fields": {"summary": summary, "project": {"key": project}}},
+    }
+    env_arg = ""
+    if environments:
+        variables["envs"] = environments
+        env_arg = ", testEnvironments: $envs"
+    query = (
+        "mutation($ids: [String]!, $jira: JSON!"
+        + (", $envs: [String]" if environments else "")
+        + ") { createTestExecution(testIssueIds: $ids, jira: $jira"
+        + env_arg
+        + ') { testExecution { issueId jira(fields: ["key"]) } warnings } }'
+    )
+    data = _graphql(query, variables, token)
+    created = (data.get("createTestExecution") or {}).get("testExecution") or {}
+    key = (created.get("jira") or {}).get("key")
+    if not key:
+        raise RuntimeError("Xray did not return the new Test Execution key")
+    return str(key)
+
+
+def _step_id(run: dict[str, Any], number: int) -> str:
+    """Map a 1-based step position to the Test Run step id."""
+    steps = run.get("steps") or []
+    if not 1 <= number <= len(steps):
+        raise RuntimeError(f"step {number} out of range (run has {len(steps)} steps)")
+    return str(steps[number - 1]["id"])
+
+
+def _auth_token() -> str:
+    client_id, client_secret = load_credentials()
+    return authenticate(client_id, client_secret)
+
+
+def _apply_result(
+    test_key: str,
+    exec_key: str,
+    token: str,
+    status: str | None,
+    steps: list[dict[str, Any]],
+    dry_run: bool,
+) -> None:
+    """Apply an overall status and/or per-step results to one Test Run."""
+    run = fetch_run(test_key, exec_key, token)
+    run_id = str(run["id"])
+    if status:
+        print(f"{test_key} in {exec_key}: status -> {status}")
+        if not dry_run:
+            update_run_status(run_id, status, token)
+    for step in steps:
+        number = int(step["n"])
+        step_id = _step_id(run, number)
+        print(f"{test_key} in {exec_key}: step {number} -> {step.get('status', '')}")
+        if not dry_run:
+            update_run_step(
+                run_id,
+                step_id,
+                token,
+                status=step.get("status"),
+                actual=step.get("actual"),
+                comment=step.get("comment"),
+            )
+
+
+def run_status_command(args: argparse.Namespace) -> None:
+    """Set the status of one or more Tests within a Test Execution."""
+    token = _auth_token()
+    failures = 0
+    for key in args.keys:
+        try:
+            _apply_result(
+                key.upper(), args.exec.upper(), token, args.status, [], args.dry_run
+            )
+        except Exception as error:
+            print(f"Error: {key}: {error}", file=sys.stderr)
+            failures += 1
+    if failures:
+        raise SystemExit(1)
+
+
+def run_step_command(args: argparse.Namespace) -> None:
+    """Set the result of one step of a Test within a Test Execution."""
+    step = {
+        "n": args.step,
+        "status": args.status,
+        "actual": args.actual,
+        "comment": args.comment,
+    }
+    try:
+        _apply_result(
+            args.key.upper(),
+            args.exec.upper(),
+            _auth_token(),
+            None,
+            [step],
+            args.dry_run,
+        )
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        raise SystemExit(1)
+
+
+def run_import_command(args: argparse.Namespace) -> None:
+    """Apply results from a JSON file to a Test Execution."""
+    try:
+        entries = json.loads(Path(args.file).read_text(encoding="utf-8"))
+        if not isinstance(entries, list):
+            raise ValueError("expected a JSON list")
+    except Exception as error:
+        print(f"Error: cannot read {args.file}: {error}", file=sys.stderr)
+        raise SystemExit(1)
+    token = _auth_token()
+    failures = 0
+    for entry in entries:
+        key = str(entry.get("test", "")).upper()
+        try:
+            _apply_result(
+                key,
+                args.exec.upper(),
+                token,
+                entry.get("status"),
+                entry.get("steps") or [],
+                args.dry_run,
+            )
+        except Exception as error:
+            print(f"Error: {key or entry}: {error}", file=sys.stderr)
+            failures += 1
+    if failures:
+        raise SystemExit(1)
+
+
+def exec_create_command(args: argparse.Namespace) -> None:
+    """Create a Test Execution for a set of Tests."""
+    tests = [key.upper() for key in args.tests]
+    if args.dry_run:
+        print(f"Would create execution in {args.project}: {args.summary!r}")
+        print(f"  tests: {', '.join(tests)}")
+        print(f"  environments: {', '.join(args.env) or '(none)'}")
+        return
+    try:
+        key = create_execution(
+            args.project, args.summary, tests, args.env or [], _auth_token()
+        )
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        raise SystemExit(1)
+    print(f"Created: {key}")
 
 
 def _secret_store_name() -> str:
