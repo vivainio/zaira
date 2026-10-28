@@ -1,6 +1,7 @@
 """Tests for the Xray Cloud integration."""
 
 import argparse
+from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -388,3 +389,79 @@ class TestRunWrites:
         variables = graphql.call_args.args[1]
         assert variables["ids"] == ["1", "2"]
         assert variables["envs"] == ["chrome"]
+
+
+class TestStepDefinitions:
+    STEPS = [{"id": "a"}, {"id": "b"}]
+
+    def test_parse_steps_markdown_round_trips_format(self) -> None:
+        definition = {
+            "steps": [
+                {"action": "Open | page", "data": "a\nb", "result": "ok"},
+                {"action": "Click", "data": "", "result": ""},
+            ]
+        }
+        ticket = {"key": "T-1", "summary": "S"}
+        with patch("zaira.jira_client.get_jira_site", return_value="x.example"):
+            text = xray.format_test_markdown(ticket, definition, "now")
+
+        assert xray.parse_steps_markdown(text) == definition["steps"]
+
+    def test_parse_steps_markdown_requires_section(self) -> None:
+        with pytest.raises(ValueError, match="Steps"):
+            xray.parse_steps_markdown("# nothing")
+
+    def test_step_edit_sends_only_given_fields(self) -> None:
+        args = argparse.Namespace(
+            key="t-1", step=2, action="new", data=None, result=None, dry_run=False
+        )
+        with (
+            patch.object(xray, "_auth_token", return_value="tok"),
+            patch.object(xray, "fetch_test_steps", return_value=self.STEPS),
+            patch.object(xray, "update_test_step") as update,
+        ):
+            xray.step_edit_command(args)
+
+        update.assert_called_once_with("b", {"action": "new"}, "tok")
+
+    def test_step_rm_dry_run_sends_nothing(self) -> None:
+        args = argparse.Namespace(key="t-1", step=1, dry_run=True)
+        with (
+            patch.object(xray, "_auth_token", return_value="tok"),
+            patch.object(xray, "fetch_test_steps", return_value=self.STEPS),
+            patch.object(xray, "remove_test_step") as remove,
+        ):
+            xray.step_rm_command(args)
+
+        remove.assert_not_called()
+
+    def test_step_rm_out_of_range_exits(self) -> None:
+        args = argparse.Namespace(key="t-1", step=5, dry_run=False)
+        with (
+            patch.object(xray, "_auth_token", return_value="tok"),
+            patch.object(xray, "fetch_test_steps", return_value=self.STEPS),
+            pytest.raises(SystemExit),
+        ):
+            xray.step_rm_command(args)
+
+    def test_steps_put_replaces_all(self, tmp_path: Path) -> None:
+        file = tmp_path / "t.md"
+        file.write_text(
+            "## Steps\n\n| # | Action | Data | Expected Result |\n|---|---|---|---|\n"
+            "| 1 | A | | R |\n| 2 | B | d | |\n\n## Comments\n"
+        )
+        args = argparse.Namespace(key="t-1", file=str(file), dry_run=False)
+        with (
+            patch.object(xray, "_auth_token", return_value="tok"),
+            patch.object(xray, "fetch_test_steps", return_value=self.STEPS),
+            patch.object(xray, "_issue_id", return_value="7"),
+            patch.object(xray, "remove_all_test_steps") as remove_all,
+            patch.object(xray, "add_test_step") as add,
+        ):
+            xray.steps_put_command(args)
+
+        remove_all.assert_called_once_with("7", "tok")
+        assert add.call_args_list == [
+            call("7", {"action": "A", "data": "", "result": "R"}, "tok"),
+            call("7", {"action": "B", "data": "d", "result": ""}, "tok"),
+        ]

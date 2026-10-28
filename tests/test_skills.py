@@ -8,7 +8,7 @@ import pytest
 
 
 def test_install_skills_copies_files(tmp_path) -> None:
-    """install_skills_command copies SKILL.md and CONFLUENCE.md to target dir."""
+    """install_skills_command copies SKILL.md, CONFLUENCE.md and XRAY.md to target dir."""
     from zaira.skills import install_skills_command
 
     args = argparse.Namespace(skills_dir=str(tmp_path))
@@ -17,6 +17,7 @@ def test_install_skills_copies_files(tmp_path) -> None:
     dest = tmp_path / "zaira"
     assert (dest / "SKILL.md").exists()
     assert (dest / "CONFLUENCE.md").exists()
+    assert (dest / "XRAY.md").exists()
 
 
 def test_install_skills_creates_target_dir(tmp_path) -> None:

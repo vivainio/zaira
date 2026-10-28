@@ -95,6 +95,10 @@ from zaira.xray import init_xray_command
 from zaira.xray import run_import_command as xray_run_import_command
 from zaira.xray import run_status_command as xray_run_status_command
 from zaira.xray import run_step_command as xray_run_step_command
+from zaira.xray import step_add_command as xray_step_add_command
+from zaira.xray import step_edit_command as xray_step_edit_command
+from zaira.xray import step_rm_command as xray_step_rm_command
+from zaira.xray import steps_put_command as xray_steps_put_command
 
 
 class _SingleValueAction(argparse.Action):
@@ -399,7 +403,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     xray_parser = subparsers.add_parser(
         "xray",
-        help="Extract Xray Cloud tests and record test run results",
+        help="Extract Xray Cloud tests and record test run results and edit test steps",
     )
     xray_subparsers = xray_parser.add_subparsers(dest="xray_command", required=True)
     xray_get_parser = xray_subparsers.add_parser(
@@ -476,6 +480,53 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _xray_write_args(xray_exec_create_parser)
     xray_exec_create_parser.set_defaults(func=xray_exec_create_command)
+
+    xray_step_add_parser = xray_subparsers.add_parser(
+        "step-add",
+        help="Append a manual step to a Test",
+    )
+    xray_step_add_parser.add_argument("key", help="Xray Test key")
+    xray_step_add_parser.add_argument("--action", required=True, help="Step action")
+    xray_step_add_parser.add_argument("--data", help="Step data")
+    xray_step_add_parser.add_argument("--result", help="Expected result")
+    _xray_write_args(xray_step_add_parser)
+    xray_step_add_parser.set_defaults(func=xray_step_add_command)
+
+    xray_step_edit_parser = xray_subparsers.add_parser(
+        "step-edit",
+        help="Change the action/data/result of one manual step of a Test",
+    )
+    xray_step_edit_parser.add_argument("key", help="Xray Test key")
+    xray_step_edit_parser.add_argument(
+        "--step", required=True, type=int, help="1-based step number"
+    )
+    xray_step_edit_parser.add_argument("--action", help="Step action")
+    xray_step_edit_parser.add_argument("--data", help="Step data")
+    xray_step_edit_parser.add_argument("--result", help="Expected result")
+    _xray_write_args(xray_step_edit_parser)
+    xray_step_edit_parser.set_defaults(func=xray_step_edit_command)
+
+    xray_step_rm_parser = xray_subparsers.add_parser(
+        "step-rm",
+        help="Delete one manual step of a Test",
+    )
+    xray_step_rm_parser.add_argument("key", help="Xray Test key")
+    xray_step_rm_parser.add_argument(
+        "--step", required=True, type=int, help="1-based step number"
+    )
+    _xray_write_args(xray_step_rm_parser)
+    xray_step_rm_parser.set_defaults(func=xray_step_rm_command)
+
+    xray_steps_put_parser = xray_subparsers.add_parser(
+        "steps-put",
+        help="Replace all manual steps of a Test from a markdown steps table",
+    )
+    xray_steps_put_parser.add_argument("key", help="Xray Test key")
+    xray_steps_put_parser.add_argument(
+        "file", help="Markdown file with a '## Steps' table (as written by xray get)"
+    )
+    _xray_write_args(xray_steps_put_parser)
+    xray_steps_put_parser.set_defaults(func=xray_steps_put_command)
 
     # Init-project command - generate zproject.toml
     init_project_parser = subparsers.add_parser(

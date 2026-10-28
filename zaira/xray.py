@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -418,6 +419,152 @@ def exec_create_command(args: argparse.Namespace) -> None:
         print(f"Error: {error}", file=sys.stderr)
         raise SystemExit(1)
     print(f"Created: {key}")
+
+
+def add_test_step(issue_id: str, step: dict[str, str], token: str) -> str:
+    """Append a manual step (action/data/result) to a Test; returns the step id."""
+    data = _graphql(
+        "mutation($id: String!, $step: CreateStepInput!) "
+        "{ addTestStep(issueId: $id, step: $step) { id } }",
+        {"id": issue_id, "step": step},
+        token,
+    )
+    return str(data["addTestStep"]["id"])
+
+
+def update_test_step(step_id: str, fields: dict[str, str], token: str) -> None:
+    """Update the given fields (action/data/result) of one manual step."""
+    _graphql(
+        "mutation($id: String!, $step: UpdateStepInput!) "
+        "{ updateTestStep(stepId: $id, step: $step) { warnings } }",
+        {"id": step_id, "step": fields},
+        token,
+    )
+
+
+def remove_test_step(step_id: str, token: str) -> None:
+    """Delete one manual step."""
+    _graphql(
+        "mutation($id: String!) { removeTestStep(stepId: $id) }",
+        {"id": step_id},
+        token,
+    )
+
+
+def remove_all_test_steps(issue_id: str, token: str) -> None:
+    """Delete every manual step of a Test."""
+    _graphql(
+        "mutation($id: String!) { removeAllTestSteps(issueId: $id) }",
+        {"id": issue_id},
+        token,
+    )
+
+
+def _existing_step_id(test_key: str, number: int, token: str) -> str:
+    """Map a 1-based step position to its Xray step id."""
+    steps = fetch_test_steps(test_key, token)
+    if not 1 <= number <= len(steps):
+        raise RuntimeError(f"step {number} out of range (test has {len(steps)} steps)")
+    return str(steps[number - 1]["id"])
+
+
+def parse_steps_markdown(text: str) -> list[dict[str, str]]:
+    """Parse the `## Steps` table written by `zaira xray get` into step dicts."""
+    section = re.search(r"^## Steps\s*$(.*?)(?=^## |\Z)", text, re.M | re.S)
+    if not section:
+        raise ValueError("no '## Steps' section found")
+    steps: list[dict[str, str]] = []
+    for line in section.group(1).splitlines():
+        line = line.strip()
+        if not line.startswith("|"):
+            continue
+        cells = [
+            cell.strip().replace("\\|", "|").replace("<br>", "\n")
+            for cell in re.split(r"(?<!\\)\|", line.strip("|"))
+        ]
+        if len(cells) != 4 or cells[0] in ("#", "") or set(cells[0]) <= {"-", ":"}:
+            continue
+        steps.append({"action": cells[1], "data": cells[2], "result": cells[3]})
+    return steps
+
+
+def step_add_command(args: argparse.Namespace) -> None:
+    """Append a manual step to a Test."""
+    step = {"action": args.action, "data": args.data or "", "result": args.result or ""}
+    key = args.key.upper()
+    if args.dry_run:
+        print(f"Would add step to {key}: {step}")
+        return
+    try:
+        add_test_step(_issue_id(key), step, _auth_token())
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        raise SystemExit(1)
+    print(f"Added step to {key}")
+
+
+def step_edit_command(args: argparse.Namespace) -> None:
+    """Update fields of one manual step of a Test."""
+    fields = {
+        name: value
+        for name, value in (
+            ("action", args.action),
+            ("data", args.data),
+            ("result", args.result),
+        )
+        if value is not None
+    }
+    if not fields:
+        print("Error: give at least one of --action, --data, --result", file=sys.stderr)
+        raise SystemExit(1)
+    key = args.key.upper()
+    try:
+        token = _auth_token()
+        step_id = _existing_step_id(key, args.step, token)
+        if args.dry_run:
+            print(f"Would update {key} step {args.step}: {fields}")
+            return
+        update_test_step(step_id, fields, token)
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        raise SystemExit(1)
+    print(f"Updated {key} step {args.step}")
+
+
+def step_rm_command(args: argparse.Namespace) -> None:
+    """Delete one manual step of a Test."""
+    key = args.key.upper()
+    try:
+        token = _auth_token()
+        step_id = _existing_step_id(key, args.step, token)
+        if args.dry_run:
+            print(f"Would remove {key} step {args.step}")
+            return
+        remove_test_step(step_id, token)
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        raise SystemExit(1)
+    print(f"Removed {key} step {args.step}")
+
+
+def steps_put_command(args: argparse.Namespace) -> None:
+    """Replace all manual steps of a Test with the table in a markdown file."""
+    key = args.key.upper()
+    try:
+        steps = parse_steps_markdown(Path(args.file).read_text(encoding="utf-8"))
+        token = _auth_token()
+        current = len(fetch_test_steps(key, token))
+        if args.dry_run:
+            print(f"Would replace {current} step(s) of {key} with {len(steps)}")
+            return
+        issue_id = _issue_id(key)
+        remove_all_test_steps(issue_id, token)
+        for step in steps:
+            add_test_step(issue_id, step, token)
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        raise SystemExit(1)
+    print(f"Replaced {current} step(s) of {key} with {len(steps)}")
 
 
 def _secret_store_name() -> str:

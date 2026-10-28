@@ -1,7 +1,7 @@
 ---
 name: zaira
 description: Access Jira tickets and Confluence wiki pages offline using zaira CLI. Use when user needs to export, report, or refresh Jira tickets; read, create, or update Confluence pages; or mentions "jira", "confluence", "wiki", "zaira", a ticket key like "FOO-123", or a Confluence page URL/link.
-updated: 2026-10-15
+updated: 2026-10-28
 ---
 
 # Zaira - Jira CLI
@@ -181,6 +181,10 @@ Prefer the `v_issues` and `v_status_intervals` views over base tables. Other cus
 ## Confluence Wiki
 
 See [CONFLUENCE.md](./CONFLUENCE.md) for wiki commands (`zaira wiki get/put/edit/delete`).
+
+## Xray Cloud
+
+See [XRAY.md](./XRAY.md) for recording Test Run results (`zaira xray run-status/run-step/run-import/exec-create`) and editing test steps (`step-add/step-edit/step-rm/steps-put`).
 
 ## Atlassian Goals
 
