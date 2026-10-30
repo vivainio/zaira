@@ -1,7 +1,9 @@
 """Xray Cloud API integration and credential storage."""
 
 import argparse
+import base64
 import json
+import mimetypes
 import re
 import sys
 from datetime import datetime
@@ -442,6 +444,25 @@ def update_test_step(step_id: str, fields: dict[str, str], token: str) -> None:
     )
 
 
+def add_step_attachments(step_id: str, files: list[Path], token: str) -> None:
+    """Attach files to one manual step (uploaded base64-encoded)."""
+    add = [
+        {
+            "filename": path.name,
+            "mimeType": mimetypes.guess_type(path.name)[0]
+            or "application/octet-stream",
+            "data": base64.b64encode(path.read_bytes()).decode("ascii"),
+        }
+        for path in files
+    ]
+    _graphql(
+        "mutation($id: String!, $step: UpdateStepInput!) "
+        "{ updateTestStep(stepId: $id, step: $step) { warnings } }",
+        {"id": step_id, "step": {"attachments": {"add": add}}},
+        token,
+    )
+
+
 def remove_test_step(step_id: str, token: str) -> None:
     """Delete one manual step."""
     _graphql(
@@ -529,6 +550,28 @@ def step_edit_command(args: argparse.Namespace) -> None:
         print(f"Error: {error}", file=sys.stderr)
         raise SystemExit(1)
     print(f"Updated {key} step {args.step}")
+
+
+def step_attach_command(args: argparse.Namespace) -> None:
+    """Attach files to one manual step of a Test."""
+    files = [Path(name) for name in args.files]
+    missing = [str(path) for path in files if not path.is_file()]
+    if missing:
+        print(f"Error: file not found: {', '.join(missing)}", file=sys.stderr)
+        raise SystemExit(1)
+    key = args.key.upper()
+    names = ", ".join(path.name for path in files)
+    try:
+        token = _auth_token()
+        step_id = _existing_step_id(key, args.step, token)
+        if args.dry_run:
+            print(f"Would attach {names} to {key} step {args.step}")
+            return
+        add_step_attachments(step_id, files, token)
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        raise SystemExit(1)
+    print(f"Attached {names} to {key} step {args.step}")
 
 
 def step_rm_command(args: argparse.Namespace) -> None:

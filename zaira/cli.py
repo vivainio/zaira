@@ -96,6 +96,7 @@ from zaira.xray import run_import_command as xray_run_import_command
 from zaira.xray import run_status_command as xray_run_status_command
 from zaira.xray import run_step_command as xray_run_step_command
 from zaira.xray import step_add_command as xray_step_add_command
+from zaira.xray import step_attach_command as xray_step_attach_command
 from zaira.xray import step_edit_command as xray_step_edit_command
 from zaira.xray import step_rm_command as xray_step_rm_command
 from zaira.xray import steps_put_command as xray_steps_put_command
@@ -505,6 +506,18 @@ def build_parser() -> argparse.ArgumentParser:
     xray_step_edit_parser.add_argument("--result", help="Expected result")
     _xray_write_args(xray_step_edit_parser)
     xray_step_edit_parser.set_defaults(func=xray_step_edit_command)
+
+    xray_step_attach_parser = xray_subparsers.add_parser(
+        "step-attach",
+        help="Attach files to one manual step of a Test",
+    )
+    xray_step_attach_parser.add_argument("key", help="Xray Test key")
+    xray_step_attach_parser.add_argument(
+        "--step", required=True, type=int, help="1-based step number"
+    )
+    xray_step_attach_parser.add_argument("files", nargs="+", help="Files to attach")
+    _xray_write_args(xray_step_attach_parser)
+    xray_step_attach_parser.set_defaults(func=xray_step_attach_command)
 
     xray_step_rm_parser = xray_subparsers.add_parser(
         "step-rm",

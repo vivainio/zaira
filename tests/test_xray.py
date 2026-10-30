@@ -424,6 +424,32 @@ class TestStepDefinitions:
 
         update.assert_called_once_with("b", {"action": "new"}, "tok")
 
+    def test_step_attach_uploads_base64_to_mapped_step(self, tmp_path: Path) -> None:
+        shot = tmp_path / "shot.png"
+        shot.write_bytes(b"png")
+        args = argparse.Namespace(key="t-1", step=2, files=[str(shot)], dry_run=False)
+        with (
+            patch.object(xray, "_auth_token", return_value="tok"),
+            patch.object(xray, "fetch_test_steps", return_value=self.STEPS),
+            patch.object(xray, "_graphql") as graphql,
+        ):
+            xray.step_attach_command(args)
+
+        variables = graphql.call_args.args[1]
+        assert variables["id"] == "b"
+        assert variables["step"] == {
+            "attachments": {
+                "add": [
+                    {"filename": "shot.png", "mimeType": "image/png", "data": "cG5n"}
+                ]
+            }
+        }
+
+    def test_step_attach_missing_file_exits(self) -> None:
+        args = argparse.Namespace(key="t-1", step=1, files=["nope.png"], dry_run=False)
+        with pytest.raises(SystemExit):
+            xray.step_attach_command(args)
+
     def test_step_rm_dry_run_sends_nothing(self) -> None:
         args = argparse.Namespace(key="t-1", step=1, dry_run=True)
         with (

@@ -21,6 +21,7 @@ Change the manual steps (Action, Data, Expected Result) of the Test itself, as o
 zaira xray step-add FOO-10 --action "Click Save" --result "Toast appears" --data "name=x"
 zaira xray step-edit FOO-10 --step 2 --result "Toast says Saved"   # only given fields change
 zaira xray step-rm FOO-10 --step 3
+zaira xray step-attach FOO-10 --step 2 shot.png log.txt   # add files to a step
 
 # Replace ALL steps from the markdown steps table (round-trips with `xray get`)
 zaira xray get FOO-10 -o tests/       # edit the table in tests/FOO-10.md
