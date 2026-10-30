@@ -299,7 +299,19 @@ def _prompt_for_token(email: str) -> str:
         f"Setting API token for {email} in the {_token_store_name()}.\n"
         "Get one from https://id.atlassian.com/manage-profile/security/api-tokens"
     )
-    token = input("Jira API token: ").strip()
+    try:
+        token = input("Jira API token: ").strip()
+    except EOFError:
+        print(
+            "\nError: cannot read the API token because this session is not "
+            "interactive (stdin is closed or piped).\n"
+            "Open a regular terminal (PowerShell, Windows Terminal, bash) and run:\n"
+            "\n    zaira init --set-token\n\n"
+            "then paste the token at the prompt. This does not work from inside "
+            "an AI agent or IDE tool shell; use a separate terminal window.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     if not token:
         print("Error: empty token", file=sys.stderr)
         sys.exit(1)
