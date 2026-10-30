@@ -34,6 +34,7 @@ EXPECTED_COMMAND_TREE: dict[str, list[str]] = {
         "run-status",
         "run-step",
         "step-add",
+        "step-attach",
         "step-edit",
         "step-rm",
         "steps-put",
