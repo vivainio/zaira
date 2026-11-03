@@ -81,6 +81,13 @@ def fetch_test_definition(test_key: str, token: str) -> dict[str, Any]:
           steps { id data action result }
           gherkin
           unstructured
+          preconditions(limit: 100) {
+            results {
+              definition
+              preconditionType { name }
+              jira(fields: ["key", "summary"])
+            }
+          }
         }
       }
     }
@@ -489,6 +496,146 @@ def _existing_step_id(test_key: str, number: int, token: str) -> str:
     return str(steps[number - 1]["id"])
 
 
+PRECONDITION_TYPES = ("Manual", "Cucumber", "Generic")
+
+
+def create_precondition(
+    project: str,
+    summary: str,
+    definition: str,
+    precondition_type: str,
+    token: str,
+) -> str:
+    """Create a Precondition issue; return its Jira key."""
+    data = _graphql(
+        "mutation($type: UpdatePreconditionTypeInput!, $definition: String, "
+        "$jira: JSON!) { createPrecondition(preconditionType: $type, "
+        "definition: $definition, jira: $jira) "
+        '{ precondition { issueId jira(fields: ["key"]) } warnings } }',
+        {
+            "type": {"name": precondition_type},
+            "definition": definition,
+            "jira": {"fields": {"summary": summary, "project": {"key": project}}},
+        },
+        token,
+    )
+    created = (data.get("createPrecondition") or {}).get("precondition") or {}
+    key = (created.get("jira") or {}).get("key")
+    if not key:
+        raise RuntimeError("Xray did not return the new Precondition key")
+    return str(key)
+
+
+def add_preconditions_to_test(
+    test_id: str, precondition_ids: list[str], token: str
+) -> None:
+    """Link Preconditions (by issue id) to a Test."""
+    _graphql(
+        "mutation($id: String!, $pre: [String]!) { addPreconditionsToTest("
+        "issueId: $id, preconditionIssueIds: $pre) "
+        "{ addedPreconditions warning } }",
+        {"id": test_id, "pre": precondition_ids},
+        token,
+    )
+
+
+def remove_preconditions_from_test(
+    test_id: str, precondition_ids: list[str], token: str
+) -> None:
+    """Unlink Preconditions (by issue id) from a Test."""
+    _graphql(
+        "mutation($id: String!, $pre: [String]!) { removePreconditionsFromTest("
+        "issueId: $id, preconditionIssueIds: $pre) }",
+        {"id": test_id, "pre": precondition_ids},
+        token,
+    )
+
+
+def update_precondition(issue_id: str, definition: str, token: str) -> None:
+    """Replace the definition text of a Precondition."""
+    _graphql(
+        "mutation($id: String!, $data: UpdatePreconditionInput!) "
+        "{ updatePrecondition(issueId: $id, data: $data) { issueId } }",
+        {"id": issue_id, "data": {"definition": definition}},
+        token,
+    )
+
+
+def precondition_create_command(args: argparse.Namespace) -> None:
+    """Create a Precondition, optionally linking it to Tests."""
+    tests = [key.upper() for key in args.test or []]
+    definition = args.definition or ""
+    if args.dry_run:
+        print(
+            f"Would create {args.type} precondition in {args.project}: {args.summary!r}"
+        )
+        print(f"  definition: {definition!r}")
+        print(f"  link to tests: {', '.join(tests) or '(none)'}")
+        return
+    try:
+        token = _auth_token()
+        key = create_precondition(
+            args.project, args.summary, definition, args.type, token
+        )
+        print(f"Created: {key}")
+        if tests:
+            pre_id = _issue_id(key)
+            for test in tests:
+                add_preconditions_to_test(_issue_id(test), [pre_id], token)
+                print(f"Linked {key} to {test}")
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        raise SystemExit(1)
+
+
+def precondition_add_command(args: argparse.Namespace) -> None:
+    """Link existing Preconditions to a Test."""
+    key = args.key.upper()
+    preconditions = [name.upper() for name in args.preconditions]
+    if args.dry_run:
+        print(f"Would link {', '.join(preconditions)} to {key}")
+        return
+    try:
+        add_preconditions_to_test(
+            _issue_id(key), [_issue_id(name) for name in preconditions], _auth_token()
+        )
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        raise SystemExit(1)
+    print(f"Linked {', '.join(preconditions)} to {key}")
+
+
+def precondition_rm_command(args: argparse.Namespace) -> None:
+    """Unlink Preconditions from a Test (the Precondition issues are kept)."""
+    key = args.key.upper()
+    preconditions = [name.upper() for name in args.preconditions]
+    if args.dry_run:
+        print(f"Would unlink {', '.join(preconditions)} from {key}")
+        return
+    try:
+        remove_preconditions_from_test(
+            _issue_id(key), [_issue_id(name) for name in preconditions], _auth_token()
+        )
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        raise SystemExit(1)
+    print(f"Unlinked {', '.join(preconditions)} from {key}")
+
+
+def precondition_edit_command(args: argparse.Namespace) -> None:
+    """Replace the definition text of a Precondition."""
+    key = args.key.upper()
+    if args.dry_run:
+        print(f"Would set definition of {key}: {args.definition!r}")
+        return
+    try:
+        update_precondition(_issue_id(key), args.definition, _auth_token())
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        raise SystemExit(1)
+    print(f"Updated {key}")
+
+
 def parse_steps_markdown(text: str) -> list[dict[str, str]]:
     """Parse the `## Steps` table written by `zaira xray get` into step dicts."""
     section = re.search(r"^## Steps\s*$(.*?)(?=^## |\Z)", text, re.M | re.S)
@@ -712,6 +859,18 @@ url: https://{get_jira_site()}/browse/{key}
                     f"{_table_cell(step.get('data'))} | "
                     f"{_table_cell(step.get('result'))} |\n"
                 )
+
+    preconditions = (definition.get("preconditions") or {}).get("results") or []
+    if preconditions:
+        markdown += "\n## Preconditions\n\n"
+        for pre in preconditions:
+            jira = pre.get("jira") or {}
+            heading = f"{jira.get('key', '?')}: {jira.get('summary', '')}".rstrip(": ")
+            kind = (pre.get("preconditionType") or {}).get("name")
+            markdown += f"### {heading}" + (f" ({kind})" if kind else "") + "\n\n"
+            markdown += (
+                f"{str(pre.get('definition') or '').strip() or '_No definition._'}\n\n"
+            )
 
     markdown += "\n## Comments\n\n"
     if comments:

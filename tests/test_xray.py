@@ -491,3 +491,85 @@ class TestStepDefinitions:
             call("7", {"action": "A", "data": "", "result": "R"}, "tok"),
             call("7", {"action": "B", "data": "d", "result": ""}, "tok"),
         ]
+
+
+class TestPreconditions:
+    def test_create_returns_key(self) -> None:
+        data = {
+            "createPrecondition": {
+                "precondition": {"issueId": "7", "jira": {"key": "FIN-7"}}
+            }
+        }
+        with patch.object(xray, "_graphql", return_value=data) as graphql:
+            key = xray.create_precondition("FIN", "Logged in", "Sign in", "Manual", "t")
+
+        assert key == "FIN-7"
+        variables = graphql.call_args.args[1]
+        assert variables["type"] == {"name": "Manual"}
+        assert variables["definition"] == "Sign in"
+        assert variables["jira"]["fields"]["project"] == {"key": "FIN"}
+
+    def test_create_without_key_raises(self) -> None:
+        with patch.object(xray, "_graphql", return_value={}):
+            with pytest.raises(RuntimeError):
+                xray.create_precondition("FIN", "s", "", "Manual", "t")
+
+    def test_add_and_remove_send_issue_ids(self) -> None:
+        with patch.object(xray, "_graphql", return_value={}) as graphql:
+            xray.add_preconditions_to_test("1", ["2", "3"], "t")
+            xray.remove_preconditions_from_test("1", ["2"], "t")
+
+        assert graphql.call_args_list[0].args[1] == {"id": "1", "pre": ["2", "3"]}
+        assert graphql.call_args_list[1].args[1] == {"id": "1", "pre": ["2"]}
+
+    def test_create_command_links_tests(self) -> None:
+        args = argparse.Namespace(
+            project="FIN",
+            summary="s",
+            definition=None,
+            type="Manual",
+            test=["fin-1"],
+            dry_run=False,
+        )
+        with (
+            patch.object(xray, "_auth_token", return_value="t"),
+            patch.object(xray, "create_precondition", return_value="FIN-9"),
+            patch.object(xray, "_issue_id", side_effect=["9", "1"]),
+            patch.object(xray, "add_preconditions_to_test") as add,
+        ):
+            xray.precondition_create_command(args)
+
+        add.assert_called_once_with("1", ["9"], "t")
+
+    def test_dry_run_sends_nothing(self) -> None:
+        args = argparse.Namespace(
+            key="fin-1", preconditions=["fin-9"], definition="x", dry_run=True
+        )
+        with patch.object(xray, "_graphql") as graphql:
+            xray.precondition_add_command(args)
+            xray.precondition_rm_command(args)
+            xray.precondition_edit_command(args)
+
+        graphql.assert_not_called()
+
+    def test_markdown_lists_preconditions(self) -> None:
+        definition = {
+            "testType": {"name": "Manual", "kind": "Steps"},
+            "steps": [],
+            "preconditions": {
+                "results": [
+                    {
+                        "definition": "Sign in",
+                        "preconditionType": {"name": "Manual"},
+                        "jira": {"key": "FIN-9", "summary": "Logged in"},
+                    }
+                ]
+            },
+        }
+        ticket = {"key": "FIN-1", "summary": "T"}
+        with patch("zaira.jira_client.get_jira_site", return_value="jira.example.com"):
+            result = xray.format_test_markdown(ticket, definition, "now")
+
+        assert "## Preconditions" in result
+        assert "### FIN-9: Logged in (Manual)" in result
+        assert "Sign in" in result

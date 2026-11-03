@@ -89,9 +89,15 @@ from zaira.wiki import (
     wiki_command,
 )
 from zaira.worklog import log_command
+from zaira.xray import PRECONDITION_TYPES, init_xray_command
 from zaira.xray import exec_create_command as xray_exec_create_command
 from zaira.xray import extract_command as xray_extract_command
-from zaira.xray import init_xray_command
+from zaira.xray import precondition_add_command as xray_precondition_add_command
+from zaira.xray import (
+    precondition_create_command as xray_precondition_create_command,
+)
+from zaira.xray import precondition_edit_command as xray_precondition_edit_command
+from zaira.xray import precondition_rm_command as xray_precondition_rm_command
 from zaira.xray import run_import_command as xray_run_import_command
 from zaira.xray import run_status_command as xray_run_status_command
 from zaira.xray import run_step_command as xray_run_step_command
@@ -540,6 +546,60 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _xray_write_args(xray_steps_put_parser)
     xray_steps_put_parser.set_defaults(func=xray_steps_put_command)
+
+    xray_precond_create_parser = xray_subparsers.add_parser(
+        "precond-create",
+        help="Create a Precondition issue, optionally linking it to Tests",
+    )
+    xray_precond_create_parser.add_argument("--project", required=True)
+    xray_precond_create_parser.add_argument("--summary", required=True)
+    xray_precond_create_parser.add_argument(
+        "--definition", help="Precondition text (steps/state to set up)"
+    )
+    xray_precond_create_parser.add_argument(
+        "--type",
+        choices=PRECONDITION_TYPES,
+        default="Manual",
+        help="Precondition type (default: Manual)",
+    )
+    xray_precond_create_parser.add_argument(
+        "--test", action="append", help="Test key to link to (repeatable)"
+    )
+    _xray_write_args(xray_precond_create_parser)
+    xray_precond_create_parser.set_defaults(func=xray_precondition_create_command)
+
+    xray_precond_add_parser = xray_subparsers.add_parser(
+        "precond-add",
+        help="Link existing Precondition(s) to a Test",
+    )
+    xray_precond_add_parser.add_argument("key", help="Xray Test key")
+    xray_precond_add_parser.add_argument(
+        "preconditions", nargs="+", help="Precondition key(s)"
+    )
+    _xray_write_args(xray_precond_add_parser)
+    xray_precond_add_parser.set_defaults(func=xray_precondition_add_command)
+
+    xray_precond_rm_parser = xray_subparsers.add_parser(
+        "precond-rm",
+        help="Unlink Precondition(s) from a Test (issues are kept)",
+    )
+    xray_precond_rm_parser.add_argument("key", help="Xray Test key")
+    xray_precond_rm_parser.add_argument(
+        "preconditions", nargs="+", help="Precondition key(s)"
+    )
+    _xray_write_args(xray_precond_rm_parser)
+    xray_precond_rm_parser.set_defaults(func=xray_precondition_rm_command)
+
+    xray_precond_edit_parser = xray_subparsers.add_parser(
+        "precond-edit",
+        help="Replace the definition text of a Precondition",
+    )
+    xray_precond_edit_parser.add_argument("key", help="Precondition key")
+    xray_precond_edit_parser.add_argument(
+        "--definition", required=True, help="New definition text"
+    )
+    _xray_write_args(xray_precond_edit_parser)
+    xray_precond_edit_parser.set_defaults(func=xray_precondition_edit_command)
 
     # Init-project command - generate zproject.toml
     init_project_parser = subparsers.add_parser(

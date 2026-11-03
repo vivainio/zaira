@@ -30,6 +30,10 @@ EXPECTED_COMMAND_TREE: dict[str, list[str]] = {
     "xray": [
         "exec-create",
         "get",
+        "precond-add",
+        "precond-create",
+        "precond-edit",
+        "precond-rm",
         "run-import",
         "run-status",
         "run-step",

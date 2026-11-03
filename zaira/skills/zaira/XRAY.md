@@ -31,6 +31,20 @@ zaira xray steps-put FOO-10 tests/FOO-10.md
 
 `step-add` appends at the end; there is no insert-at-position. `steps-put` deletes every existing step and re-adds the table rows, so step ids change and attachments on old steps are lost; use `step-edit` for small changes. Only Manual (Steps) tests have steps; Cucumber and Generic definitions are not editable.
 
+## Preconditions
+
+Manage Xray Precondition issues and their links to Tests. All accept `--dry-run`. `xray get` lists a Test's linked preconditions in a `## Preconditions` section.
+
+```bash
+# Create (type: Manual (default), Cucumber, Generic); --test links it right away, repeatable
+zaira xray precond-create --project FOO --summary "User is logged in" \
+    --definition "Open the app and sign in as a regular user" --test FOO-10 --test FOO-11
+
+zaira xray precond-add FOO-12 FOO-50 FOO-51    # link existing preconditions to a Test
+zaira xray precond-rm FOO-12 FOO-50            # unlink (the Precondition issue is kept)
+zaira xray precond-edit FOO-50 --definition "New text"
+```
+
 ## Record results
 
 A Test Run is one Test inside one Test Execution, so every write command takes `--exec TE-KEY`. All write commands accept `--dry-run` (show what would change, send nothing). Keys are case-insensitive.
