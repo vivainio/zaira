@@ -93,8 +93,16 @@ def _is_wsl_interop_failure(stderr: str) -> bool:
     )
 
 
+# Per-process cache of get results (including "not stored" = None). Each
+# wincred.exe call is a slow cross-OS process launch that may prompt, so a
+# run should hit Credential Manager at most once per target.
+_get_cache: dict[str, str | None] = {}
+
+
 def get_password(service: str, username: str) -> str | None:
     """Return the secret stored under `service`, or None if not stored.
+
+    Results are cached for the life of the process; set/delete invalidate.
 
     The `username` argument is accepted for keyring API parity, but the lookup
     is by service only — Windows Credential Manager stores at most one entry
@@ -102,16 +110,22 @@ def get_password(service: str, username: str) -> str | None:
     entries set from Windows-side zaira are visible here.
     """
     del username
+    if service in _get_cache:
+        return _get_cache[service]
     r = _run(["get", service])
     if r.returncode == 1:
-        return None
-    if r.returncode != 0:
+        value = None
+    elif r.returncode != 0:
         raise RuntimeError(f"wincred get failed: {r.stderr.strip()}")
-    return r.stdout.rstrip("\r\n")
+    else:
+        value = r.stdout.rstrip("\r\n")
+    _get_cache[service] = value
+    return value
 
 
 def set_password(service: str, username: str, password: str) -> None:
     """Store the secret in Windows Credential Manager under `service`."""
+    _get_cache.pop(service, None)
     r = _run(["set", service, "--user", username], stdin=password)
     if r.returncode != 0:
         raise RuntimeError(f"wincred set failed: {r.stderr.strip()}")
@@ -120,6 +134,7 @@ def set_password(service: str, username: str, password: str) -> None:
 def delete_password(service: str, username: str) -> None:
     """Remove the secret. No-op if it doesn't exist."""
     del username
+    _get_cache.pop(service, None)
     r = _run(["delete", service])
     if r.returncode not in (0, 1):
         raise RuntimeError(f"wincred delete failed: {r.stderr.strip()}")

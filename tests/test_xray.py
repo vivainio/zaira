@@ -573,3 +573,21 @@ class TestPreconditions:
         assert "## Preconditions" in result
         assert "### FIN-9: Logged in (Manual)" in result
         assert "Sign in" in result
+
+
+class TestWincredCache:
+    def test_get_password_hits_wincred_once_per_target(self) -> None:
+        import subprocess
+
+        from zaira import wincred
+
+        wincred._get_cache.clear()
+        ok = subprocess.CompletedProcess([], 0, stdout="secret\n", stderr="")
+        with patch.object(wincred, "_run", return_value=ok) as run:
+            assert wincred.get_password("t", "u") == "secret"
+            assert wincred.get_password("t", "u") == "secret"
+            assert run.call_count == 1
+            wincred.set_password("t", "u", "new")
+            wincred.get_password("t", "u")
+            assert [c.args[0][0] for c in run.call_args_list] == ["get", "set", "get"]
+        wincred._get_cache.clear()
