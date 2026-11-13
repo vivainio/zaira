@@ -35,12 +35,7 @@ class ExportKwargs(TypedDict):
 
 def open_in_browser(args: argparse.Namespace) -> None:
     """Open a single ticket in the default web browser (like `gh pr view --web`)."""
-    if any(getattr(args, opt, None) for opt in ("jql", "board", "sprint")):
-        raise ApplicationError(
-            "--web takes a single ticket key, not --jql/--board/--sprint"
-        )
-
-    keys = list(args.keys or [])
+    keys = args.keys or []
     if len(keys) != 1:
         raise ApplicationError("--web needs exactly one ticket key")
 
