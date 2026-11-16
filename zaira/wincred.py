@@ -64,14 +64,69 @@ class WincredTimeout(RuntimeError):
 
 
 def is_wsl() -> bool:
-    """Return True when running on WSL with Windows interop enabled."""
-    return bool(os.environ.get("WSL_INTEROP"))
+    """Return True when running on WSL.
+
+    Env vars (`WSL_INTEROP`, `WSL_DISTRO_NAME`) are checked first, but they are
+    not inherited when zaira is launched from a process outside the WSL login
+    session (e.g. a desktop terminal multiplexer, ssh, cron), so fall back to
+    the kernel's own marker in /proc.
+    """
+    if os.environ.get("WSL_INTEROP") or os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        release = Path("/proc/sys/kernel/osrelease").read_text()
+    except OSError:
+        return False
+    return "microsoft" in release.lower()
+
+
+def _windows_profile_dir() -> Path | None:
+    """Ask cmd.exe for %USERPROFILE% and convert it to a /mnt path, or None."""
+    try:
+        r = subprocess.run(
+            ["/mnt/c/Windows/System32/cmd.exe", "/c", "echo %USERPROFILE%"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=WINCRED_TIMEOUT,
+            cwd="/mnt/c",  # cmd.exe rejects UNC (\\wsl.localhost) working dirs
+        )
+        win_path = r.stdout.strip()
+        if r.returncode != 0 or not win_path:
+            return None
+        w = subprocess.run(
+            ["wslpath", "-u", win_path],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=WINCRED_TIMEOUT,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return Path(w.stdout.strip()) if w.returncode == 0 and w.stdout.strip() else None
+
+
+def find_binary() -> str | None:
+    """Locate wincred.exe: on PATH first, else in the user's Windows .local/bin.
+
+    Launchers that don't pass through the Windows PATH entries would otherwise
+    make an installed wincred.exe look missing. cmd.exe tells us the current
+    user's profile, so no directory searching is needed.
+    """
+    found = shutil.which(WINCRED_BINARY)
+    if found:
+        return found
+    profile = _windows_profile_dir()
+    if profile is None:
+        return None
+    exe = profile / ".local" / "bin" / WINCRED_BINARY
+    return str(exe) if exe.is_file() else None
 
 
 def _run(args: list[str], stdin: str | None = None) -> subprocess.CompletedProcess[str]:
     try:
         r = subprocess.run(
-            [WINCRED_BINARY, *args],
+            [find_binary() or WINCRED_BINARY, *args],
             input=stdin,
             capture_output=True,
             text=True,
@@ -142,12 +197,12 @@ def delete_password(service: str, username: str) -> None:
 
 def backend_info() -> tuple[str, str] | None:
     """Return (version, path) for the installed wincred.exe, or None if missing."""
-    path = shutil.which(WINCRED_BINARY)
+    path = find_binary()
     if not path:
         return None
     try:
         r = subprocess.run(
-            [WINCRED_BINARY, "--version"],
+            [path, "--version"],
             capture_output=True,
             text=True,
             check=True,
@@ -175,15 +230,14 @@ def install() -> str:
 
     try:
         v = subprocess.run(
-            [WINCRED_BINARY, "--version"],
+            [str(target), "--version"],
             capture_output=True,
             text=True,
             check=True,
         )
     except FileNotFoundError as e:
         raise RuntimeError(
-            f"wincred.exe was downloaded to {target} but isn't on PATH. "
-            "Add the dir to Windows PATH (uv handles this for %USERPROFILE%\\.local\\bin)."
+            f"wincred.exe was downloaded to {target} but won't run."
         ) from e
     return v.stdout.strip().replace("\r", "")
 
