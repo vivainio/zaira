@@ -21,7 +21,13 @@ STANDARD_FIELDS = {
     "labels": "labels",
     "components": "components",
     "fixversions": "fixVersions",
+    "fixversion": "fixVersions",
+    "fix version": "fixVersions",
+    "fix versions": "fixVersions",
     "affectsversions": "versions",
+    "affectsversion": "versions",
+    "affects version": "versions",
+    "affects versions": "versions",
     "versions": "versions",
 }
 
@@ -193,7 +199,7 @@ def map_field(
         if field_id == "labels":
             if isinstance(value, list):
                 return field_id, value
-            return field_id, [v.strip() for v in value.split(",")]
+            return field_id, [v.strip() for v in value.split(",") if v.strip()]
         if field_id in _VERSION_FIELDS:
             names = (
                 value
@@ -205,7 +211,7 @@ def map_field(
             names = (
                 value
                 if isinstance(value, list)
-                else [c.strip() for c in value.split(",")]
+                else [c.strip() for c in value.split(",") if c.strip()]
             )
             return field_id, [_resolve_component(n, project, issue_type) for n in names]
         if field_id == "description" and isinstance(value, str):
@@ -313,7 +319,8 @@ def format_field_value(
         return {"key": value}
     elif field_type == "array":
         if isinstance(value, str):
-            values = [v.strip() for v in value.split(",")]
+            # An empty value clears the field (sends []) rather than [{"name": ""}].
+            values = [v.strip() for v in value.split(",") if v.strip()]
             if item_type == "string":
                 return values
             if item_type == "user":

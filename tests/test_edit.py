@@ -763,3 +763,28 @@ class TestEditCommand:
         mock_issue.update.assert_called_once_with(
             fields={"description": "stdin content"}
         )
+
+
+class TestClearVersions:
+    """Empty value clears version fields."""
+
+    @pytest.mark.parametrize("name", ["fixVersions", "Fix Version", "fixversion"])
+    def test_empty_clears_fix_versions(self, name: str) -> None:
+        assert map_field(name, "") == ("fixVersions", [])
+
+    def test_empty_array_via_editmeta_is_empty_list(self) -> None:
+        from zaira.edit import format_field_value
+
+        with patch(
+            "zaira.edit.get_editmeta_field",
+            return_value=("fixVersions", {"type": "version list"}),
+        ):
+            assert format_field_value("fixVersions", "") == []
+
+
+class TestClearLabelsComponents:
+    """Empty value clears labels and components."""
+
+    @pytest.mark.parametrize("name", ["labels", "components"])
+    def test_empty_clears(self, name: str) -> None:
+        assert map_field(name, "", "PROJ", "Task") == (name, [])
