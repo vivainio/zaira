@@ -765,6 +765,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Skip wiki-to-markdown conversion (preserve Jira wiki markup)",
     )
     get_parser.add_argument(
+        "-w",
+        "--web",
+        action="store_true",
+        help="Open the ticket in a web browser instead of fetching it",
+    )
+    get_parser.add_argument(
         "--parallel",
         action="store_true",
         help="Export tickets and download attachments in parallel threads",

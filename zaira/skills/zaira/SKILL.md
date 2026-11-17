@@ -1,7 +1,7 @@
 ---
 name: zaira
 description: Access Jira tickets and Confluence wiki pages offline using zaira CLI. Use when user needs to export, report, or refresh Jira tickets; read, create, or update Confluence pages; or mentions "jira", "confluence", "wiki", "zaira", a ticket key like "FOO-123", or a Confluence page URL/link.
-updated: 2026-10-28
+updated: 2026-11-13
 ---
 
 # Zaira - Jira CLI
@@ -27,6 +27,7 @@ zaira search "login" --format toon          # TOON format (requires: pip install
 zaira get FOO-1234 --min                    # Peek: key + summary + description only (preferred for quick reads)
 zaira get FOO-1234                          # View ticket to stdout
 zaira get FOO-1234 FOO-5678                 # View multiple tickets
+zaira get FOO-1234 -w                       # Open the ticket in a web browser (like gh pr view --web)
 zaira get FOO-1234 --format json            # JSON output
 zaira get FOO-1234 --format ndjson          # NDJSON: one JSON object per line (meta/description/comment/...), each with a "markdown" field
 zaira get FOO-1234 --all-fields             # Include custom fields
